@@ -14,3 +14,13 @@ it('uses the native bridge and camelCase command arguments with snake_case reque
   await api('expand', { sessionId: 's', elementId: 'element', limit: 300 });
   expect(invoke).toHaveBeenLastCalledWith('expand', { sessionId: 's', elementId: 'element', limit: 300 });
 });
+
+it('native timing opt-in preserves errors and excludes arguments', async () => {
+  const { perf } = await import('./perf'); perf.clear(); perf.captureCommands = true;
+  const failure = new Error('fixture failure'); invoke.mockRejectedValueOnce(failure);
+  try {
+    await expect(api('session_open', { profileId: 'p', secret: 'private-test-secret' })).rejects.toBe(failure);
+    expect(perf.marks().map(m => m.name)).toEqual(['ipc:session_open']);
+    expect(JSON.stringify(perf.marks())).not.toContain('private-test-secret');
+  } finally { perf.captureCommands = false; perf.clear(); }
+});

@@ -4,3 +4,4 @@ ui/dist/
 .remember/
 *.log
 target-*/
+bench/__pycache__/

@@ -24,6 +24,7 @@ export async function sampleFrames(action: (index: number) => void, count = 60) 
 const scenarios = new Map<string, () => Promise<unknown>>();
 export function registerScenario(name: string, run: () => Promise<unknown>) { scenarios.set(name, run); }
 export const perf = {
+  captureCommands: false,
   marks: () => [...metrics],
   clear: () => { metrics.length = 0; for (const e of performance.getEntriesByType('mark')) if (e.name.startsWith('axdb:')) performance.clearMarks(e.name); for (const e of performance.getEntriesByType('measure')) if (e.name.startsWith('axdb:')) performance.clearMeasures(e.name); },
   run: async (scenario: string) => { const run = scenarios.get(scenario); if (!run) throw new Error(`Unknown scenario: ${scenario}`); return run(); }

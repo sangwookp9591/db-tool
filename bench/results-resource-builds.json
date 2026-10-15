@@ -1,0 +1,42 @@
+{
+  "source_base": "568f43e",
+  "source": "/tmp/axdb-p1-source-si0t6llz",
+  "target_dir": "target-p1",
+  "build_jobs": 3,
+  "before": {
+    "bundle": "/Users/iron/Project/psw/db-tool/target-p1/release/bundle/macos/AxDB-before.app",
+    "source_sha256": {
+      "Cargo.toml": "41a9f505baf897af806181ddc00d4e160ee9c637d703e2570775b1130d5ceeb4",
+      "Cargo.lock": "d9c5e4b4220d5e265b3f6016da5b9daf3bc0ad6658a52b1b3820f6bd4b4ebc62",
+      "src-tauri/src/lib.rs": "e4c66694a96a52ecbdca94e70e3cfe318e28716030df187799f556e7c6467582",
+      "src-tauri/src/viewer_bench.rs": "ac6fa3e2956c40255cd5d6504d30cafa37a97536c4bde8bfc7d981dda56a5878",
+      "ui/src/App.tsx": "d8c30de4a8db1db9c2caad1a58c4af88f8963ec458a707f1374507f92a058734",
+      "ui/src/values.ts": "4be3b068600afb648ed369341fb875dc883772b36c805fce6ca2a6123a09f003",
+      "ui/src/perf/resource.ts": "068e2a4ec3f03ae4e2399a0b3f2a8bacc906110d23a9310ac2e2ccca5e4ddf33",
+      "src-tauri/src/main.rs": "275726b4789834bf31fd4d04d47109f59ce85edc3fd54a3bedebd2673ce711d9"
+    },
+    "release_build_exit": 0,
+    "ui_build_exit": 0,
+    "codesign_verify_exit": 0
+  },
+  "after": {
+    "bundle": "/Users/iron/Project/psw/db-tool/target-p1/release/bundle/macos/AxDB-after.app",
+    "source_sha256": {
+      "Cargo.toml": "41a9f505baf897af806181ddc00d4e160ee9c637d703e2570775b1130d5ceeb4",
+      "Cargo.lock": "d9c5e4b4220d5e265b3f6016da5b9daf3bc0ad6658a52b1b3820f6bd4b4ebc62",
+      "src-tauri/src/lib.rs": "e4c66694a96a52ecbdca94e70e3cfe318e28716030df187799f556e7c6467582",
+      "src-tauri/src/viewer_bench.rs": "ac6fa3e2956c40255cd5d6504d30cafa37a97536c4bde8bfc7d981dda56a5878",
+      "ui/src/App.tsx": "e0820916886a02121696e04a5e027a405bee65f7fac1062853aa6ce3e4135442",
+      "ui/src/values.ts": "327889436b78e128b165851f77edbe2b70e84154de50f82437f19ddd574763c7",
+      "ui/src/perf/resource.ts": "068e2a4ec3f03ae4e2399a0b3f2a8bacc906110d23a9310ac2e2ccca5e4ddf33",
+      "src-tauri/src/main.rs": "275726b4789834bf31fd4d04d47109f59ce85edc3fd54a3bedebd2673ce711d9"
+    },
+    "release_build_exit": 0,
+    "ui_build_exit": 0,
+    "codesign_verify_exit": 0
+  },
+  "candidate_patch_sha256": "ffa406050e8553ef4f667bbb157217ac8475379783420631e060c7c731470513",
+  "status": "superseded-preparation-only",
+  "reason": "Coordinator requires AI1-complete final source for native A/B; neither preparation app was measured",
+  "candidate_patch_path": "bench/p1-candidates/00-summary-c1-preparation.patch"
+}

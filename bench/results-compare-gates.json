@@ -2351,5 +2351,95 @@
         ]
       }
     ]
+  },
+  {
+    "pair": "p1-idle-empty-1",
+    "passed": true,
+    "waited_seconds": 0.0733537080232054,
+    "threshold": 8,
+    "timeout_seconds": 600,
+    "samples": [
+      {
+        "time": "2026-10-15T22:34:11.681109+09:00",
+        "load1": 4.43701171875,
+        "waited_seconds": 0.0733537080232054,
+        "builders": []
+      }
+    ]
+  },
+  {
+    "pair": "p1-idle-empty-2",
+    "passed": true,
+    "waited_seconds": 0.09342474996810779,
+    "threshold": 8,
+    "timeout_seconds": 600,
+    "samples": [
+      {
+        "time": "2026-10-15T22:37:23.480069+09:00",
+        "load1": 4.60107421875,
+        "waited_seconds": 0.09342474996810779,
+        "builders": []
+      }
+    ]
+  },
+  {
+    "pair": "p1-idle-empty-3",
+    "passed": true,
+    "waited_seconds": 0.08334112499142066,
+    "threshold": 8,
+    "timeout_seconds": 600,
+    "samples": [
+      {
+        "time": "2026-10-15T22:40:35.285942+09:00",
+        "load1": 4.2998046875,
+        "waited_seconds": 0.08334112499142066,
+        "builders": []
+      }
+    ]
+  },
+  {
+    "pair": "p1-idle-connected-1",
+    "passed": true,
+    "waited_seconds": 0.10014816699549556,
+    "threshold": 8,
+    "timeout_seconds": 600,
+    "samples": [
+      {
+        "time": "2026-10-15T22:43:47.070382+09:00",
+        "load1": 3.76953125,
+        "waited_seconds": 0.10014816699549556,
+        "builders": []
+      }
+    ]
+  },
+  {
+    "pair": "p1-idle-connected-2",
+    "passed": true,
+    "waited_seconds": 0.09646137501113117,
+    "threshold": 8,
+    "timeout_seconds": 600,
+    "samples": [
+      {
+        "time": "2026-10-15T22:46:58.889448+09:00",
+        "load1": 3.91357421875,
+        "waited_seconds": 0.09646137501113117,
+        "builders": []
+      }
+    ]
+  },
+  {
+    "pair": "p1-idle-connected-3",
+    "passed": true,
+    "waited_seconds": 0.0876773750060238,
+    "threshold": 8,
+    "timeout_seconds": 600,
+    "samples": [
+      {
+        "time": "2026-10-15T22:50:10.686688+09:00",
+        "load1": 4.361328125,
+        "waited_seconds": 0.0876773750060238,
+        "builders": []
+      }
+    ]
   }
 ]

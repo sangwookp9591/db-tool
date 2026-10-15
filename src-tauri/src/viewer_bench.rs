@@ -22,7 +22,7 @@ pub fn viewer_bench_write(
 #[tauri::command]
 pub fn viewer_bench_target() -> String {
     let target = std::env::var("AXDB_BENCH_TARGET").unwrap_or_default();
-    if viewer_bench_enabled() && matches!(target.as_str(), "graph" | "workspace" | "idle" | "small" | "matrix" | "resource" | "resource-leak") {
+    if viewer_bench_enabled() && matches!(target.as_str(), "graph" | "workspace" | "idle" | "small" | "matrix" | "resource" | "resource-leak" | "connections") {
         target
     } else {
         "all".into()
@@ -37,6 +37,7 @@ pub async fn viewer_bench_checkpoint(host: tauri::State<'_, Host>, checkpoint: u
     let until = tokio::time::Instant::now() + std::time::Duration::from_secs(660);
     loop {
         match tokio::fs::read_to_string(&path).await {
+            Ok(value) if value.trim() == "abort" => return Err(DbError::internal("Benchmark collector stopped")),
             Ok(value) if value.trim().parse::<u32>().ok() == Some(checkpoint) => return Ok(()),
             Ok(_) => (),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => (),
@@ -76,4 +77,44 @@ pub fn viewer_bench_config() -> CommandResult<Option<serde_json::Value>> {
         ));
     }
     Ok(Some(fixture))
+}
+
+pub(crate) struct Span {
+    name: &'static str,
+    since: std::time::Instant,
+    start_ms: u64,
+}
+pub(crate) fn span(name: &'static str) -> Option<Span> {
+    viewer_bench_enabled().then(|| Span {
+        name,
+        since: std::time::Instant::now(),
+        start_ms: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis() as u64,
+    })
+}
+impl Drop for Span {
+    fn drop(&mut self) {
+        tracing::info!(bench_name = self.name, bench_start_ms = self.start_ms, bench_elapsed_ms = self.since.elapsed().as_secs_f64() * 1000.0, "AXDB_BENCH_TIME");
+    }
+}
+#[cfg(test)]
+mod timing_tests {
+    use super::*;
+    #[test]
+    fn records_drop_on_error_without_logging_values() {
+        let dir = std::env::temp_dir().join(format!("axdb-bench-timing-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir(&dir).unwrap();
+        let path = dir.join("log");
+        let log = storage::open_private_log(&path).unwrap();
+        let result: Result<(), DbError> = tracing::subscriber::with_default(crate::file_logger(log), || {
+            let _first = Span { name: "fixture-command", since: std::time::Instant::now(), start_ms: 1 };
+            { let _second = Span { name: "fixture-keychain", since: std::time::Instant::now(), start_ms: 2 }; }
+            Err(DbError::internal("private-row-value"))
+        });
+        assert!(result.is_err());
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(text.lines().filter(|line| line.contains("AXDB_BENCH_TIME")).count(), 2);
+        assert!(text.contains("fixture-command") && text.contains("fixture-keychain"));
+        assert!(!text.contains("private-row-value"));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
 }

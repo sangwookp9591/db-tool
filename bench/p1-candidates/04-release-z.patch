@@ -1,0 +1,11 @@
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -17,7 +17,7 @@
+ dbcore = { path = "crates/dbcore" }
+ 
+ [profile.release]
+-opt-level = 3
++opt-level = "z"
+ lto = true
+ codegen-units = 1
+ strip = true

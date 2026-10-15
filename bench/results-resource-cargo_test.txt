@@ -1,0 +1,199 @@
+   Compiling axdb v0.1.0 (/Users/iron/Project/psw/db-tool/src-tauri)
+   Compiling driver-example-kv v0.1.0 (/Users/iron/Project/psw/db-tool/crates/driver-example-kv)
+   Compiling driver-mongodb v0.1.0 (/Users/iron/Project/psw/db-tool/crates/driver-mongodb)
+   Compiling driver-neo4j v0.1.0 (/Users/iron/Project/psw/db-tool/crates/driver-neo4j)
+   Compiling driver-sqlite v0.1.0 (/Users/iron/Project/psw/db-tool/crates/driver-sqlite)
+   Compiling driver-postgres v0.1.0 (/Users/iron/Project/psw/db-tool/crates/driver-postgres)
+   Compiling dbcore v0.1.0 (/Users/iron/Project/psw/db-tool/crates/dbcore)
+    Finished `release` profile [optimized] target(s) in 2m 43s
+     Running unittests src/lib.rs (target-p1/release/deps/axdb-57e5b784627d4b25)
+
+running 36 tests
+test agent_dispatch::tests::context_arguments_cannot_enable_row_export ... ok
+test agent_dispatch::tests::caps_rows_documents_preview_samples_and_graph_without_dangling_edges ... ok
+test agent_dispatch::tests::validates_direct_host_tool_arguments ... ok
+test agent_bridge::tests::old_contract_defaults_remain_compatible ... ok
+test assistant::tests::real_anthropic_once ... ignored, Requires AXDB_TEST_ANTHROPIC=1 and OS keychain ai:anthropic; incurs one API request
+test assistant::tests::sse_handles_every_byte_boundary_refusal_errors_and_truncation ... ok
+test assistant::tests::stable_schema_prefix_and_explicit_model_effort ... ok
+test assistant::tests::mock_http_verifies_headers_body_and_redacted_errors ... ok
+test context::tests::rows_require_consent_and_remove_sensitive_and_nested_values ... ok
+test agent_bridge::tests::queues_until_ready_and_waits_again_after_reload ... ok
+test agent_bridge::tests::transport_failure_is_unavailable_but_explicit_denial_is_preserved ... ok
+test agent_bridge::tests::stopping_releases_requests_waiting_for_ready ... ok
+test context::tests::schema_budget_keeps_focus_first_and_utf8_intact ... ok
+test context::tests::run_context_is_bounded_and_cannot_contain_result_rows ... ok
+test agent_bridge::tests::http_auth_origin_protocol_and_webview_forwarding ... ok
+test permissions::tests::legacy_profile_defaults_to_read_write ... ok
+test storage::tests::legacy_history_defaults_to_execution_kind ... ok
+test permissions::tests::full_permission_matrix ... ok
+test context::tests::sqlite_real_context ... ok
+test context::tests::sqlite_empty_context_explains_missing_metadata ... ok
+test agent_bridge::tests::missing_ready_is_unavailable_and_does_not_forward ... ok
+test storage::tests::log_permissions_are_private_for_new_and_existing_files ... ok
+test storage::tests::real_os_keychain_roundtrip ... ignored
+test stream::tests::packs_exact_and_mixed_cells ... ok
+test agent_bridge::tests::discovery_is_published_on_ready_and_removed_on_reload_and_stop ... ok
+test tests::file_logging_excludes_database_notices ... ok
+test storage::tests::profile_secrets_and_atomic_files ... ok
+test viewer_bench::timing_tests::records_drop_on_error_without_logging_values ... ok
+test permissions::tests::tokens_are_salted_private_rotatable_revocable_and_expiring ... ok
+test tests::read_only_mode_updates_open_sessions_and_approvals_are_bound_and_single_use ... ok
+test tests::timeout_waits_for_cancel_and_redacts_history ... ok
+test tests::client_crud_rotation_and_private_audit_commands ... ok
+test context::tests::postgres_real_context ... ok
+test context::tests::neo4j_real_context ... ok
+test context::tests::mongodb_real_context ... ok
+test tests::real_host_commands ... ok
+
+test result: ok. 34 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.37s
+
+     Running unittests src/main.rs (target-p1/release/deps/axdb-b1cf13da412f57bf)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target-p1/release/deps/dbcore-425054f7d16a3299)
+
+running 2 tests
+test filter::tests::keys_are_exact_and_cannot_inject_sql ... ok
+test preview::tests::plans_respect_comments_quotes_nested_keywords_and_unsafe_controls ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/contract.rs (target-p1/release/deps/contract-7a06012caa883be2)
+
+running 4 tests
+test debug_never_exposes_secrets ... ok
+test values_preserve_tags_and_precision ... ok
+test preview_contract_is_additive_and_defaults_to_no_support ... ok
+test viewer_contract_defaults_are_additive ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target-p1/release/deps/driver_example_kv-4fbe565e240fb53b)
+
+running 1 test
+test tests::commands_and_capabilities ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target-p1/release/deps/driver_mongodb-564c142045a35e2b)
+
+running 4 tests
+test tests::maps_bson_without_precision_or_field_order_loss ... ok
+test tests::table_unions_sampled_fields_and_pads_missing_values ... ok
+test tests::parses_one_extended_json_command_and_rejects_shell_and_duplicates ... ok
+test tests::read_only_fails_closed_for_commands_and_nested_write_stages ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/mongodb.rs (target-p1/release/deps/mongodb-6709af7bc09d2870)
+
+running 1 test
+test real_mongodb_contract ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.62s
+
+     Running unittests src/lib.rs (target-p1/release/deps/driver_neo4j-03a2ce567e5d90c7)
+
+running 3 tests
+test explorer::tests::escapes_identifiers ... ok
+test value::tests::integer_precision_and_duration ... ok
+test value::tests::bytes_special_float_and_graph_limits ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/neo4j.rs (target-p1/release/deps/neo4j-14910e77811e8aca)
+
+running 3 tests
+test schema_graph_and_filtered_browse ... ok
+test real_neo4j_contract ... ok
+test change_preview_rolls_back_graph_writes_and_interruptions ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.37s
+
+     Running unittests src/lib.rs (target-p1/release/deps/driver_postgres-42f747c5728bc6cb)
+
+running 3 tests
+test split::tests::postgres_quotes_comments_and_unicode ... ok
+test split::tests::rejects_unterminated_input_before_any_execution ... ok
+test tests::quotes_identifiers_and_types ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/postgres.rs (target-p1/release/deps/postgres-cd66fa34da7814ef)
+
+running 5 tests
+test schema_graph_and_filtered_browse ... ok
+test read_only_execution_is_enforced_and_cleans_up ... ok
+test change_preview_rolls_back_rows_schema_and_preserves_user_transaction ... ok
+test cancellation_races_do_not_poison_next_query ... ok
+test real_postgres_contract ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.86s
+
+     Running unittests src/lib.rs (target-p1/release/deps/driver_sqlite-0731a1392107bc92)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/sqlite.rs (target-p1/release/deps/sqlite-9e93e081cc64a15b)
+
+running 9 tests
+test special_reals_are_json_serializable ... ok
+test dropping_session_releases_uncommitted_write_lock ... ok
+test values_limits_errors_and_explorer ... ok
+test schema_graph_and_filtered_browse ... ok
+test readonly_cannot_be_disabled_and_is_restored ... ok
+test parser_and_readonly_cleanup_after_timeout ... ok
+test change_preview_rolls_back_rows_schema_and_interruptions ... ok
+test queued_timeout_and_precancel_do_not_interrupt_next_run ... ok
+test timeout_cancel_and_session_reuse ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.46s
+
+   Doc-tests axdb
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests dbcore
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests driver_example_kv
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests driver_mongodb
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests driver_neo4j
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests driver_postgres
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests driver_sqlite
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

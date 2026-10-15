@@ -1,0 +1,45 @@
+--- a/ui/src/App.tsx
++++ b/ui/src/App.tsx
+@@ -8 +8 @@
+-import { normalizeError } from './values';
++import { normalizeError, resultSummary } from './values';
+@@ -24 +24,2 @@
+-  const lastResults = useRef<ResultSet[]>([]);
++  const lastResults = useRef<ReturnType<typeof resultSummary>>([]);
++  function rememberResults(results: ResultSet[]) { lastResults.current = resultSummary(results); }
+@@ -90,2 +91,2 @@
+-      uiState: () => { const tab = tabsRef.current.find(t => t.id === activeRef.current); return { connections: profiles.filter(p => sessionsRef.current[p.id]).map(p => ({ id: p.id, name: p.name, session_id: sessionsRef.current[p.id] })), active_tab: tab ? { id: tab.id, connection: profiles.find(p => p.id === tab.profileId)?.name, text: handles.current.get(tab.id)?.text() ?? tab.text } : null, last_result: lastResults.current.map(r => ({ title: r.title, row_count: r.row_count, truncated: r.truncated, views: ['table', 'graph', 'documents', 'message'].filter(k => r[k as keyof ResultSet] !== null) })) }; },
+-      results: results => { lastResults.current = results; }, history: () => { void refreshHistory(); }
++      uiState: () => { const tab = tabsRef.current.find(t => t.id === activeRef.current); return { connections: profiles.filter(p => sessionsRef.current[p.id]).map(p => ({ id: p.id, name: p.name, session_id: sessionsRef.current[p.id] })), active_tab: tab ? { id: tab.id, connection: profiles.find(p => p.id === tab.profileId)?.name, text: handles.current.get(tab.id)?.text() ?? tab.text } : null, last_result: lastResults.current }; },
++      results: rememberResults, history: () => { void refreshHistory(); }
+@@ -97 +98 @@
+-          {tabs.map(tab => { const p = profiles.find(p => p.id === tab.profileId); const manifest = drivers.find(d => d.id === p?.driver_id); const sessionId = sessions[tab.profileId]; return manifest && sessionId && <section class="tab-body" hidden={active !== tab.id} key={tab.id} aria-label={tab.title}>{tab.kind === 'query' ? <QueryTab onResults={results => { lastResults.current = results; }} active={active === tab.id} initialText={tab.text} sessionId={sessionId} manifest={manifest} graphLimit={graphLimit} onRun={runId => onRun(tab.id, runId)} onReady={handle => { if (handle) handles.current.set(tab.id, handle); else handles.current.delete(tab.id); }} onHistory={() => void refreshHistory()} onError={e => report(e, tab.profileId)} /> : <BrowseTab onResults={results => { lastResults.current = results; }} active={active === tab.id} sessionId={sessionId} nodeId={tab.nodeId!} manifest={manifest} graphLimit={graphLimit} onRun={runId => onRun(tab.id, runId)} onError={e => report(e, tab.profileId)} />}</section>; })}</>}
++          {tabs.map(tab => { const p = profiles.find(p => p.id === tab.profileId); const manifest = drivers.find(d => d.id === p?.driver_id); const sessionId = sessions[tab.profileId]; return manifest && sessionId && <section class="tab-body" hidden={active !== tab.id} key={tab.id} aria-label={tab.title}>{tab.kind === 'query' ? <QueryTab onResults={rememberResults} active={active === tab.id} initialText={tab.text} sessionId={sessionId} manifest={manifest} graphLimit={graphLimit} onRun={runId => onRun(tab.id, runId)} onReady={handle => { if (handle) handles.current.set(tab.id, handle); else handles.current.delete(tab.id); }} onHistory={() => void refreshHistory()} onError={e => report(e, tab.profileId)} /> : <BrowseTab onResults={rememberResults} active={active === tab.id} sessionId={sessionId} nodeId={tab.nodeId!} manifest={manifest} graphLimit={graphLimit} onRun={runId => onRun(tab.id, runId)} onError={e => report(e, tab.profileId)} />}</section>; })}</>}
+--- a/ui/src/values.ts
++++ b/ui/src/values.ts
+@@ -1 +1 @@
+-import type { Value } from './contract';
++import type { Value, ResultSet } from './contract';
+@@ -2,0 +3,4 @@
++
++export function resultSummary(results: ResultSet[]) {
++  return results.map(r => ({ title: r.title, row_count: r.row_count, truncated: r.truncated, views: ['table', 'graph', 'documents', 'message'].filter(k => r[k as keyof ResultSet] !== null) }));
++}
+--- a/ui/src/values.test.ts
++++ b/ui/src/values.test.ts
+@@ -2 +2 @@
+-import { formatJson, valueText } from './values';
++import { formatJson, valueText, resultSummary } from './values';
+@@ -5 +5,11 @@
+-import type { Graph } from './contract';
++import type { Graph, ResultSet } from './contract';
++it('keeps the agent result summary without retaining result buffers', () => {
++  const result: ResultSet = { title: 'result', row_count: 100000, truncated: true, table: { columns: [], rows: [] }, graph: { nodes: [], rels: [] }, documents: [{ t: 'Text', v: 'private document' }], message: null, affected: null, elapsed_ms: 1, page: null };
++  const summary = resultSummary([result]);
++  expect(summary).toEqual([{ title: 'result', row_count: 100000, truncated: true, views: ['table', 'graph', 'documents'] }]);
++  expect(result.documents).toEqual([{ t: 'Text', v: 'private document' }]);
++  result.row_count = 0; result.table = null; result.graph = null; result.documents = null;
++  expect(summary[0].row_count).toBe(100000);
++  expect(resultSummary([{ ...result, message: '' }])[0].views).toEqual(['message']);
++  expect(resultSummary([])).toEqual([]);
++});

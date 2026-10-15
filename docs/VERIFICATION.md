@@ -72,8 +72,67 @@
 
 ## 5. 성능
 
-(측정 중. W4 뷰어 성능 결과와 Tabularis 0.28.0 비교 결과가 나오면 채운다.)
+측정한 값만 적는다. 환경은 1절과 같다. 원자료와 방법은 링크한 문서에 있다.
+
+**뷰어(W4/W4b, Chromium 측정, [VIEWER_PERF.md](../bench/VIEWER_PERF.md))**
+- 10만 행 첫 표시: 396 → 41ms
+- 그래프 마운트 후 5초간 흔들림: 6.85px → 0, CLS 0
+- 300노드 팬·줌 p95: 16.8ms
+- 문서 5천 개 JSON 트리: DOM 37행
+
+**연결 추가 흐름(P1, native release, PG·Neo4j 각 20회)**
+- 네트워크를 거치지 않는 단계(폼 열기, 드라이버 변경, 저장)는 모두 p95 77ms 이하였다.
+- Connect(연결과 첫 트리 표시 포함)는 p50 134ms다.
+- +/선택 단계의 IPC는 0회다.
+
+**Tabularis 0.28.0과의 비교([COMPARE.md](../bench/COMPARE.md), 부하 게이트 통과 표본만)**
+- big 쿼리 첫 행: 221ms 대 163ms. 기본 행 수가 500 대 1,000으로 달라 처리량 비교로 일반화하지 않는다.
+- 결과 표시 후 footprint: 428 대 187MB
+- 60초 유휴 RSS: 278 대 198MiB
+- 60초 유휴 footprint: 140 대 81MiB
+- 유휴 CPU: 둘 다 0.1% 미만
+- `.app` 크기: 32.1 대 11.9MiB
+
+**메모리 최적화([RESOURCE_OPT.md](RESOURCE_OPT.md))**
+- 같은 10만 행 쿼리를 50회 반복할 때 host footprint가 계속 늘었다. 원인을 macOS 시스템 malloc의 빈 페이지 보존으로 확인했다(살아 있는 힙은 11MB).
+- mimalloc을 purge 즉시 모드로 적용했다. 50회 후 host footprint는 696 → 63MiB, 앱 전체 footprint는 1,466 → 383MiB가 됐다.
+- 대가는 유휴 host +4MiB다. 처리 시간과 유휴 CPU는 같았다.
+- 측정했지만 이득이 일관되지 않아 적용하지 않은 것: Tokio worker 2·4개, secure mimalloc, opt-level s/z, 결과 보조 참조 해제
+
+**"Choose a database"가 느린 이유(Tabularis)**
+- 이 문구는 Tabularis `NewConnectionModal.tsx`에 있다. 모달은 `fetch_plugin_registry`를 거친다.
+  - 원격 목록 API(실측 1.8~1.9초, 68KB)를 받는다.
+  - 플러그인 20개의 상세를 8개씩 병렬로 요청한다(각 0.4~1.7초).
+  - 레거시 `registry.json`을 병합한다.
+  - 이 과정 때문에 표시까지 약 3~5초가 걸린다. 내장 PG 드라이버가 deprecated라 `postgresql` 플러그인 다운로드 경로도 탄다.
+- AxDB는 로컬 레지스트리를 쓰고 원격 호출이 없다. `drivers_list`는 warm 상태에서 1ms다.
 
 ## 6. 남은 한계
 
-(최종 정리 시 작성)
+- **실제 Anthropic 호출은 검증하지 않았다.** API 키가 없고 호출은 과금된다. 요청 조립, SSE, refusal, `cache_control` 위치는 mock HTTP로 검증했다. 키를 주면 바로 검증할 수 있다.
+- MongoDB는 스키마 그래프(ERD)를 지원하지 않는다. capability로 선언하지 않았으므로 UI에 나타나지 않는다.
+- 외부 프로세스(JSON-RPC) 플러그인은 구현하지 않았다(ADR-0001). 드라이버는 컴파일 시 등록한다.
+- 키체인: 앱의 GUI 쓰기 경로는 실제 OS 키체인 왕복 테스트(`real_os_keychain_roundtrip`, 명시 실행)로 대신 검증했다. E2E는 debug 전용 `AXDB_DEV_SECRET_STORE`를 썼고, 이 경로는 release에서 컴파일되지 않는다. 배포하려면 코드 서명이 필요하다.
+- timestamptz는 서버 세션 TZ 기준 원문으로 표시한다.
+- TLS 연결, Windows/Linux, Redis는 검증하지 않았다.
+- Tabularis 생성 쿼리 15쌍은 비교 측정하지 않았다.
+- WebContent(UI)의 footprint는 탭을 모두 닫은 뒤에도 GC 시점에 따라 230~320MiB에 머문다. 결과 보조 참조 해제 후보로는 개선되지 않았다.
+- `cargo test` 전체 4회 중 첫 회에 PG 미리보기 테스트(`real_host_commands`)가 1건 일시적으로 실패했다. 이후 3회 연속 69/69로 통과했다.
+- 측정 중 OrbStack이 재시작됐다(약 19:51, 원인 외부). 테스트 DB 3개만 다시 시작했다. 사용자 컨테이너(zivo-*, office-meal 등)는 **정지 상태 그대로**다.
+
+## 7. v2 고도화 보고
+
+| 항목 | 이전 | 이번 결과 | 검증 |
+|---|---|---|---|
+| 1 플러그인 구조 | 관계형 2개 + SQLite | **MongoDB 추가**(M1). 문서 패러다임, 비SQL 명령, ObjectId·Decimal128 등. 커밋 diff는 crate와 등록 3줄뿐(ui/dbcore 0) | 실제 Mongo 계약 테스트, UI driver-id grep 0 |
+| 2 뷰어·연결 탐색 | 표, 그래프, 결과 내 전환 (재사용) | **ERD/스키마 그래프**(PG FK, SQLite, Neo4j), **가상화 JSON 트리**, **FK 셀 → 참조 행**, **그래프↔표 선택 동기화**, **탐색 이력**(V1) | 실제 DB, 팬·줌 p95 16.8ms |
+| 3 변경 미리보기 | 없음 | **실행 후 반드시 롤백**하는 데이터·스키마 diff. 롤백할 수 없는 문장은 거부(C1, PG·Neo4j·SQLite) | preview-e2e 5/5 |
+| 4 권한·읽기 전용 | 에이전트 읽기 전용 + 승인 (재사용) | **연결별 read_only**(host 강제), **클라이언트별 권한 프로필**(A1) | permissions-e2e 13/13 |
+| 5 MCP 권한 | 단일 토큰 브리지 (재사용) | **범위 토큰**(해시 저장), 연결별 none/read/preview/write_with_approval, 허용 도구, 감사 로그, 회전·폐기 | 13/13 + 외부 에이전트 시나리오 |
+| 6 AI 지원 | 없음 | **맥락 MCP 도구 3종**, 선택 기능 Anthropic 도우미(기본 꺼짐, 생성 쿼리는 실행하지 않음)(AI1/AI1b) | [시나리오](../bench/results-ai-agent-scenario.md). 실제 API 호출은 미검증 |
+| 7 성능·보안·리소스 | W4·W8 (재사용) | **host 메모리 보존 문제 해결(mimalloc purge 0)**, 연결 추가 흐름 분해, Tabularis 유휴 재비교 | 5절 |
+
+**회귀(최종 트리)**
+- `cargo test --workspace`: 69 통과, 2 ignored(유료 API, 실제 키체인). 실제 PG·Neo4j·Mongo·SQLite에 연결했다.
+- `clippy --all-targets -D warnings`, vitest 45/45, UI driver-id 비교 grep 0
+- 실제 앱 E2E: e2e-bridge 21/21(PG·Neo4j·SQLite), preview 5/5, permissions 13/13

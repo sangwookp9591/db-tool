@@ -1,0 +1,20 @@
+--- a/src-tauri/Cargo.toml
++++ b/src-tauri/Cargo.toml
+@@ -8,6 +8,7 @@
+ tauri-build = { version = "2", features = [] }
+ 
+ [dependencies]
++mimalloc = { version = "=0.1.52", features = ["secure"] }
+ reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "rustls"] }
+ axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio"] }
+ dbcore.workspace = true
+--- a/src-tauri/src/main.rs
++++ b/src-tauri/src/main.rs
+@@ -1,4 +1,7 @@
+ #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
++#[global_allocator]
++static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
++
+ fn main() {
+     axdb::run()
+ }

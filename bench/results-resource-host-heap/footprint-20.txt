@@ -1,0 +1,52 @@
+======================================================================
+axdb [31453]: 64-bit    Footprint: 465 MB (16384 bytes per page)
+======================================================================
+
+  Dirty      Clean  Reclaimable    Regions    Category
+    ---        ---          ---        ---    ---
+ 280 MB        0 B       464 KB         77    Malloc Small
+ 168 MB        0 B          0 B         66    Malloc Large
+2640 KB        0 B          0 B         16    Malloc Metadata
+2584 KB        0 B          0 B        960    __DATA_DIRTY
+2512 KB        0 B       464 KB          6    WebKit Malloc
+1878 KB        0 B          0 B       1082    __DATA
+1376 KB        0 B          0 B       1080    __DATA_CONST
+1042 KB        0 B          0 B          1    page table
+1008 KB        0 B          0 B         37    Stack
+ 736 KB        0 B          0 B          6    CoreUI Image Data
+ 660 KB        0 B          0 B       2861    unused dyld shared cache area
+ 608 KB        0 B          0 B         34    CoreAnimation
+ 591 KB        0 B          0 B        717    __AUTH
+ 512 KB        0 B          0 B         57    Untagged
+ 352 KB        0 B        32 KB          1    Dispatch Continuations
+ 288 KB        0 B          0 B          1    Malloc Tiny
+ 256 KB        0 B          0 B          1    Deferred Reclaim
+ 128 KB        0 B          0 B          1    Accelerate Framework
+ 112 KB        0 B          0 B          4    __TPRO_CONST
+  64 KB        0 B          0 B          2    IOAccelerator
+  48 KB        0 B          0 B          3    CoreGraphics
+  48 KB        0 B          0 B          6    IOKit
+  47 KB        0 B          0 B          1    __OBJC_RW
+  32 KB        0 B          0 B          1    Activity Tracing
+  32 KB        0 B          0 B          1    SQLite Page Cache
+  32 KB        0 B          0 B          2    ColorSync
+  16 KB        0 B          0 B          1    OS Alloc Once
+  16 KB        0 B          0 B          1    IOAccelerator (graphics)
+  16 KB        0 B          0 B          2    Foundation
+    0 B        0 B        36 MB         49    IOSurface
+    0 B      24 MB          0 B         51    mapped file
+    0 B    6128 KB          0 B       1167    __TEXT
+    0 B      80 KB          0 B          4    __LINKEDIT
+    0 B        0 B          0 B          1    __GLSLBUILTINS
+    0 B        0 B          0 B         32    WebAssembly Memory
+    0 B        0 B          0 B          1    __OBJC_RO
+    0 B        0 B          0 B          1    __FONT_DATA
+    0 B        0 B          0 B          1    __CTF
+    0 B        0 B          0 B       1072    __AUTH_CONST
+    ---        ---          ---        ---    ---
+ 465 MB      30 MB        37 MB       9409    TOTAL
+
+Auxiliary data:
+    phys_footprint: 465 MB
+    phys_footprint_peak: 466 MB
+

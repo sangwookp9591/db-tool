@@ -111,7 +111,7 @@ impl Host {
         let inline = storage::strip_secrets(&mut safe, driver.manifest());
         let secret = match secret.or(inline) {
             Some(s) => Some(s),
-            None if safe.save_secret => storage::keychain_get(&profile.id)?,
+            None if safe.save_secret => { let _bench = viewer_bench::span("keychain_get"); storage::keychain_get(&profile.id)? },
             None => None,
         };
         safe.fields.retain(|key, _| {
@@ -174,6 +174,7 @@ impl Drop for RunGuard<'_> {
 type CommandResult<T> = Result<T, DbError>;
 #[tauri::command]
 async fn drivers_list(host: tauri::State<'_, Host>) -> CommandResult<Vec<DriverManifest>> {
+    let _bench = viewer_bench::span("drivers_list");
     Ok(host.registry.manifests())
 }
 #[tauri::command]
@@ -193,6 +194,7 @@ async fn profile_save(
     mut profile: Profile,
     secret: Option<String>,
 ) -> CommandResult<Profile> {
+    let _bench = viewer_bench::span("profile_save");
     let driver = host.driver(&profile.driver_id)?;
     if profile.access_mode == permissions::AccessMode::ReadOnly && !driver.manifest().capabilities.read_only_exec { return Err(DbError::unsupported("Driver cannot enforce read-only execution")); }
     let secret = secret.or(storage::strip_secrets(&mut profile, driver.manifest()));
@@ -207,9 +209,11 @@ async fn profile_save(
     let mut profiles = storage::read_profiles(&path)?;
     if profile.save_secret {
         if let Some(s) = secret.as_deref() {
+            let _keychain = viewer_bench::span("keychain_save");
             storage::keychain_set(&profile.id, Some(s))?;
         }
     } else {
+        let _keychain = viewer_bench::span("keychain_delete");
         storage::keychain_set(&profile.id, None)?;
     }
     profiles.retain(|p| p.id != profile.id);
@@ -223,10 +227,11 @@ async fn profile_save(
 }
 #[tauri::command]
 async fn profile_delete(host: tauri::State<'_, Host>, profile_id: String) -> CommandResult<()> {
+    let _bench = viewer_bench::span("profile_delete");
     let _guard = host.storage.lock().await;
     let path = host.paths.config.join("profiles.json");
     let mut profiles = storage::read_profiles(&path)?;
-    storage::keychain_set(&profile_id, None)?;
+    { let _keychain = viewer_bench::span("keychain_delete"); storage::keychain_set(&profile_id, None)?; }
     profiles.retain(|p| p.id != profile_id);
     storage::write_private(
         &path,
@@ -240,6 +245,7 @@ async fn connection_test(
     profile: Profile,
     secret: Option<String>,
 ) -> CommandResult<String> {
+    let _bench = viewer_bench::span("connection_test");
     let (session, _) = host.connect(&profile, secret).await?;
     let result = async {
         session.ping().await?;
@@ -255,6 +261,7 @@ async fn session_open(
     profile_id: String,
     secret: Option<String>,
 ) -> CommandResult<String> {
+    let _bench = viewer_bench::span("session_open");
     let profile = {
         let _guard = host.storage.lock().await;
         storage::read_profiles(&host.paths.config.join("profiles.json"))?

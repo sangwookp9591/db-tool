@@ -1,0 +1,76 @@
+{
+  "at": "2026-10-15T23:02:42.893815+09:00",
+  "source_head": "85231f2",
+  "target_dir": "target-p1",
+  "build_jobs": 3,
+  "cargo_test": {
+    "command": "cargo test --locked --workspace --release",
+    "exit": 0,
+    "passed": 69,
+    "failed": 0,
+    "ignored": 2,
+    "test_endpoints": [
+      "PG 127.0.0.1:55432/axdb_test",
+      "Neo4j 127.0.0.1:57687",
+      "Mongo 127.0.0.1:57017"
+    ],
+    "ignored_reasons": [
+      "real Anthropic request requires explicit opt-in and provider key",
+      "real OS keychain CRUD roundtrip is separately opt-in"
+    ]
+  },
+  "clippy": {
+    "command": "cargo clippy --locked --workspace --release -- -D warnings",
+    "exit": 0
+  },
+  "vitest": {
+    "command": "pnpm --dir ui test",
+    "exit": 0,
+    "passed": 45,
+    "files": 9
+  },
+  "native_timing_focused": {
+    "passed": 1,
+    "exit": 0
+  },
+  "python": {
+    "resource_self_check": "passed",
+    "report_self_check": "passed",
+    "settings_recovery_fault_injection": 1
+  },
+  "native_measurements": {
+    "baseline_runs": 5,
+    "reference_candidate_runs": 10,
+    "runtime_runs": 15,
+    "allocator_runs": 10,
+    "release_profile_runs": 15,
+    "release_excluded_samples": [
+      {
+        "profile": "z",
+        "repeat": 4,
+        "stage": "idle-10",
+        "reason": "load1 13.95 > 8"
+      }
+    ],
+    "connection_trials_per_driver": 20,
+    "idle_comparison_runs": 18
+  },
+  "cleanup": {
+    "spawned_idle_host_pids_exited": true,
+    "tabularis_settings_restored": true,
+    "preserved_settings_backups_remaining": 0,
+    "remaining_test_neo4j_p1_nodes": 0,
+    "neo4j_verification": "MATCH nodes whose label starts ResourceP1_: count = 0"
+  },
+  "external_e2e": "Coordinator-owned integrated regression; not claimed by unit or performance evidence",
+  "final_release_rebuild": {
+    "command": "cargo build --locked -p axdb --release",
+    "exit": 0,
+    "profile": "baseline opt-level 3 restored after candidate tests"
+  },
+  "checks": {
+    "local_document_links": "passed",
+    "git_diff_check": "passed",
+    "source_hash_matches_measured_baseline": true
+  }
+}

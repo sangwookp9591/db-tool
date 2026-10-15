@@ -1,0 +1,575 @@
+diff --git a/bench/resource_opt.py b/bench/resource_opt.py
+index a43c1d6..251d825 100644
+--- a/bench/resource_opt.py
++++ b/bench/resource_opt.py
+@@ -29,11 +29,11 @@ def cpu_seconds(value):
+ 
+ def processes():
+     rows = {}
+-    for line in subprocess.check_output(['/bin/ps', '-axo', 'pid=,rss=,time=,comm='], text=True).splitlines():
+-        parts = line.strip().split(None, 3)
+-        if len(parts) == 4:
+-            pid, rss, cpu, command = parts
+-            rows[int(pid)] = dict(pid=int(pid), rss_kib=int(rss), cpu_seconds=cpu_seconds(cpu), command=command)
++    for line in subprocess.check_output(['/bin/ps', '-axo', 'pid=,rss=,time=,%cpu=,comm='], text=True).splitlines():
++        parts = line.strip().split(None, 4)
++        if len(parts) == 5:
++            pid, rss, cpu, percent, command = parts
++            rows[int(pid)] = dict(pid=int(pid), rss_kib=int(rss), cpu_seconds=cpu_seconds(cpu), rolling_cpu_percent=float(percent), command=command)
+     return rows
+ 
+ 
+@@ -58,7 +58,9 @@ def gate(label, timeout=600):
+     while True:
+         load = os.getloadavg()[0]
+         elapsed = time.monotonic() - started
+-        samples.append(dict(at=datetime.datetime.now().astimezone().isoformat(), load1=load, waited_seconds=elapsed))
++        roster = processes()
++        samples.append(dict(at=datetime.datetime.now().astimezone().isoformat(), load1=load, waited_seconds=elapsed,
++                            ps_top_cpu=sorted(roster.values(), key=lambda p: p['rolling_cpu_percent'], reverse=True)[:20]))
+         if load <= 8 or elapsed >= timeout:
+             return dict(label=label, passed=load <= 8, threshold=8, timeout_seconds=timeout, samples=samples)
+         print(f'gate {label}: load={load:.2f}, waited={elapsed:.0f}s', flush=True)
+@@ -85,41 +87,77 @@ def sample(host, prior, start):
+     counts = {role: sum(row['role'] == role for row in owned.values()) for role in ROLES}
+     # shortcut: XPC helpers are attributed by launch-time set difference; reject multiple helpers per role, upgrade to Instruments for shared-process attribution.
+     return dict(at_seconds=time.monotonic() - start, load_before=load_before, processes=list(owned.values()), role_counts=counts,
+-                ownership='host + newly observed WebKit PIDs; no unrelated WebKit launch may overlap', ownership_unambiguous=counts['host'] == 1 and all(n <= 1 for n in counts.values()) and all(p['role'] != 'unknown' for p in owned.values()),
++                system_builders=[p for p in first.values() if Path(p['command']).name in ('rustc', 'cargo', 'node', 'tsgo', 'clang', 'swiftc', 'ld')],
++                ownership='host + newly observed WebKit PIDs; no unrelated WebKit launch may overlap', ownership_count_check=counts['host'] == 1 and all(n <= 1 for n in counts.values()) and all(p['role'] != 'unknown' for p in owned.values()),
+                 cpu_interval_seconds=elapsed, cpu_sample_started_seconds=begun - start, footprint_exit=footprint.returncode, footprint_raw=footprint.stdout, footprint_error=footprint.stderr,
+                 rss_kib=sum(row['rss_kib'] for row in owned.values()))
+ 
+ 
++def host_timings(raw):
++    result = []
++    for line in raw.splitlines():
++        if 'AXDB_BENCH_TIME' not in line:
++            continue
++        name = re.search(r'bench_name="([^"]+)"', line)
++        start = re.search(r'bench_start_ms=(\d+)', line)
++        elapsed = re.search(r'bench_elapsed_ms=([\d.eE+-]+)', line)
++        if not name or not start or not elapsed:
++            raise ValueError('Malformed native benchmark timing')
++        result.append(dict(name=name[1], start_unix_ms=int(start[1]), elapsed_ms=float(elapsed[1])))
++    return result
++
++
++def acknowledge(config, value):
++    temporary = config / 'resource-ack.tmp'
++    temporary.write_text(str(value))
++    temporary.replace(config / 'resource-ack')
++
++
+ def run(args):
+     assert args.w8_complete, 'Wait for coordinator W8 completion notification, then pass --w8-complete'
+-    bundle = Path(args.app).resolve()
+-    assert bundle.suffix == '.app' and bundle.is_dir(), 'A release .app bundle is required'
+-    executable = bundle / 'Contents/MacOS/axdb'
+-    assert executable.is_file(), executable
++    assert args.app, 'A release .app bundle is required'
++    bundles = [Path(value).resolve() for value in [args.app, *(args.compare_app or [])] if value]
++    artifacts = []
++    for bundle in bundles:
++        assert bundle.suffix == '.app' and bundle.is_dir(), 'A release .app bundle is required'
++        executable = bundle / 'Contents/MacOS/axdb'
++        assert executable.is_file(), executable
++        artifacts.append(dict(app=str(bundle), sha256=hashlib.sha256(executable.read_bytes()).hexdigest(), binary_bytes=executable.stat().st_size))
+     output = Path(__file__).parent / f'results-resource-{args.variant}.json'
+     assert not output.exists(), f'Preserve existing evidence: {output}'
+-    result = dict(variant=args.variant, app=str(bundle), sha256=hashlib.sha256(executable.read_bytes()).hexdigest(),
+-                  binary_bytes=executable.stat().st_size, workers=os.environ.get('TOKIO_WORKER_THREADS', 'default'),
++    workers = args.workers.split(',') if args.workers else [os.environ.get('TOKIO_WORKER_THREADS', 'default')]
++    assert all(w == 'default' or w.isdecimal() and int(w) > 0 for w in workers), 'Invalid worker count'
++    configurations = [(index, 'default') for index in range(1, len(bundles))] + [(0, worker) for worker in workers]
++    schedule = [(repeat, index, worker) for repeat in range(1, args.runs + 1) for index, worker in (configurations if repeat % 2 else configurations[::-1])]
++    result = dict(variant=args.variant, scenario="connections" if args.connections else "resource", artifacts=artifacts, workers=workers, script_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+                   platform=subprocess.check_output(['sw_vers'], text=True), runs=[])
+     save = lambda: output.write_text(json.dumps(result, indent=2))
+     lock = Path(tempfile.gettempdir()) / 'axdb-viewer-native.lock'
+     descriptor = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+     try:
+         os.write(descriptor, str(os.getpid()).encode())
+-        for repeat in range(1, args.runs + 1):
+-            launch_gate = gate(f'{args.variant}-{repeat}-launch')
++        for repeat, index, worker in schedule:
++            bundle = bundles[index]; executable = bundle / 'Contents/MacOS/axdb'
++            launch_gate = gate(f'{args.variant}-app{index}-workers{worker}-{repeat}-launch')
+             config = Path(tempfile.mkdtemp(prefix='axdb-resource-'))
+-            row = dict(repeat=repeat, config=str(config), launch_gate=launch_gate, samples=[])
++            row = dict(repeat=repeat, artifact=index, workers=worker, config=str(config), launch_gate=launch_gate, samples=[])
+             result['runs'].append(row)
+             if not launch_gate['passed']:
+-                row['status'] = 'gate-failed'; save(); continue
+-            prior = set(processes())
++                row['status'] = 'gate-failed'; save()
++                raise RuntimeError('Launch load gate failed after 600 seconds; no app launched')
++            prior_rows = processes(); prior = set(prior_rows)
++            row['launch_ps'] = list(prior_rows.values())
++            row['vm_stat'] = subprocess.check_output(['/usr/bin/vm_stat'], text=True)
++            row['swapusage'] = subprocess.check_output(['/usr/sbin/sysctl', 'vm.swapusage'], text=True)
+             env = {**os.environ, 'AXDB_CONFIG_DIR': str(config), 'AXDB_AGENT_BRIDGE': '0', 'AXDB_BENCH': '1',
+-                   'AXDB_BENCH_TARGET': 'resource-leak' if repeat == 1 and not args.no_leak else 'resource'}
++                   'AXDB_BENCH_TARGET': 'connections' if args.connections else 'resource-leak' if repeat == 1 and not args.no_leak else 'resource'}
++            env.pop('TOKIO_WORKER_THREADS', None)
++            if worker != 'default': env['TOKIO_WORKER_THREADS'] = worker
+             with (config / 'stderr.log').open('w') as log:
+                 app = subprocess.Popen([str(executable)], env=env, stdout=log, stderr=log)
+                 started = time.monotonic()
+                 seen = 0
++                preparation_passed = launch_gate['passed']
+                 try:
+                     while time.monotonic() - started < 3600:
+                         assert app.poll() is None, f'App exited early: {app.returncode}'
+@@ -130,14 +168,25 @@ def run(args):
+                             time.sleep(.05); continue
+                         if 'complete' in state:
+                             row['ui'] = state
++                            if args.connections:
++                                row['host_timings'] = host_timings((config / 'axdb.log').read_text())
++                                assert row['host_timings'], 'Native command timings were not recorded'
+                             assert state['complete'], state
+                             row['status'] = 'complete'; break
+                         if state['checkpoint'] != seen:
+                             seen = state['checkpoint']
+                             if seen == 1:
+                                 subprocess.run(['/usr/bin/open', '-a', str(bundle)], check=True, capture_output=True)
+-                            current = dict(stage=state['stage'], iteration=state['iteration'], graphWorkers=state['graphWorkers'])
+-                            current['gate'] = gate(f"{args.variant}-{repeat}-{state['stage']}-{state['iteration']}")
++                            current = dict(stage=state['stage'], iteration=state['iteration'], graphWorkers=state['graphWorkers'], viewport=state.get('viewport'), last_query=state.get('lastQuery'))
++                            label = f"{args.variant}-app{index}-workers{worker}-{repeat}-{state['stage']}-{state['iteration']}"
++                            if state['stage'].startswith('prepare-'):
++                                current['gate'] = gate(label)
++                                preparation_passed = current['gate']['passed']
++                                row.setdefault('preparation_gates', []).append(current); save()
++                                acknowledge(config, seen if preparation_passed else 'abort')
++                                continue
++                            current['gate'] = gate(label, timeout=0)
++                            current['preparation_gate_passed'] = preparation_passed
+                             current.update(sample(app.pid, prior, started))
+                             if state['stage'] == 'idle-60':
+                                 previous = next(s for s in row['samples'] if s['stage'] == 'idle-10')
+@@ -146,15 +195,27 @@ def run(args):
+                                 for process in current['processes']:
+                                     process['idle_interval_percent'] = (process['cpu_seconds'] - initial[process['pid']]) / span * 100 if process['pid'] in initial else None
+                                 current['idle_cpu_interval_seconds'] = span
+-                            current['accepted'] = current['gate']['passed'] and current['load_before'] <= 8 and current['ownership_unambiguous'] and current['footprint_exit'] == 0 and all(p['phys_footprint_bytes'] is not None for p in current['processes'])
++                            current['accepted'] = preparation_passed and current['gate']['passed'] and current['load_before'] <= 8 and current['ownership_count_check'] and current['footprint_exit'] == 0 and all(p['phys_footprint_bytes'] is not None for p in current['processes'])
+                             row['samples'].append(current); save()
+-                            temporary = config / 'resource-ack.tmp'; temporary.write_text(str(seen)); temporary.replace(config / 'resource-ack')
+-                            print(args.variant, repeat, state['stage'], state['iteration'], round(current['rss_kib'] / 1024, 1), 'MiB', current['accepted'], flush=True)
++                            acknowledge(config, seen)
++                            print(args.variant, index, worker, repeat, state['stage'], state['iteration'], round(current['rss_kib'] / 1024, 1), 'MiB', current['accepted'], flush=True)
+                         time.sleep(.05)
+                     else:
+                         raise TimeoutError('Resource matrix exceeded one hour')
+                 except BaseException as error:
+-                    row['status'] = 'failed'; row['error'] = str(error); save(); raise
++                    row['status'] = 'failed'; row['error'] = str(error) or type(error).__name__; save()
++                    if app.poll() is None:
++                        acknowledge(config, 'abort')
++                        cleanup_until = time.monotonic() + 15
++                        while app.poll() is None and time.monotonic() < cleanup_until:
++                            try:
++                                final = json.loads((config / 'perf.json').read_text())
++                                if 'complete' in final:
++                                    row['ui'] = final; break
++                            except (FileNotFoundError, json.JSONDecodeError):
++                                pass
++                            time.sleep(.1)
++                    raise
+                 finally:
+                     app.terminate()
+                     try: app.wait(timeout=10)
+@@ -167,7 +228,7 @@ def run(args):
+             time.sleep(3)
+     finally:
+         os.close(descriptor); lock.unlink()
+-    assert len(result['runs']) == args.runs and all(r.get('status') == 'complete' and all(s['accepted'] for s in r['samples']) for r in result['runs']), 'Incomplete or contaminated samples: inspect report'
++    assert len(result['runs']) == len(schedule) and all(r.get('status') == 'complete' and all(s['accepted'] for s in r['samples']) for r in result['runs']), 'Incomplete or contaminated samples: inspect report'
+ 
+ 
+ if __name__ == '__main__':
+@@ -175,19 +236,30 @@ if __name__ == '__main__':
+     parser.add_argument('app', nargs='?')
+     parser.add_argument('--w8-complete', action='store_true')
+     parser.add_argument('--variant', default='baseline')
++    parser.add_argument('--compare-app', action='append', help='Alternate another fixed bundle using default workers; may be repeated')
++    parser.add_argument('--workers', help='Primary app comma-separated default/worker counts, alternated within each repeat')
+     parser.add_argument('--runs', type=int, default=5)
+     parser.add_argument('--no-leak', action='store_true')
++    parser.add_argument('--connections', action='store_true')
+     parser.add_argument('--self-check', action='store_true')
+     args = parser.parse_args()
+     assert re.fullmatch(r'[a-zA-Z0-9_-]+', args.variant), 'Invalid variant name'
+     assert args.runs > 0, 'Positive run count required'
+     if args.self_check:
++        from unittest.mock import patch
+         assert cpu_seconds('1:02:03.45') == 3723.45
++        with patch('subprocess.check_output', return_value='42 2048 1:02.34 0.5 /tmp/space name/axdb\n'):
++            assert processes()[42] == dict(pid=42, rss_kib=2048, cpu_seconds=62.34, rolling_cpu_percent=.5, command='/tmp/space name/axdb')
+         assert footprints('axdb [123]: 64-bit    Footprint: 3145728 B\nphys_footprint: 3145728 B') == {123: 3145728}
+         assert footprints('WebContent [4]: 64-bit    Footprint: 1.5 MB') == {4: 1572864}
+         assert footprints('axdb [123]: 64-bit    Footprint: 3145728 (16384 bytes per page)') == {123: 3145728}
+         assert slope([(1, 3), (2, 5), (3, 7)]) == 2
+         assert slope([]) is None
++        assert host_timings('AXDB_BENCH_TIME bench_name="profile_save" bench_start_ms=12 bench_elapsed_ms=0.25 ignored=private') == [dict(name='profile_save', start_unix_ms=12, elapsed_ms=.25)]
++        with patch('os.getloadavg', return_value=(8, 0, 0)), patch(__name__ + '.processes', return_value={}):
++            assert gate('self-check')['passed']
++        with patch('os.getloadavg', return_value=(8.01, 0, 0)), patch(__name__ + '.processes', return_value={}):
++            assert not gate('self-check', timeout=0)['passed']
+         print('resource_opt self-check passed (no measurements)')
+     else:
+         run(args)
+diff --git a/src-tauri/src/lib.rs b/src-tauri/src/lib.rs
+index 381d7ae..42cd7a4 100644
+--- a/src-tauri/src/lib.rs
++++ b/src-tauri/src/lib.rs
+@@ -111,7 +111,7 @@ impl Host {
+         let inline = storage::strip_secrets(&mut safe, driver.manifest());
+         let secret = match secret.or(inline) {
+             Some(s) => Some(s),
+-            None if safe.save_secret => storage::keychain_get(&profile.id)?,
++            None if safe.save_secret => { let _bench = viewer_bench::span("keychain_get"); storage::keychain_get(&profile.id)? },
+             None => None,
+         };
+         safe.fields.retain(|key, _| {
+@@ -174,6 +174,7 @@ impl Drop for RunGuard<'_> {
+ type CommandResult<T> = Result<T, DbError>;
+ #[tauri::command]
+ async fn drivers_list(host: tauri::State<'_, Host>) -> CommandResult<Vec<DriverManifest>> {
++    let _bench = viewer_bench::span("drivers_list");
+     Ok(host.registry.manifests())
+ }
+ #[tauri::command]
+@@ -193,6 +194,7 @@ async fn profile_save(
+     mut profile: Profile,
+     secret: Option<String>,
+ ) -> CommandResult<Profile> {
++    let _bench = viewer_bench::span("profile_save");
+     let driver = host.driver(&profile.driver_id)?;
+     if profile.access_mode == permissions::AccessMode::ReadOnly && !driver.manifest().capabilities.read_only_exec { return Err(DbError::unsupported("Driver cannot enforce read-only execution")); }
+     let secret = secret.or(storage::strip_secrets(&mut profile, driver.manifest()));
+@@ -207,9 +209,11 @@ async fn profile_save(
+     let mut profiles = storage::read_profiles(&path)?;
+     if profile.save_secret {
+         if let Some(s) = secret.as_deref() {
++            let _keychain = viewer_bench::span("keychain_save");
+             storage::keychain_set(&profile.id, Some(s))?;
+         }
+     } else {
++        let _keychain = viewer_bench::span("keychain_delete");
+         storage::keychain_set(&profile.id, None)?;
+     }
+     profiles.retain(|p| p.id != profile.id);
+@@ -223,10 +227,11 @@ async fn profile_save(
+ }
+ #[tauri::command]
+ async fn profile_delete(host: tauri::State<'_, Host>, profile_id: String) -> CommandResult<()> {
++    let _bench = viewer_bench::span("profile_delete");
+     let _guard = host.storage.lock().await;
+     let path = host.paths.config.join("profiles.json");
+     let mut profiles = storage::read_profiles(&path)?;
+-    storage::keychain_set(&profile_id, None)?;
++    { let _keychain = viewer_bench::span("keychain_delete"); storage::keychain_set(&profile_id, None)?; }
+     profiles.retain(|p| p.id != profile_id);
+     storage::write_private(
+         &path,
+@@ -240,6 +245,7 @@ async fn connection_test(
+     profile: Profile,
+     secret: Option<String>,
+ ) -> CommandResult<String> {
++    let _bench = viewer_bench::span("connection_test");
+     let (session, _) = host.connect(&profile, secret).await?;
+     let result = async {
+         session.ping().await?;
+@@ -255,6 +261,7 @@ async fn session_open(
+     profile_id: String,
+     secret: Option<String>,
+ ) -> CommandResult<String> {
++    let _bench = viewer_bench::span("session_open");
+     let profile = {
+         let _guard = host.storage.lock().await;
+         storage::read_profiles(&host.paths.config.join("profiles.json"))?
+diff --git a/src-tauri/src/viewer_bench.rs b/src-tauri/src/viewer_bench.rs
+index b54c514..cd5f13e 100644
+--- a/src-tauri/src/viewer_bench.rs
++++ b/src-tauri/src/viewer_bench.rs
+@@ -22,7 +22,7 @@ pub fn viewer_bench_write(
+ #[tauri::command]
+ pub fn viewer_bench_target() -> String {
+     let target = std::env::var("AXDB_BENCH_TARGET").unwrap_or_default();
+-    if viewer_bench_enabled() && matches!(target.as_str(), "graph" | "workspace" | "idle" | "small" | "matrix" | "resource" | "resource-leak") {
++    if viewer_bench_enabled() && matches!(target.as_str(), "graph" | "workspace" | "idle" | "small" | "matrix" | "resource" | "resource-leak" | "connections") {
+         target
+     } else {
+         "all".into()
+@@ -37,6 +37,7 @@ pub async fn viewer_bench_checkpoint(host: tauri::State<'_, Host>, checkpoint: u
+     let until = tokio::time::Instant::now() + std::time::Duration::from_secs(660);
+     loop {
+         match tokio::fs::read_to_string(&path).await {
++            Ok(value) if value.trim() == "abort" => return Err(DbError::internal("Benchmark collector stopped")),
+             Ok(value) if value.trim().parse::<u32>().ok() == Some(checkpoint) => return Ok(()),
+             Ok(_) => (),
+             Err(error) if error.kind() == std::io::ErrorKind::NotFound => (),
+@@ -77,3 +78,43 @@ pub fn viewer_bench_config() -> CommandResult<Option<serde_json::Value>> {
+     }
+     Ok(Some(fixture))
+ }
++
++pub(crate) struct Span {
++    name: &'static str,
++    since: std::time::Instant,
++    start_ms: u64,
++}
++pub(crate) fn span(name: &'static str) -> Option<Span> {
++    viewer_bench_enabled().then(|| Span {
++        name,
++        since: std::time::Instant::now(),
++        start_ms: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis() as u64,
++    })
++}
++impl Drop for Span {
++    fn drop(&mut self) {
++        tracing::info!(bench_name = self.name, bench_start_ms = self.start_ms, bench_elapsed_ms = self.since.elapsed().as_secs_f64() * 1000.0, "AXDB_BENCH_TIME");
++    }
++}
++#[cfg(test)]
++mod timing_tests {
++    use super::*;
++    #[test]
++    fn records_drop_on_error_without_logging_values() {
++        let dir = std::env::temp_dir().join(format!("axdb-bench-timing-{}", uuid::Uuid::new_v4()));
++        std::fs::create_dir(&dir).unwrap();
++        let path = dir.join("log");
++        let log = storage::open_private_log(&path).unwrap();
++        let result: Result<(), DbError> = tracing::subscriber::with_default(crate::file_logger(log), || {
++            let _first = Span { name: "fixture-command", since: std::time::Instant::now(), start_ms: 1 };
++            { let _second = Span { name: "fixture-keychain", since: std::time::Instant::now(), start_ms: 2 }; }
++            Err(DbError::internal("private-row-value"))
++        });
++        assert!(result.is_err());
++        let text = std::fs::read_to_string(&path).unwrap();
++        assert_eq!(text.lines().filter(|line| line.contains("AXDB_BENCH_TIME")).count(), 2);
++        assert!(text.contains("fixture-command") && text.contains("fixture-keychain"));
++        assert!(!text.contains("private-row-value"));
++        std::fs::remove_dir_all(dir).unwrap();
++    }
++}
+diff --git a/ui/src/api.test.ts b/ui/src/api.test.ts
+index 8eee51f..2377c0b 100644
+--- a/ui/src/api.test.ts
++++ b/ui/src/api.test.ts
+@@ -14,3 +14,13 @@ it('uses the native bridge and camelCase command arguments with snake_case reque
+   await api('expand', { sessionId: 's', elementId: 'element', limit: 300 });
+   expect(invoke).toHaveBeenLastCalledWith('expand', { sessionId: 's', elementId: 'element', limit: 300 });
+ });
++
++it('native timing opt-in preserves errors and excludes arguments', async () => {
++  const { perf } = await import('./perf'); perf.clear(); perf.captureCommands = true;
++  const failure = new Error('fixture failure'); invoke.mockRejectedValueOnce(failure);
++  try {
++    await expect(api('session_open', { profileId: 'p', secret: 'private-test-secret' })).rejects.toBe(failure);
++    expect(perf.marks().map(m => m.name)).toEqual(['ipc:session_open']);
++    expect(JSON.stringify(perf.marks())).not.toContain('private-test-secret');
++  } finally { perf.captureCommands = false; perf.clear(); }
++});
+diff --git a/ui/src/api.ts b/ui/src/api.ts
+index ee45b9c..c1f9d5b 100644
+--- a/ui/src/api.ts
++++ b/ui/src/api.ts
+@@ -1,3 +1,4 @@
++import { perf, finish } from './perf';
+ import type { Scope, AiSettings, AiReply } from './ai/types';
+ import type { Channel } from '@tauri-apps/api/core';
+ import { invoke } from '@tauri-apps/api/core';
+@@ -39,5 +40,8 @@ export interface Commands {
+ export const isMock = !('__TAURI_INTERNALS__' in window);
+ export async function api<K extends keyof Commands>(command: K, args: Commands[K]['args']): Promise<Commands[K]['result']> {
+   if (isMock) return (await import('./mock')).mockInvoke(command, args);
+-  return invoke<Commands[K]['result']>(command, args);
++  if (!perf.captureCommands) return invoke<Commands[K]['result']>(command, args);
++  const since = performance.now();
++  try { return await invoke<Commands[K]['result']>(command, args); }
++  finally { finish(`ipc:${command}`, since); }
+ }
+diff --git a/ui/src/perf/app.tsx b/ui/src/perf/app.tsx
+index 9c74897..40412a9 100644
+--- a/ui/src/perf/app.tsx
++++ b/ui/src/perf/app.tsx
+@@ -9,6 +9,7 @@ import { finish, frame, painted, perf, sampleFrames, start } from './index';
+ async function waitFor(test: () => boolean, timeout = 60000) { const until = performance.now() + timeout; while (!test()) { if (performance.now() > until) throw new Error('Native benchmark timed out'); await frame(); } }
+ async function run() {
+   const resourceTarget = await invoke<string>('viewer_bench_target');
++  if (resourceTarget === 'connections') { await (await import('./connections')).connectionBench(); return; }
+   if (resourceTarget.startsWith('resource')) { await (await import('./resource')).resourceBench(resourceTarget === 'resource-leak'); return; }
+   const root = document.createElement('div'); root.style.cssText = 'position:fixed;inset:0;z-index:10000;display:flex;background:var(--surface)'; document.body.append(root);
+   const manifests = await api('drivers_list', {});
+diff --git a/ui/src/perf/index.ts b/ui/src/perf/index.ts
+index 2b6d6a0..15edbdd 100644
+--- a/ui/src/perf/index.ts
++++ b/ui/src/perf/index.ts
+@@ -24,6 +24,7 @@ export async function sampleFrames(action: (index: number) => void, count = 60)
+ const scenarios = new Map<string, () => Promise<unknown>>();
+ export function registerScenario(name: string, run: () => Promise<unknown>) { scenarios.set(name, run); }
+ export const perf = {
++  captureCommands: false,
+   marks: () => [...metrics],
+   clear: () => { metrics.length = 0; for (const e of performance.getEntriesByType('mark')) if (e.name.startsWith('axdb:')) performance.clearMarks(e.name); for (const e of performance.getEntriesByType('measure')) if (e.name.startsWith('axdb:')) performance.clearMeasures(e.name); },
+   run: async (scenario: string) => { const run = scenarios.get(scenario); if (!run) throw new Error(`Unknown scenario: ${scenario}`); return run(); }
+diff --git a/ui/src/perf/resource.ts b/ui/src/perf/resource.ts
+index 5ffe286..19a3d6d 100644
+--- a/ui/src/perf/resource.ts
++++ b/ui/src/perf/resource.ts
+@@ -17,8 +17,8 @@ export async function resourceBench(leak: boolean) {
+   let checkpoint = 0;
+   const report: Record<string, unknown> = { target: 'resource', leak, userAgent: navigator.userAgent };
+   async function sample(stage: string, iteration = 0) {
+-    await frame(); await frame();
+-    Object.assign(report, { checkpoint: ++checkpoint, stage, iteration, at: Date.now(), graphWorkers: readGraphProbes().length });
++    if (stage !== 'startup') { await frame(); await frame(); }
++    Object.assign(report, { checkpoint: ++checkpoint, stage, iteration, at: Date.now(), graphWorkers: readGraphProbes().length, viewport: { width: innerWidth, height: innerHeight, scale: devicePixelRatio } });
+     await invoke('viewer_bench_write', { report });
+     await invoke('viewer_bench_checkpoint', { checkpoint });
+   }
+@@ -65,46 +65,55 @@ export async function resourceBench(leak: boolean) {
+       await waitFor(() => app.querySelectorAll('.workspace-tab').length === before + 1);
+       await frame(); await frame();
+     }
+-    async function run(expected: number) {
++    async function run(expected: number, graph = false) {
+       const tab = active();
+       input(tab.querySelector<HTMLInputElement>('[aria-label="Row limit"]')!, '100000'); await frame();
+-      tab.querySelector<HTMLButtonElement>('[aria-label="Run query"]')!.click();
++      const since = performance.now(); tab.querySelector<HTMLButtonElement>('[aria-label="Run query"]')!.click();
+       await frame();
+       await waitFor(() => tab.querySelector('.results-wrap')?.getAttribute('aria-busy') === 'false');
++      report.lastQuery = { rows: expected, wall_ms: performance.now() - since };
+       await frame(); await frame();
+       if (tab.querySelector('.db-error')) throw new Error(tab.querySelector('.db-error')!.textContent!);
+-      const count = tab.querySelector('.result-status > span:nth-child(2) .metric-number')?.textContent?.replaceAll(',', '');
+-      if (Number(count) !== expected) throw new Error(`Expected ${expected} rows, observed ${count}`);
++      await waitFor(() => Number(tab.querySelector('.result-status > span:nth-child(2) .metric-number')?.textContent?.replaceAll(',', '')) === expected);
++      if (!graph) {
++        const grid = tab.querySelector('[role=grid][aria-label="Query results"]');
++        if (Number(grid?.getAttribute('aria-rowcount')) !== expected + 1 || grid?.querySelector('[role=gridcell]')?.textContent !== (expected === 100000 ? '9007199254740994' : '1')) throw new Error('Loaded table rows or exact first value did not match the query');
++      }
+     }
+     const tableDriver = manifests.find(d => d.paradigm === 'Relational' && d.connection_fields.some(f => f.key === 'host'))!;
+     const tableSession = await connect(tableDriver, config.table); await close();
+     const sql = `SELECT ${Array.from({ length: 10 }, (_, i) => i % 2 ? `'row ' || i::text AS c${i}` : `9007199254740993::bigint+i AS c${i}`).join(',')} FROM generate_series(1,100000) i`;
+-    await open(tableSession, sql); await run(100000); await sample('table-100000');
++    await sample('prepare-table'); await open(tableSession, sql); await run(100000); await sample('table-100000');
++    await sample('prepare-graph');
+     graphSession = await connect(manifests.find(d => d.paradigm === 'Graph')!, config.graph);
+     await api('execute', { sessionId: graphSession, runId: crypto.randomUUID(), req: req(`UNWIND range(0,299) AS i CREATE (n:${label} {i:i,name:'Node '+toString(i)}) WITH collect(n) AS nodes UNWIND range(0,299) AS i WITH nodes[i] AS a,nodes[(i+1)%300] AS b CREATE (a)-[:RESOURCE_LINK]->(b)`) });
+-    await open(graphSession, `MATCH (a:${label})-[r:RESOURCE_LINK]->(b:${label}) RETURN a,r,b`); perf.clear(); await run(300);
++    await open(graphSession, `MATCH (a:${label})-[r:RESOURCE_LINK]->(b:${label}) RETURN a,r,b`); perf.clear(); await run(300, true);
+     await waitFor(() => !!active().querySelector('canvas[data-ready=true]'));
+     await waitFor(() => perf.marks().some(m => m.name === 'graph-stable'));
+     if (readGraphProbes()[0]?.positions.length !== 600) throw new Error('Expected 300 graph nodes');
+     await sample('graph-300');
++    await sample('prepare-tabs');
+     while (app.querySelectorAll('.workspace-tab').length < 10) { await open(tableSession, 'SELECT i FROM generate_series(1,1000) i'); await run(1000); }
+     app.querySelector<HTMLButtonElement>('.workspace-tab [role=tab]')!.click(); await frame(); await frame(); await run(100000);
+-    await sample('tabs-10'); await close(); await sample('tabs-closed'); await pause(10000); await sample('tabs-closed-10');
++    await sample('tabs-10'); await sample('prepare-close'); const closedAt = performance.now(); await close(); await sample('tabs-closed'); await pause(Math.max(0, closedAt + 10000 - performance.now())); await sample('tabs-closed-10');
+     if (leak) {
++      await sample('prepare-repeat-query');
+       await open(tableSession, sql);
+       for (let i = 1; i <= 50; i++) { await run(100000); if (i === 1 || i % 5 === 0) await sample('repeat-query', i); }
+       await close(); await sample('query-tab-closed');
++      await sample('prepare-repeat-tabs');
+       for (let i = 1; i <= 50; i++) { await open(tableSession, 'SELECT i FROM generate_series(1,1000) i'); await run(1000); await close(); if (i === 1 || i % 5 === 0) await sample('repeat-tabs', i); }
+     }
+     report.complete = true;
+   } catch (error) { report.complete = false; report.error = error instanceof Error ? error.message : JSON.stringify(error); }
+   finally {
+-    try {
+-      await close();
+-      if (graphSession) await api('execute', { sessionId: graphSession, runId: crypto.randomUUID(), req: req(`MATCH (n:${label}) DETACH DELETE n`) });
+-      for (const sessionId of sessions) await api('session_close', { sessionId });
+-      for (const profileId of profiles) await api('profile_delete', { profileId });
+-    } catch (error) { report.cleanupError = JSON.stringify(error); report.complete = false; }
++    const cleanupErrors: string[] = [];
++    const cleanup = async (action: () => Promise<unknown>) => { try { await action(); } catch (error) { cleanupErrors.push(error instanceof Error ? error.message : JSON.stringify(error)); } };
++    await cleanup(close);
++    if (graphSession) await cleanup(() => api('execute', { sessionId: graphSession, runId: crypto.randomUUID(), req: req(`MATCH (n:${label}) DETACH DELETE n`) }));
++    for (const sessionId of sessions) await cleanup(() => api('session_close', { sessionId }));
++    for (const profileId of profiles) await cleanup(() => api('profile_delete', { profileId }));
++    if (cleanupErrors.length) { report.cleanupError = cleanupErrors; report.complete = false; }
+     await invoke('viewer_bench_write', { report });
+   }
+ }
+--- /dev/null
++++ b/ui/src/perf/connections.ts
+@@ -0,0 +1,69 @@
++import { invoke } from '@tauri-apps/api/core';
++import { api } from '../api';
++import type { DriverManifest } from '../contract';
++import type { BenchConfig, BenchConnection } from './benchConfig';
++import { frame, painted, perf, stats, type Metric } from './index';
++const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
++async function waitFor(test: () => boolean) { const end = performance.now() + 60000; while (!test()) { if (performance.now() > end) throw new Error('Connection benchmark UI timeout'); await pause(10); } }
++function input(element: HTMLInputElement | HTMLSelectElement, value: string) { if (!element) throw new Error('Missing connection field'); element.value = value; element.dispatchEvent(new Event('input', { bubbles: true })); element.dispatchEvent(new Event('change', { bubbles: true })); }
++interface Phase { driver: string; paradigm: string; trial: number; cold: boolean; phase: string; startTime: number; duration: number; ipc: Metric[] }
++export async function connectionBench() {
++  const app = document.getElementById('app')!;
++  const output: { complete?: boolean; error?: string; checkpoint: number; stage: string; iteration: number; graphWorkers: number; viewport: object; renderer_time_origin: number; phases: Phase[]; registry: number[]; summary?: unknown } = { checkpoint: 0, stage: 'startup', iteration: 0, graphWorkers: 0, viewport: {}, renderer_time_origin: performance.timeOrigin, phases: [], registry: [] };
++  async function checkpoint(stage: string, iteration = 0) { Object.assign(output, { checkpoint: output.checkpoint + 1, stage, iteration, viewport: { width: innerWidth, height: innerHeight, scale: devicePixelRatio } }); await invoke('viewer_bench_write', { report: output }); await invoke('viewer_bench_checkpoint', { checkpoint: output.checkpoint }); }
++  perf.captureCommands = true;
++  try {
++    await checkpoint('startup');
++    await waitFor(() => !!app.querySelector('.empty-workspace h2'));
++    const manifests = await api('drivers_list', {}), config = await invoke<BenchConfig>('viewer_bench_config');
++    await checkpoint('prepare-registry');
++    for (let i = 0; i < 20; i++) { const since = performance.now(); await api('drivers_list', {}); output.registry.push(performance.now() - since); }
++    const table = manifests.find(d => d.paradigm === 'Relational' && d.connection_fields.some(f => f.key === 'host')), graph = manifests.find(d => d.paradigm === 'Graph');
++    if (!table || !graph) throw new Error('Required test drivers missing');
++    let trial = 0;
++    for (const driver of [table, graph]) for (let repeat = 0; repeat < 20; repeat++) {
++      trial++; await checkpoint('prepare-connection-flow', trial);
++      await flow(driver, driver.paradigm === 'Graph' ? config.graph : config.table, trial, repeat === 0);
++      await checkpoint('connection-flow', trial);
++    }
++    const grouped = new Map<string, number[]>();
++    for (const p of output.phases) { const key = `${p.driver}:${p.phase}`; if (!grouped.has(key)) grouped.set(key, []); grouped.get(key)!.push(p.duration); }
++    output.summary = { phases: Object.fromEntries([...grouped].map(([key, values]) => [key, stats(values)])), warm_registry_ipc: stats(output.registry) };
++    output.complete = true;
++    async function flow(driver: DriverManifest, settings: BenchConnection, trial: number, cold: boolean) {
++      const name = `P1 flow ${driver.paradigm} ${trial}`;
++      const connection = () => [...app.querySelectorAll<HTMLElement>('.connection')].find(c => c.querySelector('strong')?.textContent === name);
++      async function phase(label: string, action: () => Promise<void>) { perf.clear(); const since = performance.now(); await action(); const duration = await painted(`connection-${label}`, since); output.phases.push({ driver: driver.id, paradigm: driver.paradigm, trial, cold, phase: label, startTime: since, duration, ipc: perf.marks().filter(m => m.name.startsWith('ipc:') && m.startTime >= since) }); }
++      let form: HTMLFormElement;
++      const field = (label: string) => [...form.querySelectorAll('label')].find(l => l.firstChild?.textContent?.trim().replace(/\s*\*$/, '') === label)?.querySelector<HTMLInputElement | HTMLSelectElement>('input,select');
++      try {
++        await phase('open', async () => { app.querySelector<HTMLButtonElement>('[aria-label="Add connection"]')!.click(); await waitFor(() => !!app.querySelector('dialog[open] .profile-form form')); form = app.querySelector<HTMLFormElement>('.profile-form form')!; });
++        const other = manifests.find(d => d.id !== driver.id); if (!other) throw new Error('Driver switching requires two manifests');
++        input(field('Driver')!, other.id); await frame(); await frame();
++        await phase('select', async () => { input(field('Driver')!, driver.id); await waitFor(() => driver.connection_fields.every(f => !!field(f.label))); });
++        input(field('Name')!, name);
++        for (const f of driver.connection_fields) if (f.secret || settings.fields[f.key] !== undefined) input(field(f.label)!, f.secret ? settings.secret : settings.fields[f.key]);
++        await frame(); await frame();
++        await phase('test', async () => { const button = form.querySelector<HTMLButtonElement>('[data-testid=test-connection-form]')!; button.click(); await waitFor(() => !!form.querySelector('[role=status]')?.textContent && !button.disabled); });
++        await phase('save', async () => { form.querySelector<HTMLButtonElement>('[type=submit]')!.click(); await waitFor(() => !!connection() && !app.querySelector('.profile-form form')); });
++        await phase('connect', async () => {
++          connection()!.querySelector<HTMLButtonElement>('.connection-actions button')!.click();
++          await waitFor(() => !!app.querySelector('dialog[open] input[name=credential]'));
++          const credential = app.querySelector<HTMLInputElement>('input[name=credential]')!; input(credential, settings.secret); await frame();
++          credential.closest('form')!.querySelector<HTMLButtonElement>('[type=submit]')!.click();
++          await waitFor(() => !!connection()!.querySelector('.tree-node'));
++        });
++      } finally {
++        const element = connection();
++        if (element?.querySelector('.new-query')) { element.querySelector<HTMLButtonElement>('.connection-actions button')!.click(); await waitFor(() => !element.querySelector('.new-query')); }
++        if (element) {
++          const original = window.confirm; window.confirm = message => message === `Delete connection “${name}”?` || original.call(window, message);
++          try { element.querySelector<HTMLButtonElement>('[aria-label^="Delete "]')!.click(); await waitFor(() => !connection()); }
++          finally { window.confirm = original; }
++        }
++        const close = app.querySelector<HTMLButtonElement>('[aria-label="Close connection form"]'); if (close) close.click();
++      }
++    }
++  } catch (error) { output.complete = false; output.error = error instanceof Error ? error.message : JSON.stringify(error); }
++  finally { perf.captureCommands = false; await invoke('viewer_bench_write', { report: output }); }
++}

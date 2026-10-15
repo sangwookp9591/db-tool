@@ -1,0 +1,13 @@
+--- a/src-tauri/src/main.rs
++++ b/src-tauri/src/main.rs
+@@ -1,4 +1,10 @@
+ #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+ fn main() {
++    let mut builder = tokio::runtime::Builder::new_multi_thread();
++    if std::env::var_os("TOKIO_WORKER_THREADS").is_none() {
++        builder.worker_threads(std::thread::available_parallelism().map_or(1, |n| n.get().min(2)));
++    }
++    let runtime = builder.enable_all().build().expect("Failed to create async runtime");
++    tauri::async_runtime::set(runtime.handle().clone());
+     axdb::run()
+ }

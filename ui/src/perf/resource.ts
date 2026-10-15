@@ -17,8 +17,8 @@ export async function resourceBench(leak: boolean) {
   let checkpoint = 0;
   const report: Record<string, unknown> = { target: 'resource', leak, userAgent: navigator.userAgent };
   async function sample(stage: string, iteration = 0) {
-    await frame(); await frame();
-    Object.assign(report, { checkpoint: ++checkpoint, stage, iteration, at: Date.now(), graphWorkers: readGraphProbes().length });
+    if (stage !== 'startup') { await frame(); await frame(); }
+    Object.assign(report, { checkpoint: ++checkpoint, stage, iteration, at: Date.now(), graphWorkers: readGraphProbes().length, viewport: { width: innerWidth, height: innerHeight, scale: devicePixelRatio } });
     await invoke('viewer_bench_write', { report });
     await invoke('viewer_bench_checkpoint', { checkpoint });
   }
@@ -65,46 +65,55 @@ export async function resourceBench(leak: boolean) {
       await waitFor(() => app.querySelectorAll('.workspace-tab').length === before + 1);
       await frame(); await frame();
     }
-    async function run(expected: number) {
+    async function run(expected: number, graph = false) {
       const tab = active();
       input(tab.querySelector<HTMLInputElement>('[aria-label="Row limit"]')!, '100000'); await frame();
-      tab.querySelector<HTMLButtonElement>('[aria-label="Run query"]')!.click();
+      const since = performance.now(); tab.querySelector<HTMLButtonElement>('[aria-label="Run query"]')!.click();
       await frame();
       await waitFor(() => tab.querySelector('.results-wrap')?.getAttribute('aria-busy') === 'false');
+      report.lastQuery = { rows: expected, wall_ms: performance.now() - since };
       await frame(); await frame();
       if (tab.querySelector('.db-error')) throw new Error(tab.querySelector('.db-error')!.textContent!);
-      const count = tab.querySelector('.result-status > span:nth-child(2) .metric-number')?.textContent?.replaceAll(',', '');
-      if (Number(count) !== expected) throw new Error(`Expected ${expected} rows, observed ${count}`);
+      await waitFor(() => Number(tab.querySelector('.result-status > span:nth-child(2) .metric-number')?.textContent?.replaceAll(',', '')) === expected);
+      if (!graph) {
+        const grid = tab.querySelector('[role=grid][aria-label="Query results"]');
+        if (Number(grid?.getAttribute('aria-rowcount')) !== expected + 1 || grid?.querySelector('[role=gridcell]')?.textContent !== (expected === 100000 ? '9007199254740994' : '1')) throw new Error('Loaded table rows or exact first value did not match the query');
+      }
     }
     const tableDriver = manifests.find(d => d.paradigm === 'Relational' && d.connection_fields.some(f => f.key === 'host'))!;
     const tableSession = await connect(tableDriver, config.table); await close();
     const sql = `SELECT ${Array.from({ length: 10 }, (_, i) => i % 2 ? `'row ' || i::text AS c${i}` : `9007199254740993::bigint+i AS c${i}`).join(',')} FROM generate_series(1,100000) i`;
-    await open(tableSession, sql); await run(100000); await sample('table-100000');
+    await sample('prepare-table'); await open(tableSession, sql); await run(100000); await sample('table-100000');
+    await sample('prepare-graph');
     graphSession = await connect(manifests.find(d => d.paradigm === 'Graph')!, config.graph);
     await api('execute', { sessionId: graphSession, runId: crypto.randomUUID(), req: req(`UNWIND range(0,299) AS i CREATE (n:${label} {i:i,name:'Node '+toString(i)}) WITH collect(n) AS nodes UNWIND range(0,299) AS i WITH nodes[i] AS a,nodes[(i+1)%300] AS b CREATE (a)-[:RESOURCE_LINK]->(b)`) });
-    await open(graphSession, `MATCH (a:${label})-[r:RESOURCE_LINK]->(b:${label}) RETURN a,r,b`); perf.clear(); await run(300);
+    await open(graphSession, `MATCH (a:${label})-[r:RESOURCE_LINK]->(b:${label}) RETURN a,r,b`); perf.clear(); await run(300, true);
     await waitFor(() => !!active().querySelector('canvas[data-ready=true]'));
     await waitFor(() => perf.marks().some(m => m.name === 'graph-stable'));
     if (readGraphProbes()[0]?.positions.length !== 600) throw new Error('Expected 300 graph nodes');
     await sample('graph-300');
+    await sample('prepare-tabs');
     while (app.querySelectorAll('.workspace-tab').length < 10) { await open(tableSession, 'SELECT i FROM generate_series(1,1000) i'); await run(1000); }
     app.querySelector<HTMLButtonElement>('.workspace-tab [role=tab]')!.click(); await frame(); await frame(); await run(100000);
-    await sample('tabs-10'); await close(); await sample('tabs-closed'); await pause(10000); await sample('tabs-closed-10');
+    await sample('tabs-10'); await sample('prepare-close'); const closedAt = performance.now(); await close(); await sample('tabs-closed'); await pause(Math.max(0, closedAt + 10000 - performance.now())); await sample('tabs-closed-10');
     if (leak) {
+      await sample('prepare-repeat-query');
       await open(tableSession, sql);
       for (let i = 1; i <= 50; i++) { await run(100000); if (i === 1 || i % 5 === 0) await sample('repeat-query', i); }
       await close(); await sample('query-tab-closed');
+      await sample('prepare-repeat-tabs');
       for (let i = 1; i <= 50; i++) { await open(tableSession, 'SELECT i FROM generate_series(1,1000) i'); await run(1000); await close(); if (i === 1 || i % 5 === 0) await sample('repeat-tabs', i); }
     }
     report.complete = true;
   } catch (error) { report.complete = false; report.error = error instanceof Error ? error.message : JSON.stringify(error); }
   finally {
-    try {
-      await close();
-      if (graphSession) await api('execute', { sessionId: graphSession, runId: crypto.randomUUID(), req: req(`MATCH (n:${label}) DETACH DELETE n`) });
-      for (const sessionId of sessions) await api('session_close', { sessionId });
-      for (const profileId of profiles) await api('profile_delete', { profileId });
-    } catch (error) { report.cleanupError = JSON.stringify(error); report.complete = false; }
+    const cleanupErrors: string[] = [];
+    const cleanup = async (action: () => Promise<unknown>) => { try { await action(); } catch (error) { cleanupErrors.push(error instanceof Error ? error.message : JSON.stringify(error)); } };
+    await cleanup(close);
+    if (graphSession) await cleanup(() => api('execute', { sessionId: graphSession, runId: crypto.randomUUID(), req: req(`MATCH (n:${label}) DETACH DELETE n`) }));
+    for (const sessionId of sessions) await cleanup(() => api('session_close', { sessionId }));
+    for (const profileId of profiles) await cleanup(() => api('profile_delete', { profileId }));
+    if (cleanupErrors.length) { report.cleanupError = cleanupErrors; report.complete = false; }
     await invoke('viewer_bench_write', { report });
   }
 }

@@ -1,0 +1,17 @@
+gate calibration-app0-workersdefault-1-launch: load=39.68, waited=0s
+gate calibration-app0-workersdefault-1-launch: load=47.77, waited=30s
+gate calibration-app0-workersdefault-1-launch: load=46.33, waited=60s
+gate calibration-app0-workersdefault-1-launch: load=52.99, waited=90s
+gate calibration-app0-workersdefault-1-launch: load=59.97, waited=120s
+gate calibration-app0-workersdefault-1-launch: load=66.81, waited=150s
+Traceback (most recent call last):
+  File "/Users/iron/Project/psw/db-tool/bench/resource_opt.py", line 222, in <module>
+    print('resource_opt self-check passed (no measurements)')
+    ^^^^^^^^^
+  File "/Users/iron/Project/psw/db-tool/bench/resource_opt.py", line 119, in run
+    for repeat, index, worker in schedule:
+                      ^^^^^^^^^^^^^^^^^^^^
+  File "/Users/iron/Project/psw/db-tool/bench/resource_opt.py", line 65, in gate
+    return dict(label=label, passed=load <= 8, threshold=8, timeout_seconds=timeout, samples=samples)
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt

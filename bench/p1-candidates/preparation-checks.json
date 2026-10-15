@@ -1,0 +1,54 @@
+[
+  {
+    "patch": "01-result-summary.patch",
+    "sha256": "ba6a992adf20ca32daaa40e32c12965d658ca381823b1c7354e0cbd57091337d",
+    "apply_check_exit": 1,
+    "stderr": "error: patch failed: ui/src/App.tsx:5\nerror: ui/src/App.tsx: patch does not apply\n"
+  },
+  {
+    "patch": "02-workers-2.patch",
+    "sha256": "061d4b4e7708d2aa03dead76cb972620e67331be5657890b93dc09f9d413a315",
+    "apply_check_exit": 0,
+    "stderr": ""
+  },
+  {
+    "patch": "02-workers-4.patch",
+    "sha256": "3e1223958c2063c2f06325479ea8a7024044f18909ac252be2aeb03f80b6dc57",
+    "apply_check_exit": 0,
+    "stderr": ""
+  },
+  {
+    "patch": "03-mimalloc-secure.patch",
+    "sha256": "9962c941525d862d087b78b3d69f52bbc3774568210cdd6c776c143655b96ced",
+    "apply_check_exit": 0,
+    "stderr": ""
+  },
+  {
+    "patch": "04-release-s.patch",
+    "sha256": "7de78924aaf92ebc5654dc3cb8b660d58a407ffc690b040f8b9289be986687c0",
+    "apply_check_exit": 0,
+    "stderr": ""
+  },
+  {
+    "patch": "04-release-z.patch",
+    "sha256": "d11a318f7fd07d2d033c9111e5884aa2d1f1b84d60eb2cfa6bcc2d2f411c91b0",
+    "apply_check_exit": 0,
+    "stderr": ""
+  },
+  {
+    "patch": "01-result-summary.patch",
+    "phase": "AI1-aware-close-candidate",
+    "at": "2026-10-15T19:48:44.166327+09:00",
+    "sha256": "e6944c188fd611fdf922c3330ad4bcf283558417424092d877869422ff24e6d9",
+    "apply_check_exit": 0,
+    "stderr": ""
+  },
+  {
+    "patch": "01-result-summary.patch",
+    "phase": "ownership-and-late-callback-guard",
+    "at": "2026-10-15T19:51:52.259533+09:00",
+    "sha256": "e43392b8834c4084ac3be9b97eddcbccbca0e1f7e50cce217e2839c10a1cecb9",
+    "apply_check_exit": 1,
+    "stderr": "error: patch failed: ui/src/App.tsx:53\nerror: ui/src/App.tsx: patch does not apply\n"
+  }
+]

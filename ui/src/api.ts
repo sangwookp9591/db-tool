@@ -1,3 +1,4 @@
+import { perf, finish } from './perf';
 import type { Scope, AiSettings, AiReply } from './ai/types';
 import type { Channel } from '@tauri-apps/api/core';
 import { invoke } from '@tauri-apps/api/core';
@@ -39,5 +40,8 @@ export interface Commands {
 export const isMock = !('__TAURI_INTERNALS__' in window);
 export async function api<K extends keyof Commands>(command: K, args: Commands[K]['args']): Promise<Commands[K]['result']> {
   if (isMock) return (await import('./mock')).mockInvoke(command, args);
-  return invoke<Commands[K]['result']>(command, args);
+  if (!perf.captureCommands) return invoke<Commands[K]['result']>(command, args);
+  const since = performance.now();
+  try { return await invoke<Commands[K]['result']>(command, args); }
+  finally { finish(`ipc:${command}`, since); }
 }
