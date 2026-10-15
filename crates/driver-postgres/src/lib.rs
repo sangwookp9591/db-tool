@@ -43,9 +43,19 @@ impl PostgresDriver {
                 "sslmode",
                 "TLS mode",
                 FieldKind::Select {
-                    options: vec!["disable".into(), "prefer".into(), "require".into()],
+                    options: ["disable", "prefer", "require", "verify-ca", "verify-full"]
+                        .into_iter()
+                        .map(str::to_owned)
+                        .collect(),
                 },
                 Some("prefer"),
+                false,
+            ),
+            (
+                "sslrootcert",
+                "TLS CA file",
+                FieldKind::FilePath,
+                None,
                 false,
             ),
         ];
@@ -66,7 +76,7 @@ impl PostgresDriver {
                         key: key.into(),
                         label: label.into(),
                         kind,
-                        required: !secret,
+                        required: !secret && key != "sslrootcert",
                         default: default.map(str::to_string),
                         secret,
                         placeholder: String::new(),
@@ -116,14 +126,42 @@ impl Driver for PostgresDriver {
         if let Some(secret) = &cfg.secret {
             pg.password(secret);
         }
-        pg.ssl_mode(match field("sslmode", "prefer").as_str() {
+        let mode = field("sslmode", "prefer");
+        pg.ssl_mode(match mode.as_str() {
             "disable" => SslMode::Disable,
             "prefer" => SslMode::Prefer,
-            "require" => SslMode::Require,
+            "require" | "verify-ca" | "verify-full" => SslMode::Require,
             _ => return Err(DbError::new(ErrorKind::Connection, "Invalid TLS mode")),
         });
+        let root = cfg.fields.get("sslrootcert").filter(|s| !s.is_empty());
+        let verify = matches!(mode.as_str(), "verify-ca" | "verify-full")
+            || (mode == "require" && root.is_some());
+        let mut connector = native_tls::TlsConnector::builder();
+        // libpq require encrypts without verification unless an explicit CA is supplied.
+        connector.danger_accept_invalid_certs(!verify);
+        connector.danger_accept_invalid_hostnames(mode != "verify-full");
+        if mode != "disable" {
+            if let Some(root) = root {
+                let pem = tokio::fs::read(root)
+                    .await
+                    .map_err(|_| DbError::new(ErrorKind::Connection, "Cannot read TLS CA file"))?;
+                let certificates = native_tls::Certificate::stack_from_pem(&pem)
+                    .map_err(|_| DbError::new(ErrorKind::Connection, "Invalid TLS CA PEM file"))?;
+                if certificates.is_empty() {
+                    return Err(DbError::new(
+                        ErrorKind::Connection,
+                        "TLS CA file contains no certificates",
+                    ));
+                }
+                connector.disable_built_in_roots(true);
+                for certificate in certificates {
+                    connector.add_root_certificate(certificate);
+                }
+            }
+        }
         let tls = MakeTlsConnector::new(
-            native_tls::TlsConnector::new()
+            connector
+                .build()
                 .map_err(|_| DbError::new(ErrorKind::Connection, "TLS initialization failed"))?,
         );
         let (client, connection) = tokio::time::timeout(
@@ -514,7 +552,14 @@ impl PgSession {
             for attempt in 0..3 {
                 match self.client.simple_query("SELECT 1").await {
                     Ok(_) => break,
-                    Err(e) if e.code().is_some_and(|c| c.code() == "25P02") => break,
+                    Err(e) if e.code().is_some_and(|c| c.code() == "25P02") => {
+                        // A late cancel can abort the cursor transaction this driver opened; only a
+                        // user's explicit transaction should stay aborted for them to roll back.
+                        if !state.explicit {
+                            let _ = self.client.batch_execute("ROLLBACK").await;
+                        }
+                        break;
+                    }
                     Err(e) if e.code().is_some_and(|c| c.code() == "57014") && attempt < 2 => {
                         continue
                     }

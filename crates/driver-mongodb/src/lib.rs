@@ -1,10 +1,11 @@
 //! MongoDB command documents using the host-independent document/table contracts.
+mod schema;
 use async_trait::async_trait;
 use dbcore::*;
 use mongodb::{
     bson::{doc, Bson, Document},
     error::ErrorKind as MongoErrorKind,
-    options::{ClientOptions, Credential},
+    options::{ClientOptions, Credential, Tls, TlsOptions},
     Client, Database,
 };
 use serde::de::{MapAccess, Visitor};
@@ -64,8 +65,29 @@ impl MongoDriver {
                         Some("admin"),
                         false,
                     ),
+                    FieldSpec {
+                        key: "tls".into(),
+                        label: "TLS".into(),
+                        kind: FieldKind::Select {
+                            options: vec!["uri".into(), "true".into(), "false".into()],
+                        },
+                        required: false,
+                        default: Some("uri".into()),
+                        secret: false,
+                        placeholder: String::new(),
+                    },
+                    FieldSpec {
+                        key: "tlsCAFile".into(),
+                        label: "TLS CA file".into(),
+                        kind: FieldKind::FilePath,
+                        required: false,
+                        default: None,
+                        secret: false,
+                        placeholder: String::new(),
+                    },
                 ],
                 capabilities: Capabilities {
+                    schema_graph: true,
                     read_only_exec: true,
                     cancel: CancelSupport::Abort,
                     timeout: true,
@@ -131,6 +153,30 @@ impl Driver for MongoDriver {
                         )
                         .build(),
                 );
+            }
+            match cfg.fields.get("tls").map(String::as_str).unwrap_or("uri") {
+                "uri" => {}
+                "true" => {
+                    if !matches!(options.tls, Some(Tls::Enabled(_))) {
+                        options.tls = Some(Tls::Enabled(TlsOptions::default()));
+                    }
+                }
+                "false" => options.tls = Some(Tls::Disabled),
+                _ => return Err(DbError::new(ErrorKind::Connection, "Invalid TLS option")),
+            }
+            if let Some(path) = cfg.fields.get("tlsCAFile").filter(|s| !s.is_empty()) {
+                let mut tls = match options.tls.take() {
+                    Some(Tls::Disabled) => {
+                        return Err(DbError::new(
+                            ErrorKind::Connection,
+                            "TLS CA file requires TLS",
+                        ))
+                    }
+                    Some(Tls::Enabled(tls)) => tls,
+                    None => TlsOptions::default(),
+                };
+                tls.ca_file_path = Some(path.into());
+                options.tls = Some(Tls::Enabled(tls));
             }
             options.connect_timeout = Some(timeout);
             options.server_selection_timeout = Some(timeout);
@@ -456,6 +502,9 @@ impl Session for MongoSession {
         self.closed.store(true, Ordering::Release);
         self.client.clone().shutdown().await;
     }
+    async fn schema_graph(&self, scope: Option<&str>) -> Result<SchemaGraph, DbError> {
+        self.load_schema_graph(scope).await
+    }
     async fn expand(&self, _: &str, _: u32) -> Result<ResultSet, DbError> {
         Err(DbError::unsupported("Graph expansion is not supported"))
     }
@@ -506,14 +555,22 @@ impl Session for MongoSession {
                         .as_document()
                         .and_then(|d| d.get_str("name").ok())
                         .ok_or_else(|| DbError::query("Invalid database name"))?;
-                    Ok(node(
+                    let mut database_node = node(
                         &["database", name],
                         name,
                         "database",
                         Icon::Database,
                         true,
                         None,
-                    ))
+                    );
+                    database_node.actions.push(NodeAction {
+                        id: "diagram".into(),
+                        label: "Schema graph".into(),
+                        kind: NodeActionKind::OpenSchemaGraph {
+                            scope: Some(database_node.id.clone()),
+                        },
+                    });
+                    Ok(database_node)
                 })
                 .collect();
         };

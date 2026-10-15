@@ -1,6 +1,6 @@
 # AxDB — AX DB Tool
 
-AxDB는 여러 종류의 DB를 한 곳에서 다루는 가벼운 데스크톱 DB 툴이다. 1차 범위는 **PostgreSQL**과 **Neo4j**이고, **SQLite**는 세 번째 DB로 추가해 확장 구조를 검증했다. DB마다 연결, 구조 조회, 실행, 취소, 값 변환을 맡는 드라이버가 따로 있고, 공통 UI는 드라이버가 선언한 기능(capabilities)과 결과에 실제로 담긴 뷰(표/그래프/문서)만 보고 화면을 구성한다.
+AxDB는 여러 종류의 DB를 한 곳에서 다루는 가벼운 데스크톱 DB 툴이다. 1차 범위는 **PostgreSQL**과 **Neo4j**이고, **SQLite**(관계형), **MongoDB**(문서), **Redis**(키-값)를 공통 UI 수정 없이 드라이버로 추가해 확장 구조를 검증했다. DB마다 연결, 구조 조회, 실행, 취소, 값 변환을 맡는 드라이버가 따로 있고, 공통 UI는 드라이버가 선언한 기능(capabilities)과 결과에 실제로 담긴 뷰(표/그래프/문서)만 보고 화면을 구성한다.
 
 - 스택: Tauri 2 + Rust(tokio) 백엔드, Preact + CodeMirror 6 UI, 가상 테이블, Canvas 그래프(d3-force, Web Worker)
 - 결정 기록: [ADR-0001 독립 구현 선택](docs/adr/0001-independent-implementation.md), [ADR-0002 에이전트 인터페이스(WebMCP)](docs/adr/0002-agent-interface-webmcp.md)
@@ -13,6 +13,8 @@ crates/dbcore            드라이버 계약(Driver/Session, Manifest·Capabilit
 crates/driver-postgres   tokio-postgres. 서버 측 커서로 행 한도, 텍스트 프로토콜로 정확한 값, 서버 측 취소
 crates/driver-neo4j      neo4rs(vendor/neo4rs, 패치 1건). 표와 그래프 결과, 경로, temporal/point 타입, READ 모드
 crates/driver-sqlite     rusqlite(bundled). interrupt 기반 취소, query_only 읽기 전용
+crates/driver-mongodb    mongodb 3.x. 컬렉션 탐색, 문서/JSON 결과, BSON 고유 타입, 샘플 기반 스키마 그래프(추론 참조)
+crates/driver-redis      redis 1.x. SCAN 기반 키 계층, 자료형별 표(string/hash/list/set/zset/stream), TYPE·TTL, 허용 목록 읽기 전용
 crates/driver-example-kv 플러그인 가이드용 최소 예제(앱에는 등록하지 않음)
 src-tauri                호스트: 프로필과 OS 키체인, 세션·실행·취소·타임아웃, 이력, 로그 redaction, MCP 브리지
 ui                       공통 UI(연결/탐색/탭/에디터/결과/이력/오류), 에이전트 도구 레지스트리(WebMCP)

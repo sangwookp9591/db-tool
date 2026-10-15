@@ -56,7 +56,28 @@ impl PgSession {
     }
     async fn preview_schema(&self) -> Result<BTreeMap<String, String>, DbError> {
         // Catalog identities include columns and indexes; definitions detect ALTER changes too.
-        let rows = self.client.simple_query("SELECT 'table:'||quote_ident(n.nspname)||'.'||quote_ident(c.relname), c.relkind::text FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE c.relkind IN ('r','p','v','m','f') AND n.nspname NOT IN ('pg_catalog','information_schema') AND n.nspname !~ '^pg_toast' UNION ALL SELECT 'column:'||quote_ident(table_schema)||'.'||quote_ident(table_name)||'.'||quote_ident(column_name), concat_ws('|',data_type,udt_schema,udt_name,is_nullable,column_default,character_maximum_length::text,numeric_precision::text,numeric_scale::text) FROM information_schema.columns WHERE table_schema NOT IN ('pg_catalog','information_schema') UNION ALL SELECT 'index:'||quote_ident(schemaname)||'.'||quote_ident(indexname), indexdef FROM pg_catalog.pg_indexes WHERE schemaname NOT IN ('pg_catalog','information_schema')").await.map_err(|e| self.error(e))?;
+        // Other sessions' temp schemas are excluded: they are not this change and race with their own DROPs.
+        const SNAPSHOT: &str = "SELECT 'table:'||quote_ident(n.nspname)||'.'||quote_ident(c.relname), c.relkind::text FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE c.relkind IN ('r','p','v','m','f') AND n.nspname NOT IN ('pg_catalog','information_schema') AND n.nspname !~ '^pg_toast' AND NOT pg_catalog.pg_is_other_temp_schema(n.oid) UNION ALL SELECT 'column:'||quote_ident(table_schema)||'.'||quote_ident(table_name)||'.'||quote_ident(column_name), concat_ws('|',data_type,udt_schema,udt_name,is_nullable,column_default,character_maximum_length::text,numeric_precision::text,numeric_scale::text) FROM information_schema.columns WHERE table_schema NOT IN ('pg_catalog','information_schema') UNION ALL SELECT 'index:'||quote_ident(n.nspname)||'.'||quote_ident(c.relname), pg_catalog.pg_get_indexdef(c.oid) FROM pg_catalog.pg_index i JOIN pg_catalog.pg_class c ON c.oid=i.indexrelid JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname NOT IN ('pg_catalog','information_schema') AND n.nspname !~ '^pg_toast' AND NOT pg_catalog.pg_is_other_temp_schema(n.oid)";
+        // Concurrent DDL by other sessions can still drop a relation mid-scan ("could not open relation with OID",
+        // measured ~3% under a DDL loop). Retry inside a savepoint so the preview transaction stays usable.
+        let mut attempt = 0;
+        let rows = loop {
+            attempt += 1;
+            self.client.batch_execute("SAVEPOINT axdb_preview_snapshot").await.map_err(|e| self.error(e))?;
+            match self.client.simple_query(SNAPSHOT).await {
+                Ok(rows) => {
+                    self.client.batch_execute("RELEASE SAVEPOINT axdb_preview_snapshot").await.map_err(|e| self.error(e))?;
+                    break rows;
+                }
+                Err(e) => {
+                    self.client.batch_execute("ROLLBACK TO SAVEPOINT axdb_preview_snapshot; RELEASE SAVEPOINT axdb_preview_snapshot").await.map_err(|e| self.error(e))?;
+                    let transient = matches!(e.code().map(|c| c.code()), Some("XX000" | "42P01" | "40001"));
+                    if !transient || attempt == 3 {
+                        return Err(self.error(e));
+                    }
+                }
+            }
+        };
         Ok(rows
             .into_iter()
             .filter_map(|r| match r {

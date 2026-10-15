@@ -4,6 +4,8 @@
 `crates/driver-example-kv`이며 앱에는 등록하지 않는다. SQLite 구현은
 `crates/driver-sqlite`에서 파일 DB, blocking 실행, 취소와 읽기 전용 실행을 보여 준다.
 
+Redis 실제 서버 드라이버는 `crates/driver-redis`이며 SCAN 탐색과 자료형별 표, 드라이버 허용 목록 기반 read-only 실행을 제공한다.
+
 ## 계약과 등록
 
 1. `crates/driver-<name>`에 workspace package 설정과 `dbcore`, `async-trait` 의존성을 만든다.

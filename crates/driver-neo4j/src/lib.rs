@@ -35,6 +35,7 @@ impl Neo4jDriver {
                 connection_fields: [
                     ("uri", "URI", Some("bolt://localhost:7687"), false),
                     ("database", "Database", None, false),
+                    ("tlsCAFile", "TLS CA file", None, false),
                     ("user", "User", Some("neo4j"), false),
                     ("password", "Password", None, true),
                 ]
@@ -44,10 +45,12 @@ impl Neo4jDriver {
                     label: label.into(),
                     kind: if secret {
                         FieldKind::Password
+                    } else if key == "tlsCAFile" {
+                        FieldKind::FilePath
                     } else {
                         FieldKind::Text
                     },
-                    required: key != "database",
+                    required: key != "database" && key != "tlsCAFile",
                     default: default.map(str::to_owned),
                     secret,
                     placeholder: default.unwrap_or("").into(),
@@ -85,8 +88,10 @@ impl Driver for Neo4jDriver {
             .unwrap_or("bolt://localhost:7687");
         let parsed = url::Url::parse(uri)
             .map_err(|_| DbError::new(ErrorKind::Connection, "Invalid Neo4j URI"))?;
-        if !matches!(parsed.scheme(), "bolt" | "bolt+s" | "neo4j" | "neo4j+s")
-            || !parsed.username().is_empty()
+        if !matches!(
+            parsed.scheme(),
+            "bolt" | "bolt+s" | "bolt+ssc" | "neo4j" | "neo4j+s" | "neo4j+ssc"
+        ) || !parsed.username().is_empty()
             || parsed.password().is_some()
         {
             return Err(DbError::new(
@@ -109,6 +114,22 @@ impl Driver for Neo4jDriver {
             .connection_timeout(Duration::from_millis(cfg.connect_timeout_ms.max(1)));
         if let Some(db) = cfg.fields.get("database").filter(|v| !v.trim().is_empty()) {
             builder = builder.db(db.as_str());
+        }
+        if let Some(path) = cfg.fields.get("tlsCAFile").filter(|v| !v.is_empty()) {
+            if !matches!(parsed.scheme(), "bolt+s" | "neo4j+s") {
+                return Err(DbError::new(
+                    ErrorKind::Connection,
+                    "TLS CA file requires bolt+s or neo4j+s",
+                ));
+            }
+            builder = builder.with_client_certificate(path);
+        }
+        if matches!(
+            parsed.scheme(),
+            "bolt+s" | "bolt+ssc" | "neo4j+s" | "neo4j+ssc"
+        ) {
+            // Workspace feature unification can enable two providers; preserve an existing choice.
+            let _ = rustls::crypto::ring::default_provider().install_default();
         }
         let config = builder
             .build()

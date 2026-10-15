@@ -1,0 +1,23 @@
+# R1 Redis 드라이버 검증
+
+2026-10-16, 시작 HEAD `2a9d69b`, 시작 작업 트리는 clean이었다. `crates/driver-redis`를 추가하고 workspace member/의존성, 호스트 의존성과 registry 각각 한 줄, PLUGIN_GUIDE의 드라이버 소개 한 줄로 앱에 등록했다. Cargo가 신규 의존성을 반영해 `Cargo.lock`도 갱신했다. `git diff --numstat -- ui/ crates/dbcore/` 출력은 비어 있다. 병행 워커의 MongoDB/PostgreSQL/Neo4j 변경은 수정하지 않았다. commit/push와 앱 실행은 하지 않았다.
+
+`cargo search redis`와 `cargo info redis@1.7.1`에서 최신 안정판 1.7.1을 확인했다. Context7 `/redis-rs/redis-rs`로 tokio-comp, 비동기 연결·명령 API, multiplexed connection의 취소 조건을 확인하고 1.7.1 설치 소스와 [공식 API](https://docs.rs/redis/1.7.1/redis/aio/struct.MultiplexedConnection.html)를 대조했다. 기본 feature를 끄고 `tokio-comp`만 사용한다. 연결 폼은 host, port, password(secret), db, 선택 username이다. URI를 host로 받지 않고 secret은 `ConnectConfig.secret`에서만 읽는다. 서버 오류는 인수·비밀번호를 반사할 수 있어 고정 문구로 변환하며 드라이버에는 로그 출력이 없다.
+
+탐색은 SCAN MATCH/COUNT와 `:` 가상 폴더를 사용한다. 한 번에 200개 키를 탐색하고 `More keys…`로 이어 가며, Browse는 offset/limit/has_more와 결과 한도를 적용한다. 원시 명령도 SCAN을 지원하고 KEYS는 거부한다. 문자열·숫자·불리언 파라미터는 따옴표 없는 독립 `$name` 토큰에 바인딩한다. 예: `SET $key "hello world"`, 파라미터 `{"key":"axdbt:example"}`. 작은따옴표·큰따옴표, 공백, 역슬래시, `\xNN` 바이너리 입력을 처리하며 여러 줄·불완전 인용·누락/배열/null 파라미터는 오류다. 파라미터 문자열에 개행이나 명령처럼 보이는 내용이 있어도 하나의 Redis 인수로 전송한다.
+
+키 Browse는 string을 value 표, hash를 field/value 표, list를 index/value 표, set을 value 표, zset을 member/score 표, stream을 id/fields 표로 매핑한다. TYPE과 TTL은 기존 Message 뷰에 표시하며 TTL -1(영구)/-2(없음)를 설명한다. UTF-8 문자열은 원문을 보존하고 비UTF-8 값은 기존 `Value::Bytes { len, hex }` 계약대로 전체 길이와 첫 64바이트를 제공한다. 키 ID는 원시 바이트를 JSON 배열로 보존한다. HGETALL, ZRANGE WITHSCORES, XRANGE와 SCAN 계열 명령도 자료형에 맞는 표를 반환한다.
+
+`read_only_exec=true`는 드라이버의 보수적인 읽기 명령 허용 목록으로 강제한다. 쓰기·관리 명령, CONFIG/SCRIPT/EVAL, GETDEL/GETEX, SORT 및 알 수 없는 명령은 read-only에서 거부한다. Redis 서버 ACL이나 DB 수준 read-only를 구현했다고 주장하지 않는다. 연결은 실행마다 새로 열고 AUTH/SELECT/MULTI/구독 등 세션 상태 명령은 지원하지 않는다. `CancelSupport::Abort`와 timeout은 전용 연결을 버려 소켓과 드라이버 작업을 중단한다. 이미 실행된 쓰기는 롤백하지 않으며 서버에서 진행 중인 작업의 중단까지 보증하지 않는다. preview와 schema_graph는 선언하지 않고 호출 시 Unsupported를 반환한다.
+
+안전 격리: 요청된 명령으로 `axdb-test-redis` 컨테이너를 만들었으며 host publish는 `127.0.0.1:56379 -> 6379`뿐이다. 실제 계약 테스트는 `AXDB_TEST_REDIS=redis://:testredis@127.0.0.1:56379/0`와 정확히 일치하지 않으면 실패한다. fixture 쓰기·삭제는 해당 컨테이너의 고유 `axdbt:r1:<timestamp>:` 접두어에만 수행하고 정상 종료 시 직접 만든 키만 DEL로 정리한다. 사용자 Redis 포트 6379에는 접속하지 않았다. 테스트 컨테이너는 코디네이터의 앱 E2E를 위해 실행 상태로 남긴다.
+
+최종 Redis 검증: `AXDB_TEST_REDIS=... CARGO_TARGET_DIR=target-r1 cargo test -p driver-redis`에서 3 passed, 0 failed. 실제 서버에서 연결 실패·잘못된 인증/선택 username, 6개 자료형, 약 1MB 문자열, 비UTF-8 값과 키, 빈 값·없는 키, TYPE/TTL, 페이지·한도·잘림, 225개 키의 200+25 탐색 continuation, glob 문자가 든 가상 경로, 인용/파라미터, 읽기 전용 거부 뒤 데이터 유지, 오류의 비밀번호 비노출, 미지원 capability 거부를 검증했다. 실제 BLPOP 중 취소·timeout 후 `INFO clients`의 blocked_clients가 기준값으로 복귀하고 같은 세션의 ping이 성공했다. 이미 취소된 토큰의 SET은 실행되지 않음도 검증했다. 로그: `/tmp/axdb-r1-redis-test.log`.
+
+`CARGO_TARGET_DIR=target-r1 cargo clippy --workspace --all-targets -- -D warnings`는 exit 0으로 통과했다. `pnpm --dir ui test`는 9 files / 45 tests 통과했다. 신규 Rust 파일의 rustfmt check와 git diff whitespace check가 통과했으며 최종 `git diff --numstat -- ui/ crates/dbcore/`는 빈 출력이다. 최종 소스에서 clippy를 다시 확인해 exit 0을 얻었다. 로그: `/tmp/axdb-r1-clippy.log`, `/tmp/axdb-r1-clippy-final.log`, `/tmp/axdb-r1-ui-test.log`.
+
+최초 전체 workspace 테스트는 요청된 네 환경 변수 AXDB_TEST_PG(55432), AXDB_TEST_NEO4J(57687), AXDB_TEST_MONGO(57017), AXDB_TEST_REDIS(56379)를 설정해 `CARGO_TARGET_DIR=target-r1 cargo test --workspace`로 실행했으나 exit 101이었다. `crates/driver-postgres/tests/postgres.rs:49`의 `cancellation_races_do_not_poison_next_query`가 `current transaction is aborted, commands ignored until end of transaction block`으로 실패했다. 앞선 호스트 테스트는 34 passed / 2 ignored이며 MongoDB 실제 계약·스키마와 Neo4j 실제 계약은 통과했다. 이 최초 실행에서는 PostgreSQL 뒤의 Redis·SQLite workspace 구간이 실행되지 않았다. 실패는 코디네이터에 escalation으로 전달했고 다른 워커 소유 PostgreSQL 파일은 수정하지 않았다. 로그: `/tmp/axdb-r1-workspace-test.log`.
+
+코디네이터가 PostgreSQL 취소 drain의 25P02 경로에 드라이버 소유 트랜잭션의 ROLLBACK을 추가한 뒤, 코디네이터의 지시로 같은 네 DB 환경과 같은 workspace 명령을 한 번 재실행했다. 최종 `cargo test --workspace`는 80 passed / 0 failed / 2 ignored, exit 0으로 통과했으며 PostgreSQL 취소 경합·Redis 실서버·SQLite 구간도 모두 통과했다. 최초 실패 기록을 보존했으며 동일 소스의 단순 재시도로 덮은 결과가 아니다. 수정 반영 후 `cargo clippy --workspace --all-targets -- -D warnings`도 exit 0이다. 최종 로그: `/tmp/axdb-r1-workspace-test-final.log`, `/tmp/axdb-r1-clippy-after-pg.log`.
+
+한계: SCAN 계열의 offset 페이지는 커서 0부터 재탐색하며 스냅샷이 아니다. 동시 변경 시 페이지 누락/중복이 가능하고 큰 계층의 폴더는 continuation에 반복될 수 있다. offset은 100000까지 지원하며 더 큰 탐색은 원시 SCAN 커서를 사용한다. COUNT는 Redis의 힌트다. 일반 명령의 row_limit은 받은 응답의 출력 행 한도이며 서버 계산량·단일 값·단일 응답의 메모리 상한은 아니다. 원시 SCAN 응답이 row_limit보다 크면 truncated와 경고를 표시하므로 COUNT를 줄이거나 한도를 늘려 다시 조회해야 한다. TLS, Cluster/Sentinel, RESP3 및 상태 유지 트랜잭션은 구현하지 않았다. UI 실화면·앱 E2E는 코디네이터 소유로 미실행이다.

@@ -109,30 +109,44 @@
 
 ## 6. 남은 한계
 
-- **실제 Anthropic 호출은 검증하지 않았다.** API 키가 없고 호출은 과금된다. 요청 조립, SSE, refusal, `cache_control` 위치는 mock HTTP로 검증했다. 키를 주면 바로 검증할 수 있다.
-- MongoDB는 스키마 그래프(ERD)를 지원하지 않는다. capability로 선언하지 않았으므로 UI에 나타나지 않는다.
+- **실제 Anthropic 호출은 검증하지 않았다.**
+  - 이 머신의 `ant` OAuth 토큰은 2026-07-29에 만료됐고 API 키가 없다. 호출하면 사용자 계정에 과금된다.
+  - 요청 조립, SSE, refusal, `cache_control` 위치는 mock HTTP로 검증했다.
+  - 실제 검증 방법(요청 1회):
+    `security add-generic-password -s axdb -a ai:anthropic -w <API_KEY>` 뒤에 `AXDB_TEST_ANTHROPIC=1 cargo test -p axdb real_anthropic_once -- --ignored`
+- **Windows는 검증하지 않았다**(이 환경에서 실행할 수 없음).
+  - Linux는 Docker `rust:1.94-bookworm`(aarch64, host 네트워크)에서 최종 트리로 확인했다. release 빌드에 성공했고, 실제 PG·Neo4j·Mongo·SQLite·Redis와 TLS 컨테이너 3개에 연결한 전체 테스트가 **80/80 통과**했다. Linux GUI 화면은 띄우지 않았다.
 - 외부 프로세스(JSON-RPC) 플러그인은 구현하지 않았다(ADR-0001). 드라이버는 컴파일 시 등록한다.
-- 키체인: 앱의 GUI 쓰기 경로는 실제 OS 키체인 왕복 테스트(`real_os_keychain_roundtrip`, 명시 실행)로 대신 검증했다. E2E는 debug 전용 `AXDB_DEV_SECRET_STORE`를 썼고, 이 경로는 release에서 컴파일되지 않는다. 배포하려면 코드 서명이 필요하다.
+- 키체인: GUI 쓰기 경로는 실제 OS 키체인 왕복 테스트(`real_os_keychain_roundtrip`, 명시 실행)로 대신 검증했다. E2E는 debug 전용 `AXDB_DEV_SECRET_STORE`를 썼고, 이 경로는 release에서 컴파일되지 않는다. 배포하려면 코드 서명이 필요하다.
 - timestamptz는 서버 세션 TZ 기준 원문으로 표시한다.
-- TLS 연결, Windows/Linux, Redis는 검증하지 않았다.
+- MongoDB 관계는 FK가 아니라 샘플(최대 200문서) 기반 추론이다(`inferred_reference`, 뷰 `$lookup`은 `view_lookup`). 컬렉션이 100개를 넘으면 ERD 요청을 거부한다.
+- Redis
+  - SCAN 페이지는 스냅숏이 아니다. 동시에 변경되면 누락이나 중복이 생길 수 있다.
+  - 읽기 전용은 드라이버 허용 목록으로 강제한다. 서버 ACL 수준이 아니다.
+  - TLS, Cluster/Sentinel, 상태를 유지하는 트랜잭션은 미구현이다.
+- TLS: PG·Mongo·Neo4j는 단일 서버 TLS 컨테이너로 검증했다. Neo4j 클러스터 routing TLS는 검증하지 않았다.
 - Tabularis 생성 쿼리 15쌍은 비교 측정하지 않았다.
 - WebContent(UI)의 footprint는 탭을 모두 닫은 뒤에도 GC 시점에 따라 230~320MiB에 머문다. 결과 보조 참조 해제 후보로는 개선되지 않았다.
-- `cargo test` 전체 4회 중 첫 회에 PG 미리보기 테스트(`real_host_commands`)가 1건 일시적으로 실패했다. 이후 3회 연속 69/69로 통과했다.
-- 측정 중 OrbStack이 재시작됐다(약 19:51, 원인 외부). 테스트 DB 3개만 다시 시작했다. 사용자 컨테이너(zivo-*, office-meal 등)는 **정지 상태 그대로**다.
+- PG 취소 정리 결함(아래 7절)은 동시 실행 30회로는 재현하지 못했다. 빌드 세 개가 동시에 도는 부하에서 한 번 관측했고, 코드 경로를 분석해 수정했다.
+- 측정 중 OrbStack이 재시작됐다(약 19:51, 원인 외부). 테스트 DB만 다시 시작했다. 사용자 컨테이너(zivo-*, office-meal 등)는 **정지 상태 그대로**다.
+  - 이번에 추가한 테스트 컨테이너(`axdb-test-redis` 56379, `axdb-test-pg-tls` 55433, `axdb-test-mongo-tls` 57018, `axdb-test-neo4j-tls` 57688)는 loopback 전용이며 실행 중이다.
 
 ## 7. v2 고도화 보고
 
 | 항목 | 이전 | 이번 결과 | 검증 |
 |---|---|---|---|
-| 1 플러그인 구조 | 관계형 2개 + SQLite | **MongoDB 추가**(M1). 문서 패러다임, 비SQL 명령, ObjectId·Decimal128 등. 커밋 diff는 crate와 등록 3줄뿐(ui/dbcore 0) | 실제 Mongo 계약 테스트, UI driver-id grep 0 |
-| 2 뷰어·연결 탐색 | 표, 그래프, 결과 내 전환 (재사용) | **ERD/스키마 그래프**(PG FK, SQLite, Neo4j), **가상화 JSON 트리**, **FK 셀 → 참조 행**, **그래프↔표 선택 동기화**, **탐색 이력**(V1) | 실제 DB, 팬·줌 p95 16.8ms |
+| 1 플러그인 구조 | 관계형 2개 + SQLite | **MongoDB**(M1, 문서)와 **Redis**(R1, 키-값: SCAN 계층, 자료형별 표, TYPE·TTL, 허용 목록 읽기 전용)를 추가했다. 두 경우 모두 ui/dbcore 변경은 0이다 | 실제 Mongo·Redis 계약 테스트, 실제 앱 MCP로 Redis 탐색·HGETALL/ZRANGE·SET 거부 확인, UI driver-id grep 0 |
+| 2 뷰어·연결 탐색 | 표, 그래프, 결과 내 전환 (재사용) | **ERD/스키마 그래프**(PG FK, SQLite, Neo4j, **Mongo 샘플 추론 참조**(M2)), **가상화 JSON 트리**, **FK 셀 → 참조 행**, **그래프↔표 선택 동기화**, **탐색 이력**(V1) | 실제 DB, 팬·줌 p95 16.8ms |
 | 3 변경 미리보기 | 없음 | **실행 후 반드시 롤백**하는 데이터·스키마 diff. 롤백할 수 없는 문장은 거부(C1, PG·Neo4j·SQLite) | preview-e2e 5/5 |
 | 4 권한·읽기 전용 | 에이전트 읽기 전용 + 승인 (재사용) | **연결별 read_only**(host 강제), **클라이언트별 권한 프로필**(A1) | permissions-e2e 13/13 |
 | 5 MCP 권한 | 단일 토큰 브리지 (재사용) | **범위 토큰**(해시 저장), 연결별 none/read/preview/write_with_approval, 허용 도구, 감사 로그, 회전·폐기 | 13/13 + 외부 에이전트 시나리오 |
 | 6 AI 지원 | 없음 | **맥락 MCP 도구 3종**, 선택 기능 Anthropic 도우미(기본 꺼짐, 생성 쿼리는 실행하지 않음)(AI1/AI1b) | [시나리오](../bench/results-ai-agent-scenario.md). 실제 API 호출은 미검증 |
 | 7 성능·보안·리소스 | W4·W8 (재사용) | **host 메모리 보존 문제 해결(mimalloc purge 0)**, 연결 추가 흐름 분해, Tabularis 유휴 재비교 | 5절 |
+| 7 보안: TLS | 미검증 | **PG `sslmode=require`가 자체 서명 서버에 연결하지 못하던 결함 수정**(libpq 의미로 변경). `verify-ca`/`verify-full`과 `sslrootcert` 추가. Neo4j `+ssc`와 CA 파일, Mongo `tls`/`tlsCAFile` 필드 추가. Rustls provider panic 수정(M2) | TLS 전용 컨테이너 3개에서 모드별 성공/실패 매트릭스와 `pg_stat_ssl` 확인 |
+| 7 정확성 | — | **PG 미리보기가 다른 세션의 동시 DDL에 영향받던 결함 수정**(다른 세션 임시 스키마 제외, savepoint 재시도). 재현 후 회귀 테스트 추가(수정 전 실패, 수정 후 통과). **PG 취소 뒤 드라이버가 연 트랜잭션이 중단 상태로 남던 경로 수정**(drain 단계 25P02에서 ROLLBACK) | 재현: 동시 DDL 중 스냅숏 300회에서 오류 10회 이상, 수정 후 0 |
+| 7 플랫폼 | macOS만 | Linux(Docker aarch64) release 빌드와 실제 DB·TLS 테스트 80/80 | 6절 |
 
 **회귀(최종 트리)**
-- `cargo test --workspace`: 69 통과, 2 ignored(유료 API, 실제 키체인). 실제 PG·Neo4j·Mongo·SQLite에 연결했다.
+- `cargo test --workspace`: **80 통과 / 0 실패, 3회 연속**, 2 ignored(유료 API, 실제 키체인). 실제 PG·Neo4j·Mongo·SQLite·Redis와 TLS 컨테이너 3개에 연결했다.
 - `clippy --all-targets -D warnings`, vitest 45/45, UI driver-id 비교 grep 0
 - 실제 앱 E2E: e2e-bridge 21/21(PG·Neo4j·SQLite), preview 5/5, permissions 13/13

@@ -662,3 +662,32 @@ async fn schema_graph_and_filtered_browse() {
     assert!(s.list_children(None).await.unwrap().iter().find(|n|n.label=="e2e_fk").unwrap().actions.iter().any(|a|matches!(a.kind,NodeActionKind::OpenSchemaGraph {..})));
     s.close().await;
 }
+
+#[tokio::test]
+async fn change_preview_ignores_concurrent_ddl_from_other_sessions() {
+    let Some(cfg) = config() else {
+        return;
+    };
+    let driver = PostgresDriver::new();
+    let s = driver.connect(&cfg).await.unwrap();
+    let other = driver.connect(&cfg).await.unwrap();
+    let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let churn = tokio::spawn({
+        let stop = stop.clone();
+        async move {
+            while !stop.load(std::sync::atomic::Ordering::Relaxed) {
+                run(&*other, "CREATE TEMP TABLE axdb_race(id int primary key, v text); CREATE INDEX ON axdb_race(v); DROP TABLE axdb_race").await;
+            }
+            other.close().await;
+        }
+    });
+    for _ in 0..40 {
+        let p = s.preview(&req("CREATE TEMP TABLE axdb_mine(x int)"), CancelToken::new()).await.unwrap();
+        let diff = p.statements[0].schema_diff.as_ref().unwrap();
+        assert!(diff.added.iter().any(|n| n.contains("axdb_mine")));
+        assert!(diff.added.iter().chain(&diff.removed).all(|n| !n.contains("axdb_race")), "{diff:?}");
+    }
+    stop.store(true, std::sync::atomic::Ordering::Relaxed);
+    churn.await.unwrap();
+    s.close().await;
+}

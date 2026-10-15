@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/dbcore", "crates/driver-postgres", "crates/driver-neo4j", "src-tauri", "crates/driver-sqlite", "crates/driver-example-kv", "crates/driver-mongodb"]
+members = ["crates/dbcore", "crates/driver-postgres", "crates/driver-neo4j", "src-tauri", "crates/driver-sqlite", "crates/driver-example-kv", "crates/driver-mongodb", "crates/driver-redis"]
 resolver = "2"
 exclude = ["vendor/neo4rs"]
 
@@ -15,6 +15,7 @@ serde_json = "1"
 tokio = { version = "1", features = ["full"] }
 tokio-util = "0.7"
 dbcore = { path = "crates/dbcore" }
+redis = { version = "1.7.1", default-features = false, features = ["tokio-comp"] }
 
 [profile.release]
 opt-level = 3
