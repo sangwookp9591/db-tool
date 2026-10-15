@@ -1,0 +1,361 @@
+{
+  "passed": true,
+  "timestamp": "2026-10-15T05:23:54.567Z",
+  "transport": "running Tauri debug app localhost MCP bridge",
+  "checks": [
+    "manifest registration",
+    "KV not registered",
+    "open SQLite file connection",
+    "explorer Tables/Views",
+    "columns and PK",
+    "index definition",
+    "visible query tab",
+    "exact integer and JSON",
+    "read-only bypass rejected",
+    "300ms timeout",
+    "same session recovery",
+    "browse first/last page"
+  ],
+  "manifest": {
+    "capabilities": {
+      "cancel": "Server",
+      "edit_rows": false,
+      "graph_expand": false,
+      "multi_statement": true,
+      "paged_browse": true,
+      "params": false,
+      "read_only_exec": true,
+      "timeout": true,
+      "transactions": true
+    },
+    "connection_fields": [
+      {
+        "default": null,
+        "key": "path",
+        "kind": "FilePath",
+        "label": "Database file",
+        "placeholder": "/path/to/database.sqlite",
+        "required": true,
+        "secret": false
+      },
+      {
+        "default": "false",
+        "key": "read_only_open",
+        "kind": "Bool",
+        "label": "Open read-only",
+        "placeholder": "",
+        "required": false,
+        "secret": false
+      }
+    ],
+    "default_query": "SELECT sqlite_version();",
+    "display_name": "SQLite",
+    "id": "sqlite",
+    "paradigm": "Relational",
+    "query_language": {
+      "display": "SQL",
+      "editor_mode": "sql",
+      "id": "sql",
+      "supports_params": false
+    }
+  },
+  "roots": [
+    {
+      "actions": [],
+      "detail": null,
+      "has_children": true,
+      "icon": "Folder",
+      "id": "tables",
+      "kind": "folder",
+      "label": "Tables"
+    },
+    {
+      "actions": [],
+      "detail": null,
+      "has_children": true,
+      "icon": "Folder",
+      "id": "views",
+      "kind": "folder",
+      "label": "Views"
+    }
+  ],
+  "tables": [
+    {
+      "actions": [
+        {
+          "id": "browse",
+          "kind": "Browse",
+          "label": "Browse"
+        },
+        {
+          "id": "query",
+          "kind": {
+            "OpenQuery": {
+              "text": "SELECT * FROM \"w5_samples\" LIMIT 100;"
+            }
+          },
+          "label": "Open query"
+        }
+      ],
+      "detail": null,
+      "has_children": true,
+      "icon": "Table",
+      "id": "table:w5_samples",
+      "kind": "table",
+      "label": "w5_samples"
+    }
+  ],
+  "columns": [
+    {
+      "actions": [],
+      "detail": "INTEGER PRIMARY KEY",
+      "has_children": false,
+      "icon": "Key",
+      "id": "column:id",
+      "kind": "key",
+      "label": "id"
+    },
+    {
+      "actions": [],
+      "detail": "JSON",
+      "has_children": false,
+      "icon": "Column",
+      "id": "column:payload",
+      "kind": "column",
+      "label": "payload"
+    }
+  ],
+  "indexes": [
+    {
+      "actions": [],
+      "detail": "CREATE INDEX w5_payload_idx ON w5_samples(payload)",
+      "has_children": false,
+      "icon": "Index",
+      "id": "index:w5_payload_idx",
+      "kind": "index",
+      "label": "w5_payload_idx"
+    }
+  ],
+  "selected": {
+    "results": [
+      {
+        "affected": null,
+        "documents": null,
+        "elapsed_ms": 0,
+        "graph": null,
+        "message": null,
+        "page": null,
+        "row_count": 3,
+        "table": {
+          "columns": [
+            {
+              "name": "exact",
+              "type_name": "INTEGER"
+            },
+            {
+              "name": "payload",
+              "type_name": "JSON"
+            }
+          ],
+          "rows": [
+            [
+              {
+                "t": "Int",
+                "v": "9223372036854775807"
+              },
+              {
+                "t": "Json",
+                "v": "{\"big\":9223372036854775807}"
+              }
+            ],
+            [
+              {
+                "t": "Int",
+                "v": "9223372036854775807"
+              },
+              {
+                "t": "Json",
+                "v": "{\"page\":2}"
+              }
+            ],
+            [
+              {
+                "t": "Int",
+                "v": "9223372036854775807"
+              },
+              {
+                "t": "Json",
+                "v": "{\"page\":3}"
+              }
+            ]
+          ]
+        },
+        "title": "SELECT 9223372036854775807 AS exact, payload FROM w5_samples ORDER BY id",
+        "truncated": false
+      }
+    ]
+  },
+  "ui": {
+    "active_tab": {
+      "connection": "W5 SQLite smoke",
+      "id": "75af0511-1641-4b9e-9c3e-49534b1879bc",
+      "text": "SELECT 9223372036854775807 AS exact, payload FROM w5_samples ORDER BY id"
+    },
+    "connections": [
+      {
+        "id": "w5-sqlite",
+        "name": "W5 SQLite smoke",
+        "session_id": "1c6d33ce-dc4a-4419-a336-f737ef74e84e"
+      }
+    ],
+    "last_result": [
+      {
+        "row_count": 3,
+        "title": "SELECT 9223372036854775807 AS exact, payload FROM w5_samples ORDER BY id",
+        "truncated": false,
+        "views": [
+          "table"
+        ]
+      }
+    ]
+  },
+  "blocked": {
+    "error": {
+      "kind": "Query",
+      "message": "not authorized"
+    }
+  },
+  "timedOut": {
+    "error": {
+      "kind": "Timeout",
+      "message": "Execution timed out"
+    }
+  },
+  "recovered": {
+    "results": [
+      {
+        "affected": null,
+        "documents": null,
+        "elapsed_ms": 0,
+        "graph": null,
+        "message": null,
+        "page": null,
+        "row_count": 1,
+        "table": {
+          "columns": [
+            {
+              "name": "n",
+              "type_name": "INTEGER"
+            }
+          ],
+          "rows": [
+            [
+              {
+                "t": "Int",
+                "v": "3"
+              }
+            ]
+          ]
+        },
+        "title": "SELECT count(*) AS n FROM w5_samples",
+        "truncated": false
+      }
+    ]
+  },
+  "page1": {
+    "results": [
+      {
+        "affected": null,
+        "documents": null,
+        "elapsed_ms": 0,
+        "graph": null,
+        "message": null,
+        "page": {
+          "has_more": true,
+          "limit": 2,
+          "offset": 0
+        },
+        "row_count": 2,
+        "table": {
+          "columns": [
+            {
+              "name": "id",
+              "type_name": "INTEGER"
+            },
+            {
+              "name": "payload",
+              "type_name": "JSON"
+            }
+          ],
+          "rows": [
+            [
+              {
+                "t": "Int",
+                "v": "1"
+              },
+              {
+                "t": "Json",
+                "v": "{\"big\":9223372036854775807}"
+              }
+            ],
+            [
+              {
+                "t": "Int",
+                "v": "2"
+              },
+              {
+                "t": "Json",
+                "v": "{\"page\":2}"
+              }
+            ]
+          ]
+        },
+        "title": "SELECT * FROM \"w5_samples\" LIMIT 3 OFFSET 0",
+        "truncated": true
+      }
+    ]
+  },
+  "page2": {
+    "results": [
+      {
+        "affected": null,
+        "documents": null,
+        "elapsed_ms": 0,
+        "graph": null,
+        "message": null,
+        "page": {
+          "has_more": false,
+          "limit": 2,
+          "offset": 2
+        },
+        "row_count": 1,
+        "table": {
+          "columns": [
+            {
+              "name": "id",
+              "type_name": "INTEGER"
+            },
+            {
+              "name": "payload",
+              "type_name": "JSON"
+            }
+          ],
+          "rows": [
+            [
+              {
+                "t": "Int",
+                "v": "3"
+              },
+              {
+                "t": "Json",
+                "v": "{\"page\":3}"
+              }
+            ]
+          ]
+        },
+        "title": "SELECT * FROM \"w5_samples\" LIMIT 3 OFFSET 2",
+        "truncated": false
+      }
+    ]
+  }
+}

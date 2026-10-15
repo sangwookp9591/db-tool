@@ -45,7 +45,7 @@ SQLite는 `path: FilePath`와 `read_only_open: Bool`만 선언하며 비밀번�
 | graph_expand | 노드 식별자 검증, 이웃 한도와 그래프 정합성 보장 |
 | edit_rows | 실제 편집 계약과 저장 기능이 있을 때만 선언 |
 
-KV 예제는 대부분 false다. 따라서 UI는 paging, graph 확장, timeout, transaction 등의
+KV 예제는 대부분 false다. 따라서 UI는 paging, graph 확장, timeout, cancel, parameters 등의
 선택 기능을 표시하지 않는다. 지원하지 않는 기능을 호출하면 드라이버도 거부한다.
 읽기 전용을 보증하지 못하는 드라이버의 agent 실행에는 호스트의 승인 절차가 적용된다.
 
@@ -86,9 +86,13 @@ SQLite OFFSET paging은 동시 쓰기 사이에 스냅샷을 유지하지 않으
 SQLite `read_only`는 기존 query_only를 저장하고 ON으로 실행한 후 성공/오류/취소
 모두에서 원복한다. authorizer는 PRAGMA, ATTACH, DETACH, transaction/savepoint 변경을
 거부한다. 따라서 `PRAGMA query_only=OFF; INSERT ...` 우회가 불가능하다.
-모든 PRAGMA를 거부하므로 read-only PRAGMA도 사용할 수 없다. 읽기 전용의 SQL 조회에는
-SELECT와 pragma table-valued 함수를 사용한다. 읽기 전용 실행은 미신뢰 SQL의 완전한
+모든 PRAGMA를 거부하므로 read-only PRAGMA도 사용할 수 없다. 읽기 전용 SQL은 SELECT를 사용하고,
+스키마 메타데이터는 list_children으로 조회한다. PRAGMA 기반 table-valued 함수도
+내부 PRAGMA 권한 검사로 거부될 수 있다. 읽기 전용 실행은 미신뢰 SQL의 완전한
 sandbox가 아니므로 신뢰할 수 없는 DB 파일이나 확장을 자동 로드하지 않는다.
+
+여러 문장의 쓰기를 원자적으로 처리하려면 명시적인 BEGIN/COMMIT을 사용한다.
+취소·타임아웃이 이전 문장에서 이미 commit된 쓰기까지 되돌리지는 않는다.
 
 행은 step하면서 `row_limit`까지만 모은다. 다음 행이 있으면 truncated=true로 표시하고
 커서를 버린다. 이것은 결과 행 수의 상한이며 단일 셀의 크기나 DB 엔진 자체의 sort/aggregate
@@ -123,6 +127,6 @@ Manifest, 요청, 결과, 탐색과 오류 계약은 serde 직렬화가 가능�
 pending 요청 실패, timeout과 인증 경계를 구현해야 한다. DB 비밀과 결과는 로그에 남기지
 않는다. 현재 저장소는 in-process 등록만 구현하며 외부 프로세스 로더를 제공하지 않는다.
 
-구현 API 참고: [rusqlite Connection](https://docs.rs/rusqlite/0.32.1/rusqlite/struct.Connection.html),
+구현 API 참고: [rusqlite Connection](https://docs.rs/rusqlite/0.40.2/rusqlite/struct.Connection.html),
 [SQLite query_only](https://sqlite.org/pragma.html#pragma_query_only),
 [SQLite interrupt](https://sqlite.org/c3ref/interrupt.html).

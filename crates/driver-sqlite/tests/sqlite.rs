@@ -1,0 +1,345 @@
+use dbcore::*;
+use driver_sqlite::SqliteDriver;
+use std::{collections::BTreeMap, time::Duration};
+fn config(path: &std::path::Path, readonly: bool) -> ConnectConfig {
+    ConnectConfig {
+        fields: BTreeMap::from([
+            ("path".into(), path.to_str().unwrap().into()),
+            ("read_only_open".into(), readonly.to_string()),
+        ]),
+        secret: None,
+        connect_timeout_ms: 1000,
+    }
+}
+fn req(sql: &str) -> ExecRequest {
+    serde_json::from_value(serde_json::json!({"text":sql})).unwrap()
+}
+async fn run(s: &dyn Session, sql: &str) -> ResultSet {
+    s.execute(&req(sql), CancelToken::new())
+        .await
+        .unwrap()
+        .remove(0)
+}
+async fn fixture() -> (tempfile::TempDir, Box<dyn Session>) {
+    let dir = tempfile::tempdir().unwrap();
+    let s = SqliteDriver::new()
+        .connect(&config(&dir.path().join("test.db"), false))
+        .await
+        .unwrap();
+    s.execute(&req("CREATE TABLE sample(id INTEGER PRIMARY KEY, n REAL, t TEXT, b BLOB, j JSON, d DATE, dt DATETIME, ts TIMESTAMP); CREATE INDEX sample_t ON sample(t); CREATE VIEW sample_view AS SELECT * FROM sample; INSERT INTO sample VALUES(9223372036854775807,1.5,NULL,x'00ff','{\"n\":9223372036854775807}','2026-10-15','2026-10-15 12:00:00','2026-10-15T12:00:00');"), CancelToken::new()).await.unwrap();
+    (dir, s)
+}
+#[tokio::test]
+async fn values_limits_errors_and_explorer() {
+    let (_dir, s) = fixture().await;
+    s.ping().await.unwrap();
+    assert!(!s.server_info().await.unwrap().is_empty());
+    let r = run(s.as_ref(), "SELECT * FROM sample").await;
+    let table = r.table.unwrap();
+    assert_eq!(table.columns[4].type_name, "JSON");
+    assert_eq!(
+        table.rows[0],
+        vec![
+            Value::Int(i64::MAX.to_string()),
+            Value::Float(FloatValue::Number(1.5)),
+            Value::Null,
+            Value::Bytes {
+                len: 2,
+                hex: "00ff".into()
+            },
+            Value::Json("{\"n\":9223372036854775807}".into()),
+            Value::Date("2026-10-15".into()),
+            Value::DateTime("2026-10-15 12:00:00".into()),
+            Value::DateTime("2026-10-15T12:00:00".into())
+        ]
+    );
+    let expr = run(
+        s.as_ref(),
+        "SELECT 1 AS n, NULL AS nothing_here, 'text' AS t",
+    )
+    .await;
+    assert_eq!(
+        expr.table
+            .unwrap()
+            .columns
+            .iter()
+            .map(|c| c.type_name.as_str())
+            .collect::<Vec<_>>(),
+        ["INTEGER", "NULL", "TEXT"]
+    );
+    let mut limited = req("WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<1000000) SELECT x FROM n");
+    limited.row_limit = 2;
+    let r = s
+        .execute(&limited, CancelToken::new())
+        .await
+        .unwrap()
+        .remove(0);
+    assert_eq!(r.row_count, 2);
+    assert!(r.truncated);
+    assert_eq!(
+        s.execute(&req("SELEC broken"), CancelToken::new())
+            .await
+            .unwrap_err()
+            .kind,
+        ErrorKind::Query
+    );
+    assert_eq!(s.list_children(None).await.unwrap()[0].label, "Tables");
+    let tables = s.list_children(Some("tables")).await.unwrap();
+    assert_eq!(tables.len(), 1);
+    assert_eq!(tables[0].actions.len(), 2);
+    assert_eq!(
+        s.list_children(Some("views")).await.unwrap()[0].label,
+        "sample_view"
+    );
+    assert_eq!(
+        s.list_children(Some("table:sample")).await.unwrap()[0].label,
+        "Columns"
+    );
+    let cols = s.list_children(Some("columns:sample")).await.unwrap();
+    assert_eq!(cols[0].icon, Icon::Key);
+    assert!(cols[0].detail.as_ref().unwrap().contains("PRIMARY KEY"));
+    assert!(s.list_children(Some("indexes:sample")).await.unwrap()[0]
+        .detail
+        .as_ref()
+        .unwrap()
+        .contains("CREATE INDEX"));
+    run(
+        s.as_ref(),
+        "CREATE TABLE \"weird\"\";name\"(n); INSERT INTO \"weird\"\";name\" VALUES(1),(2),(3)",
+    )
+    .await;
+    let p = s
+        .browse(
+            "table:weird\";name",
+            PageRequest {
+                offset: 0,
+                limit: 2,
+            },
+        )
+        .await
+        .unwrap();
+    assert!(p.page.unwrap().has_more);
+    assert_eq!(p.row_count, 2);
+    let p = s
+        .browse(
+            "table:weird\";name",
+            PageRequest {
+                offset: 2,
+                limit: 2,
+            },
+        )
+        .await
+        .unwrap();
+    assert!(!p.page.unwrap().has_more);
+    assert_eq!(p.row_count, 1);
+    s.close().await;
+    assert_eq!(s.ping().await.unwrap_err().kind, ErrorKind::Connection);
+}
+const LOOP: &str =
+    "WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n) SELECT sum(x) FROM n";
+#[tokio::test]
+async fn timeout_cancel_and_session_reuse() {
+    let (_dir, s) = fixture().await;
+    let mut r = req(LOOP);
+    r.timeout_ms = 300;
+    let start = std::time::Instant::now();
+    assert_eq!(
+        s.execute(&r, CancelToken::new()).await.unwrap_err().kind,
+        ErrorKind::Timeout
+    );
+    assert!(start.elapsed() < Duration::from_secs(3));
+    assert_eq!(run(s.as_ref(), "SELECT 1").await.row_count, 1);
+    let token = CancelToken::new();
+    let cancel = token.clone();
+    tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        cancel.cancel();
+    });
+    assert_eq!(
+        s.execute(&req(LOOP), token).await.unwrap_err().kind,
+        ErrorKind::Cancelled
+    );
+    assert_eq!(run(s.as_ref(), "SELECT 1").await.row_count, 1);
+    // Dropping a caller must not leave an infinite blocking task holding the connection.
+    let mut r = req(LOOP);
+    r.timeout_ms = 100;
+    assert!(
+        tokio::time::timeout(Duration::from_millis(20), s.execute(&r, CancelToken::new()))
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        tokio::time::timeout(Duration::from_secs(2), run(s.as_ref(), "SELECT 1"))
+            .await
+            .unwrap()
+            .row_count,
+        1
+    );
+}
+#[tokio::test]
+async fn readonly_cannot_be_disabled_and_is_restored() {
+    let (dir, s) = fixture().await;
+    for sql in [
+        "INSERT INTO sample(id) VALUES(1)",
+        "PRAGMA query_only=OFF; INSERT INTO sample(id) VALUES(1)",
+        "ATTACH ':memory:' AS extra",
+        "BEGIN",
+        "SAVEPOINT test",
+    ] {
+        let mut r = req(sql);
+        r.read_only = true;
+        assert_eq!(
+            s.execute(&r, CancelToken::new()).await.unwrap_err().kind,
+            ErrorKind::Query,
+            "{sql}"
+        );
+        assert_eq!(run(s.as_ref(), "SELECT 1").await.row_count, 1);
+    }
+    let mut r = req("SELECT * FROM sample");
+    r.read_only = true;
+    assert_eq!(
+        s.execute(&r, CancelToken::new()).await.unwrap()[0].row_count,
+        1
+    );
+    run(s.as_ref(), "INSERT INTO sample(id) VALUES(1)").await;
+    run(
+        s.as_ref(),
+        "BEGIN; INSERT INTO sample(id) VALUES(2); ROLLBACK;",
+    )
+    .await;
+    assert_eq!(run(s.as_ref(), "SELECT * FROM sample").await.row_count, 2);
+    let ro = SqliteDriver::new()
+        .connect(&config(&dir.path().join("test.db"), true))
+        .await
+        .unwrap();
+    assert_eq!(
+        ro.execute(&req("INSERT INTO sample(id) VALUES(3)"), CancelToken::new())
+            .await
+            .unwrap_err()
+            .kind,
+        ErrorKind::Query
+    );
+    assert!(matches!(
+        SqliteDriver::new()
+            .connect(&config(&dir.path().join("missing.db"), true))
+            .await,
+        Err(DbError {
+            kind: ErrorKind::Connection,
+            ..
+        })
+    ));
+}
+
+#[tokio::test]
+async fn parser_and_readonly_cleanup_after_timeout() {
+    let (_dir, s) = fixture().await;
+    let result = s.execute(&req("CREATE TABLE audit(v TEXT); CREATE TRIGGER sample_t AFTER INSERT ON sample BEGIN INSERT INTO audit VALUES('one;two'); INSERT INTO audit VALUES('three'); END; INSERT INTO sample(id) VALUES(5); SELECT * FROM audit;"), CancelToken::new()).await.unwrap();
+    assert_eq!(result.len(), 4);
+    let indexes = s.list_children(Some("indexes:sample")).await.unwrap();
+    assert_eq!(indexes.len(), 1);
+    assert!(indexes[0]
+        .detail
+        .as_ref()
+        .unwrap()
+        .starts_with("CREATE INDEX"));
+    assert_eq!(result[3].row_count, 2);
+    assert_eq!(
+        result[3].table.as_ref().unwrap().rows[0][0],
+        Value::Text("one;two".into())
+    );
+    let mut r = req(LOOP);
+    r.read_only = true;
+    r.timeout_ms = 50;
+    assert_eq!(
+        s.execute(&r, CancelToken::new()).await.unwrap_err().kind,
+        ErrorKind::Timeout
+    );
+    run(s.as_ref(), "INSERT INTO sample(id) VALUES(6)").await;
+    run(s.as_ref(), "PRAGMA query_only=ON").await;
+    let mut r = req("SELECT 1");
+    r.read_only = true;
+    s.execute(&r, CancelToken::new()).await.unwrap();
+    assert_eq!(
+        s.execute(&req("INSERT INTO sample(id) VALUES(7)"), CancelToken::new())
+            .await
+            .unwrap_err()
+            .kind,
+        ErrorKind::Query
+    );
+    run(s.as_ref(), "PRAGMA query_only=OFF").await;
+    run(s.as_ref(), "INSERT INTO sample(id) VALUES(7)").await;
+}
+
+#[tokio::test]
+async fn queued_timeout_and_precancel_do_not_interrupt_next_run() {
+    let (_dir, s) = fixture().await;
+    let mut long = req(LOOP);
+    long.timeout_ms = 200;
+    let waiting = async {
+        tokio::time::sleep(Duration::from_millis(10)).await;
+        let mut short = req("SELECT 1");
+        short.timeout_ms = 20;
+        s.execute(&short, CancelToken::new()).await
+    };
+    let (first, queued) = tokio::join!(s.execute(&long, CancelToken::new()), waiting);
+    assert_eq!(first.unwrap_err().kind, ErrorKind::Timeout);
+    assert_eq!(queued.unwrap_err().kind, ErrorKind::Timeout);
+    for _ in 0..10 {
+        let cancel = CancelToken::new();
+        cancel.cancel();
+        assert_eq!(
+            s.execute(&req("SELECT 1"), cancel).await.unwrap_err().kind,
+            ErrorKind::Cancelled
+        );
+        assert_eq!(run(s.as_ref(), "SELECT 1").await.row_count, 1);
+    }
+}
+
+#[tokio::test]
+async fn special_reals_are_json_serializable() {
+    let (_dir, s) = fixture().await;
+    let result = run(s.as_ref(), "SELECT 1e999, -1e999").await;
+    assert_eq!(
+        result.table.as_ref().unwrap().rows[0],
+        vec![
+            Value::Float(FloatValue::Special("Infinity".into())),
+            Value::Float(FloatValue::Special("-Infinity".into()))
+        ]
+    );
+    assert!(serde_json::to_string(&result).unwrap().contains("Infinity"));
+}
+
+#[tokio::test]
+async fn dropping_session_releases_uncommitted_write_lock() {
+    let (dir, s) = fixture().await;
+    run(s.as_ref(), "BEGIN; INSERT INTO sample(id) VALUES(42)").await;
+    drop(s);
+    let next = SqliteDriver::new()
+        .connect(&config(&dir.path().join("test.db"), false))
+        .await
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+            match next
+                .execute(
+                    &req("INSERT INTO sample(id) VALUES(42)"),
+                    CancelToken::new(),
+                )
+                .await
+            {
+                Ok(_) => break,
+                Err(e) if e.message.contains("locked") => tokio::task::yield_now().await,
+                Err(e) => panic!("unexpected error: {e}"),
+            }
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(
+        run(next.as_ref(), "SELECT * FROM sample WHERE id=42")
+            .await
+            .row_count,
+        1
+    );
+    next.close().await;
+}
