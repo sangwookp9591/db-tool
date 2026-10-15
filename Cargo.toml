@@ -1,0 +1,22 @@
+[workspace]
+members = ["crates/dbcore", "crates/driver-postgres", "src-tauri"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[workspace.dependencies]
+async-trait = "0.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+tokio-util = "0.7"
+dbcore = { path = "crates/dbcore" }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true

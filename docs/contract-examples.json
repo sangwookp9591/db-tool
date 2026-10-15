@@ -1,0 +1,144 @@
+{
+  "error": {
+    "detail": null,
+    "kind": "Query",
+    "message": "column \"missing_example_column\" does not exist",
+    "position": 8
+  },
+  "manifest": {
+    "capabilities": {
+      "cancel": "Server",
+      "edit_rows": false,
+      "graph_expand": false,
+      "multi_statement": true,
+      "paged_browse": true,
+      "params": false,
+      "timeout": true,
+      "transactions": true
+    },
+    "connection_fields": [
+      {
+        "default": "localhost",
+        "key": "host",
+        "kind": "Text",
+        "label": "Host",
+        "placeholder": "",
+        "required": true,
+        "secret": false
+      },
+      {
+        "default": "5432",
+        "key": "port",
+        "kind": "Number",
+        "label": "Port",
+        "placeholder": "",
+        "required": true,
+        "secret": false
+      },
+      {
+        "default": "postgres",
+        "key": "database",
+        "kind": "Text",
+        "label": "Database",
+        "placeholder": "",
+        "required": true,
+        "secret": false
+      },
+      {
+        "default": "postgres",
+        "key": "user",
+        "kind": "Text",
+        "label": "User",
+        "placeholder": "",
+        "required": true,
+        "secret": false
+      },
+      {
+        "default": null,
+        "key": "password",
+        "kind": "Password",
+        "label": "Password",
+        "placeholder": "",
+        "required": false,
+        "secret": true
+      },
+      {
+        "default": "prefer",
+        "key": "sslmode",
+        "kind": {
+          "Select": {
+            "options": [
+              "disable",
+              "prefer",
+              "require"
+            ]
+          }
+        },
+        "label": "TLS mode",
+        "placeholder": "",
+        "required": true,
+        "secret": false
+      }
+    ],
+    "default_query": "SELECT current_database(), version();",
+    "display_name": "PostgreSQL",
+    "id": "postgres",
+    "paradigm": "Relational",
+    "query_language": {
+      "display": "SQL",
+      "editor_mode": "sql",
+      "id": "sql",
+      "supports_params": false
+    }
+  },
+  "result": {
+    "affected": null,
+    "documents": null,
+    "elapsed_ms": 28,
+    "graph": null,
+    "message": null,
+    "page": null,
+    "row_count": 1,
+    "table": {
+      "columns": [
+        {
+          "name": "id",
+          "type_name": "int8"
+        },
+        {
+          "name": "amount",
+          "type_name": "numeric"
+        },
+        {
+          "name": "document",
+          "type_name": "jsonb"
+        },
+        {
+          "name": "missing",
+          "type_name": "text"
+        }
+      ],
+      "rows": [
+        [
+          {
+            "t": "Int",
+            "v": "9223372036854775807"
+          },
+          {
+            "t": "Decimal",
+            "v": "12345678901234567890.123456789"
+          },
+          {
+            "t": "Json",
+            "v": "{\"big\": 9223372036854775807}"
+          },
+          {
+            "t": "Null"
+          }
+        ]
+      ]
+    },
+    "title": "SELECT 9223372036854775807::int8 AS id, 12345678901234567890.123456789::numeric ",
+    "truncated": false
+  }
+}

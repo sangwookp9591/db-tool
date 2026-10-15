@@ -1,0 +1,648 @@
+//! PostgreSQL text-protocol driver; no dependency on the desktop host.
+mod split;
+use async_trait::async_trait;
+use dbcore::*;
+use futures_util::{pin_mut, StreamExt};
+use postgres_native_tls::MakeTlsConnector;
+pub use split::split_statements;
+use std::{
+    sync::atomic::{AtomicBool, Ordering},
+    time::{Duration, Instant},
+};
+use tokio::sync::Mutex;
+use tokio_postgres::{
+    config::SslMode, error::ErrorPosition, types::Type, Client, SimpleQueryMessage,
+};
+
+pub struct PostgresDriver {
+    manifest: DriverManifest,
+}
+impl Default for PostgresDriver {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl PostgresDriver {
+    pub fn new() -> Self {
+        let fields = [
+            ("host", "Host", FieldKind::Text, Some("localhost"), false),
+            ("port", "Port", FieldKind::Number, Some("5432"), false),
+            (
+                "database",
+                "Database",
+                FieldKind::Text,
+                Some("postgres"),
+                false,
+            ),
+            ("user", "User", FieldKind::Text, Some("postgres"), false),
+            ("password", "Password", FieldKind::Password, None, true),
+            (
+                "sslmode",
+                "TLS mode",
+                FieldKind::Select {
+                    options: vec!["disable".into(), "prefer".into(), "require".into()],
+                },
+                Some("prefer"),
+                false,
+            ),
+        ];
+        Self {
+            manifest: DriverManifest {
+                id: "postgres".into(),
+                display_name: "PostgreSQL".into(),
+                paradigm: Paradigm::Relational,
+                query_language: QueryLanguage {
+                    id: "sql".into(),
+                    display: "SQL".into(),
+                    editor_mode: "sql".into(),
+                    supports_params: false,
+                },
+                connection_fields: fields
+                    .into_iter()
+                    .map(|(key, label, kind, default, secret)| FieldSpec {
+                        key: key.into(),
+                        label: label.into(),
+                        kind,
+                        required: !secret,
+                        default: default.map(str::to_string),
+                        secret,
+                        placeholder: String::new(),
+                    })
+                    .collect(),
+                capabilities: Capabilities {
+                    cancel: CancelSupport::Server,
+                    timeout: true,
+                    params: false,
+                    transactions: true,
+                    paged_browse: true,
+                    graph_expand: false,
+                    multi_statement: true,
+                    edit_rows: false,
+                },
+                default_query: "SELECT current_database(), version();".into(),
+            },
+        }
+    }
+}
+#[async_trait]
+impl Driver for PostgresDriver {
+    fn manifest(&self) -> &DriverManifest {
+        &self.manifest
+    }
+    async fn connect(&self, cfg: &ConnectConfig) -> Result<Box<dyn Session>, DbError> {
+        let field = |key: &str, default: &str| {
+            cfg.fields
+                .get(key)
+                .cloned()
+                .unwrap_or_else(|| default.into())
+        };
+        let mut pg = tokio_postgres::Config::new();
+        pg.host(field("host", "localhost"))
+            .port(
+                field("port", "5432")
+                    .parse::<u16>()
+                    .map_err(|_| DbError::new(ErrorKind::Connection, "Invalid port"))?,
+            )
+            .dbname(field("database", "postgres"))
+            .user(field("user", "postgres"))
+            .connect_timeout(Duration::from_millis(cfg.connect_timeout_ms.max(1)));
+        if let Some(secret) = &cfg.secret {
+            pg.password(secret);
+        }
+        pg.ssl_mode(match field("sslmode", "prefer").as_str() {
+            "disable" => SslMode::Disable,
+            "prefer" => SslMode::Prefer,
+            "require" => SslMode::Require,
+            _ => return Err(DbError::new(ErrorKind::Connection, "Invalid TLS mode")),
+        });
+        let tls = MakeTlsConnector::new(
+            native_tls::TlsConnector::new()
+                .map_err(|_| DbError::new(ErrorKind::Connection, "TLS initialization failed"))?,
+        );
+        let (client, connection) = tokio::time::timeout(
+            Duration::from_millis(cfg.connect_timeout_ms.max(1)),
+            pg.connect(tls.clone()),
+        )
+        .await
+        .map_err(|_| DbError::new(ErrorKind::Connection, "Connection timed out"))?
+        .map_err(|e| {
+            let mut error = pg_error(e, cfg.secret.as_deref());
+            if error.kind == ErrorKind::Query {
+                error.kind = ErrorKind::Connection;
+            }
+            error
+        })?;
+        let task = tokio::spawn(async move {
+            let _ = connection.await;
+        });
+        let session = PgSession {
+            client,
+            tls,
+            state: Mutex::new(TxState::default()),
+            closed: AtomicBool::new(false),
+            connection: task.abort_handle(),
+            secret: cfg.secret.clone(),
+        };
+        // Stable text rendering avoids bytea escape mode and session date format surprises.
+        session.client.batch_execute("SET bytea_output = 'hex'; SET datestyle = 'ISO, YMD'; SET standard_conforming_strings = on").await.map_err(|e| session.error(e))?;
+        Ok(Box::new(session))
+    }
+}
+#[derive(Default)]
+struct TxState {
+    explicit: bool,
+}
+pub struct PgSession {
+    client: Client,
+    tls: MakeTlsConnector,
+    state: Mutex<TxState>,
+    closed: AtomicBool,
+    connection: tokio::task::AbortHandle,
+    secret: Option<String>,
+}
+impl Drop for PgSession {
+    fn drop(&mut self) {
+        self.connection.abort();
+    }
+}
+impl PgSession {
+    fn error(&self, e: tokio_postgres::Error) -> DbError {
+        pg_error(e, self.secret.as_deref())
+    }
+    async fn run(
+        &self,
+        req: &ExecRequest,
+        state: &mut TxState,
+        cancel: &CancelToken,
+    ) -> Result<Vec<ResultSet>, DbError> {
+        if !req.params.is_empty() {
+            return Err(DbError::unsupported(
+                "PostgreSQL parameters are not enabled",
+            ));
+        }
+        let mut results = Vec::new();
+        for sql in split_statements(&req.text)? {
+            if cancel.is_cancelled() {
+                return Err(DbError::new(ErrorKind::Cancelled, "Execution cancelled"));
+            }
+            let start = Instant::now();
+            let words = split::keywords(&sql);
+            let first = words.first().map(String::as_str).unwrap_or("");
+            // COPY requires a separate streaming API; rejecting prevents a session becoming stuck in COPY mode.
+            if first == "COPY" {
+                return Err(DbError::unsupported("COPY streaming is not supported"));
+            }
+            let statement = self.client.prepare(&sql).await.map_err(|e| self.error(e))?;
+            if cancel.is_cancelled() {
+                return Err(DbError::new(ErrorKind::Cancelled, "Execution cancelled"));
+            }
+            let mut result = if statement.columns().is_empty() {
+                let messages = self
+                    .client
+                    .simple_query(&sql)
+                    .await
+                    .map_err(|e| self.error(e))?;
+                let affected = messages
+                    .iter()
+                    .find_map(|m| match m {
+                        SimpleQueryMessage::CommandComplete(n) => Some(*n),
+                        _ => None,
+                    })
+                    .unwrap_or(0);
+                match first {
+                    "BEGIN" | "START" => state.explicit = true,
+                    "COMMIT" | "END" | "ABORT" => {
+                        state.explicit = words.windows(2).any(|w| w == ["AND", "CHAIN"])
+                    }
+                    "ROLLBACK" if !words.iter().any(|w| w == "TO") => {
+                        state.explicit = words.windows(2).any(|w| w == ["AND", "CHAIN"])
+                    }
+                    _ => {}
+                }
+                ResultSet {
+                    message: Some(format!("{first} {affected}")),
+                    affected: Some(affected),
+                    ..Default::default()
+                }
+            } else {
+                let types = statement
+                    .columns()
+                    .iter()
+                    .map(|c| c.type_().clone())
+                    .collect::<Vec<_>>();
+                let columns = statement
+                    .columns()
+                    .iter()
+                    .map(|c| Column {
+                        name: c.name().into(),
+                        type_name: c.type_().name().into(),
+                    })
+                    .collect();
+                let limit = clamp_row_limit(req.row_limit) as usize;
+                let cursorable = matches!(first, "SELECT" | "WITH" | "VALUES" | "TABLE");
+                let rows = if cursorable {
+                    self.cursor_rows(&sql, limit, state.explicit, cancel)
+                        .await?
+                } else {
+                    self.stream_rows(&sql, limit).await?
+                };
+                let truncated = rows.len() > limit;
+                let rows = rows
+                    .into_iter()
+                    .take(limit)
+                    .map(|row| {
+                        (0..types.len())
+                            .map(|i| map_value(&types[i], row.get(i)))
+                            .collect::<Result<Vec<_>, _>>()
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                ResultSet {
+                    row_count: rows.len() as u64,
+                    table: Some(Table { columns, rows }),
+                    truncated,
+                    ..Default::default()
+                }
+            };
+            result.title = sql.lines().next().unwrap_or("").chars().take(80).collect();
+            result.elapsed_ms = start.elapsed().as_millis() as u64;
+            results.push(result);
+        }
+        Ok(results)
+    }
+    async fn cursor_rows(
+        &self,
+        sql: &str,
+        limit: usize,
+        explicit: bool,
+        cancel: &CancelToken,
+    ) -> Result<Vec<tokio_postgres::SimpleQueryRow>, DbError> {
+        if !explicit {
+            self.client
+                .batch_execute("BEGIN")
+                .await
+                .map_err(|e| self.error(e))?;
+        }
+        if cancel.is_cancelled() {
+            if !explicit {
+                let _ = self.client.batch_execute("ROLLBACK").await;
+            }
+            return Err(DbError::new(ErrorKind::Cancelled, "Execution cancelled"));
+        }
+        let cursor = format!("dbtool_{}", uuid_free_id());
+        let query = format!(
+            "DECLARE {cursor} NO SCROLL CURSOR FOR {sql}\n; FETCH {} FROM {cursor}; CLOSE {cursor};",
+            limit + 1
+        );
+        let result = self.client.simple_query(&query).await;
+        match result {
+            Ok(messages) => {
+                if !explicit {
+                    self.client
+                        .batch_execute("COMMIT")
+                        .await
+                        .map_err(|e| self.error(e))?;
+                }
+                Ok(messages
+                    .into_iter()
+                    .filter_map(|m| match m {
+                        SimpleQueryMessage::Row(r) => Some(r),
+                        _ => None,
+                    })
+                    .collect())
+            }
+            Err(e) => {
+                if !explicit {
+                    let _ = self.client.batch_execute("ROLLBACK").await;
+                }
+                let mut error = self.error(e);
+                if let Some(pos) = error.position {
+                    error.position = Some(
+                        pos.saturating_sub(
+                            format!("DECLARE {cursor} NO SCROLL CURSOR FOR ")
+                                .chars()
+                                .count() as u32,
+                        )
+                        .max(1),
+                    );
+                }
+                Err(error)
+            }
+        }
+    }
+    async fn stream_rows(
+        &self,
+        sql: &str,
+        limit: usize,
+    ) -> Result<Vec<tokio_postgres::SimpleQueryRow>, DbError> {
+        // shortcut: PG forbids cursors for DML RETURNING/SHOW/EXPLAIN; stream and drain, revisit for protocol-level row limits.
+        let stream = self
+            .client
+            .simple_query_raw(sql)
+            .await
+            .map_err(|e| self.error(e))?;
+        pin_mut!(stream);
+        let mut rows = Vec::new();
+        while let Some(message) = stream.next().await {
+            if let SimpleQueryMessage::Row(row) = message.map_err(|e| self.error(e))? {
+                if rows.len() <= limit {
+                    rows.push(row);
+                }
+            }
+        }
+        Ok(rows)
+    }
+    async fn execute_cancelled(
+        &self,
+        req: &ExecRequest,
+        cancel: CancelToken,
+    ) -> Result<Vec<ResultSet>, DbError> {
+        let deadline = tokio::time::sleep(Duration::from_millis(req.timeout_ms.max(1)));
+        tokio::pin!(deadline);
+        let mut state = tokio::select! { biased; _=cancel.cancelled()=>return Err(DbError::new(ErrorKind::Cancelled,"Execution cancelled")), _=&mut deadline=>return Err(DbError::new(ErrorKind::Timeout,"Execution timed out while waiting for session")), state=self.state.lock()=>state };
+        if cancel.is_cancelled() {
+            return Err(DbError::new(ErrorKind::Cancelled, "Execution cancelled"));
+        }
+        let future = self.run(req, &mut state, &cancel);
+        tokio::pin!(future);
+        let kind = tokio::select! {
+            biased;
+            _=cancel.cancelled()=>ErrorKind::Cancelled,
+            _=&mut deadline=>ErrorKind::Timeout,
+            result=&mut future=>return result,
+        };
+        cancel.cancel();
+        // Retry across protocol boundaries: a cancel that arrives while the backend is idle is ignored.
+        let mut retry = tokio::time::interval(Duration::from_millis(50));
+        loop {
+            tokio::select! {
+                result = &mut future => { let _ = result; break; },
+                _ = retry.tick() => {
+                    if self.client.cancel_token().cancel_query(self.tls.clone()).await.is_err() {
+                        self.connection.abort();
+                        self.closed.store(true, Ordering::Release);
+                    }
+                }
+            }
+        }
+        Err(DbError::new(kind, "Execution interrupted"))
+    }
+}
+fn uuid_free_id() -> u64 {
+    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+    NEXT.fetch_add(1, Ordering::Relaxed)
+}
+#[async_trait]
+impl Session for PgSession {
+    async fn ping(&self) -> Result<(), DbError> {
+        let _guard = self.state.lock().await;
+        self.client
+            .simple_query("SELECT 1")
+            .await
+            .map_err(|e| self.error(e))?;
+        Ok(())
+    }
+    async fn server_info(&self) -> Result<String, DbError> {
+        let _guard = self.state.lock().await;
+        Ok(self
+            .client
+            .query_one("SELECT version()", &[])
+            .await
+            .map_err(|e| self.error(e))?
+            .get(0))
+    }
+    async fn execute(
+        &self,
+        req: &ExecRequest,
+        cancel: CancelToken,
+    ) -> Result<Vec<ResultSet>, DbError> {
+        self.execute_cancelled(req, cancel).await
+    }
+    async fn expand(&self, _: &str, _: u32) -> Result<ResultSet, DbError> {
+        Err(DbError::unsupported("Graph expansion is not supported"))
+    }
+    async fn close(&self) {
+        self.closed.store(true, Ordering::Release);
+        self.connection.abort();
+    }
+    async fn browse(&self, node_id: &str, page: PageRequest) -> Result<ResultSet, DbError> {
+        let path = parse_path(node_id)?;
+        if path.len() != 4 || path[0] != "table" {
+            return Err(DbError::query("Not a table node"));
+        }
+        let (schema, table) = (&path[1], &path[3]);
+        let keys = {
+            let _guard = self.state.lock().await;
+            self.client.query("SELECT a.attname FROM pg_index i JOIN pg_attribute a ON a.attrelid=i.indrelid AND a.attnum=ANY(i.indkey) WHERE i.indrelid=to_regclass($1) AND i.indisprimary ORDER BY array_position(i.indkey,a.attnum)",&[&format!("{}.{}",quote_ident(schema),quote_ident(table))]).await.map_err(|e|self.error(e))?
+        };
+        let order = if keys.is_empty() {
+            if path[2] == "views" {
+                "1".into()
+            } else {
+                "ctid".into()
+            }
+        } else {
+            keys.iter()
+                .map(|r| quote_ident(r.get(0)))
+                .collect::<Vec<_>>()
+                .join(",")
+        };
+        let limit = clamp_row_limit(page.limit);
+        let req = ExecRequest {
+            text: format!(
+                "SELECT * FROM {}.{} ORDER BY {order} LIMIT {} OFFSET {}",
+                quote_ident(schema),
+                quote_ident(table),
+                limit + 1,
+                page.offset
+            ),
+            params: Default::default(),
+            row_limit: limit,
+            graph_node_limit: 300,
+            timeout_ms: 30_000,
+        };
+        let mut result = self.execute(&req, CancelToken::new()).await?.remove(0);
+        result.page = Some(PageInfo {
+            offset: page.offset,
+            limit,
+            has_more: result.truncated,
+        });
+        Ok(result)
+    }
+    async fn list_children(&self, parent: Option<&str>) -> Result<Vec<ExplorerNode>, DbError> {
+        let _guard = self.state.lock().await;
+        let mut nodes = Vec::new();
+        let Some(parent) = parent else {
+            for row in self.client.query("SELECT nspname FROM pg_namespace WHERE nspname NOT IN ('pg_catalog','information_schema') AND nspname NOT LIKE 'pg_toast%' AND nspname NOT LIKE 'pg_temp%' ORDER BY nspname",&[]).await.map_err(|e|self.error(e))? {
+                let name:String=row.get(0); nodes.push(node(path_id(&["schema",&name]),&name,"schema",Icon::Database,true,None));
+            }
+            return Ok(nodes);
+        };
+        let path = parse_path(parent)?;
+        match path.iter().map(String::as_str).collect::<Vec<_>>().as_slice() {
+            ["schema",schema]=>{
+                for (kind,label) in [("tables","Tables"),("views","Views")] { nodes.push(node(path_id(&["folder",schema,kind]),label,"folder",Icon::Folder,true,None)); }
+            }
+            ["folder",schema,kind] if matches!(*kind,"tables"|"views")=>{
+                let relkinds=if *kind=="tables" { vec!["r","p","f"] } else { vec!["v","m"] };
+                for row in self.client.query("SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=$1 AND c.relkind::text=ANY($2) ORDER BY c.relname",&[schema,&relkinds]).await.map_err(|e|self.error(e))? {
+                    let name:String=row.get(0);
+                    let mut table=node(path_id(&["table",schema,kind,&name]),&name,if *kind=="views"{"view"}else{"table"},if *kind=="views"{Icon::View}else{Icon::Table},true,None);
+                    table.actions=vec![NodeAction { id:"browse".into(),label:"Browse".into(),kind:NodeActionKind::Browse },NodeAction { id:"query".into(),label:"Open query".into(),kind:NodeActionKind::OpenQuery { text:format!("SELECT * FROM {}.{} LIMIT 100",quote_ident(schema),quote_ident(&name)) } }];
+                    nodes.push(table);
+                }
+            }
+            ["table",schema,kind,table]=>{
+                for (folder,label,icon) in [("columns","Columns",Icon::Column),("indexes","Indexes",Icon::Index)] { nodes.push(node(path_id(&[folder,schema,kind,table]),label,"folder",icon,true,None)); }
+            }
+            ["columns",schema,_,table]=>{
+                for row in self.client.query("SELECT a.attname, format_type(a.atttypid,a.atttypmod), NOT a.attnotnull, EXISTS(SELECT 1 FROM pg_index i WHERE i.indrelid=c.oid AND i.indisprimary AND a.attnum=ANY(i.indkey)) FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=$1 AND c.relname=$2 AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum",&[schema,table]).await.map_err(|e|self.error(e))? {
+                    let name:String=row.get(0);let typ:String=row.get(1);let nullable:bool=row.get(2);let pk:bool=row.get(3);
+                    nodes.push(node(path_id(&["column",schema,table,&name]),&name,"column",if pk {Icon::Key}else{Icon::Column},false,Some(format!("{typ} · {}{}",if nullable {"NULL"}else{"NOT NULL"},if pk {" · PK"}else{""}))));
+                }
+            }
+            ["indexes",schema,_,table]=>{
+                for row in self.client.query("SELECT indexname,indexdef FROM pg_indexes WHERE schemaname=$1 AND tablename=$2 ORDER BY indexname",&[schema,table]).await.map_err(|e|self.error(e))? {
+                    let name:String=row.get(0);nodes.push(node(path_id(&["index",schema,table,&name]),&name,"index",Icon::Index,false,Some(row.get(1))));
+                }
+            }
+            _=>return Err(DbError::query("Invalid explorer node")),
+        }
+        Ok(nodes)
+    }
+}
+fn node(
+    id: String,
+    label: &str,
+    kind: &str,
+    icon: Icon,
+    has_children: bool,
+    detail: Option<String>,
+) -> ExplorerNode {
+    ExplorerNode {
+        id,
+        label: label.into(),
+        detail,
+        kind: kind.into(),
+        icon,
+        has_children,
+        actions: Vec::new(),
+    }
+}
+fn path_id(parts: &[&str]) -> String {
+    serde_json::to_string(parts).expect("string array serialization")
+}
+fn parse_path(id: &str) -> Result<Vec<String>, DbError> {
+    serde_json::from_str(id).map_err(|_| DbError::query("Invalid explorer node id"))
+}
+pub fn quote_ident(name: &str) -> String {
+    format!("\"{}\"", name.replace('"', "\"\""))
+}
+fn pg_error(e: tokio_postgres::Error, secret: Option<&str>) -> DbError {
+    let redact = |text: &str| match secret.filter(|s| !s.is_empty()) {
+        Some(s) => text.replace(s, "***"),
+        None => text.into(),
+    };
+    if let Some(pg) = e.as_db_error() {
+        let kind = match pg.code().code() {
+            "28P01" | "28000" => ErrorKind::Auth,
+            "57014" => ErrorKind::Cancelled,
+            code if code.starts_with("08") || matches!(code, "57P01" | "57P02" | "57P03") => {
+                ErrorKind::Connection
+            }
+            _ => ErrorKind::Query,
+        };
+        DbError {
+            kind,
+            message: redact(pg.message()),
+            detail: pg.detail().map(redact),
+            position: pg.position().map(|p| match p {
+                ErrorPosition::Original(p) | ErrorPosition::Internal { position: p, .. } => *p,
+            }),
+        }
+    } else {
+        DbError::new(
+            ErrorKind::Connection,
+            "PostgreSQL connection failed or was closed",
+        )
+    }
+}
+fn map_value(typ: &Type, text: Option<&str>) -> Result<Value, DbError> {
+    let Some(text) = text else {
+        return Ok(Value::Null);
+    };
+    let owned = || text.to_string();
+    Ok(match typ.oid() {
+        16 => Value::Bool(text == "t" || text == "true"),
+        20 | 21 | 23 => Value::Int(owned()),
+        1700 => Value::Decimal(owned()),
+        700 | 701 => Value::Float(match text.parse::<f64>() {
+            Ok(v) if v.is_finite() => FloatValue::Number(v),
+            _ => FloatValue::Special(
+                match text {
+                    "-Infinity" => "-Infinity",
+                    "Infinity" => "Infinity",
+                    _ => "NaN",
+                }
+                .into(),
+            ),
+        }),
+        18 | 19 | 25 | 1042 | 1043 => Value::Text(owned()),
+        1082 => Value::Date(owned()),
+        1083 | 1266 => Value::Time(owned()),
+        1114 => Value::DateTime(owned()),
+        1184 => Value::DateTimeTz(owned()),
+        1186 => Value::Duration(owned()),
+        2950 => Value::Uuid(owned()),
+        114 | 3802 => Value::Json(owned()),
+        17 => {
+            let hex = text
+                .strip_prefix("\\x")
+                .ok_or_else(|| DbError::query("Unexpected bytea text format"))?;
+            if hex.len() % 2 != 0 || !hex.bytes().all(|b| b.is_ascii_hexdigit()) {
+                return Err(DbError::query("Invalid bytea hex"));
+            }
+            Value::Bytes {
+                len: (hex.len() / 2) as u64,
+                hex: hex.chars().take(128).collect(),
+            }
+        }
+        _ => Value::Other {
+            type_name: match typ.kind() {
+                tokio_postgres::types::Kind::Array(inner) => format!("{}[]", inner.name()),
+                _ => typ.name().into(),
+            },
+            text: owned(),
+        },
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn quotes_identifiers_and_types() {
+        assert_eq!(quote_ident("x\"; DROP TABLE t"), "\"x\"\"; DROP TABLE t\"");
+        assert_eq!(
+            map_value(&Type::INT8, Some("9223372036854775807")).unwrap(),
+            Value::Int("9223372036854775807".into())
+        );
+        assert_eq!(
+            map_value(&Type::BYTEA, Some("\\x00ff")).unwrap(),
+            Value::Bytes {
+                len: 2,
+                hex: "00ff".into()
+            }
+        );
+        assert_eq!(
+            map_value(&Type::FLOAT8, Some("Infinity")).unwrap(),
+            Value::Float(FloatValue::Special("Infinity".into()))
+        );
+        assert_eq!(
+            map_value(&Type::INT4_ARRAY, Some("{1,2}")).unwrap(),
+            Value::Other {
+                type_name: "int4[]".into(),
+                text: "{1,2}".into()
+            }
+        );
+    }
+}
