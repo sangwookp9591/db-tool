@@ -8,6 +8,8 @@ import { executeQuery } from './stream';
 import { finish, frame, painted, perf, sampleFrames, start } from './index';
 async function waitFor(test: () => boolean, timeout = 60000) { const until = performance.now() + timeout; while (!test()) { if (performance.now() > until) throw new Error('Native benchmark timed out'); await frame(); } }
 async function run() {
+  const resourceTarget = await invoke<string>('viewer_bench_target');
+  if (resourceTarget.startsWith('resource')) { await (await import('./resource')).resourceBench(resourceTarget === 'resource-leak'); return; }
   const root = document.createElement('div'); root.style.cssText = 'position:fixed;inset:0;z-index:10000;display:flex;background:var(--surface)'; document.body.append(root);
   const manifests = await api('drivers_list', {});
   const config = await invoke<BenchConfig>('viewer_bench_config');

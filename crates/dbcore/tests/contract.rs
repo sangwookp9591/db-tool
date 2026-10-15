@@ -42,3 +42,16 @@ fn debug_never_exposes_secrets() {
     assert_eq!(clamp_row_limit(0), 1);
     assert_eq!(clamp_row_limit(u32::MAX), 100_000);
 }
+
+#[test]
+fn preview_contract_is_additive_and_defaults_to_no_support() {
+    let req: ExecRequest = serde_json::from_value(json!({"text":"SELECT 1"})).unwrap();
+    assert_eq!(req.preview_sample_limit, 50);
+    let caps: Capabilities = serde_json::from_value(json!({"cancel":"None","timeout":false,"params":false,"transactions":false,"paged_browse":false,"graph_expand":false,"multi_statement":false,"edit_rows":false})).unwrap();
+    assert_eq!(caps.preview_changes, PreviewSupport::None);
+    assert!(
+        !serde_json::to_value(ChangePreview::default()).unwrap()["committed"]
+            .as_bool()
+            .unwrap()
+    );
+}

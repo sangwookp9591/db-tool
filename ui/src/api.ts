@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { DriverManifest, Profile, ExplorerNode, ResultSet, ExecRequest, HistoryEntry } from './contract';
+import type { DriverManifest, Profile, ExplorerNode, ResultSet, ExecRequest, HistoryEntry, ChangePreview } from './contract';
 export interface Commands {
   agent_bridge_ready: { args: Record<string, never>; result: void };
   agent_bridge_status: { args: Record<string, never>; result: boolean };
@@ -15,6 +15,7 @@ export interface Commands {
   explorer_children: { args: { sessionId: string; parent: string | null }; result: ExplorerNode[] };
   browse: { args: { sessionId: string; nodeId: string; offset: number; limit: number; runId: string }; result: ResultSet };
   execute: { args: { sessionId: string; runId: string; req: ExecRequest }; result: ResultSet[] };
+  preview: { args: { sessionId: string; runId: string; req: ExecRequest; source?: 'ui' | 'agent' }; result: ChangePreview };
   execute_agent: { args: { sessionId: string; runId: string; req: ExecRequest }; result: ResultSet[] };
   cancel: { args: { runId: string }; result: void };
   expand: { args: { sessionId: string; elementId: string; limit: number }; result: ResultSet };

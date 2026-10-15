@@ -24,6 +24,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         row_limit: 1000,
         graph_node_limit: 300,
         timeout_ms: 5000,
+        preview_sample_limit: default_preview_sample_limit(),
     };
     let result=session.execute(&request("SELECT 9223372036854775807::int8 AS id, 12345678901234567890.123456789::numeric AS amount, '{\"big\":9223372036854775807}'::jsonb AS document, NULL::text AS missing"),CancelToken::new()).await?;
     let error = session

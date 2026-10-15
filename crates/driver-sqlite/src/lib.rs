@@ -1,7 +1,9 @@
 //! SQLite driver. Every connection operation runs on the blocking pool.
+mod preview;
 use async_trait::async_trait;
 use dbcore::*;
 use fallible_iterator::FallibleIterator;
+use preview::RunOutput;
 use rusqlite::{
     hooks::{AuthAction, AuthContext, Authorization},
     types::ValueRef,
@@ -55,6 +57,7 @@ impl SqliteDriver {
                     },
                 ],
                 capabilities: Capabilities {
+                    preview_changes: PreviewSupport::Transactional,
                     cancel: CancelSupport::Server,
                     timeout: true,
                     multi_statement: true,
@@ -150,9 +153,82 @@ fn request(text: String) -> ExecRequest {
         row_limit: 100_000,
         graph_node_limit: 1,
         timeout_ms: 30_000,
+        preview_sample_limit: default_preview_sample_limit(),
     }
 }
 impl SqliteSession {
+    async fn bounded(
+        &self,
+        req: &ExecRequest,
+        cancel: CancelToken,
+        preview: bool,
+    ) -> Result<RunOutput, DbError> {
+        if !req.params.is_empty() {
+            return Err(DbError::unsupported("SQLite parameters are not enabled"));
+        }
+        let deadline = Instant::now()
+            .checked_add(Duration::from_millis(req.timeout_ms.max(1)))
+            .ok_or_else(|| DbError::query("Timeout exceeds supported range"))?;
+        let mut guard = tokio::select! {
+            _ = tokio::time::sleep_until(deadline.into()) => return Err(DbError::new(ErrorKind::Timeout, "Execution timed out waiting for session")),
+            _ = cancel.cancelled() => return Err(DbError::new(ErrorKind::Cancelled, "Execution cancelled")),
+            guard = self.connection.clone().lock_owned() => guard,
+        };
+        let conn = guard
+            .as_ref()
+            .ok_or_else(|| DbError::new(ErrorKind::Connection, "Session closed"))?;
+        let interrupt = conn.get_interrupt_handle();
+        let done = CancelToken::new();
+        let finished = done.clone();
+        let interrupt_gate = Arc::new(std::sync::Mutex::new(()));
+        let watcher_gate = interrupt_gate.clone();
+        let token = cancel.clone();
+        let req = req.clone();
+        // Keep the watcher and connection lease alive even if the host drops this future.
+        let watcher = tokio::spawn(async move {
+            tokio::select! {
+                biased;
+                _ = finished.cancelled() => {},
+                _ = token.cancelled() => {
+                    let _lease = watcher_gate.lock().expect("interrupt gate");
+                    if !finished.is_cancelled() { interrupt.interrupt(); }
+                },
+                _ = tokio::time::sleep_until(deadline.into()) => {
+                    let _lease = watcher_gate.lock().expect("interrupt gate");
+                    if !finished.is_cancelled() { interrupt.interrupt(); }
+                },
+            }
+        });
+        tokio::task::spawn_blocking(move || {
+            let conn = guard.as_ref().expect("connection lease");
+            let result = if preview {
+                preview::run(conn, &req, &cancel, deadline).map(RunOutput::Preview)
+            } else {
+                run(conn, &req, &cancel, deadline).map(RunOutput::Execute)
+            };
+            if result
+                .as_ref()
+                .is_err_and(|e| e.kind == ErrorKind::Connection)
+            {
+                guard.take();
+            }
+            {
+                // Exclude a late interrupt before releasing the connection to its next run.
+                let _lease = interrupt_gate.lock().expect("interrupt gate");
+                done.cancel();
+            }
+            watcher.abort();
+            if cancel.is_cancelled() {
+                return Err(DbError::new(ErrorKind::Cancelled, "Execution cancelled"));
+            }
+            if Instant::now() >= deadline {
+                return Err(DbError::new(ErrorKind::Timeout, "Execution timed out"));
+            }
+            result
+        })
+        .await
+        .map_err(|e| DbError::internal(e.to_string()))?
+    }
     async fn with_connection<T: Send + 'static>(
         &self,
         f: impl FnOnce(&Connection) -> Result<T, DbError> + Send + 'static,
@@ -195,61 +271,20 @@ impl Session for SqliteSession {
         req: &ExecRequest,
         cancel: CancelToken,
     ) -> Result<Vec<ResultSet>, DbError> {
-        if !req.params.is_empty() {
-            return Err(DbError::unsupported("SQLite parameters are not enabled"));
+        match self.bounded(req, cancel, false).await? {
+            RunOutput::Execute(r) => Ok(r),
+            _ => unreachable!(),
         }
-        let deadline = Instant::now()
-            .checked_add(Duration::from_millis(req.timeout_ms.max(1)))
-            .ok_or_else(|| DbError::query("Timeout exceeds supported range"))?;
-        let guard = tokio::select! {
-            _ = tokio::time::sleep_until(deadline.into()) => return Err(DbError::new(ErrorKind::Timeout, "Execution timed out waiting for session")),
-            _ = cancel.cancelled() => return Err(DbError::new(ErrorKind::Cancelled, "Execution cancelled")),
-            guard = self.connection.clone().lock_owned() => guard,
-        };
-        let conn = guard
-            .as_ref()
-            .ok_or_else(|| DbError::new(ErrorKind::Connection, "Session closed"))?;
-        let interrupt = conn.get_interrupt_handle();
-        let done = CancelToken::new();
-        let finished = done.clone();
-        let interrupt_gate = Arc::new(std::sync::Mutex::new(()));
-        let watcher_gate = interrupt_gate.clone();
-        let token = cancel.clone();
-        let req = req.clone();
-        // Keep the watcher and connection lease alive even if the host drops this future.
-        let watcher = tokio::spawn(async move {
-            tokio::select! {
-                biased;
-                _ = finished.cancelled() => {},
-                _ = token.cancelled() => {
-                    let _lease = watcher_gate.lock().expect("interrupt gate");
-                    if !finished.is_cancelled() { interrupt.interrupt(); }
-                },
-                _ = tokio::time::sleep_until(deadline.into()) => {
-                    let _lease = watcher_gate.lock().expect("interrupt gate");
-                    if !finished.is_cancelled() { interrupt.interrupt(); }
-                },
-            }
-        });
-        tokio::task::spawn_blocking(move || {
-            let conn = guard.as_ref().expect("connection lease");
-            let result = run(conn, &req, &cancel, deadline);
-            {
-                // Exclude a late interrupt before releasing the connection to its next run.
-                let _lease = interrupt_gate.lock().expect("interrupt gate");
-                done.cancel();
-            }
-            watcher.abort();
-            if cancel.is_cancelled() {
-                return Err(DbError::new(ErrorKind::Cancelled, "Execution cancelled"));
-            }
-            if Instant::now() >= deadline {
-                return Err(DbError::new(ErrorKind::Timeout, "Execution timed out"));
-            }
-            result
-        })
-        .await
-        .map_err(|e| DbError::internal(e.to_string()))?
+    }
+    async fn preview(
+        &self,
+        req: &ExecRequest,
+        cancel: CancelToken,
+    ) -> Result<ChangePreview, DbError> {
+        match self.bounded(req, cancel, true).await? {
+            RunOutput::Preview(r) => Ok(r),
+            _ => unreachable!(),
+        }
     }
     async fn browse(&self, node_id: &str, page: PageRequest) -> Result<ResultSet, DbError> {
         let name = node_id

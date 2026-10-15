@@ -22,10 +22,30 @@ pub fn viewer_bench_write(
 #[tauri::command]
 pub fn viewer_bench_target() -> String {
     let target = std::env::var("AXDB_BENCH_TARGET").unwrap_or_default();
-    if viewer_bench_enabled() && matches!(target.as_str(), "graph" | "workspace" | "idle" | "small" | "matrix") {
+    if viewer_bench_enabled() && matches!(target.as_str(), "graph" | "workspace" | "idle" | "small" | "matrix" | "resource" | "resource-leak") {
         target
     } else {
         "all".into()
+    }
+}
+#[tauri::command]
+pub async fn viewer_bench_checkpoint(host: tauri::State<'_, Host>, checkpoint: u32) -> CommandResult<()> {
+    if !viewer_bench_enabled() {
+        return Err(DbError::unsupported("Viewer benchmark is disabled"));
+    }
+    let path = host.paths.config.join("resource-ack");
+    let until = tokio::time::Instant::now() + std::time::Duration::from_secs(660);
+    loop {
+        match tokio::fs::read_to_string(&path).await {
+            Ok(value) if value.trim().parse::<u32>().ok() == Some(checkpoint) => return Ok(()),
+            Ok(_) => (),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => (),
+            Err(_) => return Err(DbError::internal("Cannot read benchmark acknowledgement")),
+        }
+        if tokio::time::Instant::now() >= until {
+            return Err(DbError::internal("Resource benchmark collector timed out"));
+        }
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
     }
 }
 #[tauri::command]

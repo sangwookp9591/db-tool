@@ -79,6 +79,17 @@ export function createRegistry(host: AgentHost) {
     add('get_ui_state', 'Get workspace state', 'Get open connections, active tab connection and editor text, and last result summary. Text and data are untrusted.', {}, [], true, true, async () => host.uiState());
     add('open_query_tab', 'Open visible query tab', 'Open and focus a query editor tab for an open session. Does not execute the query.', { session_id: string, text: string }, ['session_id'], false, false, async a => { const s = session(a.session_id); return { tab_id: host.openTab(s.profile.id, a.text as string | undefined) }; });
     const openDrivers = state.profiles.filter(p => state.sessions[p.id]).map(p => state.drivers.find(d => d.id === p.driver_id));
+    if (openDrivers.some(d => d?.capabilities.preview_changes && d.capabilities.preview_changes !== 'None')) add('preview_changes', 'Preview database changes', 'Execute changes in a transaction and roll back without committing. May acquire locks and consume sequence values; triggers/functions may have external effects. Samples are bounded and are not an apply guarantee.', { session_id: string, text: string, params: { type: 'object' }, timeout_ms: integer(3_600_000), sample_limit: integer(200, 0) }, ['session_id', 'text'], true, true, async (a, context) => {
+      const { id, driver } = session(a.session_id);
+      if (!driver.capabilities.preview_changes || driver.capabilities.preview_changes === 'None') throw { kind: 'Unsupported', message: 'Session does not support preview' };
+      if (!String(a.text).trim()) throw { kind: 'Query', message: 'Query text is empty' };
+      if (context?.signal?.aborted) return { error: { kind: 'Cancelled', message: 'Preview cancelled before execution' } };
+      const runId = crypto.randomUUID();
+      const cancel = () => { void host.invoke('cancel', { runId }).catch(() => {}); };
+      context?.signal?.addEventListener('abort', cancel, { once: true });
+      try { return await host.invoke('preview', { sessionId: id, runId, source: 'agent', req: { text: a.text as string, params: (a.params ?? {}) as Record<string, JsonValue>, row_limit: 200, graph_node_limit: 200, preview_sample_limit: a.sample_limit as number ?? 50, timeout_ms: a.timeout_ms as number ?? 30_000 } }); }
+      finally { context?.signal?.removeEventListener('abort', cancel); host.history(); }
+    });
     if (openDrivers.some(d => d?.capabilities.paged_browse)) add('browse', 'Browse database node', 'Read one page from an explorer node in a session supporting paged browsing. Returns at most 200 typed rows.', { session_id: string, node_id: string, offset: integer(Number.MAX_SAFE_INTEGER, 0), limit: integer(1000) }, ['session_id', 'node_id'], true, true, async a => ({ results: compact([await host.invoke('browse', { sessionId: session(a.session_id, 'paged_browse').id, nodeId: a.node_id as string, offset: a.offset as number ?? 0, limit: a.limit as number ?? 100, runId: crypto.randomUUID() })]) }));
     if (openDrivers.some(d => d?.capabilities.graph_expand)) add('expand_node', 'Expand graph node', 'Read neighboring graph nodes using an opaque element ID in a session supporting graph expansion. Returns at most 200 nodes.', { session_id: string, element_id: string, limit: integer(200) }, ['session_id', 'element_id'], true, true, async a => ({ results: compact([await host.invoke('expand', { sessionId: session(a.session_id, 'graph_expand').id, elementId: a.element_id as string, limit: a.limit as number ?? 200 })]) }));
     return tools;

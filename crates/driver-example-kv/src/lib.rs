@@ -20,6 +20,7 @@ impl KvDriver {
                 query_language: QueryLanguage { id: "kv".into(), display: "KV commands".into(), editor_mode: "text".into(), supports_params: false },
                 connection_fields: vec![],
                 capabilities: Capabilities {
+                    preview_changes: PreviewSupport::None,
                     cancel: CancelSupport::None, timeout: false, params: false,
                     transactions: false, paged_browse: false, graph_expand: false,
                     multi_statement: false, edit_rows: false, read_only_exec: false,

@@ -42,6 +42,7 @@ fn req(text: &str) -> ExecRequest {
         row_limit: 1000,
         graph_node_limit: 300,
         timeout_ms: 30_000,
+        preview_sample_limit: default_preview_sample_limit(),
     }
 }
 async fn run(s: &dyn Session, text: &str) -> Vec<ResultSet> {
@@ -450,4 +451,199 @@ async fn cancellation_races_do_not_poison_next_query() {
         );
     }
     session.close().await;
+}
+
+#[tokio::test]
+async fn change_preview_rolls_back_rows_schema_and_preserves_user_transaction() {
+    let Some(cfg) = config() else {
+        return;
+    };
+    assert_eq!(
+        cfg.fields.get("database").map(String::as_str),
+        Some("axdb_test")
+    );
+    let s = PostgresDriver::new().connect(&cfg).await.unwrap();
+    let name = format!(
+        "preview_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    );
+    s.execute(&req(&format!("CREATE SCHEMA {name}; CREATE TABLE {name}.items(id integer primary key, n text); INSERT INTO {name}.items VALUES(1,'before'),(2,'two'),(3,'three'); CREATE INDEX items_n ON {name}.items(n)")), CancelToken::new()).await.unwrap();
+    let snapshot = || req(&format!("SELECT * FROM {name}.items ORDER BY id"));
+    let original = s.execute(&snapshot(), CancelToken::new()).await.unwrap()[0]
+        .table
+        .clone();
+    for (sql, affected, before, after) in [
+        (
+            format!("UPDATE {name}.items SET n='after' WHERE id=1"),
+            1,
+            true,
+            true,
+        ),
+        (
+            format!("DELETE FROM {name}.items WHERE id=1"),
+            1,
+            true,
+            false,
+        ),
+        (
+            format!("INSERT INTO {name}.items VALUES(4,'four'),(5,'five')"),
+            2,
+            false,
+            true,
+        ),
+    ] {
+        let mut r = req(&sql);
+        r.preview_sample_limit = 1;
+        let p = s.preview(&r, CancelToken::new()).await.unwrap();
+        assert!(!p.committed);
+        let st = &p.statements[0];
+        assert_eq!(st.affected, Some(affected));
+        assert_eq!(st.before.is_some(), before);
+        assert_eq!(st.after.is_some(), after);
+        for table in [&st.before, &st.after].into_iter().flatten() {
+            assert!(table.rows.len() <= 1);
+        }
+        if before {
+            assert_eq!(
+                st.before.as_ref().unwrap().rows[0][1],
+                Value::Text("before".into())
+            );
+        }
+        if sql.starts_with("UPDATE") {
+            assert_eq!(
+                st.after.as_ref().unwrap().rows[0][1],
+                Value::Text("after".into())
+            );
+        }
+        assert_eq!(
+            s.execute(&snapshot(), CancelToken::new()).await.unwrap()[0].table,
+            original
+        );
+    }
+    for sql in [
+        format!("ALTER TABLE {name}.items ADD COLUMN extra int"),
+        format!("CREATE TABLE {name}.new_table(x int)"),
+        format!("DROP INDEX {name}.items_n"),
+    ] {
+        let p = s.preview(&req(&sql), CancelToken::new()).await.unwrap();
+        let diff = p.statements[0].schema_diff.as_ref().unwrap();
+        assert!(!diff.added.is_empty() || !diff.removed.is_empty() || !diff.changed.is_empty());
+    }
+    let schema = s.execute(&req(&format!("SELECT column_name FROM information_schema.columns WHERE table_schema='{name}' ORDER BY table_name,ordinal_position; SELECT indexname FROM pg_indexes WHERE schemaname='{name}' ORDER BY indexname")),CancelToken::new()).await.unwrap();
+    assert_eq!(schema[0].row_count, 2);
+    assert_eq!(schema[1].row_count, 2);
+    for sql in [
+        "VACUUM",
+        "CREATE DATABASE axdb_preview_must_not_exist",
+        &format!("CREATE INDEX CONCURRENTLY denied ON {name}.items(n)"),
+        &format!("UPDATE {name}.items SET n='bad'; COMMIT"),
+    ] {
+        let p = s.preview(&req(sql), CancelToken::new()).await.unwrap();
+        assert!(!p.notes.is_empty());
+        assert!(p.statements.iter().all(|s| s.affected.is_none()));
+    }
+    s.execute(
+        &req(&format!("BEGIN; INSERT INTO {name}.items VALUES(4,'user')")),
+        CancelToken::new(),
+    )
+    .await
+    .unwrap();
+    s.preview(
+        &req(&format!("DELETE FROM {name}.items")),
+        CancelToken::new(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        s.execute(&snapshot(), CancelToken::new()).await.unwrap()[0].row_count,
+        4
+    );
+    s.execute(&req("ROLLBACK"), CancelToken::new())
+        .await
+        .unwrap();
+    for timeout in [true, false] {
+        let token = CancelToken::new();
+        let task_token = token.clone();
+        let mut r = req(&format!(
+            "UPDATE {name}.items SET n='bad'; SELECT pg_sleep(10)"
+        ));
+        if timeout {
+            r.timeout_ms = 50;
+        } else {
+            tokio::spawn(async move {
+                tokio::time::sleep(Duration::from_millis(50)).await;
+                task_token.cancel();
+            });
+        }
+        let e = s.preview(&r, token).await.unwrap_err();
+        assert_eq!(
+            e.kind,
+            if timeout {
+                ErrorKind::Timeout
+            } else {
+                ErrorKind::Cancelled
+            }
+        );
+        assert_eq!(
+            s.execute(&snapshot(), CancelToken::new()).await.unwrap()[0].table,
+            original
+        );
+        // A fresh implicit transaction must not leave the session in read-only/failed transaction state.
+        s.execute(
+            &req(&format!(
+                "BEGIN; INSERT INTO {name}.items VALUES(6,'clean'); ROLLBACK"
+            )),
+            CancelToken::new(),
+        )
+        .await
+        .unwrap();
+    }
+    s.execute(
+        &req(&format!("BEGIN; INSERT INTO {name}.items VALUES(4,'keep')")),
+        CancelToken::new(),
+    )
+    .await
+    .unwrap();
+    let mut nested = req(&format!(
+        "UPDATE {name}.items SET n='bad'; SELECT pg_sleep(10)"
+    ));
+    nested.timeout_ms = 50;
+    assert_eq!(
+        s.preview(&nested, CancelToken::new())
+            .await
+            .unwrap_err()
+            .kind,
+        ErrorKind::Timeout
+    );
+    let preserved = s.execute(&snapshot(), CancelToken::new()).await.unwrap();
+    assert_eq!(preserved[0].row_count, 4);
+    assert_eq!(
+        preserved[0].table.as_ref().unwrap().rows[0][1],
+        Value::Text("before".into())
+    );
+    s.execute(&req("ROLLBACK"), CancelToken::new())
+        .await
+        .unwrap();
+    assert!(s
+        .preview(
+            &req(&format!(
+                "UPDATE {name}.items SET n='bad'; SELECT missing_preview_column"
+            )),
+            CancelToken::new()
+        )
+        .await
+        .is_err());
+    assert_eq!(
+        s.execute(&snapshot(), CancelToken::new()).await.unwrap()[0].table,
+        original
+    );
+    s.execute(
+        &req(&format!("DROP SCHEMA {name} CASCADE")),
+        CancelToken::new(),
+    )
+    .await
+    .unwrap();
 }

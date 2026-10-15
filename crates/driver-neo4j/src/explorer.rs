@@ -170,6 +170,7 @@ impl NeoSession {
                     row_limit: limit + 1,
                     graph_node_limit: 300,
                     timeout_ms: 30_000,
+                    preview_sample_limit: default_preview_sample_limit(),
                 },
                 CancelToken::new(),
                 true,

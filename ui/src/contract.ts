@@ -1,6 +1,7 @@
 export type FieldKind = 'Text' | 'Number' | 'Password' | 'FilePath' | 'Bool' | { Select: { options: string[] } };
 export interface FieldSpec { key: string; label: string; kind: FieldKind; required: boolean; default: string | null; secret: boolean; placeholder: string | null }
-export interface Capabilities { read_only_exec?: boolean; cancel: 'None' | 'Abort' | 'Server'; timeout: boolean; params: boolean; transactions: boolean; paged_browse: boolean; graph_expand: boolean; multi_statement: boolean; edit_rows: boolean }
+export type PreviewSupport = 'None' | 'Transactional' | 'DryRun';
+export interface Capabilities { preview_changes?: PreviewSupport; read_only_exec?: boolean; cancel: 'None' | 'Abort' | 'Server'; timeout: boolean; params: boolean; transactions: boolean; paged_browse: boolean; graph_expand: boolean; multi_statement: boolean; edit_rows: boolean }
 export interface QueryLanguage { id: string; display: string; editor_mode: string; supports_params: boolean }
 export interface DriverManifest { id: string; display_name: string; paradigm: 'Relational' | 'Graph' | 'Document' | 'KeyValue'; query_language: QueryLanguage; connection_fields: FieldSpec[]; capabilities: Capabilities; default_query: string }
 export interface ConnectConfig { fields: Record<string, string>; secret: string | null; connect_timeout_ms: number }
@@ -10,7 +11,7 @@ export interface NodeAction { id: string; label: string; kind: ActionKind }
 export interface ExplorerNode { id: string; label: string; detail: string | null; kind: string; icon: Icon; has_children: boolean; actions: NodeAction[] }
 export interface PageRequest { offset: number; limit: number }
 export interface PageInfo extends PageRequest { has_more: boolean }
-export interface ExecRequest { read_only?: boolean; text: string; params: Record<string, JsonValue>; row_limit: number; graph_node_limit: number; timeout_ms: number }
+export interface ExecRequest { preview_sample_limit?: number; read_only?: boolean; text: string; params: Record<string, JsonValue>; row_limit: number; graph_node_limit: number; timeout_ms: number }
 export interface Column { name: string; type_name: string }
 export interface Table { columns: Column[]; rows: Value[][] }
 export interface GNode { id: string; labels: string[]; props: [string, Value][] }
@@ -22,6 +23,10 @@ export type ErrorKind = 'Connection' | 'Auth' | 'Query' | 'Timeout' | 'Cancelled
 export interface DbError { kind: ErrorKind; message: string; detail: string | null; position: number | null }
 // Host persistence types are kept separate from the driver contract.
 export interface Profile { id: string; name: string; driver_id: string; fields: Record<string, string>; save_secret: boolean }
-export interface HistoryEntry { source?: "ui" | "agent"; timestamp: string | number; profile_name: string; text: string; elapsed_ms: number; row_count: number; error: string | null }
+export interface HistoryEntry { kind?: 'execute' | 'preview'; source?: "ui" | "agent"; timestamp: string | number; profile_name: string; text: string; elapsed_ms: number; row_count: number; error: string | null }
 
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
+
+export interface SchemaDiff { added: string[]; removed: string[]; changed: string[] }
+export interface StatementPreview { text: string; kind: 'Insert' | 'Update' | 'Delete' | 'Ddl' | 'GraphWrite' | 'Other'; affected: number | null; before: Table | null; after: Table | null; schema_diff: SchemaDiff | null; counters: [string, number][]; warnings: string[] }
+export interface ChangePreview { statements: StatementPreview[]; committed: false; notes: string[] }

@@ -3,6 +3,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt, sync::Arc};
 pub use tokio_util::sync::CancellationToken as CancelToken;
+pub mod preview;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct DriverManifest {
@@ -50,6 +51,8 @@ pub enum FieldKind {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Capabilities {
     #[serde(default)]
+    pub preview_changes: PreviewSupport,
+    #[serde(default)]
     pub read_only_exec: bool,
     pub cancel: CancelSupport,
     pub timeout: bool,
@@ -65,6 +68,59 @@ pub enum CancelSupport {
     None,
     Abort,
     Server,
+}
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub enum PreviewSupport {
+    #[default]
+    None,
+    Transactional,
+    DryRun,
+}
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct ChangePreview {
+    pub statements: Vec<StatementPreview>,
+    pub committed: bool,
+    pub notes: Vec<String>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum StatementKind {
+    Insert,
+    Update,
+    Delete,
+    Ddl,
+    GraphWrite,
+    Other,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct StatementPreview {
+    pub text: String,
+    pub kind: StatementKind,
+    pub affected: Option<u64>,
+    pub before: Option<Table>,
+    pub after: Option<Table>,
+    pub schema_diff: Option<SchemaDiff>,
+    pub counters: Vec<(String, i64)>,
+    pub warnings: Vec<String>,
+}
+impl StatementPreview {
+    pub fn new(text: String, kind: StatementKind) -> Self {
+        Self {
+            text,
+            kind,
+            affected: None,
+            before: None,
+            after: None,
+            schema_diff: None,
+            counters: vec![],
+            warnings: vec![],
+        }
+    }
+}
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct SchemaDiff {
+    pub added: Vec<String>,
+    pub removed: Vec<String>,
+    pub changed: Vec<String>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -90,6 +146,13 @@ pub trait Driver: Send + Sync {
 }
 #[async_trait]
 pub trait Session: Send + Sync {
+    async fn preview(
+        &self,
+        _req: &ExecRequest,
+        _cancel: CancelToken,
+    ) -> Result<ChangePreview, DbError> {
+        Err(DbError::unsupported("Change preview is not supported"))
+    }
     async fn ping(&self) -> Result<(), DbError>;
     async fn server_info(&self) -> Result<String, DbError>;
     async fn list_children(&self, parent: Option<&str>) -> Result<Vec<ExplorerNode>, DbError>;
@@ -146,6 +209,8 @@ pub struct PageRequest {
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ExecRequest {
+    #[serde(default = "default_preview_sample_limit")]
+    pub preview_sample_limit: u32,
     #[serde(default)]
     pub read_only: bool,
     pub text: String,
@@ -157,6 +222,9 @@ pub struct ExecRequest {
     pub graph_node_limit: u32,
     #[serde(default = "default_timeout_ms")]
     pub timeout_ms: u64,
+}
+pub fn default_preview_sample_limit() -> u32 {
+    50
 }
 pub fn default_row_limit() -> u32 {
     1_000

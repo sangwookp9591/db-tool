@@ -37,7 +37,9 @@ pub struct DriverManifest {
     pub default_query: String,            // 새 탭 템플릿
 }
 pub struct FieldSpec { key, label, kind: FieldKind /*Text|Number|Password|FilePath|Bool|Select{options}*/, required, default: Option<String>, secret: bool, placeholder }
+pub enum PreviewSupport { None, Transactional, DryRun } // serde default None
 pub struct Capabilities {
+    pub preview_changes: PreviewSupport, // serde(default); capability-driven UI/tools
     pub read_only_exec: bool,      // serde(default)=false; DB-enforced read-only execution
     pub cancel: CancelSupport,     // None | Abort(클라이언트만 중단) | Server(서버에 취소 요청)
     pub timeout: bool,
@@ -61,6 +63,7 @@ pub struct ConnectConfig { pub fields: BTreeMap<String,String>, pub secret: Opti
     async fn server_info(&self) -> Result<String, DbError>;
     async fn list_children(&self, parent: Option<&str>) -> Result<Vec<ExplorerNode>, DbError>;
     async fn browse(&self, node_id: &str, page: PageRequest) -> Result<ResultSet, DbError>;      // capabilities.paged_browse
+    async fn preview(&self, req: &ExecRequest, cancel: CancelToken) -> Result<ChangePreview, DbError>; // default Unsupported
     async fn execute(&self, req: &ExecRequest, cancel: CancelToken) -> Result<Vec<ResultSet>, DbError>;
     async fn expand(&self, element_id: &str, limit: u32) -> Result<ResultSet, DbError>;          // capabilities.graph_expand
     async fn close(&self);
@@ -75,7 +78,16 @@ pub struct ExplorerNode {
     pub actions: Vec<NodeAction>, // { id, label, kind: Browse | OpenQuery{text} | Insert{text} }
 }
 pub struct PageRequest { pub offset: u64, pub limit: u32 }
-pub struct ExecRequest { pub read_only: bool /*serde(default)=false*/, pub text: String, pub params: serde_json::Map<String,Value>, pub row_limit: u32, pub graph_node_limit: u32, pub timeout_ms: u64 }
+pub struct ExecRequest { pub read_only: bool /*serde(default)=false*/, pub text: String, pub params: serde_json::Map<String,Value>, pub row_limit: u32, pub graph_node_limit: u32, pub timeout_ms: u64, pub preview_sample_limit: u32 /*serde(default)=50*/ }
+
+pub struct ChangePreview { pub statements: Vec<StatementPreview>, pub committed: bool /*always false*/, pub notes: Vec<String> }
+pub enum StatementKind { Insert, Update, Delete, Ddl, GraphWrite, Other }
+pub struct StatementPreview {
+    pub text: String, pub kind: StatementKind, pub affected: Option<u64>,
+    pub before: Option<Table>, pub after: Option<Table>, // each <= sample limit (host/driver cap 1000)
+    pub schema_diff: Option<SchemaDiff>, pub counters: Vec<(String,i64)>, pub warnings: Vec<String>,
+}
+pub struct SchemaDiff { pub added: Vec<String>, pub removed: Vec<String>, pub changed: Vec<String> }
 
 pub struct ResultSet {
     pub title: String,                  // 문장 요약
@@ -124,6 +136,7 @@ pub enum ErrorKind { Connection, Auth, Query, Timeout, Cancelled, Unsupported, I
 | `explorer_children(session_id, parent?)` | |
 | `browse(session_id, node_id, offset, limit, run_id)` | |
 | `execute(session_id, run_id, req)` | 타임아웃(`tokio::time::timeout`)과 취소를 모두 적용한다. 결과를 이력에 기록한다 |
+| `preview(session_id, run_id, req, source?)` | 드라이버 preview 실행, 취소/타임아웃 후 정리 대기, 이력 kind=preview. source 기본 ui, 에이전트는 agent. 거부 배치는 notes만 반환하고 실행하지 않는다 |
 | `execute_stream(session_id, run_id, req, on_event)` | 같은 실행·취소·이력 경로를 쓴다. 그래프 또는 모든 표가 2,000행 이하이면 기존 ResultSet 배열을 반환한다. 그 외 큰 표는 Channel로 보내고 빈 배열을 반환한다 |
 | `cancel(run_id)` | 탭을 닫거나 사용자가 취소할 때 호출 |
 | `expand(session_id, element_id, limit)` | |
@@ -144,3 +157,7 @@ pub enum ErrorKind { Connection, Auth, Query, Timeout, Cancelled, Unsupported, I
 ## 새 DB 추가 절차
 
 [PLUGIN_GUIDE.md](PLUGIN_GUIDE.md)를 참고한다. crate를 하나 만들고 `Driver`를 구현한 뒤 `src-tauri/src/drivers.rs`에 한 줄을 추가한다. **UI는 수정하지 않는다.**
+
+### 변경 미리보기 경계
+
+PG·SQLite·Neo4j는 `Transactional`을 선언한다. PG는 BEGIN/ROLLBACK(기존 사용자 트랜잭션은 SAVEPOINT/ROLLBACK TO/RELEASE), SQLite는 SAVEPOINT/ROLLBACK TO/RELEASE(열린 사용자 트랜잭션에서는 interrupt가 외부 트랜잭션까지 되돌릴 수 있으므로 실행 전 거부), Neo4j는 명시적 Bolt 트랜잭션과 rollback을 쓴다. 샘플은 기본 50행, 드라이버/호스트 최대 1,000행, 에이전트 요청 최대 200행이다. SQL 트랜잭션/세션 제어문과 비트랜잭션 작업은 실행 전에 거부하고 이유를 notes에 담는다. preview는 쓰기 승인과 별개이며 적용은 기존 execute 경로를 사용한다. 시퀀스·외부 함수·트리거 부작용, 샘플 제한과 잠금 시간은 [C1 보고서](C1_PREVIEW_REPORT.md)를 따른다.

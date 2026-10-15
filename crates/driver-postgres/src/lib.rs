@@ -1,9 +1,11 @@
 //! PostgreSQL text-protocol driver; no dependency on the desktop host.
+mod preview;
 mod split;
 use async_trait::async_trait;
 use dbcore::*;
 use futures_util::{pin_mut, StreamExt};
 use postgres_native_tls::MakeTlsConnector;
+use preview::RunOutput;
 pub use split::split_statements;
 use std::{
     sync::atomic::{AtomicBool, Ordering},
@@ -70,6 +72,7 @@ impl PostgresDriver {
                     })
                     .collect(),
                 capabilities: Capabilities {
+                    preview_changes: PreviewSupport::Transactional,
                     read_only_exec: true,
                     cancel: CancelSupport::Server,
                     timeout: true,
@@ -457,7 +460,8 @@ impl PgSession {
         &self,
         req: &ExecRequest,
         cancel: CancelToken,
-    ) -> Result<Vec<ResultSet>, DbError> {
+        preview: bool,
+    ) -> Result<RunOutput, DbError> {
         let deadline = tokio::time::sleep(Duration::from_millis(req.timeout_ms.max(1)));
         tokio::pin!(deadline);
         let mut state = tokio::select! { biased; _=cancel.cancelled()=>return Err(DbError::new(ErrorKind::Cancelled,"Execution cancelled")), _=&mut deadline=>return Err(DbError::new(ErrorKind::Timeout,"Execution timed out while waiting for session")), state=self.state.lock()=>state };
@@ -466,7 +470,17 @@ impl PgSession {
         }
         let mut sent_cancel = false;
         let kind = {
-            let future = self.run_guarded(req, &mut state, &cancel);
+            let future = async {
+                if preview {
+                    self.preview_run(req, &mut state, &cancel)
+                        .await
+                        .map(RunOutput::Preview)
+                } else {
+                    self.run_guarded(req, &mut state, &cancel)
+                        .await
+                        .map(RunOutput::Execute)
+                }
+            };
             tokio::pin!(future);
             let kind = tokio::select! {
                 biased;
@@ -518,6 +532,16 @@ fn uuid_free_id() -> u64 {
 }
 #[async_trait]
 impl Session for PgSession {
+    async fn preview(
+        &self,
+        req: &ExecRequest,
+        cancel: CancelToken,
+    ) -> Result<ChangePreview, DbError> {
+        match self.execute_cancelled(req, cancel, true).await? {
+            RunOutput::Preview(r) => Ok(r),
+            _ => unreachable!(),
+        }
+    }
     async fn ping(&self) -> Result<(), DbError> {
         let _guard = self.state.lock().await;
         self.client
@@ -540,7 +564,10 @@ impl Session for PgSession {
         req: &ExecRequest,
         cancel: CancelToken,
     ) -> Result<Vec<ResultSet>, DbError> {
-        self.execute_cancelled(req, cancel).await
+        match self.execute_cancelled(req, cancel, false).await? {
+            RunOutput::Execute(r) => Ok(r),
+            _ => unreachable!(),
+        }
     }
     async fn expand(&self, _: &str, _: u32) -> Result<ResultSet, DbError> {
         Err(DbError::unsupported("Graph expansion is not supported"))
@@ -585,6 +612,7 @@ impl Session for PgSession {
             row_limit: limit,
             graph_node_limit: 300,
             timeout_ms: 30_000,
+            preview_sample_limit: default_preview_sample_limit(),
         };
         let mut result = self.execute(&req, CancelToken::new()).await?.remove(0);
         result.page = Some(PageInfo {

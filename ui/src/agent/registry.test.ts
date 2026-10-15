@@ -26,6 +26,19 @@ describe('agent registry', () => {
     state.drivers[0].capabilities.graph_expand = true; expect(api.listTools().map(t => t.name)).toContain('expand_node');
     delete state.sessions.p; expect(api.listTools().map(t => t.name)).not.toContain('expand_node');
   });
+  it('registers preview only for capable open sessions and rolls through the host without approval', async () => {
+    const { state, api, invoke, approve, host } = setup(); state.sessions.p = 's';
+    expect(api.listTools().some(t => t.name === 'preview_changes')).toBe(false);
+    state.drivers[0].capabilities.preview_changes = 'Transactional';
+    expect(api.listTools().find(t => t.name === 'preview_changes')?.annotations.readOnlyHint).toBe(true);
+    invoke.mockResolvedValue({ committed: false, statements: [], notes: ['rolled back'] });
+    expect(await api.callTool('preview_changes', { session_id: 's', text: 'DELETE FROM items' })).toMatchObject({ committed: false });
+    expect(approve).not.toHaveBeenCalled(); expect(host.history).toHaveBeenCalledOnce();
+    expect(invoke).toHaveBeenCalledWith('preview', expect.objectContaining({ source: 'agent', req: expect.objectContaining({ preview_sample_limit: 50 }) }));
+    const controller = new AbortController(); controller.abort(); invoke.mockClear();
+    expect(await api.callTool('preview_changes', { session_id: 's', text: 'DELETE FROM items' }, { signal: controller.signal })).toMatchObject({ error: { kind: 'Cancelled' } });
+    expect(invoke).not.toHaveBeenCalled();
+  });
   it('defaults read_only true, caps driver limits and preserves typed values', async () => {
     const { state, api, invoke, approve } = setup(); state.sessions.p = 's';
     invoke.mockResolvedValue([result(201)]);

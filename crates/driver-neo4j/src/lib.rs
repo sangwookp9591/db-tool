@@ -1,5 +1,6 @@
 //! Bolt graph driver with bounded results and disposable execution connections.
 mod explorer;
+mod preview;
 mod value;
 use async_trait::async_trait;
 use dbcore::*;
@@ -53,6 +54,7 @@ impl Neo4jDriver {
                 })
                 .collect(),
                 capabilities: Capabilities {
+                    preview_changes: PreviewSupport::Transactional,
                     read_only_exec: true,
                     cancel: CancelSupport::Abort,
                     timeout: true,
@@ -316,6 +318,7 @@ impl NeoSession {
                 row_limit: 100_000,
                 graph_node_limit: 300,
                 timeout_ms: 30_000,
+                preview_sample_limit: default_preview_sample_limit(),
             },
             CancelToken::new(),
             true,
@@ -325,6 +328,13 @@ impl NeoSession {
 }
 #[async_trait]
 impl Session for NeoSession {
+    async fn preview(
+        &self,
+        req: &ExecRequest,
+        cancel: CancelToken,
+    ) -> Result<ChangePreview, DbError> {
+        self.preview_changes(req, cancel).await
+    }
     async fn ping(&self) -> Result<(), DbError> {
         self.internal("RETURN 1".into(), Default::default()).await?;
         Ok(())
@@ -373,6 +383,7 @@ impl Session for NeoSession {
                 row_limit: limit,
                 graph_node_limit: limit.saturating_add(1),
                 timeout_ms: 30_000,
+            preview_sample_limit: default_preview_sample_limit(),
             },
             CancelToken::new(),
             true,

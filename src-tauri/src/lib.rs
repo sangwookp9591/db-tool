@@ -387,6 +387,7 @@ async fn execute_impl(
         };
     let result = host.observe(&record, result);
     let entry = HistoryEntry {
+        kind: "execute".into(),
         source,
         timestamp: time::OffsetDateTime::now_utc()
             .format(&time::format_description::well_known::Rfc3339)
@@ -418,6 +419,31 @@ async fn execute_impl(
     } else {
         result
     }
+}
+#[tauri::command]
+async fn preview(host: tauri::State<'_, Host>, session_id: String, run_id: String, mut req: ExecRequest, source: Option<HistorySource>) -> CommandResult<ChangePreview> {
+    let record = host.session(&session_id)?;
+    let run = host.run(&session_id, &run_id)?;
+    req.preview_sample_limit = req.preview_sample_limit.min(1000);
+    let started = Instant::now();
+    let future = record.session.preview(&req, run.token.clone());
+    tokio::pin!(future);
+    let result = match tokio::time::timeout(Duration::from_millis(req.timeout_ms.max(1)), &mut future).await {
+        Ok(r) => r,
+        Err(_) => { run.token.cancel(); let _ = future.await; Err(DbError::new(ErrorKind::Timeout, "Preview timed out")) }
+    };
+    let result = host.observe(&record, result);
+    let entry = HistoryEntry {
+        kind: "preview".into(), source: source.unwrap_or_default(),
+        timestamp: time::OffsetDateTime::now_utc().format(&time::format_description::well_known::Rfc3339).unwrap_or_default(),
+        profile_name: storage::redact(&record.profile.name, record.secret.as_deref()),
+        text: storage::redact(&req.text, record.secret.as_deref()),
+        elapsed_ms: started.elapsed().as_millis() as u64,
+        row_count: result.as_ref().map(|r| r.statements.iter().map(|s| s.affected.unwrap_or(0)).sum()).unwrap_or(0),
+        error: result.as_ref().err().map(|e| storage::redact(&e.message, record.secret.as_deref())),
+    };
+    if host.history(entry).await.is_err() { tracing::error!("Could not save preview history"); }
+    result
 }
 #[tauri::command]
 async fn cancel(host: tauri::State<'_, Host>, run_id: String) -> CommandResult<()> {
@@ -514,6 +540,7 @@ pub fn run() {
             browse,
             execute,
             execute_agent,
+            preview,
             agent_bridge::agent_bridge_set,
             agent_bridge::agent_bridge_status,
             agent_bridge::agent_bridge_reply,
@@ -524,6 +551,7 @@ pub fn run() {
             viewer_bench::viewer_bench_load,
             viewer_bench::viewer_bench_config,
             viewer_bench::viewer_bench_write,
+            viewer_bench::viewer_bench_checkpoint,
             cancel,
             expand,
             history_list
@@ -546,6 +574,10 @@ mod tests {
     }
     #[async_trait]
     impl Session for WaitingSession {
+        async fn preview(&self, _: &ExecRequest, cancel: CancelToken) -> CommandResult<ChangePreview> {
+            cancel.cancelled().await; self.stopped.store(true, Ordering::Release);
+            Err(DbError::new(ErrorKind::Cancelled, "cancelled"))
+        }
         async fn ping(&self) -> CommandResult<()> {
             Ok(())
         }
@@ -595,6 +627,7 @@ mod tests {
             row_limit: 1000,
             graph_node_limit: 300,
             timeout_ms,
+            preview_sample_limit: default_preview_sample_limit(),
         }
     }
     #[test]
@@ -649,6 +682,12 @@ mod tests {
         let text = std::fs::read_to_string(dir.join("history.jsonl")).unwrap();
         assert!(!text.contains("history-secret"));
         assert!(!text.contains("parameter-value"));
+        session.stopped.store(false, Ordering::Release);
+        let error = preview(app.state(), "s".into(), "preview".into(), request("SELECT 'history-secret'",20), Some(HistorySource::Agent)).await.unwrap_err();
+        assert_eq!(error.kind, ErrorKind::Timeout); assert!(session.stopped.load(Ordering::Acquire));
+        assert!(app.state::<Host>().runs.lock().unwrap().is_empty());
+        let previews=history_list(app.state(),100).await.unwrap();
+        assert!(previews.iter().any(|h| h.kind=="preview" && matches!(h.source,HistorySource::Agent) && h.text.contains("***")));
         // The history file is capped even after a long-running session.
         let entry = history[0].clone();
         let mut data = Vec::new();
@@ -720,6 +759,11 @@ mod tests {
             result[0].table.as_ref().unwrap().rows[0][0],
             Value::Int("9223372036854775807".into())
         );
+        let changes=preview(app.state(),id.clone(),"preview-ddl".into(),request("CREATE TEMP TABLE axdb_host_preview(id integer)",1000),None).await.unwrap();
+        assert!(!changes.committed);
+        assert!(changes.statements[0].schema_diff.as_ref().unwrap().added.iter().any(|name| name.contains("axdb_host_preview")));
+        let absent=execute(app.state(),id.clone(),"preview-check".into(),request("SELECT to_regclass('pg_temp.axdb_host_preview')",1000)).await.unwrap();
+        assert_eq!(absent[0].table.as_ref().unwrap().rows[0][0],Value::Null);
         let error = execute(
             app.state(),
             id.clone(),

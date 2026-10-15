@@ -338,3 +338,75 @@ async fn real_neo4j_contract() {
         ErrorKind::Connection
     );
 }
+
+#[tokio::test]
+async fn change_preview_rolls_back_graph_writes_and_interruptions() {
+    let Some(cfg) = config() else {
+        return;
+    };
+    let s = Neo4jDriver::new().connect(&cfg).await.unwrap();
+    let marker = format!(
+        "preview_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    );
+    run(
+        &*s,
+        &format!("CREATE (:AxdbPreview {{marker:'{marker}', n:'before'}})"),
+    )
+    .await;
+    for (sql,counter) in [
+        (format!("CREATE (n:AxdbPreview {{marker:'{marker}',n:'created'}}) RETURN n"),"nodes_created"),
+        (format!("MATCH (n:AxdbPreview {{marker:'{marker}'}}) SET n.n='after' RETURN n"),"properties_set"),
+        (format!("MATCH (n:AxdbPreview {{marker:'{marker}'}}) DELETE n"),"nodes_deleted"),
+        (format!("MATCH (n:AxdbPreview {{marker:'{marker}'}}) CREATE (n)-[r:PREVIEW]->(m:AxdbPreview {{marker:'{marker}'}}) RETURN n,r,m"),"relationships_created"),
+    ] {
+        let mut r=req(&sql);r.preview_sample_limit=1;
+        let p=s.preview(&r,CancelToken::new()).await.unwrap();assert!(!p.committed);
+        assert!(p.statements[0].counters.iter().any(|(k,n)| k==counter&&*n>0));
+        if sql.contains("RETURN") {assert_eq!(p.statements[0].after.as_ref().unwrap().rows.len(),1);}
+        let actual=run(&*s,&format!("MATCH (n:AxdbPreview {{marker:'{marker}'}}) RETURN n.n AS n")).await;
+        assert_eq!(actual.row_count,1);assert_eq!(cell(&actual,"n"),&Value::Text("before".into()));
+        assert_eq!(cell(&run(&*s,&format!("MATCH (:AxdbPreview {{marker:'{marker}'}})-[r:PREVIEW]->() RETURN count(r) AS c")).await,"c"),&Value::Int("0".into()));
+    }
+    assert!(!s
+        .preview(&req("CALL dbms.components()"), CancelToken::new())
+        .await
+        .unwrap()
+        .notes
+        .is_empty());
+    for timeout in [true, false] {
+        let mut r=req(&format!("MATCH (n:AxdbPreview {{marker:'{marker}'}}) SET n.n='bad' WITH n UNWIND range(1,100000000) AS x RETURN sum(x)"));
+        let token = CancelToken::new();
+        let other = token.clone();
+        if timeout {
+            r.timeout_ms = 50;
+        } else {
+            tokio::spawn(async move {
+                tokio::time::sleep(Duration::from_millis(50)).await;
+                other.cancel();
+            });
+        }
+        assert_eq!(
+            s.preview(&r, token).await.unwrap_err().kind,
+            if timeout {
+                ErrorKind::Timeout
+            } else {
+                ErrorKind::Cancelled
+            }
+        );
+        let actual = run(
+            &*s,
+            &format!("MATCH (n:AxdbPreview {{marker:'{marker}'}}) RETURN n.n AS n"),
+        )
+        .await;
+        assert_eq!(cell(&actual, "n"), &Value::Text("before".into()));
+    }
+    run(
+        &*s,
+        &format!("MATCH (n:AxdbPreview {{marker:'{marker}'}}) DETACH DELETE n"),
+    )
+    .await;
+}

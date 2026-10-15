@@ -343,3 +343,146 @@ async fn dropping_session_releases_uncommitted_write_lock() {
     );
     next.close().await;
 }
+
+#[tokio::test]
+async fn change_preview_rolls_back_rows_schema_and_interruptions() {
+    let dir = tempfile::tempdir().unwrap();
+    let s = SqliteDriver::new()
+        .connect(&config(&dir.path().join("preview.db"), false))
+        .await
+        .unwrap();
+    run(&*s,"CREATE TABLE items(id INTEGER PRIMARY KEY,n TEXT); INSERT INTO items VALUES(1,'before'),(2,'two'); CREATE INDEX items_n ON items(n)").await;
+    let original = run(&*s, "SELECT * FROM items ORDER BY id").await.table;
+    for (sql, n, before, after) in [
+        ("UPDATE items SET n='after' WHERE id=1", 1, true, true),
+        ("DELETE FROM items WHERE id=1", 1, true, false),
+        (
+            "INSERT INTO items VALUES(3,'three'),(4,'four')",
+            2,
+            false,
+            true,
+        ),
+    ] {
+        let mut r = req(sql);
+        r.preview_sample_limit = 1;
+        let p = s.preview(&r, CancelToken::new()).await.unwrap();
+        assert!(!p.committed);
+        let st = &p.statements[0];
+        assert_eq!(st.affected, Some(n));
+        assert_eq!(st.before.is_some(), before);
+        assert_eq!(st.after.is_some(), after);
+        for table in [&st.before, &st.after].into_iter().flatten() {
+            assert!(table.rows.len() <= 1);
+        }
+        if before {
+            assert_eq!(
+                st.before.as_ref().unwrap().rows[0][1],
+                Value::Text("before".into())
+            );
+        }
+        if sql.starts_with("UPDATE") {
+            assert_eq!(
+                st.after.as_ref().unwrap().rows[0][1],
+                Value::Text("after".into())
+            );
+        }
+        assert_eq!(
+            run(&*s, "SELECT * FROM items ORDER BY id").await.table,
+            original
+        );
+    }
+    let schema = run(
+        &*s,
+        "SELECT type,name,sql FROM sqlite_master ORDER BY type,name",
+    )
+    .await
+    .table;
+    for sql in [
+        "ALTER TABLE items ADD COLUMN extra int",
+        "CREATE TABLE preview_new(x int)",
+        "DROP INDEX items_n",
+    ] {
+        let p = s.preview(&req(sql), CancelToken::new()).await.unwrap();
+        let diff = p.statements[0].schema_diff.as_ref().unwrap();
+        assert!(!diff.added.is_empty() || !diff.removed.is_empty() || !diff.changed.is_empty());
+        assert_eq!(
+            run(
+                &*s,
+                "SELECT type,name,sql FROM sqlite_master ORDER BY type,name"
+            )
+            .await
+            .table,
+            schema
+        );
+    }
+    for sql in [
+        "VACUUM",
+        "COMMIT",
+        "PRAGMA journal_mode=WAL",
+        "ATTACH ':memory:' AS danger",
+        "UPDATE items SET n='bad'; COMMIT",
+    ] {
+        let p = s.preview(&req(sql), CancelToken::new()).await.unwrap();
+        assert!(!p.notes.is_empty());
+        assert!(p.statements.iter().all(|s| s.affected.is_none()));
+    }
+    run(&*s, "BEGIN; INSERT INTO items VALUES(3,'user')").await;
+    let refused = s
+        .preview(&req("DELETE FROM items"), CancelToken::new())
+        .await
+        .unwrap();
+    assert!(refused.notes.iter().any(|n| n.contains("user transaction")));
+    assert_eq!(run(&*s, "SELECT * FROM items").await.row_count, 3);
+    run(&*s, "ROLLBACK").await;
+    for timeout in [true, false] {
+        let mut r=req("UPDATE items SET n='bad'; WITH RECURSIVE r(x) AS (VALUES(0) UNION ALL SELECT x+1 FROM r WHERE x<100000000) SELECT sum(x) FROM r");
+        let token = CancelToken::new();
+        let other = token.clone();
+        if timeout {
+            r.timeout_ms = 20;
+        } else {
+            tokio::spawn(async move {
+                tokio::time::sleep(Duration::from_millis(20)).await;
+                other.cancel();
+            });
+        }
+        assert_eq!(
+            s.preview(&r, token).await.unwrap_err().kind,
+            if timeout {
+                ErrorKind::Timeout
+            } else {
+                ErrorKind::Cancelled
+            }
+        );
+        assert_eq!(
+            run(&*s, "SELECT * FROM items ORDER BY id").await.table,
+            original
+        );
+        run(&*s, "BEGIN; INSERT INTO items VALUES(3,'clean'); ROLLBACK").await;
+    }
+    // Interrupting a mutation may auto-rollback the owned savepoint; the connection must remain reusable.
+    let mut mutation=req("WITH RECURSIVE r(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM r WHERE x<100000000) INSERT INTO items SELECT x+10,'bulk' FROM r");
+    mutation.timeout_ms = 20;
+    assert_eq!(
+        s.preview(&mutation, CancelToken::new())
+            .await
+            .unwrap_err()
+            .kind,
+        ErrorKind::Timeout
+    );
+    assert_eq!(
+        run(&*s, "SELECT * FROM items ORDER BY id").await.table,
+        original
+    );
+    assert!(s
+        .preview(
+            &req("UPDATE items SET n='bad'; SELECT missing_column"),
+            CancelToken::new()
+        )
+        .await
+        .is_err());
+    assert_eq!(
+        run(&*s, "SELECT * FROM items ORDER BY id").await.table,
+        original
+    );
+}

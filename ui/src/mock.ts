@@ -6,7 +6,7 @@ const fields: DriverManifest['connection_fields'] = [
   { key: 'user', label: 'User', kind: 'Text', required: true, default: 'demo', secret: false, placeholder: '' },
   { key: 'password', label: 'Password', kind: 'Password', required: false, default: null, secret: true, placeholder: '' }
 ];
-const capabilities: DriverManifest['capabilities'] = { read_only_exec: true, cancel: 'Server', timeout: true, params: true, transactions: true, paged_browse: true, graph_expand: false, multi_statement: true, edit_rows: false };
+const capabilities: DriverManifest['capabilities'] = { preview_changes: 'DryRun', read_only_exec: true, cancel: 'Server', timeout: true, params: true, transactions: true, paged_browse: true, graph_expand: false, multi_statement: true, edit_rows: false };
 export const drivers: DriverManifest[] = [
   { id: 'postgres', display_name: 'PostgreSQL · demo', paradigm: 'Relational', query_language: { id: 'sql', display: 'SQL', editor_mode: 'sql', supports_params: true }, connection_fields: fields, capabilities, default_query: 'SELECT * FROM people;' },
   { id: 'neo4j', display_name: 'Graph · demo', paradigm: 'Graph', query_language: { id: 'cypher', display: 'Cypher', editor_mode: 'cypher', supports_params: true }, connection_fields: fields.map(f => f.key === 'port' ? { ...f, default: '7687' } : f), capabilities: { ...capabilities, cancel: 'Abort', graph_expand: true, multi_statement: false }, default_query: 'MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 100;' }
@@ -84,6 +84,13 @@ export async function mockInvoke<K extends keyof Commands>(command: K, args: Com
       result = [node]; break;
     }
     case 'browse': { session(a.sessionId as string); const count = Math.max(0, Math.min(a.limit as number, 100000 - (a.offset as number))); result = { ...base('Browse people'), table: tableRows(count, a.offset as number), row_count: count, page: { offset: a.offset, limit: a.limit, has_more: (a.offset as number) + count < 100000 } }; break; }
+    case 'preview': {
+      const profile = session(a.sessionId as string), req = a.req as ExecRequest;
+      const sample = tableRows(Math.min(req.preview_sample_limit ?? 50, 3));
+      result = { committed: false, notes: ['Demo preview: illustrative samples only; no database was contacted.'], statements: [{ text: req.text, kind: 'Other', affected: null, before: sample, after: sample, schema_diff: null, counters: [], warnings: [] }] };
+      history.unshift({ kind: 'preview', source: (a.source as 'ui' | 'agent') ?? 'ui', timestamp: Date.now(), profile_name: profile.name, text: req.text, elapsed_ms: 0, row_count: 0, error: null });
+      break;
+    }
     case 'execute_agent': result = await execute(a.sessionId as string, a.runId as string, a.req as ExecRequest, 'agent'); break;
     case 'execute': result = await execute(a.sessionId as string, a.runId as string, a.req as ExecRequest, a.source as "ui" | "agent"); break;
     case 'cancel': runs.get(a.runId as string)?.(); break;

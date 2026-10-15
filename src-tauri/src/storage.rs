@@ -23,6 +23,8 @@ pub enum HistorySource {
 }
 #[derive(Clone, Serialize, Deserialize)]
 pub struct HistoryEntry {
+    #[serde(default = "execution_kind")]
+    pub kind: String,
     #[serde(default)]
     pub source: HistorySource,
     pub timestamp: String,
@@ -32,6 +34,7 @@ pub struct HistoryEntry {
     pub row_count: u64,
     pub error: Option<String>,
 }
+fn execution_kind() -> String { "execute".into() }
 #[derive(Clone)]
 pub struct Paths {
     pub config: PathBuf,
@@ -175,6 +178,11 @@ mod tests {
     }
 
     use super::*;
+    #[test]
+    fn legacy_history_defaults_to_execution_kind() {
+        let history: HistoryEntry = serde_json::from_value(serde_json::json!({"timestamp":"old","profile_name":"test","text":"SELECT 1","elapsed_ms":1,"row_count":1,"error":null})).unwrap();
+        assert_eq!(history.kind,"execute");
+    }
     #[test]
     fn profile_secrets_and_atomic_files() {
         let driver = crate::drivers::registry().manifests().remove(0);
