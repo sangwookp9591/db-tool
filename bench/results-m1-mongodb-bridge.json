@@ -1,0 +1,111 @@
+{
+  "database": "MongoDB 7.0.45 at 127.0.0.1:57017/axdb_test",
+  "checks": [
+    {
+      "name": "manifest",
+      "ok": true,
+      "detail": {
+        "schema_graph": false,
+        "filtered_browse": false,
+        "preview_changes": "None",
+        "read_only_exec": true,
+        "cancel": "Abort",
+        "timeout": true,
+        "params": false,
+        "transactions": false,
+        "paged_browse": true,
+        "graph_expand": false,
+        "multi_statement": false,
+        "edit_rows": false
+      }
+    },
+    {
+      "name": "open_connection",
+      "ok": true,
+      "detail": "save_secret=false; existing UI session credential, then MCP reuse"
+    },
+    {
+      "name": "explore databases collections fields indexes",
+      "ok": true,
+      "detail": {
+        "databases": [
+          "admin",
+          "axdb_test",
+          "config",
+          "local"
+        ],
+        "collections": [
+          "m1_bridge_types",
+          "m1_types_6ad0a91a4033977448f62bbe",
+          "m1_pages",
+          "m1_types",
+          "m1_pages_6ad0a91a4033977448f62bbe",
+          "m1_bridge_pages"
+        ]
+      }
+    },
+    {
+      "name": "run_query exact typed BSON and document/table views",
+      "ok": true,
+      "detail": {
+        "rows": 1,
+        "columns": [
+          "_id",
+          "i64",
+          "decimal",
+          "date",
+          "nested",
+          "array",
+          "string",
+          "bool",
+          "binary"
+        ],
+        "documents": 1
+      }
+    },
+    {
+      "name": "run_query bounded cursor",
+      "ok": true,
+      "detail": {
+        "rows": 5,
+        "truncated": true
+      }
+    },
+    {
+      "name": "read_only write denial",
+      "ok": true,
+      "detail": "Unsupported"
+    },
+    {
+      "name": "browse paging",
+      "ok": true,
+      "detail": {
+        "offset": 10,
+        "limit": 5,
+        "has_more": true
+      }
+    },
+    {
+      "name": "visible query tab and result",
+      "ok": true,
+      "detail": {
+        "tab_id": "8065273b-8b63-4605-b397-b3bd08b01573"
+      }
+    }
+  ],
+  "passed": 8,
+  "total": 8,
+  "native_ui": {
+    "verified": true,
+    "app": "target-m1/debug/axdb",
+    "mock": false,
+    "table_screenshot": "bench/m1-mongodb-table.png",
+    "json_screenshot": "bench/m1-mongodb-json.png",
+    "method": "Real desktop UI Run and Table/JSON tab selection via AX; screenshots visually inspected"
+  },
+  "credential_path": {
+    "save_secret": false,
+    "method": "Existing session credential dialog via AX set-value; MCP open_connection reused the established session",
+    "deviation": "Keychain bootstrap failed with macOS SecurityAgent; coordinator approved session-dialog fallback"
+  }
+}

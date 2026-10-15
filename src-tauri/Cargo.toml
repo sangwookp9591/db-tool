@@ -13,6 +13,7 @@ dbcore.workspace = true
 driver-postgres = { path = "../crates/driver-postgres" }
 driver-neo4j = { path = "../crates/driver-neo4j" }
 driver-sqlite = { path = "../crates/driver-sqlite" }
+driver-mongodb = { path = "../crates/driver-mongodb" }
 async-trait.workspace = true
 serde.workspace = true
 serde_json.workspace = true
