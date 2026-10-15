@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { DriverManifest, Profile, ExplorerNode, ResultSet, ExecRequest, HistoryEntry } from './contract';
 export interface Commands {
+  agent_bridge_ready: { args: Record<string, never>; result: void };
   agent_bridge_status: { args: Record<string, never>; result: boolean };
   agent_bridge_set: { args: { enabled: boolean }; result: void };
   agent_bridge_reply: { args: { requestId: string; result: unknown }; result: void };

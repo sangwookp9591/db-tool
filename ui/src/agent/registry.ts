@@ -63,8 +63,9 @@ export function createRegistry(host: AgentHost) {
       const timer = setTimeout(abort, (a.timeout_ms as number ?? 30_000) + 30_000);
       const runId = crypto.randomUUID();
       try {
+        if (controller.signal.aborted) return { error: { kind: 'Timeout', message: 'Agent request expired before execution' } };
         if ((!readOnly || !driver.capabilities.read_only_exec) && !await host.approve({ text: a.text as string, connection: profile.name, signal: controller.signal })) return denied();
-        if (controller.signal.aborted) return denied();
+        if (controller.signal.aborted) return { error: { kind: 'Timeout', message: 'Agent request expired before execution' } };
         const cancel = () => { void host.invoke('cancel', { runId }).catch(() => {}); };
         controller.signal.addEventListener('abort', cancel, { once: true });
         try {

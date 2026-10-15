@@ -37,8 +37,8 @@ export function GraphView({ graph: initial, sessionId, canExpand, limit, onError
   function fit() { camera.current = fitGraph(scene.current.nodes.filter(n => n.visible), dimensions.current.width, dimensions.current.height); fitMode.current = true; schedule(); }
   useEffect(() => registerGraphProbe(() => ({ frames: frames.current, ready: readyRef.current, positions: Float32Array.from(scene.current.nodes.filter(n => n.visible).flatMap(n => [n.x, n.y])) })), []);
   useEffect(() => { alive.current = true; return () => { alive.current = false; worker.current?.terminate(); cancelAnimationFrame(request.current); }; }, []);
-  useLayoutEffect(() => { scene.current = { nodes: [], links: [] }; readyRef.current = false; fitMode.current = true; setReady(false); setGraph(initial); setSelected(null); }, [initial]);
-  useEffect(() => {
+  useLayoutEffect(() => { readyRef.current = false; setReady(false); setGraph(initial); setSelected(null); }, [initial]);
+  useLayoutEffect(() => {
     const element = canvas.current!, context = element.getContext('2d')!;
     const since = start('graph-layout'), currentRevision = ++revision.current;
     const positions = seedPositions({ nodes: visible, rels: graph.rels }, scene.current.nodes), incremental = positions.some(p => p.fixed);
@@ -77,12 +77,12 @@ export function GraphView({ graph: initial, sessionId, canExpand, limit, onError
     resize(); const observer = new ResizeObserver(resize); observer.observe(container.current!);
     if (!worker.current) worker.current = new Worker(new URL('./workers/graph.worker.ts', import.meta.url), { type: 'module' });
     worker.current.onerror = event => { if (alive.current) onError(new Error(`Graph layout: ${event.message}`)); };
-    worker.current.onmessage = event => {
-      if (event.data.revision !== revision.current) return;
-      const target = event.data.positions as Float32Array;
+    const receivePositions = (payload: { revision: number; positions: Float32Array; ticks: number; workMs: number; cached?: boolean }) => {
+      if (payload.revision !== revision.current) return;
+      const target = payload.positions;
       const apply = () => { nodes.forEach((n, i) => { if (drag.current?.node !== n) { n.x = target[i * 2]; n.y = target[i * 2 + 1]; } n.visible = true; }); hit.current = hitIndex(nodes); };
       const firstReply = !settled; settled = true; readyRef.current = true; setReady(true);
-      if (firstReply) finish('graph-stable', since, { nodes: nodes.length, ticks: event.data.ticks, workMs: event.data.workMs });
+      if (firstReply) finish('graph-stable', since, { nodes: nodes.length, ticks: payload.ticks, workMs: payload.workMs, cached: !!payload.cached });
       if (firstReply && incremental && positions.some(n => !n.fixed) && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
         fitMode.current = false; for (const n of nodes) n.visible = true;
         const seeds = nodes.map(n => ({ x: n.x, y: n.y })); const begun = performance.now(); let animation = 0;
@@ -92,7 +92,9 @@ export function GraphView({ graph: initial, sessionId, canExpand, limit, onError
         animation = requestAnimationFrame(tween);
       } else { apply(); if (firstReply && !incremental) { camera.current = fitGraph(nodes, dimensions.current.width, dimensions.current.height); fitMode.current = true; } schedule(); }
     };
-    worker.current.postMessage({ revision: currentRevision, nodes: positions, links: links.map(l => ({ source: l.source.id, target: l.target.id })), incremental });
+    worker.current.onmessage = event => receivePositions(event.data);
+    if (incremental && positions.every(n => n.fixed)) receivePositions({ revision: currentRevision, positions: Float32Array.from(positions.flatMap(n => [n.x, n.y])), ticks: 0, workMs: 0, cached: true });
+    else worker.current.postMessage({ revision: currentRevision, nodes: positions, links: links.map(l => ({ source: l.source.id, target: l.target.id })), incremental });
     if (!activeRef.current) worker.current.postMessage({ kind: 'pause' });
     const wheel = (e: WheelEvent) => { e.preventDefault(); fitMode.current = false; const rect = element.getBoundingClientRect(), c = camera.current, px = e.clientX - rect.left - dimensions.current.width / 2, py = e.clientY - rect.top - dimensions.current.height / 2; const next = Math.max(.001, Math.min(6, c.scale * Math.exp(-e.deltaY * .001))); c.x = px - (px - c.x) * next / c.scale; c.y = py - (py - c.y) * next / c.scale; c.scale = next; schedule(); };
     element.addEventListener('wheel', wheel, { passive: false }); const media = matchMedia('(prefers-color-scheme: dark)'); media.addEventListener('change', schedule);
@@ -112,9 +114,8 @@ export function GraphView({ graph: initial, sessionId, canExpand, limit, onError
     catch (error) { if (alive.current && source.current === expected) onError(error); } finally { if (alive.current) setExpanding(false); }
   }
   const accessibleContent = useMemo(() => accessible ? <>{visible.map(n => <button onClick={() => select(n)} key={n.id}>{nodeCaption(n)}</button>)}{graph.rels.filter(r => ids.has(r.start) && ids.has(r.end)).map(r => <button onClick={() => select(r)} key={r.id}>{r.rel_type} · {r.id}</button>)}</> : null, [accessible, visible, graph.rels, ids]);
-  return <div class="graph-area"><div class="graph-main"><div class="toolbar"><input disabled={!ready} aria-label="Search graph" placeholder="Search labels or property values" value={search} onInput={e => setSearch(e.currentTarget.value)} /><button onClick={fit}>Reset view</button><span>{expanding ? 'Expanding…' : 'Wheel: zoom · drag: pan · double-click: expand'}</span></div>
-    {graph.nodes.length > safeLimit && <div class="warning" role="status">{graph.nodes.length}개 중 {safeLimit}개 표시</div>}
-    <div class="canvas-wrap" ref={container}><canvas ref={canvas} hidden={!ready} data-ready={ready} aria-label={`Graph: ${visible.length} nodes, ${graph.rels.length} relationships`} role="img"
+  return <div class="graph-area"><div class="graph-main"><div class="toolbar"><input disabled={!ready} aria-label="Search graph" placeholder="Search labels or property values" value={search} onInput={e => setSearch(e.currentTarget.value)} /><button onClick={fit}>Reset view</button><span class="graph-message" role="status">{graph.nodes.length > safeLimit ? `${graph.nodes.length}개 중 ${safeLimit}개 표시` : expanding ? 'Expanding…' : 'Wheel: zoom · drag: pan · double-click: expand'}</span></div>
+    <div class="canvas-wrap" ref={container}><canvas ref={canvas} hidden={!ready} data-ready={ready} data-total-nodes={graph.nodes.length} aria-label={`Graph: ${visible.length} nodes, ${graph.rels.length} relationships`} role="img"
       onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); drag.current = { node: hitNode(e), x: e.clientX, y: e.clientY, moved: false }; }}
       onPointerMove={e => { const d = drag.current; if (!d) return; const dx = e.clientX - d.x, dy = e.clientY - d.y; if (Math.abs(dx) + Math.abs(dy) > 2) d.moved = true; if (d.node) { const p = point(e); d.node.x = p.x; d.node.y = p.y; worker.current?.postMessage({ kind: 'pin', id: d.node.id, ...p }); hit.current = hitIndex(scene.current.nodes); } else { fitMode.current = false; camera.current.x += dx; camera.current.y += dy; } d.x = e.clientX; d.y = e.clientY; schedule(); }}
       onPointerUp={e => { const d = drag.current; drag.current = null; if (d?.moved) return; const node = hitNode(e); if (node) { select(node.data); return; } const p = point(e); const link = scene.current.links.find(l => l.source.visible && l.target.visible && curveDistance(edgeCurve(l.source, l.target, l.offset, l.data.start === l.data.end), p) < 8 / camera.current.scale); select(link?.data ?? null); }}

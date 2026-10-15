@@ -1,0 +1,48 @@
+{
+  "complete": true,
+  "environment": {
+    "at": "2026-10-15T06:30:36.207Z",
+    "href": "tauri://localhost",
+    "mode": "Tauri debug / WKWebView",
+    "target": "idle",
+    "targets": [
+      "127.0.0.1:55432",
+      "bolt://127.0.0.1:57687"
+    ],
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)"
+  },
+  "fixtureLabel": "DbtP_1792045836207",
+  "idle": {
+    "averageMovementPx": 0,
+    "duration": 12000,
+    "nodes": 300,
+    "renderFrames": 0
+  },
+  "idleReady": false,
+  "results": {},
+  "stage": "ready",
+  "uptime": "15:30  up 3 days,  6:13, 22 users, load averages: 35.21 47.42 88.05",
+  "idleCpu": {
+    "pids": [
+      32895,
+      33095
+    ],
+    "webkitCandidates": [
+      33095
+    ],
+    "samples": [
+      0.1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1.8,
+      0
+    ],
+    "meanPercent": 0.19,
+    "ownership": "app plus new WebKit processes since spawn; conservative if another app launched WebKit concurrently"
+  }
+}

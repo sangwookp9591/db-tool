@@ -1,0 +1,185 @@
+{
+  "environment": {
+    "at": "2026-10-15T06:52:28.064Z",
+    "href": "tauri://localhost",
+    "mode": "Tauri debug / WKWebView",
+    "target": "matrix",
+    "targets": [
+      "127.0.0.1:55432",
+      "bolt://127.0.0.1:57687"
+    ],
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)"
+  },
+  "fixtureLabel": "DbtP_1792047148064",
+  "results": {
+    "table-1000-10-legacy": [
+      {
+        "driverElapsed": 15,
+        "first": 96,
+        "frames": {
+          "max": 83,
+          "p50": 33,
+          "p95": 50,
+          "samples": 60
+        },
+        "load": "15:52  up 3 days,  6:35, 19 users, load averages: 40.81 38.93 41.99",
+        "loaded": 52
+      },
+      {
+        "driverElapsed": 28,
+        "first": 233,
+        "frames": {
+          "max": 67,
+          "p50": 33,
+          "p95": 39,
+          "samples": 60
+        },
+        "load": "15:52  up 3 days,  6:35, 19 users, load averages: 38.42 38.46 41.81",
+        "loaded": 182
+      },
+      {
+        "driverElapsed": 16,
+        "first": 78,
+        "frames": {
+          "max": 112,
+          "p50": 33,
+          "p95": 57,
+          "samples": 60
+        },
+        "load": "15:52  up 3 days,  6:35, 19 users, load averages: 38.39 38.46 41.79",
+        "loaded": 54
+      }
+    ],
+    "table-1000-10-stream": [
+      {
+        "driverElapsed": 35,
+        "first": 106,
+        "frames": {
+          "max": 36,
+          "p50": 33,
+          "p95": 35,
+          "samples": 60
+        },
+        "load": "15:52  up 3 days,  6:35, 19 users, load averages: 38.42 38.46 41.81",
+        "loaded": 77
+      },
+      {
+        "driverElapsed": 18,
+        "first": 100,
+        "frames": {
+          "max": 42,
+          "p50": 33,
+          "p95": 37,
+          "samples": 60
+        },
+        "load": "15:52  up 3 days,  6:35, 19 users, load averages: 38.42 38.46 41.81",
+        "loaded": 67
+      },
+      {
+        "driverElapsed": 26,
+        "first": 357,
+        "frames": {
+          "max": 619,
+          "p50": 34,
+          "p95": 137,
+          "samples": 60
+        },
+        "load": "15:52  up 3 days,  6:35, 19 users, load averages: 38.39 38.46 41.79",
+        "loaded": 299
+      }
+    ],
+    "table-10000-10-legacy": [
+      {
+        "driverElapsed": 396,
+        "first": 2264,
+        "frames": {
+          "max": 61,
+          "p50": 34,
+          "p95": 45,
+          "samples": 60
+        },
+        "load": "15:52  up 3 days,  6:35, 19 users, load averages: 38.28 38.43 41.76",
+        "loaded": 2161
+      },
+      {
+        "driverElapsed": 551,
+        "first": 2606,
+        "frames": {
+          "max": 64,
+          "p50": 33,
+          "p95": 43,
+          "samples": 60
+        },
+        "load": "15:53  up 3 days,  6:35, 19 users, load averages: 50.49 40.98 42.59",
+        "loaded": 2536
+      },
+      {
+        "driverElapsed": 267,
+        "first": 948,
+        "frames": {
+          "max": 39,
+          "p50": 33,
+          "p95": 36,
+          "samples": 60
+        },
+        "load": "15:53  up 3 days,  6:35, 19 users, load averages: 50.21 41.08 42.61",
+        "loaded": 912
+      }
+    ],
+    "table-10000-10-stream": [
+      {
+        "driverElapsed": 476,
+        "first": 594,
+        "frames": {
+          "max": 89,
+          "p50": 34,
+          "p95": 52,
+          "samples": 60
+        },
+        "load": "15:52  up 3 days,  6:35, 19 users, load averages: 39.78 38.74 41.85",
+        "loaded": 4819
+      },
+      {
+        "driverElapsed": 559,
+        "first": 704,
+        "frames": {
+          "max": 1191,
+          "p50": 35,
+          "p95": 192,
+          "samples": 60
+        },
+        "load": "15:52  up 3 days,  6:35, 19 users, load averages: 38.59 38.51 41.75",
+        "loaded": 3118
+      },
+      {
+        "driverElapsed": 133,
+        "first": 242,
+        "frames": {
+          "max": 69,
+          "p50": 33,
+          "p95": 39,
+          "samples": 60
+        },
+        "load": "15:53  up 3 days,  6:35, 19 users, load averages: 48.11 40.80 42.50",
+        "loaded": 733
+      }
+    ],
+    "table-100000-10-legacy": [
+      {
+        "driverElapsed": 5136,
+        "first": 21416,
+        "frames": {
+          "max": 52,
+          "p50": 33,
+          "p95": 38,
+          "samples": 60
+        },
+        "load": "15:53  up 3 days,  6:35, 19 users, load averages: 48.11 40.80 42.50",
+        "loaded": 21337
+      }
+    ]
+  },
+  "stage": "ready",
+  "complete": false,
+  "error": "Final matrix rerun interrupted after no report progress for more than 120 seconds; likely occluded WKWebView rAF suspension. No final paint claim is made from these partial samples."
+}

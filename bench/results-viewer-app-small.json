@@ -1,0 +1,70 @@
+{
+  "complete": true,
+  "environment": {
+    "at": "2026-10-15T06:40:45.853Z",
+    "href": "tauri://localhost",
+    "mode": "Tauri debug / WKWebView",
+    "target": "small",
+    "targets": [
+      "127.0.0.1:55432",
+      "bolt://127.0.0.1:57687"
+    ],
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)"
+  },
+  "fixtureLabel": "DbtP_1792046445853",
+  "results": {},
+  "smallQuery": [
+    {
+      "agentDriver": 73,
+      "agentWall": 98,
+      "cold": true,
+      "firstPaint": 302,
+      "load": "15:40  up 3 days,  6:23, 17 users, load averages: 23.35 23.58 53.11",
+      "rows": 4,
+      "uiDriver": 98,
+      "uiWall": 176
+    },
+    {
+      "agentDriver": 31,
+      "agentWall": 40,
+      "cold": false,
+      "firstPaint": 41,
+      "load": "15:41  up 3 days,  6:23, 17 users, load averages: 17.83 22.27 51.61",
+      "rows": 4,
+      "uiDriver": 16,
+      "uiWall": 25
+    },
+    {
+      "agentDriver": 11,
+      "agentWall": 20,
+      "cold": false,
+      "firstPaint": 66,
+      "load": "15:41  up 3 days,  6:23, 17 users, load averages: 17.83 22.27 51.61",
+      "rows": 4,
+      "uiDriver": 11,
+      "uiWall": 20
+    },
+    {
+      "agentDriver": 12,
+      "agentWall": 20,
+      "cold": false,
+      "firstPaint": 67,
+      "load": "15:41  up 3 days,  6:23, 17 users, load averages: 17.83 22.27 51.61",
+      "rows": 4,
+      "uiDriver": 10,
+      "uiWall": 20
+    },
+    {
+      "agentDriver": 27,
+      "agentWall": 34,
+      "cold": false,
+      "firstPaint": 85,
+      "load": "15:41  up 3 days,  6:23, 17 users, load averages: 17.83 22.27 51.61",
+      "rows": 4,
+      "uiDriver": 38,
+      "uiWall": 50
+    }
+  ],
+  "stage": "ready",
+  "uptime": "15:40  up 3 days,  6:23, 17 users, load averages: 22.43 23.40 53.22"
+}

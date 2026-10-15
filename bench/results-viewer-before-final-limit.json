@@ -1,0 +1,212 @@
+{
+  "environment": {
+    "os": "darwin 27.0.0",
+    "cpu": "Apple M5",
+    "arch": "arm64",
+    "browser": "156.0.8078.4",
+    "viewport": "1440x1000",
+    "mode": "Vite dev / headless Chromium / alternating paired runs"
+  },
+  "complete": true,
+  "at": "2026-10-15T06:58:56.906Z",
+  "results": {
+    "graph-5000": [
+      {
+        "first": 1357.2999999523163,
+        "layout": 12452.099999964237,
+        "layoutFrames": {
+          "p50": 199.9000000000001,
+          "p95": 266.60000000000036,
+          "max": 416.7000000000007,
+          "samples": 60
+        },
+        "frames": {
+          "p50": 16.700000000000728,
+          "p95": 33.400000000001455,
+          "max": 33.400000000001455,
+          "samples": 60
+        },
+        "click": 531.1999999880791,
+        "merge": 3.699999988079071,
+        "expand": 811.5,
+        "metrics": [
+          {
+            "name": "graph-first-frame",
+            "startTime": 2301.699999988079,
+            "duration": 275.0999999642372
+          },
+          {
+            "name": "graph-visible",
+            "startTime": 1448.5,
+            "duration": 1357.2999999523163
+          },
+          {
+            "name": "graph-stable",
+            "startTime": 2301.699999988079,
+            "duration": 12452.099999964237
+          },
+          {
+            "name": "properties",
+            "startTime": 16912.099999964237,
+            "duration": 531.1999999880791
+          },
+          {
+            "name": "expand-merge",
+            "startTime": 17707.19999998808,
+            "duration": 3.699999988079071
+          },
+          {
+            "name": "graph-first-frame",
+            "startTime": 18002.099999964237,
+            "duration": 231.5
+          },
+          {
+            "name": "expand-frame",
+            "startTime": 17443.69999998808,
+            "duration": 811.5
+          }
+        ],
+        "cls": 0.011779781539351853,
+        "allLayoutShifts": 0.011779781539351853,
+        "pair": 0,
+        "uptime": "15:58  up 3 days,  6:41, 18 users, load averages: 37.15 35.57 38.93",
+        "load": [
+          37.1494140625,
+          35.56982421875,
+          38.931640625
+        ]
+      },
+      {
+        "first": 921.1999999880791,
+        "layout": 13086.300000011921,
+        "layoutFrames": {
+          "p50": 200,
+          "p95": 266.70000000000437,
+          "max": 433.3000000000029,
+          "samples": 60
+        },
+        "frames": {
+          "p50": 16.69999999999709,
+          "p95": 33.30000000000291,
+          "max": 33.400000000001455,
+          "samples": 60
+        },
+        "click": 266.19999998807907,
+        "merge": 3.300000011920929,
+        "expand": 800.8000000119209,
+        "metrics": [
+          {
+            "name": "graph-first-frame",
+            "startTime": 49983.59999996424,
+            "duration": 303.19999998807907
+          },
+          {
+            "name": "graph-visible",
+            "startTime": 49600.19999998808,
+            "duration": 921.1999999880791
+          },
+          {
+            "name": "graph-stable",
+            "startTime": 49983.59999996424,
+            "duration": 13086.300000011921
+          },
+          {
+            "name": "properties",
+            "startTime": 64606.89999997616,
+            "duration": 266.19999998807907
+          },
+          {
+            "name": "expand-merge",
+            "startTime": 65106.799999952316,
+            "duration": 3.300000011920929
+          },
+          {
+            "name": "graph-first-frame",
+            "startTime": 65421.799999952316,
+            "duration": 232.9000000357628
+          },
+          {
+            "name": "expand-frame",
+            "startTime": 64873.39999997616,
+            "duration": 800.8000000119209
+          }
+        ],
+        "cls": 0.011779781539351853,
+        "allLayoutShifts": 0.011779781539351853,
+        "pair": 1,
+        "uptime": "15:59  up 3 days,  6:42, 18 users, load averages: 44.09 37.85 39.59",
+        "load": [
+          44.0947265625,
+          37.8515625,
+          39.5908203125
+        ]
+      },
+      {
+        "first": 786.3000000119209,
+        "layout": 11369.800000011921,
+        "layoutFrames": {
+          "p50": 183.3000000000029,
+          "p95": 200.10000000000582,
+          "max": 233.39999999999418,
+          "samples": 60
+        },
+        "frames": {
+          "p50": 16.69999999999709,
+          "p95": 33.29999999998836,
+          "max": 33.30000000000291,
+          "samples": 60
+        },
+        "click": 284,
+        "merge": 3.300000011920929,
+        "expand": 685.6999999880791,
+        "metrics": [
+          {
+            "name": "graph-first-frame",
+            "startTime": 67086.69999998808,
+            "duration": 235.39999997615814
+          },
+          {
+            "name": "graph-visible",
+            "startTime": 66789.19999998808,
+            "duration": 786.3000000119209
+          },
+          {
+            "name": "graph-stable",
+            "startTime": 67086.69999998808,
+            "duration": 11369.800000011921
+          },
+          {
+            "name": "properties",
+            "startTime": 79889,
+            "duration": 284
+          },
+          {
+            "name": "expand-merge",
+            "startTime": 80421.39999997616,
+            "duration": 3.300000011920929
+          },
+          {
+            "name": "graph-first-frame",
+            "startTime": 80673.19999998808,
+            "duration": 170
+          },
+          {
+            "name": "expand-frame",
+            "startTime": 80173.09999996424,
+            "duration": 685.6999999880791
+          }
+        ],
+        "cls": 0.011779781539351853,
+        "allLayoutShifts": 0.011779781539351853,
+        "pair": 2,
+        "uptime": "16:00  up 3 days,  6:42, 18 users, load averages: 45.06 38.34 39.73",
+        "load": [
+          45.0625,
+          38.33984375,
+          39.73193359375
+        ]
+      }
+    ]
+  },
+  "errors": []
+}

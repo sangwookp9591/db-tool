@@ -1,3 +1,4 @@
+import type { BenchConfig } from './benchConfig';
 import { render } from 'preact';
 import { invoke } from '@tauri-apps/api/core';
 import { api } from '../api';
@@ -9,9 +10,10 @@ async function waitFor(test: () => boolean, timeout = 60000) { const until = per
 async function run() {
   const root = document.createElement('div'); root.style.cssText = 'position:fixed;inset:0;z-index:10000;display:flex;background:var(--surface)'; document.body.append(root);
   const manifests = await api('drivers_list', {});
+  const config = await invoke<BenchConfig>('viewer_bench_config');
   const target = await invoke<string>('viewer_bench_target');
-  const drivers = target === 'workspace' || target === 'idle' ? [] : [manifests.find(d => d.paradigm === 'Relational' && d.connection_fields.some(f => f.key === 'host')), manifests.find(d => d.paradigm === 'Graph')].filter(d => target !== 'graph' || d?.paradigm === 'Graph');
-  const output: Record<string, unknown> = { environment: { userAgent: navigator.userAgent, mode: 'Tauri debug / WKWebView', ports: [55432, 57687], target, at: new Date().toISOString() }, results: {} };
+  const drivers = target === 'workspace' || target === 'idle' ? [] : [manifests.find(d => d.paradigm === 'Relational' && d.connection_fields.some(f => f.key === 'host')), manifests.find(d => d.paradigm === 'Graph')].filter(d => !['graph', 'small'].includes(target) || d?.paradigm === 'Graph');
+  const output: Record<string, unknown> = { environment: { href: location.href, userAgent: navigator.userAgent, mode: 'Tauri debug / WKWebView', targets: [config.table.fields.host + ':' + config.table.fields.port, config.graph.fields.uri], target, at: new Date().toISOString() }, results: {} };
   const results = output.results as Record<string, unknown>;
   let last: ResultSet[] = []; let viewerSession = '';
   const label = `DbtP_${Date.now()}`; output.fixtureLabel = label;
@@ -30,10 +32,10 @@ async function run() {
     for (const driver of drivers) {
       if (!driver) throw new Error('Required test driver unavailable');
       const graph = driver.paradigm === 'Graph';
-      const profile = await api('profile_save', { profile: { id: crypto.randomUUID(), name: graph ? 'Viewer test graph' : 'Viewer test table', driver_id: driver.id, fields: { ...Object.fromEntries(driver.connection_fields.filter(f => !f.secret && f.default !== null).map(f => [f.key, f.default!])), ...(graph ? { uri: 'bolt://127.0.0.1:57687' } : { host: '127.0.0.1', port: '55432', database: 'dbtool_test', sslmode: 'disable' }) }, save_secret: false }, secret: null });
+      const profile = await api('profile_save', { profile: { id: crypto.randomUUID(), name: graph ? 'Viewer test graph' : 'Viewer test table', driver_id: driver.id, fields: { ...Object.fromEntries(driver.connection_fields.filter(f => !f.secret && f.default !== null).map(f => [f.key, f.default!])), ...(graph ? config.graph : config.table).fields }, save_secret: false }, secret: null });
       let sessionId: string | undefined;
       try {
-        sessionId = await api('session_open', { profileId: profile.id, secret: graph ? 'testpassword' : 'testpw' });
+        sessionId = await api('session_open', { profileId: profile.id, secret: (graph ? config.graph : config.table).secret });
         if (graph) {
           await api('execute', { sessionId, runId: crypto.randomUUID(), req: req(`UNWIND range(0,4999) AS i CREATE (:${label} {i:i, name:'Node '+toString(i)})`) });
           await api('execute', { sessionId, runId: crypto.randomUUID(), req: req(`MATCH (n:${label}) WITH n ORDER BY n.i WITH collect(n) AS nodes UNWIND range(0,4999) AS i WITH nodes[i] AS a, nodes[(i+1)%5000] AS b, nodes[(i+7)%5000] AS c CREATE (a)-[:DbtP_LINK]->(b), (a)-[:DbtP_LINK]->(c)`) });
@@ -43,20 +45,20 @@ async function run() {
         if (graph) {
           output.smallQuery = [];
           for (let i = 0; i < 5; i++) {
-            const text = `MATCH (n:${label}) WHERE n.i < 4 RETURN n`, request = req(text, 300);
+            const text = `MATCH (n:${label}) WHERE n.i < 4 RETURN n`, request = req(text, 300), load = await invoke<string | null>('viewer_bench_load');
             let t = performance.now(); const agent = await api('execute_agent', { sessionId, runId: crypto.randomUUID(), req: { ...request, read_only: true } }); const agentWall = performance.now() - t;
             if (i === 0) await clear(); else perf.clear(); viewerSession = sessionId; t = performance.now(); const received = await executeQuery({ sessionId, runId: crypto.randomUUID(), req: request }, value => mount(value, 300)); const uiWall = performance.now() - t;
             await waitFor(() => !!root.querySelector('canvas[data-ready=true]')); const firstPaint = await painted('small-query-first', t);
-            (output.smallQuery as unknown[]).push({ cold: i === 0, rows: received[0].row_count, agentWall, agentDriver: agent[0].elapsed_ms, uiWall, uiDriver: received[0].elapsed_ms, firstPaint });
+            (output.smallQuery as unknown[]).push({ cold: i === 0, load, rows: received[0].row_count, agentWall, agentDriver: agent[0].elapsed_ms, uiWall, uiDriver: received[0].elapsed_ms, firstPaint });
           }
         }
-        for (const mode of ['legacy', 'stream']) {
-          const scenarios = graph ? [100, 300, 1000, 5000].map(n => [n, 0]) : [[1000, 10], [10000, 10], [100000, 10], [10000, 200]];
-          for (const [count, width] of scenarios) {
-            const samples = [];
-            for (let repeat = 0; repeat < 3; repeat++) {
+        const scenarios = target === 'small' ? [] : graph ? [100, 300, 1000, 5000].map(n => [n, 0]) : [[1000, 10], [10000, 10], [100000, 10], [10000, 200]];
+        for (const [count, width] of scenarios) for (let repeat = 0; repeat < 3; repeat++) {
+          for (const mode of repeat % 2 ? ['stream', 'legacy'] : ['legacy', 'stream']) {
               const text = graph ? `MATCH (a:${label})-[r:DbtP_LINK]->(b:${label}) WHERE a.i < ${count} AND b.i < ${count} RETURN a,r,b LIMIT ${count * 2}` : `SELECT ${Array.from({ length: width }, (_, c) => c % 2 ? `'row ' || i::text AS c${c}` : `9007199254740993::bigint+i AS c${c}`).join(',')} FROM generate_series(1,${count}) i`;
+              const load = await invoke<string | null>('viewer_bench_load');
               const sample: Record<string, unknown> = await query(sessionId, req(text, graph ? count : 300), mode);
+              sample.load = load;
               if (graph) {
                 await waitFor(() => perf.marks().some(m => m.name === 'graph-stable'));
                 const canvas = root.querySelector('canvas')!;
@@ -72,12 +74,11 @@ async function run() {
                 await waitFor(() => perf.marks().some(m => m.name === 'expand-frame'));
                 sample.merge = perf.marks().find(m => m.name === 'expand-merge')?.duration;
                 sample.expand = perf.marks().find(m => m.name === 'expand-frame')?.duration;
-                const total = root.querySelector('.warning')?.textContent?.match(/^(\d+)/)?.[1] ?? canvas.getAttribute('aria-label')!.match(/Graph: (\d+)/)![1];
+                const total = canvas.dataset.totalNodes ?? root.querySelector('.warning')?.textContent?.match(/^(\d+)/)?.[1] ?? canvas.getAttribute('aria-label')!.match(/Graph: (\d+)/)![1];
                 sample.addedNodes = Number(total) - originalCount;
               } else { const el = root.querySelector<HTMLElement>('.virtual-scroll')!; sample.frames = await sampleFrames(i => { el.scrollTop = i / 59 * el.scrollHeight; el.scrollLeft = i / 59 * el.scrollWidth; }); }
-              samples.push(sample);
-            }
-            results[`${graph ? 'graph' : 'table'}-${count}-${width}-${mode}`] = samples;
+            const key = `${graph ? 'graph' : 'table'}-${count}-${width}-${mode}`;
+            const samples = (results[key] ?? []) as unknown[]; samples.push(sample); results[key] = samples;
             await invoke('viewer_bench_write', { report: output });
           }
         }
@@ -85,7 +86,7 @@ async function run() {
         if (sessionId) await api('session_close', { sessionId }).catch(() => {});
         if (graph) {
           try {
-            const cleanup = await api('session_open', { profileId: profile.id, secret: 'testpassword' });
+            const cleanup = await api('session_open', { profileId: profile.id, secret: config.graph.secret });
             try { await api('execute', { sessionId: cleanup, runId: crypto.randomUUID(), req: req(`MATCH (n:${label}) DETACH DELETE n`) }); }
             finally { await api('session_close', { sessionId: cleanup }); }
           } catch (error) { output.cleanupError = JSON.stringify(error); }
@@ -93,9 +94,9 @@ async function run() {
         await api('profile_delete', { profileId: profile.id });
       }
     }
-    if (target === 'all' || target === 'workspace') { await clear(); root.remove(); const runs = []; for (let i = 0; i < 3; i++) runs.push(await (await import('./nativeWorkspace')).nativeWorkspace(manifests)); output.workspace = runs; }
+    if (target === 'all' || target === 'workspace') { await clear(); root.remove(); const runs = []; for (let i = 0; i < 3; i++) runs.push(await (await import('./nativeWorkspace')).nativeWorkspace(manifests, config)); output.workspace = runs; }
     if (target === 'all' || target === 'idle') {
-      document.body.append(root); await clear(); mount([(await import('./fixtures')).fixtureResult(null, (await import('./fixtures')).fixtureGraph(300))], 300);
+      document.body.append(root); root.tabIndex = -1; root.focus({ preventScroll: true }); await clear(); mount([(await import('./fixtures')).fixtureResult(null, (await import('./fixtures')).fixtureGraph(300))], 300);
       await waitFor(() => !!root.querySelector('canvas[data-ready=true]')); await waitFor(() => perf.marks().some(m => m.name === 'graph-stable')); await frame(); await frame();
       const { readGraphProbes } = await import('./index'); const begin = readGraphProbes()[0];
       output.idleReady = true; await invoke('viewer_bench_write', { report: output });
@@ -106,4 +107,4 @@ async function run() {
   } catch (error) { output.error = error instanceof Error ? error.message : JSON.stringify(error); }
   finally { render(null, root); root.remove(); output.complete = !output.error && !output.cleanupError; await invoke('viewer_bench_write', { report: output }); }
 }
-if (await invoke<boolean>('viewer_bench_enabled')) await run();
+await run();

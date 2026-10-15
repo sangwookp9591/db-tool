@@ -1,0 +1,177 @@
+{
+  "environment": "macOS debug / WKWebView; isolated UI assets and test config",
+  "startup": [
+    {
+      "run": 1,
+      "ms": 117,
+      "drivers": [
+        "neo4j",
+        "postgres",
+        "sqlite"
+      ]
+    },
+    {
+      "run": 2,
+      "ms": 14,
+      "drivers": [
+        "neo4j",
+        "postgres",
+        "sqlite"
+      ]
+    },
+    {
+      "run": 3,
+      "ms": 36,
+      "drivers": [
+        "neo4j",
+        "postgres",
+        "sqlite"
+      ]
+    },
+    {
+      "run": 4,
+      "ms": 109,
+      "drivers": [
+        "neo4j",
+        "postgres",
+        "sqlite"
+      ]
+    },
+    {
+      "run": 5,
+      "ms": 52,
+      "drivers": [
+        "neo4j",
+        "postgres",
+        "sqlite"
+      ]
+    }
+  ],
+  "e2e": [
+    {
+      "name": "drivers declared via manifests",
+      "ok": true,
+      "ms": 17,
+      "note": "neo4j:Graph,postgres:Relational,sqlite:Relational"
+    },
+    {
+      "name": "pg open (credential from keychain)",
+      "ok": true,
+      "ms": 9568
+    },
+    {
+      "name": "pg explore schema>table>columns/indexes (lazy)",
+      "ok": true,
+      "ms": 54,
+      "note": "id bigint \u00b7 NOT NULL \u00b7 PK | big bigint \u00b7 NULL | amount numeric(30,9) \u00b7 NULL | note text \u00b7 NULL"
+    },
+    {
+      "name": "pg exact types (int8 max/min, numeric, NULL, timestamptz, jsonb big, bytea, uuid, array, unicode)",
+      "ok": true,
+      "ms": 16,
+      "note": "columns: id:int8, big:int8, amount:numeric, note:text, created:timestamptz, d:date, doc:jsonb, raw:bytea, uid:uuid, tags:_text | created=2026-10-15 03:34:56.789+00"
+    },
+    {
+      "name": "pg browse paging",
+      "ok": true,
+      "ms": 48,
+      "note": "page1 rows=100 page2 first id=101"
+    },
+    {
+      "name": "pg large result bounded (250k rows, row_limit 1000)",
+      "ok": true,
+      "ms": 27,
+      "note": "row_count=1000 truncated=true elapsed=4ms"
+    },
+    {
+      "name": "pg query error with position",
+      "ok": true,
+      "ms": 10,
+      "note": "relation \"e2e.nope\" does not exist"
+    },
+    {
+      "name": "pg timeout cancels server-side, session survives",
+      "ok": true,
+      "ms": 725,
+      "note": "timeout after 715ms; follow-up ok"
+    },
+    {
+      "name": "pg multiple result sets",
+      "ok": true,
+      "ms": 12,
+      "note": "SELECT 1 AS a / SELECT 'x' AS b, 2 AS c"
+    },
+    {
+      "name": "pg agent read-only enforced at DB level",
+      "ok": true,
+      "ms": 10,
+      "note": "cannot execute CREATE TABLE in a read-only transaction"
+    },
+    {
+      "name": "connection failure classified",
+      "ok": true,
+      "ms": 1238,
+      "note": "PostgreSQL connection failed or was closed"
+    },
+    {
+      "name": "neo4j open",
+      "ok": true,
+      "ms": 1165
+    },
+    {
+      "name": "neo4j explore labels / rel types / property keys",
+      "ok": true,
+      "ms": 146,
+      "note": "Labels(2), Relationship Types(2), Property Keys(10), Indexes & Constraints(2)"
+    },
+    {
+      "name": "neo4j params + mixed path/node/rel/list/map result -> graph + table",
+      "ok": true,
+      "ms": 84,
+      "note": "nodes=2 rels=1 cols=a:Node,r:Relationship,b:Node,p:Path,l:List,m:Map,big:Integer,seen:DateTime,loc:Point"
+    },
+    {
+      "name": "neo4j expand neighbours",
+      "ok": true,
+      "ms": 121,
+      "note": "expanded nodes=3 rels=2"
+    },
+    {
+      "name": "neo4j graph limits (1200+ nodes requested)",
+      "ok": true,
+      "ms": 127,
+      "note": "row_count=602 graph nodes=200 truncated=true"
+    },
+    {
+      "name": "neo4j syntax error",
+      "ok": true,
+      "ms": 28,
+      "note": "Invalid input 'RETURN': expected a graph pattern, a parameter, ')', ':', 'IS', '"
+    },
+    {
+      "name": "neo4j timeout, session survives",
+      "ok": true,
+      "ms": 737,
+      "note": "timeout after 712ms; follow-up ok"
+    },
+    {
+      "name": "neo4j agent read-only enforced",
+      "ok": true,
+      "ms": 14,
+      "note": "Writing in read access mode not allowed. Attempted write to neo4j"
+    },
+    {
+      "name": "history records agent source",
+      "ok": true,
+      "ms": 6,
+      "note": "14 entries"
+    },
+    {
+      "name": "close connections",
+      "ok": true,
+      "ms": 13
+    }
+  ],
+  "keychain_verified": false,
+  "credential_mode": "save_secret=false; session-only input via native AX; no persisted test secrets"
+}

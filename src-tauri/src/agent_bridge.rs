@@ -15,7 +15,7 @@ use std::{
     time::Duration,
 };
 use tauri::{Emitter, Manager};
-use tokio::sync::oneshot;
+use tokio::sync::{oneshot, watch};
 use tokio_util::sync::CancellationToken;
 
 type Forward = Arc<dyn Fn(BridgeRequest) -> Result<(), DbError> + Send + Sync>;
@@ -28,6 +28,7 @@ struct BridgeRequest {
 }
 struct Shared {
     token: String,
+    ready: watch::Receiver<bool>,
     pending: Mutex<HashMap<String, oneshot::Sender<Value>>>,
     forward: Forward,
     cancel: Arc<dyn Fn(String) + Send + Sync>,
@@ -35,12 +36,33 @@ struct Shared {
 struct Running {
     shared: Arc<Shared>,
     stop: CancellationToken,
+    discovery: Value,
 }
-#[derive(Default)]
 pub struct Bridge {
     running: tokio::sync::Mutex<Option<Running>>,
+    ready: watch::Sender<bool>,
+}
+impl Default for Bridge {
+    fn default() -> Self {
+        Self {
+            running: Default::default(),
+            ready: watch::channel(false).0,
+        }
+    }
 }
 impl Bridge {
+    pub fn loading(&self, config: &std::path::Path) {
+        self.ready.send_replace(false);
+        let _ = std::fs::remove_file(config.join("agent-bridge.json"));
+    }
+    async fn mark_ready(&self, config: &std::path::Path) -> Result<(), DbError> {
+        let running = self.running.lock().await;
+        self.ready.send_replace(true);
+        if let Some(running) = running.as_ref() {
+            publish(config, &running.discovery)?;
+        }
+        Ok(())
+    }
     pub fn configured(config: &std::path::Path) -> Result<bool, DbError> {
         let settings = read_settings(config)?;
         Ok(std::env::var("DBTOOL_AGENT_BRIDGE").as_deref() == Ok("1")
@@ -52,7 +74,7 @@ impl Bridge {
             let requests = std::mem::take(&mut *running.shared.pending.lock().unwrap());
             for (id, reply) in requests {
                 (running.shared.cancel)(id);
-                let _ = reply.send(denied());
+                let _ = reply.send(unavailable("Agent bridge stopped"));
             }
         }
         let _ = std::fs::remove_file(config.join("agent-bridge.json"));
@@ -81,6 +103,7 @@ impl Bridge {
                 uuid::Uuid::new_v4().simple()
             ),
             pending: Mutex::new(HashMap::new()),
+            ready: self.ready.subscribe(),
             forward,
             cancel,
         });
@@ -90,13 +113,12 @@ impl Bridge {
         let address = listener
             .local_addr()
             .map_err(|_| DbError::internal("Cannot read agent bridge address"))?;
-        storage::write_private(
-            &config.join("agent-bridge.json"),
-            &serde_json::to_vec(
-                &json!({"url": format!("http://{address}/mcp"), "token": shared.token}),
-            )
-            .map_err(|_| DbError::internal("Cannot encode agent bridge configuration"))?,
-        )?;
+        let discovery = json!({"url": format!("http://{address}/mcp"), "token": shared.token});
+        if *self.ready.borrow() {
+            publish(config, &discovery)?;
+        } else {
+            let _ = std::fs::remove_file(config.join("agent-bridge.json"));
+        }
         let stop = CancellationToken::new();
         let shutdown = stop.clone();
         let router = router(shared.clone());
@@ -109,9 +131,27 @@ impl Bridge {
                 tracing::error!("Agent bridge stopped unexpectedly");
             }
         });
-        *running = Some(Running { shared, stop });
+        *running = Some(Running {
+            shared,
+            stop,
+            discovery,
+        });
         Ok(())
     }
+}
+fn publish(config: &std::path::Path, discovery: &Value) -> Result<(), DbError> {
+    storage::write_private(
+        &config.join("agent-bridge.json"),
+        &serde_json::to_vec(discovery)
+            .map_err(|_| DbError::internal("Cannot encode agent bridge configuration"))?,
+    )
+}
+#[tauri::command]
+pub async fn agent_bridge_ready(
+    bridge: tauri::State<'_, Bridge>,
+    host: tauri::State<'_, Host>,
+) -> Result<(), DbError> {
+    bridge.mark_ready(&host.paths.config).await
 }
 fn read_settings(config: &std::path::Path) -> Result<Value, DbError> {
     match std::fs::read(config.join("settings.json")) {
@@ -170,8 +210,8 @@ pub async fn agent_bridge_reply(
     }
     Ok(())
 }
-fn denied() -> Value {
-    json!({"error":{"kind":"UserDenied", "message":"Agent request denied or approval expired"}})
+fn unavailable(message: &str) -> Value {
+    json!({"error":{"kind":"Unavailable", "message":message}})
 }
 fn router(shared: Arc<Shared>) -> Router {
     Router::new()
@@ -264,6 +304,14 @@ async fn rpc(
     Json(json!({"jsonrpc":"2.0","id":id,"result":result})).into_response()
 }
 async fn forward(shared: &Shared, method: &str, params: Value) -> Value {
+    forward_with_ready_timeout(shared, method, params, Duration::from_secs(10)).await
+}
+async fn forward_with_ready_timeout(
+    shared: &Shared,
+    method: &str,
+    params: Value,
+    ready_timeout: Duration,
+) -> Value {
     let timeout_ms = params
         .get("arguments")
         .and_then(|a| a.get("timeout_ms"))
@@ -271,13 +319,25 @@ async fn forward(shared: &Shared, method: &str, params: Value) -> Value {
         .map(|ms| ms.clamp(1, 3_600_000) + 30_000)
         .unwrap_or(60_000);
     let request_id = uuid::Uuid::new_v4().to_string();
-    let (send, receive) = oneshot::channel();
+    let (send, mut receive) = oneshot::channel();
     {
         let mut pending = shared.pending.lock().unwrap();
         if pending.len() >= 64 {
             return json!({"error":{"kind":"Busy","message":"Too many pending agent requests"}});
         }
         pending.insert(request_id.clone(), send);
+    }
+    let mut ready = shared.ready.clone();
+    let prepared = tokio::select! {
+        ready = tokio::time::timeout(ready_timeout, ready.wait_for(|value| *value)) => ready.is_ok_and(|value| value.is_ok()),
+        reply = &mut receive => {
+            shared.pending.lock().unwrap().remove(&request_id);
+            return reply.unwrap_or_else(|_| unavailable("Agent bridge stopped"));
+        }
+    };
+    if !prepared {
+        shared.pending.lock().unwrap().remove(&request_id);
+        return unavailable("App webview is not ready");
     }
     let sent = (shared.forward)(BridgeRequest {
         request_id: request_id.clone(),
@@ -290,11 +350,11 @@ async fn forward(shared: &Shared, method: &str, params: Value) -> Value {
             Ok(Ok(value)) => value,
             _ => {
                 (shared.cancel)(request_id.clone());
-                denied()
+                unavailable("App webview response timed out")
             }
         }
     } else {
-        json!({"error":{"kind":"Internal","message":"App webview is unavailable"}})
+        unavailable("App webview is unavailable")
     };
     shared.pending.lock().unwrap().remove(&request_id);
     result
@@ -323,6 +383,7 @@ mod tests {
         let (sender, mut requests) = tokio::sync::mpsc::unbounded_channel();
         let shared = Arc::new(Shared {
             token: "test-token".into(),
+            ready: watch::channel(true).1,
             pending: Mutex::new(HashMap::new()),
             forward: Arc::new(move |r| {
                 sender
@@ -389,6 +450,143 @@ mod tests {
         assert!(response.contains("fixture"));
         assert!(shared.pending.lock().unwrap().is_empty());
         server.abort();
+    }
+    fn waiting_shared(
+        ready: watch::Receiver<bool>,
+    ) -> (
+        Arc<Shared>,
+        tokio::sync::mpsc::UnboundedReceiver<BridgeRequest>,
+    ) {
+        let (sender, requests) = tokio::sync::mpsc::unbounded_channel();
+        (
+            Arc::new(Shared {
+                token: "test".into(),
+                ready,
+                pending: Mutex::new(HashMap::new()),
+                forward: Arc::new(move |r| sender.send(r).map_err(|_| DbError::internal("closed"))),
+                cancel: Arc::new(|_| {}),
+            }),
+            requests,
+        )
+    }
+    #[tokio::test]
+    async fn queues_until_ready_and_waits_again_after_reload() {
+        let (ready, receive) = watch::channel(false);
+        let (shared, mut requests) = waiting_shared(receive);
+        for _ in 0..2 {
+            let host = shared.clone();
+            let task = tokio::spawn(async move { forward(&host, "tools/list", json!({})).await });
+            while shared.pending.lock().unwrap().is_empty() {
+                tokio::task::yield_now().await;
+            }
+            assert!(requests.try_recv().is_err());
+            ready.send_replace(true);
+            let event = requests.recv().await.unwrap();
+            shared
+                .pending
+                .lock()
+                .unwrap()
+                .remove(&event.request_id)
+                .unwrap()
+                .send(json!({"tools":[]}))
+                .unwrap();
+            assert_eq!(task.await.unwrap(), json!({"tools":[]}));
+            assert!(shared.pending.lock().unwrap().is_empty());
+            ready.send_replace(false);
+        }
+    }
+    #[tokio::test]
+    async fn missing_ready_is_unavailable_and_does_not_forward() {
+        let (_ready, receive) = watch::channel(false);
+        let (shared, mut requests) = waiting_shared(receive);
+        let value =
+            forward_with_ready_timeout(&shared, "tools/list", json!({}), Duration::from_millis(5))
+                .await;
+        assert_eq!(value["error"]["kind"], "Unavailable");
+        assert!(shared.pending.lock().unwrap().is_empty());
+        assert!(requests.try_recv().is_err());
+    }
+    #[tokio::test]
+    async fn transport_failure_is_unavailable_but_explicit_denial_is_preserved() {
+        let (_ready, receive) = watch::channel(true);
+        let (shared, mut requests) = waiting_shared(receive);
+        let host = shared.clone();
+        let task = tokio::spawn(async move { forward(&host, "tools/call", json!({})).await });
+        let event = requests.recv().await.unwrap();
+        shared
+            .pending
+            .lock()
+            .unwrap()
+            .remove(&event.request_id)
+            .unwrap()
+            .send(json!({"error":{"kind":"UserDenied"}}))
+            .unwrap();
+        assert_eq!(task.await.unwrap()["error"]["kind"], "UserDenied");
+        let host = shared.clone();
+        let task = tokio::spawn(async move { forward(&host, "tools/call", json!({})).await });
+        let event = requests.recv().await.unwrap();
+        shared.pending.lock().unwrap().remove(&event.request_id);
+        assert_eq!(task.await.unwrap()["error"]["kind"], "Unavailable");
+        drop(requests);
+        assert_eq!(
+            forward(&shared, "tools/list", json!({})).await["error"]["kind"],
+            "Unavailable"
+        );
+        assert!(shared.pending.lock().unwrap().is_empty());
+    }
+    #[tokio::test]
+    async fn discovery_is_published_on_ready_and_removed_on_reload_and_stop() {
+        let directory =
+            std::env::temp_dir().join(format!("dbtool-bridge-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir(&directory).unwrap();
+        let bridge = Bridge::default();
+        let (shared, _requests) = waiting_shared(bridge.ready.subscribe());
+        *bridge.running.lock().await = Some(Running {
+            shared,
+            stop: CancellationToken::new(),
+            discovery: json!({"url":"http://127.0.0.1:1/mcp","token":"test"}),
+        });
+        let file = directory.join("agent-bridge.json");
+        assert!(!file.exists());
+        bridge.mark_ready(&directory).await.unwrap();
+        assert!(file.exists());
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                std::fs::metadata(&file).unwrap().permissions().mode() & 0o777,
+                0o600
+            );
+        }
+        bridge.loading(&directory);
+        assert!(!*bridge.ready.borrow());
+        assert!(!file.exists());
+        bridge.mark_ready(&directory).await.unwrap();
+        assert!(file.exists());
+        bridge.stop(&directory).await;
+        assert!(!file.exists());
+        std::fs::remove_dir(directory).unwrap();
+    }
+    #[tokio::test]
+    async fn stopping_releases_requests_waiting_for_ready() {
+        let directory =
+            std::env::temp_dir().join(format!("dbtool-bridge-{}", uuid::Uuid::new_v4()));
+        let bridge = Bridge::default();
+        let (shared, mut requests) = waiting_shared(bridge.ready.subscribe());
+        *bridge.running.lock().await = Some(Running {
+            shared: shared.clone(),
+            stop: CancellationToken::new(),
+            discovery: json!({}),
+        });
+        let host = shared.clone();
+        let task = tokio::spawn(async move { forward(&host, "tools/list", json!({})).await });
+        while shared.pending.lock().unwrap().is_empty() {
+            tokio::task::yield_now().await;
+        }
+        bridge.stop(&directory).await;
+        assert_eq!(task.await.unwrap()["error"]["kind"], "Unavailable");
+        assert!(requests.try_recv().is_err());
+        assert!(shared.pending.lock().unwrap().is_empty());
     }
     #[test]
     fn old_contract_defaults_remain_compatible() {

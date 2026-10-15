@@ -50,7 +50,7 @@ registerScenario('transitions', async () => {
     const since = start('view-switch'); const button = [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Result views"] button')].find(b => b.textContent === name)!; button.click(); samples.push({ name: `${i === 0 && name === 'Table' ? 'first' : 'return'}-${name}`, duration: await painted('view-switch', since) });
   }
   const resultSwitch = [];
-  for (let i = 0; i < 10; i++) { const since = performance.now(); (document.querySelectorAll<HTMLButtonElement>('[aria-label="Result sets"] button')[(i + 1) % 2]).click(); resultSwitch.push(await painted('result-switch', since)); }
+  for (let i = 0; i < 10; i++) { const since = performance.now(); (document.querySelectorAll<HTMLButtonElement>('.result-set:not([hidden]) [aria-label="Result sets"] button, .results > [aria-label="Result sets"] button')[(i + 1) % 2]).click(); resultSwitch.push(await painted('result-switch', since)); }
   return { samples, resultSwitch };
 });
 window.dispatchEvent(new Event('bench-ready'));
@@ -89,3 +89,7 @@ registerScenario('graph-motion-300', async () => {
   while (performance.now() < until) { await frame(); const next = readGraphProbes()[0]; if (previous?.ready && next?.ready && previous.positions.length === next.positions.length) for (let i = 0; i < previous.positions.length; i += 2) { movement += Math.hypot(previous.positions[i] - next.positions[i], previous.positions[i + 1] - next.positions[i + 1]); samples++; } previous = next; }
   return { duration: 5000, averageVisibleMovementPx: samples ? movement / samples : 0, renderFrames: previous?.frames ?? 0 };
 });
+
+registerScenario('reset', async () => { await clear(); return {}; });
+registerScenario('graph-probe', async () => readGraphProbes().map(p => ({ ...p, positions: Array.from(p.positions) })));
+registerScenario('graph-limit', async () => { await clear(); await graphSession(); mount([fixtureResult(null, fixtureGraph(300))], 300); await waitFor('canvas[data-ready=true]'); });

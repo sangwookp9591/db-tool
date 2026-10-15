@@ -473,6 +473,13 @@ fn file_logger(log: std::fs::File) -> impl tracing::Subscriber + Send + Sync {
 
 pub fn run() {
     tauri::Builder::default()
+        .on_page_load(|webview, payload| {
+            if webview.label() == "main" && matches!(payload.event(), tauri::webview::PageLoadEvent::Started) {
+                if let (Some(bridge), Some(host)) = (webview.try_state::<agent_bridge::Bridge>(), webview.try_state::<Host>()) {
+                    bridge.loading(&host.paths.config);
+                }
+            }
+        })
         .setup(|app| {
             let paths = Paths::create(
                 app.path().app_config_dir()?,
@@ -485,9 +492,6 @@ pub fn run() {
                 .map_err(|_| "Cannot initialize file logging")?;
             let config = paths.config.clone();
             let enabled = agent_bridge::Bridge::configured(&config)?;
-            if viewer_bench::viewer_bench_enabled() {
-                if let Some(window) = app.get_webview_window("main") { window.set_always_on_top(true)?; window.set_focus()?; }
-            }
             app.manage(Host::new(paths));
             app.manage(agent_bridge::Bridge::default());
             if enabled {
@@ -513,9 +517,12 @@ pub fn run() {
             agent_bridge::agent_bridge_set,
             agent_bridge::agent_bridge_status,
             agent_bridge::agent_bridge_reply,
+            agent_bridge::agent_bridge_ready,
             execute_stream,
             viewer_bench::viewer_bench_enabled,
             viewer_bench::viewer_bench_target,
+            viewer_bench::viewer_bench_load,
+            viewer_bench::viewer_bench_config,
             viewer_bench::viewer_bench_write,
             cancel,
             expand,

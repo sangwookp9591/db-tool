@@ -2,7 +2,7 @@ import { chromium } from '../ui/node_modules/playwright/index.mjs';
 import assert from 'node:assert/strict';
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-await page.addInitScript(() => { window.__workerMessages = 0; const Base = window.Worker; window.Worker = class extends Base { constructor(...args) { super(...args); this.addEventListener('message', () => window.__workerMessages++); } }; });
+await page.addInitScript(() => { window.__layoutShifts = []; new PerformanceObserver(list => window.__layoutShifts.push(...list.getEntries().map(e => ({ at: e.startTime, value: e.value, recent: e.hadRecentInput })))).observe({ type: 'layout-shift', buffered: true }); window.__workerMessages = 0; const Base = window.Worker; window.Worker = class extends Base { constructor(...args) { super(...args); this.addEventListener('message', () => window.__workerMessages++); } }; });
 const errors = []; page.on('pageerror', e => errors.push(e.message));
 await page.goto('http://127.0.0.1:1424/viewer-bench.html');
 await page.waitForFunction(() => window.dbtool?.perf);
@@ -21,7 +21,8 @@ assert.equal(await page.getByRole('columnheader').first().getAttribute('aria-sor
 await page.getByRole('columnheader').first().getByRole('button').click();
 assert.equal(await page.getByRole('columnheader').first().getAttribute('aria-sort'), 'descending');
 await page.evaluate(() => window.dbtool.perf.run('transitions'));
-await page.locator('[aria-label="Result sets"] button').first().click();
+const trustedStart = await page.evaluate(() => performance.now());
+await page.locator('.result-set:not([hidden]) [aria-label="Result sets"] button').first().click();
 await page.locator('[aria-label="Result views"] button').filter({ hasText: /^Table$/ }).first().click();
 await page.locator('.virtual-scroll:visible').evaluate(el => el.scrollTop = 500);
 await page.locator('[aria-label="Result views"] button').filter({ hasText: /^Graph$/ }).first().click();
@@ -36,6 +37,27 @@ await page.locator('[aria-label="Result views"] button').filter({ hasText: /^Tab
 await page.locator('[aria-label="Result views"] button').filter({ hasText: /^Graph$/ }).first().click();
 await page.evaluate(async () => { await new Promise(requestAnimationFrame); await new Promise(requestAnimationFrame); });
 assert.equal(await page.evaluate(() => window.__workerMessages), workerMessages, 'Stable graph must not recompute on re-entry');
+await page.getByLabel('Search graph').fill('Node 0');
+await page.evaluate(async () => { await new Promise(requestAnimationFrame); await new Promise(requestAnimationFrame); });
+const graphPositions = () => page.evaluate(async () => (await window.dbtool.perf.run('graph-probe'))[0].positions);
+const beforeDrag = await graphPositions(), box = await page.locator('canvas:visible').boundingBox();
+await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down();
+await page.mouse.move(box.x + box.width / 2 + 35, box.y + box.height / 2 + 20, { steps: 4 }); await page.mouse.up();
+await page.waitForTimeout(300);
+const pinned = await graphPositions();
+assert.ok(Math.hypot(pinned[0] - beforeDrag[0], pinned[1] - beforeDrag[1]) > 10, 'Trusted drag must move the selected node');
+await page.waitForTimeout(500);
+assert.deepEqual(await graphPositions(), pinned, 'Released node and stable graph must remain pinned');
+assert.equal(await page.evaluate(start => window.__layoutShifts.filter(e => e.at >= start && !e.recent).reduce((sum, e) => sum + e.value, 0), trustedStart), 0, 'Trusted view switching and idle graph must have zero unexpected CLS');
+await page.evaluate(() => window.dbtool.perf.run('graph-limit'));
+await page.getByLabel('Search graph').fill('Node 0');
+await page.waitForTimeout(100);
+const limitedCanvas = page.locator('canvas:visible'), beforeLimit = await limitedCanvas.boundingBox();
+await page.mouse.click(beforeLimit.x + beforeLimit.width / 2, beforeLimit.y + beforeLimit.height / 2);
+await page.getByRole('button', { name: 'Expand neighbors' }).click();
+await page.getByText('350개 중 300개 표시', { exact: true }).waitFor();
+await page.waitForTimeout(100);
+assert.deepEqual(await limitedCanvas.boundingBox(), beforeLimit, 'Crossing the graph display limit must not shrink or refit the canvas');
 await page.screenshot({ path: 'bench/viewer-verified.png' });
 await page.goto('http://127.0.0.1:1424'); await page.waitForLoadState('networkidle');
 await page.locator('.connection-actions button').first().click();
@@ -48,6 +70,19 @@ assert.notEqual(await page.locator('.tab-body:not([hidden]) [role=separator]').g
 await page.locator('.workspace-tabs [role=tab]').first().click();
 assert.equal(await page.locator('.tab-body:not([hidden]) [role=separator]').getAttribute('aria-valuenow'), resizedPane);
 assert.ok(await page.locator('.tab-body:not([hidden]) .results-wrap').evaluate(el => el.getBoundingClientRect().height) >= 240);
+
+const sizing = await page.evaluate(async () => {
+  const selectors = ['.tab-body:not([hidden]) .query-tab', '.tab-body:not([hidden]) .editor-pane', '.tab-body:not([hidden]) .results-wrap'];
+  const changes = [];
+  const observer = new ResizeObserver(entries => changes.push(...entries.map(entry => ({ element: entry.target.className, width: entry.contentRect.width, height: entry.contentRect.height }))));
+  selectors.forEach(selector => observer.observe(document.querySelector(selector)));
+  await new Promise(resolve => setTimeout(resolve, 200));
+  changes.length = 0;
+  await new Promise(resolve => setTimeout(resolve, 5000));
+  observer.disconnect();
+  return changes;
+});
+assert.deepEqual(sizing, [], 'Idle query/editor/results sizes must remain constant');
 
 const metrics = await page.evaluate(() => window.dbtool.agent.callTool('get_perf_metrics', {}));
 assert.ok(Array.isArray(metrics) && metrics.some(m => m.name === 'new-query-tab'));

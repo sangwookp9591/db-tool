@@ -43,9 +43,9 @@ describe('agent registry', () => {
     await api.callTool('run_query', { session_id: 's', text: 'DELETE FROM items', read_only: false });
     expect(invoke).toHaveBeenCalledWith('execute_agent', expect.objectContaining({ req: expect.objectContaining({ read_only: false }) })); expect(host.history).toHaveBeenCalledOnce();
   });
-  it('rejects aborted approval before execution', async () => {
+  it.each([true, false])('classifies transport cancellation before execution as Timeout (read_only=%s)', async readOnly => {
     const { state, api, invoke } = setup(); state.sessions.p = 's'; const controller = new AbortController(); controller.abort();
-    expect(await api.callTool('run_query', { session_id: 's', text: 'SELECT 1' }, { signal: controller.signal })).toMatchObject({ error: { kind: 'UserDenied' } }); expect(invoke).not.toHaveBeenCalled();
+    expect(await api.callTool('run_query', { session_id: 's', text: 'SELECT 1', read_only: readOnly }, { signal: controller.signal })).toMatchObject({ error: { kind: 'Timeout' } }); expect(invoke).not.toHaveBeenCalled();
   });
   it('validates required fields, types, ranges, unknown fields and JSON values', async () => {
     const { state, api, invoke } = setup(); state.sessions.p = 's';

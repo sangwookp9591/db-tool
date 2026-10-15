@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import type { ComponentType } from 'preact';
+import type { ComponentType, ComponentChildren } from 'preact';
 import type { DbError, ResultSet } from './contract';
 import { VirtualTable } from './VirtualTable';
 import { valueText } from './values';
@@ -15,9 +15,11 @@ export function Results(props: Props) {
   const [opened, setOpened] = useState(new Set([0]));
   useEffect(() => { setActive(0); setOpened(new Set([0])); }, [props.results[0]?.table?.columns, props.results[0]?.graph, props.results[0]?.documents, props.results[0]?.message]);
   if (!props.results.length) return <div class="empty-result">Results appear here after execution.</div>;
-  return <div class="results">{props.results.length > 1 && <div class="result-tabs" role="tablist" aria-label="Result sets">{props.results.map((r, i) => <button key={i} role="tab" aria-selected={active === i} onClick={() => { const since = start('result-switch'); setActive(i); setOpened(prev => new Set([...prev, i])); void painted('result-switch', since); }}>{i + 1}. {r.title}</button>)}</div>}{props.results.map((r, i) => <div key={i} class="result-set" hidden={active !== i}>{opened.has(i) && <ResultView active={(props.active ?? true) && active === i} result={r} sessionId={props.sessionId} canExpand={props.canExpand} graphLimit={props.graphLimit} rowLimit={props.rowLimit} onError={props.onError} />}</div>)}</div>;
+  const header = () => props.results.length > 1 ? <div class="result-tabs" role="tablist" aria-label="Result sets">{props.results.map((r, i) => <button key={i} role="tab" aria-selected={active === i} onClick={() => { const since = start('result-switch'); setActive(i); setOpened(prev => new Set([...prev, i])); void painted('result-switch', since); }}>{i + 1}. {r.title}</button>)}</div> : null;
+  return <div class="results">{props.results.map((r, i) => <div key={i} class="result-set" hidden={active !== i}>{opened.has(i) && <ResultView header={header()} active={(props.active ?? true) && active === i} result={r} sessionId={props.sessionId} canExpand={props.canExpand} graphLimit={props.graphLimit} rowLimit={props.rowLimit} onError={props.onError} />}</div>)}</div>;
+
 }
-function ResultView({ active = true, result, sessionId, canExpand, graphLimit, rowLimit, onError }: Omit<Props, 'results'> & { result: ResultSet }) {
+function ResultView({ header, active = true, result, sessionId, canExpand, graphLimit, rowLimit, onError }: Omit<Props, 'results'> & { result: ResultSet; header?: ComponentChildren }) {
   const available = [result.graph !== null && 'Graph', result.table !== null && 'Table', result.documents !== null && 'JSON', result.message !== null && 'Message'].filter(Boolean) as string[];
   const [view, setView] = useState(available[0]);
   const [opened, setOpened] = useState(new Set([available[0]]));
@@ -31,7 +33,7 @@ function ResultView({ active = true, result, sessionId, canExpand, graphLimit, r
     void import('./GraphView').then(module => { if (alive) setGraphView(() => module.GraphView); }).catch(error => { if (alive) { setLoadError(true); onError(error); } });
     return () => { alive = false; };
   }, [view, GraphView, retry]);
-  return <><div class="view-toolbar"><strong>{result.title}</strong><div class="view-switch" role="tablist" aria-label="Result views">{available.map(name => <button key={name} aria-label={`Show ${name} results`} data-testid={`result-view-${name.toLowerCase()}`} role="tab" aria-selected={view === name} onClick={() => { const since = start('view-switch'); setOpened(prev => new Set([...prev, name])); setView(name); void painted('view-switch', since); }}>{name}</button>)}</div></div><div class="result-content">
+  return <><div class="view-toolbar">{header || <strong>{result.title}</strong>}<div class="view-switch" role="tablist" aria-label="Result views">{available.map(name => <button key={name} aria-label={`Show ${name} results`} data-testid={`result-view-${name.toLowerCase()}`} role="tab" aria-selected={view === name} onClick={() => { const since = start('view-switch'); setOpened(prev => new Set([...prev, name])); setView(name); void painted('view-switch', since); }}>{name}</button>)}</div></div><div class="result-content">
     {result.graph && opened.has('Graph') && <div class="view-pane" hidden={view !== 'Graph'}>{GraphView ? <GraphView active={active && view === 'Graph'} graph={result.graph} sessionId={sessionId} canExpand={canExpand} limit={graphLimit} onError={onError} /> : <p>{loadError ? <button onClick={() => setRetry(n => n + 1)}>Retry graph module</button> : 'Loading graph…'}</p>}</div>}
     {opened.has('Table') && result.table && <div class="view-pane" hidden={view !== 'Table'}><VirtualTable table={result.table} /></div>}
     {opened.has('JSON') && <div class="documents" hidden={view !== 'JSON'}>{result.documents?.map((value, i) => <pre key={i}>{valueText(value, true)}</pre>)}</div>}
@@ -48,5 +50,5 @@ function ResultStatus({ result, rowLimit, graphLimit }: { result: ResultSet; row
   useEffect(() => { if (!timer.current) timer.current = window.setTimeout(() => { timer.current = 0; last.current = performance.now(); setCounter(latest.current); }, Math.max(0, 100 - (performance.now() - last.current))); }, [result.elapsed_ms, result.row_count]);
   useEffect(() => () => clearTimeout(timer.current), []);
   useEffect(() => { setCounter(latest.current); last.current = performance.now(); }, [result.table?.columns, result.graph, result.documents, result.message]);
-  return <div class="result-status" role="status"><span>{counter.elapsed.toLocaleString()} ms</span><span>{counter.rows.toLocaleString()} rows</span>{result.affected !== null && <span>affected: {result.affected.toLocaleString()}</span>}{result.truncated && <span class="truncated">한도 {result.table ? rowLimit : graphLimit}에서 잘림{result.table && result.graph ? ` (graph limit ${graphLimit})` : ''}</span>}</div>;
+  return <div class="result-status" role="status"><span><span class="metric-number">{counter.elapsed.toLocaleString()}</span> ms</span><span><span class="metric-number">{counter.rows.toLocaleString()}</span> rows</span>{result.affected !== null && <span>affected: {result.affected.toLocaleString()}</span>}{result.truncated && <span class="truncated">한도 {result.table ? rowLimit : graphLimit}에서 잘림{result.table && result.graph ? ` (graph limit ${graphLimit})` : ''}</span>}</div>;
 }

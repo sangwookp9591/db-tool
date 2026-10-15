@@ -124,6 +124,7 @@ pub enum ErrorKind { Connection, Auth, Query, Timeout, Cancelled, Unsupported, I
 | `explorer_children(session_id, parent?)` | |
 | `browse(session_id, node_id, offset, limit, run_id)` | |
 | `execute(session_id, run_id, req)` | 타임아웃(`tokio::time::timeout`)과 취소를 모두 적용한다. 결과를 이력에 기록한다 |
+| `execute_stream(session_id, run_id, req, on_event)` | 같은 실행·취소·이력 경로를 쓴다. 그래프 또는 모든 표가 2,000행 이하이면 기존 ResultSet 배열을 반환한다. 그 외 큰 표는 Channel로 보내고 빈 배열을 반환한다 |
 | `cancel(run_id)` | 탭을 닫거나 사용자가 취소할 때 호출 |
 | `expand(session_id, element_id, limit)` | |
 | `history_list(limit)` | `history.jsonl`: 시각, 프로필명, 쿼리 텍스트, 소요 시간, 행 수, 오류 요약. 파라미터 값과 secret은 기록하지 않는다 |
@@ -131,6 +132,14 @@ pub enum ErrorKind { Connection, Auth, Query, Timeout, Cancelled, Unsupported, I
 세션 오류 중 `ErrorKind::Connection`(네트워크 끊김 등)이 나면 호스트는 세션을 dead로 표시한다. UI는 재연결 버튼을 보여 준다.
 
 로그는 `tracing`을 쓴다. 연결 필드 중 secret인 것, 연결 URI, 파라미터 값은 로그에 남기지 않는다. 검증 스크립트가 로그와 설정 파일을 grep해 이를 확인한다.
+
+## 결과 뷰어와 계측
+
+큰 표의 Channel 이벤트는 `start → rows* → end`를 결과 집합별로 보내고 마지막에 `done`으로 끝난다. 첫 청크는 200행, 이후 2,000행이며 컬럼별 공통 태그와 값 배열을 사용한다. 혼합 타입은 셀 태그를 유지하고 정수·decimal·JSON 원문은 문자열로 보존한다. UI는 결과 인덱스·행 offset·폭을 검증하고 rAF 단위로 반영한다. 호스트 청크 전송은 드라이버가 결과 수집을 끝낸 뒤 시작하므로 DB에서 첫 행을 받는 시점까지 스트리밍하는 계약은 아니다.
+
+표는 행·열을 가상화하고 보이는 셀만 포맷해 캐시한다. 정렬·필터는 로드된 원본 행을 복사하지 않고 인덱스 배열을 만든다. 그래프 레이아웃은 Worker에서 수렴시킨 뒤 Float32Array로 전달하고, Canvas는 입력·크기 변경·데이터 변경 때만 그린다. 기존 노드는 확장 시 고정하고 새 노드만 부모 근처에서 200ms 동안 이동한다. 숨긴 뷰와 비활성 탭은 유지하되 Worker와 렌더를 멈춘다. 첫 표시와 Reset은 fit-to-view이며, 다중·역방향 관계는 곡선으로 분리하고 작은 줌에서는 캡션·화살표를 생략한다.
+
+`window.dbtool.perf`는 최대 2,000개 측정값과 `marks/clear/run`을 제공하며 `get_perf_metrics` 에이전트 도구는 읽기만 한다. 실제 DB 벤치는 `DBTOOL_BENCH=1`일 때만 동적으로 로드하고 테스트 접속값은 `bench/fixtures.json`에서 호스트가 검증해 제공한다. 일반 앱에는 벤치가 자동 실행되지 않는다. 원자료와 측정의 한계는 [VIEWER_PERF.md](../bench/VIEWER_PERF.md)에 있다.
 
 ## 새 DB 추가 절차
 

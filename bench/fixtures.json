@@ -1,0 +1,10 @@
+{
+  "table": {
+    "fields": { "host": "127.0.0.1", "port": "55432", "user": "postgres", "database": "dbtool_test", "sslmode": "disable" },
+    "secret": "testpw"
+  },
+  "graph": {
+    "fields": { "uri": "bolt://127.0.0.1:57687", "user": "neo4j", "database": "neo4j" },
+    "secret": "testpassword"
+  }
+}

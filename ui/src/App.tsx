@@ -82,7 +82,7 @@ export function App() {
     const profile = profiles.find(p => p.name === entry.profile_name && sessions[p.id]); if (profile) newQuery(profile, entry.text);
     else setError({ kind: 'Connection', message: 'Connect a profile and open a query tab to load history.', detail: null, position: null });
   }
-  return <div class="app"><header class="app-header"><h1>db-tool</h1><span>DATABASE WORKSPACE</span>{isMock && <span class="mock-badge">MOCK · no database traffic</span>}<AgentPanel registrationKey={JSON.stringify([drivers, profiles.map(p => [p.id, p.driver_id, p.name]), sessions])} host={{
+  return <div class="app"><header class="app-header"><h1>db-tool</h1><span>DATABASE WORKSPACE</span>{isMock && <span class="mock-badge">MOCK · no database traffic</span>}<AgentPanel ready={drivers.length > 0} registrationKey={JSON.stringify([drivers, profiles.map(p => [p.id, p.driver_id, p.name]), sessions])} host={{
       snapshot: () => ({ drivers, profiles, sessions: sessionsRef.current }), invoke: api,
       open: async profileId => { const profile = profiles.find(p => p.id === profileId); if (!profile) throw new Error('Saved connection not found'); return sessionsRef.current[profileId] ?? await connect(profile); },
       close: async profileId => { const profile = profiles.find(p => p.id === profileId); if (profile) await disconnect(profile); },
