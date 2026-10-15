@@ -114,7 +114,12 @@
   - 요청 조립, SSE, refusal, `cache_control` 위치는 mock HTTP로 검증했다.
   - 실제 검증 방법(요청 1회):
     `security add-generic-password -s axdb -a ai:anthropic -w <API_KEY>` 뒤에 `AXDB_TEST_ANTHROPIC=1 cargo test -p axdb real_anthropic_once -- --ignored`
-- **Windows는 검증하지 않았다**(이 환경에서 실행할 수 없음).
+- **Windows는 실제 Windows 기기에서 실행하지 않았다.** 크로스 빌드와 Wine 실행까지만 확인했다.
+  - 크로스 빌드: Docker에서 mingw로 `x86_64-pc-windows-gnu` release `axdb.exe`(PE32+ GUI)를 빌드했다. 처음에는 `src-tauri/icons/icon.ico`가 없어 **Windows 빌드 자체가 불가능**했다. 이 파일을 추가해 고쳤다. 스크립트는 `bench/windows-cross-build.sh`다.
+  - Wine 10(x86_64, Rosetta 에뮬레이션)에서 Windows 테스트 바이너리를 실행했다(`bench/windows-wine-test.sh`).
+    - 통과: dbcore·계약, SQLite 9/9, **Redis 실제 서버 3/3**, PG·Neo4j·TLS 단위 테스트
+    - PG·Mongo 실제 DB 테스트: `rosetta error: invalid gdt selector`로 중단됐다. 에뮬레이터 한계로 보인다.
+    - Neo4j 실제 연결: 실패했다. Redis TCP는 같은 환경에서 성공했으므로 네트워크 문제는 아니다. 에뮬레이션 지연이 원인인지 Windows 결함인지는 **미확정**이다. 실제 Windows에서 확인해야 한다.
   - Linux는 Docker `rust:1.94-bookworm`(aarch64, host 네트워크)에서 최종 트리로 확인했다. release 빌드에 성공했고, 실제 PG·Neo4j·Mongo·SQLite·Redis와 TLS 컨테이너 3개에 연결한 전체 테스트가 **80/80 통과**했다. Linux GUI 화면은 띄우지 않았다.
 - 외부 프로세스(JSON-RPC) 플러그인은 구현하지 않았다(ADR-0001). 드라이버는 컴파일 시 등록한다.
 - 키체인: GUI 쓰기 경로는 실제 OS 키체인 왕복 테스트(`real_os_keychain_roundtrip`, 명시 실행)로 대신 검증했다. E2E는 debug 전용 `AXDB_DEV_SECRET_STORE`를 썼고, 이 경로는 release에서 컴파일되지 않는다. 배포하려면 코드 서명이 필요하다.
@@ -144,7 +149,7 @@
 | 7 성능·보안·리소스 | W4·W8 (재사용) | **host 메모리 보존 문제 해결(mimalloc purge 0)**, 연결 추가 흐름 분해, Tabularis 유휴 재비교 | 5절 |
 | 7 보안: TLS | 미검증 | **PG `sslmode=require`가 자체 서명 서버에 연결하지 못하던 결함 수정**(libpq 의미로 변경). `verify-ca`/`verify-full`과 `sslrootcert` 추가. Neo4j `+ssc`와 CA 파일, Mongo `tls`/`tlsCAFile` 필드 추가. Rustls provider panic 수정(M2) | TLS 전용 컨테이너 3개에서 모드별 성공/실패 매트릭스와 `pg_stat_ssl` 확인 |
 | 7 정확성 | — | **PG 미리보기가 다른 세션의 동시 DDL에 영향받던 결함 수정**(다른 세션 임시 스키마 제외, savepoint 재시도). 재현 후 회귀 테스트 추가(수정 전 실패, 수정 후 통과). **PG 취소 뒤 드라이버가 연 트랜잭션이 중단 상태로 남던 경로 수정**(drain 단계 25P02에서 ROLLBACK) | 재현: 동시 DDL 중 스냅숏 300회에서 오류 10회 이상, 수정 후 0 |
-| 7 플랫폼 | macOS만 | Linux(Docker aarch64) release 빌드와 실제 DB·TLS 테스트 80/80 | 6절 |
+| 7 플랫폼 | macOS만 | Linux(Docker aarch64) release 빌드와 실제 DB·TLS 테스트 80/80. **Windows 빌드를 막던 icon.ico 누락 수정**, Windows exe 크로스 빌드 + Wine 부분 실행 | 6절 |
 
 **회귀(최종 트리)**
 - `cargo test --workspace`: **80 통과 / 0 실패, 3회 연속**, 2 ignored(유료 API, 실제 키체인). 실제 PG·Neo4j·Mongo·SQLite·Redis와 TLS 컨테이너 3개에 연결했다.
