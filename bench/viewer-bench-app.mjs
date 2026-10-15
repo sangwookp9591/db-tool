@@ -5,11 +5,11 @@ import { mkdtemp, readFile, writeFile, open, unlink } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import assert from 'node:assert/strict';
-const lockPath = path.join(os.tmpdir(), 'dbtool-viewer-native.lock');
+const lockPath = path.join(os.tmpdir(), 'axdb-viewer-native.lock');
 const lock = await open(lockPath, 'wx').catch(() => { throw new Error('A native viewer benchmark is already running; serialize runs to keep WKWebView visible'); });
 await lock.writeFile(String(process.pid));
-// DBTOOL_BENCH uses fixed loopback test ports; never accepts user database endpoints.
-const config = await mkdtemp(path.join(os.tmpdir(), 'dbtool-viewer-bench-'));
+// AXDB_BENCH uses fixed loopback test ports; never accepts user database endpoints.
+const config = await mkdtemp(path.join(os.tmpdir(), 'axdb-viewer-bench-'));
 console.log('Native benchmark directory:', config);
 const webkit = async () => (await execFile('ps', ['-axo', 'pid=,command='])).stdout.split('\n').filter(line => line.includes('/com.apple.WebKit.WebContent.xpc/')).map(line => Number(line.trim().split(/\s+/)[0]));
 const priorWebkit = new Set(await webkit());
@@ -18,7 +18,7 @@ const cpuSeconds = value => value.split(':').reduce((total, part) => total * 60 
 assert.equal(cpuSeconds('1:02.34'), 62.34);
 assert.equal(cpuSeconds('1:02:03.45'), 3723.45);
 let idleCpu;
-const app = spawn(process.env.DBTOOL_BINARY ?? 'target/debug/db-tool', [], { env: { ...process.env, DBTOOL_BENCH: '1', DBTOOL_AGENT_BRIDGE: '0', AXDB_AGENT_BRIDGE: '0', AXDB_CONFIG_DIR: config, DBTOOL_BENCH_TARGET: ['graph', 'workspace', 'idle', 'small', 'matrix'].includes(process.argv[2]) ? process.argv[2] : 'all', DBTOOL_CONFIG_DIR: config }, stdio: 'inherit' });
+const app = spawn(process.env.AXDB_BINARY ?? 'target/debug/axdb', [], { env: { ...process.env, AXDB_BENCH: '1', AXDB_AGENT_BRIDGE: '0', AXDB_BENCH_TARGET: ['graph', 'workspace', 'idle', 'small', 'matrix'].includes(process.argv[2]) ? process.argv[2] : 'all', AXDB_CONFIG_DIR: config }, stdio: 'inherit' });
 let spawnError; app.on('error', error => { spawnError = error; });
 const stop = () => app.kill('SIGTERM'); process.once('SIGINT', stop); process.once('SIGTERM', stop);
 const started = Date.now(), deadline = started + 15 * 60_000;

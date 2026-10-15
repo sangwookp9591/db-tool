@@ -328,7 +328,7 @@ impl PgSession {
             }
             return Err(DbError::new(ErrorKind::Cancelled, "Execution cancelled"));
         }
-        let cursor = format!("dbtool_{}", uuid_free_id());
+        let cursor = format!("axdb_{}", uuid_free_id());
         let query = format!(
             "DECLARE {cursor} NO SCROLL CURSOR FOR {sql}\n; FETCH {} FROM {cursor}; CLOSE {cursor};",
             limit + 1

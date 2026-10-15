@@ -9,11 +9,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             fields: [
                 ("host".into(), "127.0.0.1".into()),
                 ("port".into(), "55432".into()),
-                ("database".into(), "dbtool_test".into()),
+                ("database".into(), "axdb_test".into()),
                 ("user".into(), "postgres".into()),
             ]
             .into(),
-            secret: std::env::var("DBTOOL_EXAMPLE_SECRET").ok(),
+            secret: std::env::var("AXDB_EXAMPLE_SECRET").ok(),
             connect_timeout_ms: 2000,
         })
         .await?;

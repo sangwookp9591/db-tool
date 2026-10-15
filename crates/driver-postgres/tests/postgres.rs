@@ -8,7 +8,7 @@ use std::{
 };
 
 fn config() -> Option<ConnectConfig> {
-    let dsn = std::env::var("DBTOOL_TEST_PG").ok()?;
+    let dsn = std::env::var("AXDB_TEST_PG").ok()?;
     let pg: tokio_postgres::Config = dsn.parse().expect("valid test DSN");
     assert_eq!(
         pg.get_hosts(),
@@ -51,7 +51,7 @@ async fn run(s: &dyn Session, text: &str) -> Vec<ResultSet> {
 #[tokio::test]
 async fn real_postgres_contract() {
     let Some(cfg) = config() else {
-        eprintln!("DBTOOL_TEST_PG unset: real PostgreSQL test not run");
+        eprintln!("AXDB_TEST_PG unset: real PostgreSQL test not run");
         return;
     };
     let driver = PostgresDriver::new();
@@ -158,7 +158,7 @@ async fn real_postgres_contract() {
         assert!(start.elapsed() < Duration::from_secs(2));
         assert_eq!(run(&*s, "SELECT 1").await[0].row_count, 1);
     }
-    let name = format!("dbtool_w1_{}", std::process::id());
+    let name = format!("axdb_w1_{}", std::process::id());
     run(&*s,&format!("CREATE SCHEMA {name}; CREATE TABLE {name}.items(id int PRIMARY KEY, value text); INSERT INTO {name}.items SELECT i, 'v'||i FROM generate_series(1,5) i")).await;
     let schemas = s.list_children(None).await.unwrap();
     assert!(!schemas.iter().any(|n| n.label == "pg_catalog"
@@ -273,7 +273,7 @@ async fn real_postgres_contract() {
         ErrorKind::Connection
     );
     let mut bad = cfg.clone();
-    bad.secret = Some("definitely-wrong-dbtool-password".into());
+    bad.secret = Some("definitely-wrong-axdb-password".into());
     let e = driver
         .connect(&bad)
         .await
@@ -294,7 +294,7 @@ async fn real_postgres_contract() {
 #[tokio::test]
 async fn read_only_execution_is_enforced_and_cleans_up() {
     let Some(cfg) = config() else {
-        eprintln!("DBTOOL_TEST_PG unset: live read-only test not run");
+        eprintln!("AXDB_TEST_PG unset: live read-only test not run");
         return;
     };
     let driver = PostgresDriver::new();

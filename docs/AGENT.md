@@ -22,13 +22,13 @@ All inputs are JSON objects. Unknown top-level keys, missing required fields, wr
 | `expand_node` | `session_id`, `element_id`, optional `limit` (1–200, default 200) | Registered only while an open session supports `graph_expand` |
 
 ```js
-const tools = window.dbtool.agent.listTools();
-const connections = await window.dbtool.agent.callTool('list_connections', {});
-const { session_id } = await window.dbtool.agent.callTool('open_connection', {
+const tools = window.axdb.agent.listTools();
+const connections = await window.axdb.agent.callTool('list_connections', {});
+const { session_id } = await window.axdb.agent.callTool('open_connection', {
   profile_id: connections[0].id
 });
-await window.dbtool.agent.callTool('open_query_tab', { session_id, text: 'SELECT 1' });
-const result = await window.dbtool.agent.callTool('run_query', {
+await window.axdb.agent.callTool('open_query_tab', { session_id, text: 'SELECT 1' });
+const result = await window.axdb.agent.callTool('run_query', {
   session_id, text: 'SELECT 1', read_only: true
 });
 ```
@@ -37,7 +37,7 @@ const result = await window.dbtool.agent.callTool('run_query', {
 
 ## WebMCP
 
-When available, tools register on `document.modelContext`, falling back to `navigator.modelContext`. Re-registration aborts the prior registration's AbortController when manifests or open sessions change. The `window.dbtool.agent` API remains available in browsers without WebMCP, including the browser mock backend.
+When available, tools register on `document.modelContext`, falling back to `navigator.modelContext`. Re-registration aborts the prior registration's AbortController when manifests or open sessions change. The `window.axdb.agent` API remains available in browsers without WebMCP, including the browser mock backend.
 
 The [15 October 2026 WebMCP draft](https://webmachinelearning.github.io/webmcp/) is a Community Group draft, not a stable standard. The app implements its imperative tool registration subset, not declarative form annotations or browser agent discovery. Its JavaScript API adds minimal schema validation and JSON serialization checks; execution returns JSON objects. No claim is made that WKWebView itself implements WebMCP or that external agents can directly access its modelContext.
 
@@ -46,7 +46,7 @@ The [15 October 2026 WebMCP draft](https://webmachinelearning.github.io/webmcp/)
 The bridge is **off by default**. Enable the `MCP bridge` checkbox in the header, or launch:
 
 ```sh
-DBTOOL_AGENT_BRIDGE=1 DBTOOL_CONFIG_DIR=/absolute/private/config target/debug/db-tool
+AXDB_AGENT_BRIDGE=1 AXDB_CONFIG_DIR=/absolute/private/config target/debug/axdb
 ```
 
 The toggle persists `agent_bridge` in `settings.json`, preserving other settings. The environment variable enables the bridge at app startup even if the persisted toggle was off. It listens on an OS-selected `127.0.0.1` port and writes `{url, token}` to `agent-bridge.json` with mode 0600 on Unix. Normal app exit or disabling the bridge removes the discovery file; after a crash it can remain stale, and the next start replaces it with a fresh token and port. Do not share this file or put it in version control.
@@ -56,7 +56,7 @@ Configure an HTTP MCP client using the current values from that file:
 ```json
 {
   "mcpServers": {
-    "db-tool": {
+    "axdb": {
       "type": "http",
       "url": "http://127.0.0.1:49152/mcp",
       "headers": { "Authorization": "Bearer <token-from-agent-bridge.json>" }
@@ -70,7 +70,7 @@ The endpoint implements the [MCP Streamable HTTP JSON response subset](https://m
 Test with the running desktop app and a saved PostgreSQL test profile on **127.0.0.1:55432**. Store its test credential with the profile, or enter it in the app when the smoke call opens a credential dialog:
 
 ```sh
-DBTOOL_CONFIG_DIR=/absolute/private/config node bench/agent-bridge-smoke.mjs
+AXDB_CONFIG_DIR=/absolute/private/config node bench/agent-bridge-smoke.mjs
 ```
 
 The smoke script checks authorization, Origin rejection, initialization, discovery, connection opening, exploration, exact typed SELECT, DB-level write rejection, approval timeout, lack of persisted writes and agent history. During its final write request, leave the approval dialog untouched so it expires after approximately 30 seconds.

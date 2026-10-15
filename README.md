@@ -43,17 +43,17 @@ pnpm dlx @tauri-apps/cli@2 build --config src-tauri/tauri.conf.json
 |---|---|
 | `AXDB_CONFIG_DIR` | 설정, 이력, 로그 디렉터리를 바꾼다. 테스트를 격리할 때 쓴다 |
 | `AXDB_AGENT_BRIDGE=1` | localhost MCP 브리지를 켠다(기본은 꺼짐). 상세는 [AGENT.md](docs/AGENT.md) |
-| `AXDB_TEST_PG` | 예: `host=127.0.0.1 port=55432 user=postgres password=testpw dbname=dbtool_test` |
+| `AXDB_TEST_PG` | 예: `host=127.0.0.1 port=55432 user=postgres password=testpw dbname=axdb_test` |
 | `AXDB_TEST_NEO4J` | 예: `bolt://127.0.0.1:57687\|neo4j\|testpassword` |
 
 ## 테스트
 
 ```sh
 # 테스트 DB (사용자 DB와 분리)
-docker run -d --name dbtool-test-pg -e POSTGRES_PASSWORD=testpw -e POSTGRES_DB=dbtool_test -p 55432:5432 postgres:16-alpine
-docker run -d --name dbtool-test-neo4j -e NEO4J_AUTH=neo4j/testpassword -p 57474:7474 -p 57687:7687 neo4j:5-community
+docker run -d --name axdb-test-pg -e POSTGRES_PASSWORD=testpw -e POSTGRES_DB=axdb_test -p 55432:5432 postgres:16-alpine
+docker run -d --name axdb-test-neo4j -e NEO4J_AUTH=neo4j/testpassword -p 57474:7474 -p 57687:7687 neo4j:5-community
 
-AXDB_TEST_PG='host=127.0.0.1 port=55432 user=postgres password=testpw dbname=dbtool_test' \
+AXDB_TEST_PG='host=127.0.0.1 port=55432 user=postgres password=testpw dbname=axdb_test' \
 AXDB_TEST_NEO4J='bolt://127.0.0.1:57687|neo4j|testpassword' cargo test --workspace
 cargo clippy --workspace -- -D warnings
 pnpm --dir ui test && pnpm --dir ui exec tsc --noEmit
@@ -65,7 +65,7 @@ AXDB_CONFIG_DIR=<dir> node bench/e2e-bridge.mjs
 
 ## 보안 원칙
 
-- **비밀번호:** 프로필 파일(`profiles.json`, 권한 0600)에는 secret 필드를 저장하지 않는다. 비밀번호는 OS 키체인(`keyring`, service `axdb`)에만 둔다.
+- **비밀번호:** 프로필 파일(`profiles.json`, 권한 0600)에는 secret 필드를 저장하지 않는다. 비밀번호는 OS 키체인(`keyring`, service `axdb`)에만 둔다. 이전 서비스의 키체인 항목은 마이그레이션하지 않으며, 저장된 비밀번호는 다시 입력해야 한다.
 - **로그:** 연결 필드는 이름만 기록하고 값은 남기지 않는다. 의존 라이브러리의 NOTICE와 쿼리 파라미터 값은 파일 로그에서 제외한다.
 - **쓰기 작업:** 앱은 DB에 자동으로 쓰지 않는다. 에이전트가 실행하는 쿼리는 기본적으로 DB 수준 읽기 전용이다(PG `BEGIN READ ONLY`, Neo4j READ 모드, SQLite `query_only`). 쓰기는 앱 안의 승인 창에서 사용자가 승인해야 한다.
 

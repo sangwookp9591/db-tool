@@ -103,6 +103,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
+name = "axdb"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "axum",
+ "dbcore",
+ "driver-neo4j",
+ "driver-postgres",
+ "driver-sqlite",
+ "keyring",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "time",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
 name = "axum"
 version = "0.8.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -651,29 +674,6 @@ dependencies = [
  "darling_core",
  "quote",
  "syn 3.0.9",
-]
-
-[[package]]
-name = "db-tool"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "axum",
- "dbcore",
- "driver-neo4j",
- "driver-postgres",
- "driver-sqlite",
- "keyring",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "time",
- "tokio",
- "tokio-util",
- "tracing",
- "tracing-subscriber",
- "uuid",
 ]
 
 [[package]]

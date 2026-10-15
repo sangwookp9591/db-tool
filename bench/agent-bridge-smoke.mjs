@@ -2,8 +2,8 @@ import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import assert from 'node:assert/strict';
-const directory = process.env.DBTOOL_CONFIG_DIR;
-assert(directory, 'Set DBTOOL_CONFIG_DIR to the running desktop app config directory');
+const directory = process.env.AXDB_CONFIG_DIR;
+assert(directory, 'Set AXDB_CONFIG_DIR to the running desktop app config directory');
 const discovery = path.join(directory, 'agent-bridge.json');
 const { url, token } = JSON.parse(await readFile(discovery, 'utf8'));
 assert.equal(new URL(url).hostname, '127.0.0.1');
@@ -22,11 +22,11 @@ async function tool(name, args = {}) {
 }
 assert.equal((await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })).status, 401);
 assert.equal((await fetch(url, { method: 'POST', headers: { ...headers, Origin: 'https://example.invalid' }, body: '{}' })).status, 403);
-assert.equal((await rpc('initialize', { protocolVersion: '2025-11-25', clientInfo: { name: 'dbtool-smoke', version: '1' }, capabilities: {} })).protocolVersion, '2025-11-25');
+assert.equal((await rpc('initialize', { protocolVersion: '2025-11-25', clientInfo: { name: 'axdb-smoke', version: '1' }, capabilities: {} })).protocolVersion, '2025-11-25');
 assert.equal((await fetch(url, { method: 'POST', headers, body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) })).status, 202);
 const listed = await rpc('tools/list'); assert(listed.tools.some(t => t.name === 'run_query'));
 const profiles = JSON.parse(await readFile(path.join(directory, 'profiles.json'), 'utf8'));
-const profile = profiles.find(p => (!process.env.DBTOOL_TEST_PROFILE || p.id === process.env.DBTOOL_TEST_PROFILE) && p.fields.host === '127.0.0.1' && p.fields.port === '55432');
+const profile = profiles.find(p => (!process.env.AXDB_TEST_PROFILE || p.id === process.env.AXDB_TEST_PROFILE) && p.fields.host === '127.0.0.1' && p.fields.port === '55432');
 assert(profile, 'Prepare a saved test PG profile on 127.0.0.1:55432 with its credential stored or enter the credential in the app when prompted');
 const opened = await tool('open_connection', { profile_id: profile.id }); assert(opened.session_id, JSON.stringify(opened)); const session_id = opened.session_id;
 try {

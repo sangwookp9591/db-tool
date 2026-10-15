@@ -6,7 +6,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 
-const dir = process.env.AXDB_CONFIG_DIR ?? process.env.DBTOOL_CONFIG_DIR;
+const dir = process.env.AXDB_CONFIG_DIR;
 assert(dir, 'set AXDB_CONFIG_DIR');
 const { url, token } = JSON.parse(await readFile(path.join(dir, 'agent-bridge.json'), 'utf8'));
 const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'application/json', 'MCP-Protocol-Version': '2025-11-25' };

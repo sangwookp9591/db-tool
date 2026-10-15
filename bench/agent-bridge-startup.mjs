@@ -1,5 +1,5 @@
 // Runs five fresh real desktop processes; no database profiles or connections are needed.
-// DBTOOL_BINARY must point to a debug app containing the candidate UI assets.
+// AXDB_BINARY must point to a debug app containing the candidate UI assets.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
@@ -7,11 +7,11 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 
-const binary = path.resolve(process.env.DBTOOL_BINARY ?? 'target-w7b/debug/db-tool');
+const binary = path.resolve(process.env.AXDB_BINARY ?? 'target-w7b/debug/axdb');
 const results = [];
 for (let run = 1; run <= 5; run++) {
-  const directory = await mkdtemp(path.join(tmpdir(), 'dbtool-bridge-startup-'));
-  const app = spawn(binary, [], { env: { ...process.env, DBTOOL_CONFIG_DIR: directory, DBTOOL_AGENT_BRIDGE: '1', DBTOOL_BENCH: '0' }, stdio: 'ignore' });
+  const directory = await mkdtemp(path.join(tmpdir(), 'axdb-bridge-startup-'));
+  const app = spawn(binary, [], { env: { ...process.env, AXDB_CONFIG_DIR: directory, AXDB_AGENT_BRIDGE: '1', AXDB_BENCH: '0' }, stdio: 'ignore' });
   let spawnError;
   app.on('error', error => { spawnError = error; });
   const exited = new Promise(resolve => app.once('exit', resolve));

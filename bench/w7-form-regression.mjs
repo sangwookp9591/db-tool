@@ -1,5 +1,5 @@
 // Run with: ego-browser nodejs < bench/w7-form-regression.mjs (UI preview on 127.0.0.1:4178).
-const task = await taskSpace('db-tool W7 connection form regression');
+const task = await taskSpace('axdb W7 connection form regression');
 const page = task.page('p1');
 await page.goto('http://127.0.0.1:4178');
 await page.waitForSelector('button[aria-label="Add connection"]');

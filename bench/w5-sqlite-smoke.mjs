@@ -2,8 +2,8 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import path from 'node:path';
-const directory = process.env.DBTOOL_CONFIG_DIR;
-assert(directory, 'Set DBTOOL_CONFIG_DIR for the running W5 debug app');
+const directory = process.env.AXDB_CONFIG_DIR;
+assert(directory, 'Set AXDB_CONFIG_DIR for the running W5 debug app');
 const { url, token } = JSON.parse(await readFile(path.join(directory, 'agent-bridge.json'), 'utf8'));
 assert.equal(new URL(url).hostname, '127.0.0.1');
 let id = 0;

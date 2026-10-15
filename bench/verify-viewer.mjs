@@ -5,8 +5,8 @@ const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
 await page.addInitScript(() => { window.__layoutShifts = []; new PerformanceObserver(list => window.__layoutShifts.push(...list.getEntries().map(e => ({ at: e.startTime, value: e.value, recent: e.hadRecentInput })))).observe({ type: 'layout-shift', buffered: true }); window.__workerMessages = 0; const Base = window.Worker; window.Worker = class extends Base { constructor(...args) { super(...args); this.addEventListener('message', () => window.__workerMessages++); } }; });
 const errors = []; page.on('pageerror', e => errors.push(e.message));
 await page.goto('http://127.0.0.1:1424/viewer-bench.html');
-await page.waitForFunction(() => window.dbtool?.perf);
-await page.evaluate(() => window.dbtool.perf.run('table-10000-200'));
+await page.waitForFunction(() => window.axdb?.perf);
+await page.evaluate(() => window.axdb.perf.run('table-10000-200'));
 assert.ok(await page.locator('[role=gridcell]').count() < 500);
 assert.ok(Number(await page.locator('[role=gridcell]').first().getAttribute('aria-colindex')) > 190);
 await page.locator('.virtual-scroll').evaluate(el => { el.scrollTop = 0; el.scrollLeft = 0; });
@@ -20,7 +20,7 @@ await page.getByRole('columnheader').first().getByRole('button').click();
 assert.equal(await page.getByRole('columnheader').first().getAttribute('aria-sort'), 'ascending');
 await page.getByRole('columnheader').first().getByRole('button').click();
 assert.equal(await page.getByRole('columnheader').first().getAttribute('aria-sort'), 'descending');
-await page.evaluate(() => window.dbtool.perf.run('transitions'));
+await page.evaluate(() => window.axdb.perf.run('transitions'));
 const trustedStart = await page.evaluate(() => performance.now());
 await page.locator('.result-set:not([hidden]) [aria-label="Result sets"] button').first().click();
 await page.locator('[aria-label="Result views"] button').filter({ hasText: /^Table$/ }).first().click();
@@ -31,7 +31,7 @@ await page.locator('[aria-label="Result views"] button').filter({ hasText: /^Tab
 assert.equal(await page.locator('.virtual-scroll:visible').evaluate(el => el.scrollTop), 500);
 await page.locator('[aria-label="Result views"] button').filter({ hasText: /^Graph$/ }).first().click();
 assert.equal(await page.evaluate(() => window.__canvas === document.querySelector('canvas')), true);
-await page.waitForFunction(() => window.dbtool.perf.marks().some(m => m.name === 'graph-stable'));
+await page.waitForFunction(() => window.axdb.perf.marks().some(m => m.name === 'graph-stable'));
 const workerMessages = await page.evaluate(() => window.__workerMessages);
 await page.locator('[aria-label="Result views"] button').filter({ hasText: /^Table$/ }).first().click();
 await page.locator('[aria-label="Result views"] button').filter({ hasText: /^Graph$/ }).first().click();
@@ -39,7 +39,7 @@ await page.evaluate(async () => { await new Promise(requestAnimationFrame); awai
 assert.equal(await page.evaluate(() => window.__workerMessages), workerMessages, 'Stable graph must not recompute on re-entry');
 await page.getByLabel('Search graph').fill('Node 0');
 await page.evaluate(async () => { await new Promise(requestAnimationFrame); await new Promise(requestAnimationFrame); });
-const graphPositions = () => page.evaluate(async () => (await window.dbtool.perf.run('graph-probe'))[0].positions);
+const graphPositions = () => page.evaluate(async () => (await window.axdb.perf.run('graph-probe'))[0].positions);
 const beforeDrag = await graphPositions(), box = await page.locator('canvas:visible').boundingBox();
 await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down();
 await page.mouse.move(box.x + box.width / 2 + 35, box.y + box.height / 2 + 20, { steps: 4 }); await page.mouse.up();
@@ -49,7 +49,7 @@ assert.ok(Math.hypot(pinned[0] - beforeDrag[0], pinned[1] - beforeDrag[1]) > 10,
 await page.waitForTimeout(500);
 assert.deepEqual(await graphPositions(), pinned, 'Released node and stable graph must remain pinned');
 assert.equal(await page.evaluate(start => window.__layoutShifts.filter(e => e.at >= start && !e.recent).reduce((sum, e) => sum + e.value, 0), trustedStart), 0, 'Trusted view switching and idle graph must have zero unexpected CLS');
-await page.evaluate(() => window.dbtool.perf.run('graph-limit'));
+await page.evaluate(() => window.axdb.perf.run('graph-limit'));
 await page.getByLabel('Search graph').fill('Node 0');
 await page.waitForTimeout(100);
 const limitedCanvas = page.locator('canvas:visible'), beforeLimit = await limitedCanvas.boundingBox();
@@ -61,7 +61,7 @@ assert.deepEqual(await limitedCanvas.boundingBox(), beforeLimit, 'Crossing the g
 await page.screenshot({ path: 'bench/viewer-verified.png' });
 await page.goto('http://127.0.0.1:1424'); await page.waitForLoadState('networkidle');
 await page.locator('.connection-actions button').first().click();
-await page.waitForFunction(() => window.dbtool.perf.marks().some(m => m.name === 'new-query-tab'));
+await page.waitForFunction(() => window.axdb.perf.marks().some(m => m.name === 'new-query-tab'));
 const splitter = page.getByRole('separator', { name: 'Resize editor and results' });
 const initialPane = await splitter.getAttribute('aria-valuenow'); await splitter.focus(); await page.keyboard.press('ArrowUp');
 const resizedPane = await splitter.getAttribute('aria-valuenow'); assert.notEqual(resizedPane, initialPane);
@@ -84,7 +84,7 @@ const sizing = await page.evaluate(async () => {
 });
 assert.deepEqual(sizing, [], 'Idle query/editor/results sizes must remain constant');
 
-const metrics = await page.evaluate(() => window.dbtool.agent.callTool('get_perf_metrics', {}));
+const metrics = await page.evaluate(() => window.axdb.agent.callTool('get_perf_metrics', {}));
 assert.ok(Array.isArray(metrics) && metrics.some(m => m.name === 'new-query-tab'));
 
 await browser.close(); assert.deepEqual(errors, []); console.log('Viewer DOM, exact values, index sorting/filtering and keep-alive verified');

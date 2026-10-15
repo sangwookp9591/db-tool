@@ -7,7 +7,7 @@ function setup(readOnly = true) {
   const state = { drivers: [driver], profiles: [{ id: 'p', name: 'Test', driver_id: 'fixture', fields: { password: 'must-not-return' }, save_secret: false }], sessions: {} as Record<string, string> };
   const invoke = vi.fn().mockResolvedValue([]), approve = vi.fn().mockResolvedValue(false);
   const host: AgentHost = { snapshot: () => state, invoke, approve, open: vi.fn().mockResolvedValue('s'), close: vi.fn(), openTab: vi.fn().mockReturnValue('tab'), uiState: () => ({}), results: vi.fn(), activity: vi.fn(), history: vi.fn() };
-  const registry = createRegistry(host); const target: { dbtool?: { agent: AgentAPI } } = {}; const api = expose(registry, target);
+  const registry = createRegistry(host); const target: { axdb?: { agent: AgentAPI } } = {}; const api = expose(registry, target);
   return { state, host, invoke, approve, registry, api };
 }
 describe('agent registry', () => {

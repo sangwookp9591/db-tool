@@ -5,7 +5,7 @@ use std::{
     time::{Duration, Instant},
 };
 fn config() -> Option<ConnectConfig> {
-    let value = std::env::var("DBTOOL_TEST_NEO4J").ok()?;
+    let value = std::env::var("AXDB_TEST_NEO4J").ok()?;
     let parts = value.split('|').collect::<Vec<_>>();
     assert_eq!(parts.len(), 3, "test URI|user|password");
     assert_eq!(
@@ -37,7 +37,7 @@ fn cell<'a>(r: &'a ResultSet, key: &str) -> &'a Value {
 #[tokio::test]
 async fn real_neo4j_contract() {
     let Some(cfg) = config() else {
-        eprintln!("DBTOOL_TEST_NEO4J unset: integration test not run");
+        eprintln!("AXDB_TEST_NEO4J unset: integration test not run");
         return;
     };
     let driver = Neo4jDriver::new();
@@ -324,10 +324,10 @@ async fn real_neo4j_contract() {
     s.close().await;
     assert_eq!(s.ping().await.unwrap_err().kind, ErrorKind::Connection);
     let mut bad = cfg.clone();
-    bad.secret = Some("dbtool-wrong-password".into());
+    bad.secret = Some("axdb-wrong-password".into());
     let err = driver.connect(&bad).await.err().unwrap();
     assert_eq!(err.kind, ErrorKind::Auth);
-    assert!(!err.message.contains("dbtool-wrong-password"));
+    assert!(!err.message.contains("axdb-wrong-password"));
     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let port = listener.local_addr().unwrap().port();
     drop(listener);

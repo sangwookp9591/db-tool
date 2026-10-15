@@ -65,7 +65,7 @@ impl Bridge {
     }
     pub fn configured(config: &std::path::Path) -> Result<bool, DbError> {
         let settings = read_settings(config)?;
-        Ok(std::env::var("DBTOOL_AGENT_BRIDGE").as_deref() == Ok("1")
+        Ok(std::env::var("AXDB_AGENT_BRIDGE").as_deref() == Ok("1")
             || settings["agent_bridge"].as_bool().unwrap_or(false))
     }
     pub async fn stop(&self, config: &std::path::Path) {
@@ -280,7 +280,7 @@ async fn rpc(
             } else {
                 "2025-11-25"
             };
-            json!({"protocolVersion":version,"capabilities":{"tools":{}},"serverInfo":{"name":"db-tool","version":env!("CARGO_PKG_VERSION")}})
+            json!({"protocolVersion":version,"capabilities":{"tools":{}},"serverInfo":{"name":"axdb","version":env!("CARGO_PKG_VERSION")}})
         }
         "ping" => json!({}),
         "tools/list" | "tools/call" => {
@@ -537,7 +537,7 @@ mod tests {
     #[tokio::test]
     async fn discovery_is_published_on_ready_and_removed_on_reload_and_stop() {
         let directory =
-            std::env::temp_dir().join(format!("dbtool-bridge-{}", uuid::Uuid::new_v4()));
+            std::env::temp_dir().join(format!("axdb-bridge-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir(&directory).unwrap();
         let bridge = Bridge::default();
         let (shared, _requests) = waiting_shared(bridge.ready.subscribe());
@@ -570,7 +570,7 @@ mod tests {
     #[tokio::test]
     async fn stopping_releases_requests_waiting_for_ready() {
         let directory =
-            std::env::temp_dir().join(format!("dbtool-bridge-{}", uuid::Uuid::new_v4()));
+            std::env::temp_dir().join(format!("axdb-bridge-{}", uuid::Uuid::new_v4()));
         let bridge = Bridge::default();
         let (shared, mut requests) = waiting_shared(bridge.ready.subscribe());
         *bridge.running.lock().await = Some(Running {

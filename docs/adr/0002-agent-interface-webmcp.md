@@ -15,9 +15,9 @@
    - 조건부 도구: `paged_browse`를 지원하는 세션이 있을 때 `browse`, `graph_expand`를 지원하는 세션이 있을 때 `expand_node`. 세션이 바뀔 때마다 다시 등록한다.
 2. **노출 경로는 세 가지다.**
    - (a) `document.modelContext`, 없으면 `navigator.modelContext`. WebMCP를 지원하는 호스트에서 쓰인다.
-   - (b) `window.dbtool.agent = { listTools(), callTool(name, input) }`. 자동화와 테스트에 쓴다.
+   - (b) `window.axdb.agent = { listTools(), callTool(name, input) }`. 자동화와 테스트에 쓴다.
    - (c) **localhost MCP 브리지.** 기본값은 꺼짐이다.
-     - 켜는 방법: 설정 토글 또는 `DBTOOL_AGENT_BRIDGE=1`
+     - 켜는 방법: 설정 토글 또는 `AXDB_AGENT_BRIDGE=1`
      - 주소: `127.0.0.1` 임의 포트의 MCP Streamable HTTP(JSON-RPC: `initialize`, `tools/list`, `tools/call`)
      - 인증: 무작위 bearer 토큰. 접속 정보는 `{config_dir}/agent-bridge.json`(권한 0600)에 둔다
      - 동작: 호스트는 요청을 웹뷰의 레지스트리로 전달하고 결과를 그대로 돌려준다. 도구 정의는 UI 한 곳에만 있다.

@@ -34,12 +34,12 @@ export async function nativeWorkspace(manifests: DriverManifest[], config: Bench
       await waitFor(() => !!connection!.querySelector('.tree-node')); output.connect.push(await painted('native-connection-tree', since));
     }
     await connect(); output.addConnection.push(await painted('native-add-connection', added));
-    const connections = await window.dbtool.agent!.callTool('list_connections', {}) as { id: string; name: string; session_id: string | null }[];
+    const connections = await window.axdb.agent!.callTool('list_connections', {}) as { id: string; name: string; session_id: string | null }[];
     const saved = connections.find(c => c.name === name)!; profileId = saved.id;
     for (let i = 0; i < 2; i++) { (connection.querySelector('.connection-actions button') as HTMLButtonElement).click(); await waitFor(() => !connection!.querySelector('.tree-node')); await connect(); }
     for (let i = 0; i < 10; i++) { const since = performance.now(); (connection.querySelector('.new-query') as HTMLButtonElement).click(); output.newTab.push(await painted('native-new-tab', since)); }
     for (let i = 0; i < 10; i++) { const since = performance.now(); (app.querySelectorAll('.workspace-tabs [role=tab]')[i % 2] as HTMLButtonElement).click(); output.tab.push(await painted('native-tab-switch', since)); }
-    const open = await window.dbtool.agent!.callTool('list_connections', {}) as typeof connections;
+    const open = await window.axdb.agent!.callTool('list_connections', {}) as typeof connections;
     const sessionId = open.find(c => c.id === profileId)!.session_id!;
     const results = await api('execute', { sessionId, runId: crypto.randomUUID(), req: { text: 'SELECT 1 AS one; SELECT 2 AS two', params: {}, row_limit: 1000, graph_node_limit: 300, timeout_ms: 30000 } });
     document.body.append(panel); render(<Results results={results} sessionId={sessionId} canExpand={false} graphLimit={300} rowLimit={1000} onError={e => { throw e; }} />, panel);

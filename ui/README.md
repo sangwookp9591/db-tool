@@ -1,4 +1,4 @@
-# db-tool UI
+# AxDB UI
 
 Vite + Preact + strict TypeScript 프런트엔드입니다. 드라이버 선택 이후 모든 UI 동작은 manifest의 필드·언어·capabilities 및 반환된 결과 뷰로 결정합니다.
 

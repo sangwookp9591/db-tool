@@ -118,7 +118,7 @@ pub enum ErrorKind { Connection, Auth, Query, Timeout, Cancelled, Unsupported, I
 | command | 역할 |
 |---|---|
 | `drivers_list` | 등록된 manifest 목록 |
-| `profiles_list / profile_save / profile_delete` | `profiles.json`에는 secret 필드를 **제외**하고 저장한다. secret은 OS 키체인(`keyring`, service=`db-tool`, account=`profile:{id}`)에 둔다 |
+| `profiles_list / profile_save / profile_delete` | `profiles.json`에는 secret 필드를 **제외**하고 저장한다. secret은 OS 키체인(`keyring`, service=`axdb`, account=`profile:{id}`)에 둔다 |
 | `connection_test(profile, secret?)` | 연결 → `ping` → `server_info` → 닫기 |
 | `session_open(profile_id) → session_id` / `session_close` | 여러 연결을 동시에 연다 |
 | `explorer_children(session_id, parent?)` | |
@@ -139,7 +139,7 @@ pub enum ErrorKind { Connection, Auth, Query, Timeout, Cancelled, Unsupported, I
 
 표는 행·열을 가상화하고 보이는 셀만 포맷해 캐시한다. 정렬·필터는 로드된 원본 행을 복사하지 않고 인덱스 배열을 만든다. 그래프 레이아웃은 Worker에서 수렴시킨 뒤 Float32Array로 전달하고, Canvas는 입력·크기 변경·데이터 변경 때만 그린다. 기존 노드는 확장 시 고정하고 새 노드만 부모 근처에서 200ms 동안 이동한다. 숨긴 뷰와 비활성 탭은 유지하되 Worker와 렌더를 멈춘다. 첫 표시와 Reset은 fit-to-view이며, 다중·역방향 관계는 곡선으로 분리하고 작은 줌에서는 캡션·화살표를 생략한다.
 
-`window.dbtool.perf`는 최대 2,000개 측정값과 `marks/clear/run`을 제공하며 `get_perf_metrics` 에이전트 도구는 읽기만 한다. 실제 DB 벤치는 `DBTOOL_BENCH=1`일 때만 동적으로 로드하고 테스트 접속값은 `bench/fixtures.json`에서 호스트가 검증해 제공한다. 일반 앱에는 벤치가 자동 실행되지 않는다. 원자료와 측정의 한계는 [VIEWER_PERF.md](../bench/VIEWER_PERF.md)에 있다.
+`window.axdb.perf`는 최대 2,000개 측정값과 `marks/clear/run`을 제공하며 `get_perf_metrics` 에이전트 도구는 읽기만 한다. 실제 DB 벤치는 `AXDB_BENCH=1`일 때만 동적으로 로드하고 테스트 접속값은 `bench/fixtures.json`에서 호스트가 검증해 제공한다. 일반 앱에는 벤치가 자동 실행되지 않는다. 원자료와 측정의 한계는 [VIEWER_PERF.md](../bench/VIEWER_PERF.md)에 있다.
 
 ## 새 DB 추가 절차
 

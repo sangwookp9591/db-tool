@@ -2,7 +2,7 @@ use crate::{storage, CommandResult, Host};
 use dbcore::DbError;
 #[tauri::command]
 pub fn viewer_bench_enabled() -> bool {
-    std::env::var("DBTOOL_BENCH").as_deref() == Ok("1")
+    std::env::var("AXDB_BENCH").as_deref() == Ok("1")
 }
 #[tauri::command]
 pub fn viewer_bench_write(
@@ -21,7 +21,7 @@ pub fn viewer_bench_write(
 }
 #[tauri::command]
 pub fn viewer_bench_target() -> String {
-    let target = std::env::var("DBTOOL_BENCH_TARGET").unwrap_or_default();
+    let target = std::env::var("AXDB_BENCH_TARGET").unwrap_or_default();
     if viewer_bench_enabled() && matches!(target.as_str(), "graph" | "workspace" | "idle" | "small" | "matrix") {
         target
     } else {

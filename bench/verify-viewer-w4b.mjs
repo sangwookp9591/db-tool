@@ -7,10 +7,10 @@ try {
   const page = await browser.newPage({viewport:{width:1440,height:1000},deviceScaleFactor:2});
   page.on('pageerror',e=>output.errors.push(e.message));
   await page.goto('http://127.0.0.1:1426/viewer-bench.html');
-  await page.waitForFunction(()=>window.dbtool?.perf);
-  await page.evaluate(()=>window.dbtool.perf.run('graph-limit'));
+  await page.waitForFunction(()=>window.axdb?.perf);
+  await page.evaluate(()=>window.axdb.perf.run('graph-limit'));
   const canvas = page.locator('canvas'), rect = await canvas.boundingBox();
-  const probe = ()=>page.evaluate(()=>window.dbtool.perf.run('graph-probe'));
+  const probe = ()=>page.evaluate(()=>window.axdb.perf.run('graph-probe'));
   const settle = ()=>page.evaluate(async()=>{await new Promise(r=>setTimeout(r,200));await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);});
   const pixels = ()=>page.evaluate(async()=>{const c=document.querySelector('canvas'), data=c.getContext('2d').getImageData(0,0,c.width,c.height).data;return [...new Uint8Array(await crypto.subtle.digest('SHA-256',data))].map(v=>v.toString(16).padStart(2,'0')).join('');});
   await settle(); const initial = await probe();

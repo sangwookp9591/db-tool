@@ -40,7 +40,7 @@ pub struct Paths {
 }
 impl Paths {
     pub fn create(config: PathBuf, data: PathBuf, log: PathBuf) -> Result<Self, DbError> {
-        let paths = if let Some(dir) = std::env::var_os("DBTOOL_CONFIG_DIR") {
+        let paths = if let Some(dir) = std::env::var_os("AXDB_CONFIG_DIR") {
             let dir = PathBuf::from(dir);
             Self {
                 config: dir.clone(),
@@ -137,7 +137,7 @@ pub fn write_private(path: &Path, data: &[u8]) -> Result<(), DbError> {
     result
 }
 pub fn keychain_get(id: &str) -> Result<Option<String>, DbError> {
-    let entry = keyring::Entry::new("db-tool", &format!("profile:{id}"))
+    let entry = keyring::Entry::new("axdb", &format!("profile:{id}"))
         .map_err(|_| DbError::internal("Keychain unavailable"))?;
     match entry.get_password() {
         Ok(s) => Ok(Some(s)),
@@ -146,7 +146,7 @@ pub fn keychain_get(id: &str) -> Result<Option<String>, DbError> {
     }
 }
 pub fn keychain_set(id: &str, value: Option<&str>) -> Result<(), DbError> {
-    let entry = keyring::Entry::new("db-tool", &format!("profile:{id}"))
+    let entry = keyring::Entry::new("axdb", &format!("profile:{id}"))
         .map_err(|_| DbError::internal("Keychain unavailable"))?;
     match value {
         Some(value) => entry
@@ -165,7 +165,7 @@ mod tests {
     #[test]
     fn log_permissions_are_private_for_new_and_existing_files() {
         use std::os::unix::fs::PermissionsExt;
-        let path = std::env::temp_dir().join(format!("dbtool-log-mode-{}", uuid::Uuid::new_v4()));
+        let path = std::env::temp_dir().join(format!("axdb-log-mode-{}", uuid::Uuid::new_v4()));
         drop(super::open_private_log(&path).unwrap());
         assert_eq!(std::fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o600);
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
@@ -194,7 +194,7 @@ mod tests {
         );
         let data = serde_json::to_vec(&profile).unwrap();
         assert!(!String::from_utf8_lossy(&data).contains("private-value"));
-        let dir = std::env::temp_dir().join(format!("dbtool-storage-{}", uuid::Uuid::new_v4()));
+        let dir = std::env::temp_dir().join(format!("axdb-storage-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("profiles.json");
         write_private(&path, &serde_json::to_vec(&vec![profile]).unwrap()).unwrap();
@@ -212,5 +212,19 @@ mod tests {
             "SELECT '***'"
         );
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    // Touches the real OS keychain (service "axdb"); run explicitly:
+    // cargo test -p axdb real_os_keychain_roundtrip -- --ignored
+    #[test]
+    #[ignore]
+    fn real_os_keychain_roundtrip() {
+        let id = format!("selftest-{}", uuid::Uuid::new_v4());
+        let secret = format!("kc-{}", uuid::Uuid::new_v4());
+        assert_eq!(keychain_get(&id).unwrap(), None);
+        keychain_set(&id, Some(&secret)).unwrap();
+        assert_eq!(keychain_get(&id).unwrap(), Some(secret.clone()));
+        keychain_set(&id, None).unwrap();
+        assert_eq!(keychain_get(&id).unwrap(), None);
     }
 }

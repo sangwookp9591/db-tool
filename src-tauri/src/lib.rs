@@ -466,7 +466,7 @@ fn file_logger(log: std::fs::File) -> impl tracing::Subscriber + Send + Sync {
             .with_writer(Mutex::new(log))
             // Driver libraries can log server NOTICE messages containing user SQL or secrets.
             .with_filter(tracing_subscriber::filter::filter_fn(|metadata| {
-                metadata.target() == "db_tool" || metadata.target().starts_with("db_tool::")
+                metadata.target() == "axdb" || metadata.target().starts_with("axdb::")
             })),
     )
 }
@@ -486,7 +486,7 @@ pub fn run() {
                 app.path().app_data_dir()?,
                 app.path().app_log_dir()?,
             )?;
-            let log = storage::open_private_log(&paths.log.join("db-tool.log"))?;
+            let log = storage::open_private_log(&paths.log.join("axdb.log"))?;
             file_logger(log)
                 .try_init()
                 .map_err(|_| "Cannot initialize file logging")?;
@@ -529,7 +529,7 @@ pub fn run() {
             history_list
         ])
         .build(tauri::generate_context!())
-        .expect("Failed to build db-tool")
+        .expect("Failed to build axdb")
         .run(|app, event| {
             if matches!(event, tauri::RunEvent::Exit) {
                 agent_bridge::cleanup(app);
@@ -573,9 +573,9 @@ mod tests {
         async fn close(&self) {}
     }
     fn setup() -> (tauri::App<tauri::test::MockRuntime>, std::path::PathBuf) {
-        let dir = std::env::temp_dir().join(format!("dbtool-host-{}", uuid::Uuid::new_v4()));
+        let dir = std::env::temp_dir().join(format!("axdb-host-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&dir).unwrap();
-        // Construct paths directly so a user's DBTOOL_CONFIG_DIR cannot redirect test writes.
+        // Construct paths directly so a user's AXDB_CONFIG_DIR cannot redirect test writes.
         let host = Host::new(Paths {
             config: dir.clone(),
             data: dir.clone(),
@@ -599,11 +599,11 @@ mod tests {
     }
     #[test]
     fn file_logging_excludes_database_notices() {
-        let path = std::env::temp_dir().join(format!("dbtool-log-{}", uuid::Uuid::new_v4()));
+        let path = std::env::temp_dir().join(format!("axdb-log-{}", uuid::Uuid::new_v4()));
         let log = std::fs::File::create(&path).unwrap();
         tracing::subscriber::with_default(file_logger(log), || {
             tracing::info!(target:"tokio_postgres::connection", "server notice containing a private-password");
-            tracing::info!(target:"db_tool", "safe connection field names");
+            tracing::info!(target:"axdb", "safe connection field names");
         });
         let text = std::fs::read_to_string(&path).unwrap();
         assert!(text.contains("safe connection"));
@@ -669,8 +669,8 @@ mod tests {
     }
     #[tokio::test]
     async fn real_host_commands() {
-        if std::env::var("DBTOOL_TEST_PG").is_err() {
-            eprintln!("DBTOOL_TEST_PG unset: live host commands not run");
+        if std::env::var("AXDB_TEST_PG").is_err() {
+            eprintln!("AXDB_TEST_PG unset: live host commands not run");
             return;
         }
         let (app, dir) = setup();
@@ -681,7 +681,7 @@ mod tests {
             fields: [
                 ("host".into(), "127.0.0.1".into()),
                 ("port".into(), "55432".into()),
-                ("database".into(), "dbtool_test".into()),
+                ("database".into(), "axdb_test".into()),
                 ("user".into(), "postgres".into()),
             ]
             .into(),

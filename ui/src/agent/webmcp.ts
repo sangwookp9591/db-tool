@@ -3,7 +3,7 @@ type Registry = ReturnType<typeof createRegistry>;
 export interface ModelContext { registerTool: (tool: Tool, options: { signal: AbortSignal }) => void }
 export interface AgentAPI { listTools: () => Omit<Tool, 'execute'>[]; callTool: (name: string, input: unknown, context?: { signal?: AbortSignal }) => Promise<unknown> }
 declare global {
-  interface DBTool { agent?: AgentAPI }
+  interface AxDB { agent?: AgentAPI }
   interface Document { modelContext?: ModelContext }
   interface Navigator { modelContext?: ModelContext }
 }
@@ -22,7 +22,7 @@ export function validate(schema: Schema, input: unknown, path = 'input'): void {
     if (typeof input !== 'number' || !Number.isSafeInteger(input) || input < (schema.minimum ?? -Infinity) || input > (schema.maximum ?? Infinity)) throw new Error(`${path} is outside its integer range`);
   } else if (typeof input !== schema.type) throw new Error(`${path} must be ${schema.type}`);
 }
-export function expose(registry: Registry, target: { dbtool?: object } = window) {
+export function expose(registry: Registry, target: { axdb?: object } = window) {
   const api: AgentAPI = {
     listTools: () => registry.listTools().map(({ execute: _, ...tool }) => tool),
     callTool: async (name, input, context) => {
@@ -40,7 +40,7 @@ export function expose(registry: Registry, target: { dbtool?: object } = window)
       } catch (e) { return { error: { kind: 'InvalidInput', message: (e as Error).message } }; }
     }
   };
-  target.dbtool = { ...target.dbtool, agent: api }; return api;
+  target.axdb = { ...target.axdb, agent: api }; return api;
 }
 export function register(api: AgentAPI, context = document.modelContext ?? navigator.modelContext): () => void {
   const controller = new AbortController();

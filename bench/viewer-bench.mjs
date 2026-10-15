@@ -9,12 +9,12 @@ await page.addInitScript(() => { window.__viewerShifts = []; if (PerformanceObse
 const output = { at: new Date().toISOString(), label, complete: false, environment: { os: `${os.platform()} ${os.release()}`, cpu: os.cpus()[0].model, arch: os.arch(), browser: browser.version(), uptime: execFileSync('uptime', { encoding: 'utf8' }).trim(), mode: 'Vite dev / headless Chromium', viewport: '1440x1000' }, results: {}, errors: [] };
 page.on('pageerror', e => { output.errors.push(e.message); console.error('Page error:', e.message); });
 try {
-  await page.goto(`${process.env.BENCH_URL ?? 'http://127.0.0.1:1424'}/viewer-bench.html`); await page.waitForLoadState('networkidle'); await page.waitForFunction(() => window.dbtool?.perf);
+  await page.goto(`${process.env.BENCH_URL ?? 'http://127.0.0.1:1424'}/viewer-bench.html`); await page.waitForLoadState('networkidle'); await page.waitForFunction(() => window.axdb?.perf);
   const scenarios = process.env.SCENARIOS?.split(',') ?? ['table-1000-10','table-10000-10','table-100000-10','table-10000-200','graph-100','graph-300','graph-1000','graph-5000','transitions','codec','techniques','graph-idle-300'];
   for (const scenario of scenarios) {
     output.results[scenario] = [];
     for (let i = 0; i < Number(process.env.REPEATS ?? 3); i++) { const uptime = execFileSync('uptime', { encoding: 'utf8' }).trim(); const value = await page.evaluate(async s => {
-      const start = window.__viewerShifts.length, value = await window.dbtool.perf.run(s); await new Promise(requestAnimationFrame); await new Promise(requestAnimationFrame);
+      const start = window.__viewerShifts.length, value = await window.axdb.perf.run(s); await new Promise(requestAnimationFrame); await new Promise(requestAnimationFrame);
       const entries = window.__viewerShifts.slice(start); return { ...value, cls: entries.filter(e => !e.recent).reduce((sum,e) => sum+e.value,0), allLayoutShifts: entries.reduce((sum,e) => sum+e.value,0) };
     }, scenario); output.results[scenario].push({ ...value, uptime }); }
     console.log(scenario, JSON.stringify(output.results[scenario].map(({metrics, ...summary}) => summary)));
