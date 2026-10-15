@@ -18,6 +18,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
         .await?;
     let request = |text: &str| ExecRequest {
+        read_only: false,
         text: text.into(),
         params: Default::default(),
         row_limit: 1000,

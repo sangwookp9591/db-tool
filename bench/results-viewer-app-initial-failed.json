@@ -1,0 +1,271 @@
+{
+  "complete": false,
+  "environment": {
+    "at": "2026-10-15T04:52:13.698Z",
+    "mode": "Tauri debug / WKWebView",
+    "ports": [
+      55432,
+      57687
+    ],
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)"
+  },
+  "error": "{\"detail\":null,\"kind\":\"Connection\",\"message\":\"Session disconnected; reconnect required\",\"position\":null}",
+  "results": {
+    "table-1000-10-legacy": [
+      {
+        "first": 101,
+        "frames": {
+          "max": 82,
+          "p50": 33,
+          "p95": 49,
+          "samples": 60
+        },
+        "loaded": 61
+      },
+      {
+        "first": 66,
+        "frames": {
+          "max": 39,
+          "p50": 33,
+          "p95": 37,
+          "samples": 60
+        },
+        "loaded": 43
+      },
+      {
+        "first": 66,
+        "frames": {
+          "max": 35,
+          "p50": 33,
+          "p95": 34,
+          "samples": 60
+        },
+        "loaded": 44
+      }
+    ],
+    "table-1000-10-stream": [
+      {
+        "first": 330,
+        "frames": {
+          "max": 87,
+          "p50": 33,
+          "p95": 42,
+          "samples": 60
+        },
+        "loaded": 420
+      },
+      {
+        "first": 107,
+        "frames": {
+          "max": 44,
+          "p50": 33,
+          "p95": 37,
+          "samples": 60
+        },
+        "loaded": 69
+      },
+      {
+        "first": 264,
+        "frames": {
+          "max": 50,
+          "p50": 33,
+          "p95": 44,
+          "samples": 60
+        },
+        "loaded": 389
+      }
+    ],
+    "table-10000-10-legacy": [
+      {
+        "first": 400,
+        "frames": {
+          "max": 41,
+          "p50": 33,
+          "p95": 34,
+          "samples": 60
+        },
+        "loaded": 374
+      },
+      {
+        "first": 532,
+        "frames": {
+          "max": 35,
+          "p50": 33,
+          "p95": 34,
+          "samples": 60
+        },
+        "loaded": 511
+      },
+      {
+        "first": 516,
+        "frames": {
+          "max": 36,
+          "p50": 33,
+          "p95": 34,
+          "samples": 60
+        },
+        "loaded": 481
+      }
+    ],
+    "table-10000-10-stream": [
+      {
+        "first": 214,
+        "frames": {
+          "max": 38,
+          "p50": 33,
+          "p95": 36,
+          "samples": 60
+        },
+        "loaded": 554
+      },
+      {
+        "first": 336,
+        "frames": {
+          "max": 34,
+          "p50": 33,
+          "p95": 34,
+          "samples": 60
+        },
+        "loaded": 653
+      },
+      {
+        "first": 169,
+        "frames": {
+          "max": 36,
+          "p50": 33,
+          "p95": 35,
+          "samples": 60
+        },
+        "loaded": 562
+      }
+    ],
+    "table-10000-200-legacy": [
+      {
+        "first": 34367,
+        "frames": {
+          "max": 410,
+          "p50": 33,
+          "p95": 145,
+          "samples": 60
+        },
+        "loaded": 34108
+      },
+      {
+        "first": 23319,
+        "frames": {
+          "max": 723,
+          "p50": 36,
+          "p95": 305,
+          "samples": 60
+        },
+        "loaded": 23206
+      },
+      {
+        "first": 14916,
+        "frames": {
+          "max": 197,
+          "p50": 34,
+          "p95": 112,
+          "samples": 60
+        },
+        "loaded": 14810
+      }
+    ],
+    "table-10000-200-stream": [
+      {
+        "first": 1567,
+        "frames": {
+          "max": 42,
+          "p50": 33,
+          "p95": 35,
+          "samples": 60
+        },
+        "loaded": 10288
+      },
+      {
+        "first": 1784,
+        "frames": {
+          "max": 63,
+          "p50": 33,
+          "p95": 45,
+          "samples": 60
+        },
+        "loaded": 7639
+      },
+      {
+        "first": 1817,
+        "frames": {
+          "max": 44,
+          "p50": 33,
+          "p95": 34,
+          "samples": 60
+        },
+        "loaded": 7418
+      }
+    ],
+    "table-100000-10-legacy": [
+      {
+        "first": 3167,
+        "frames": {
+          "max": 41,
+          "p50": 33,
+          "p95": 34,
+          "samples": 60
+        },
+        "loaded": 3121
+      },
+      {
+        "first": 2983,
+        "frames": {
+          "max": 252,
+          "p50": 33,
+          "p95": 43,
+          "samples": 60
+        },
+        "loaded": 2945
+      },
+      {
+        "first": 15546,
+        "frames": {
+          "max": 95,
+          "p50": 33,
+          "p95": 52,
+          "samples": 60
+        },
+        "loaded": 15479
+      }
+    ],
+    "table-100000-10-stream": [
+      {
+        "first": 1353,
+        "frames": {
+          "max": 42,
+          "p50": 33,
+          "p95": 36,
+          "samples": 60
+        },
+        "loaded": 8725
+      },
+      {
+        "first": 1583,
+        "frames": {
+          "max": 55,
+          "p50": 33,
+          "p95": 37,
+          "samples": 60
+        },
+        "loaded": 6901
+      },
+      {
+        "first": 1531,
+        "frames": {
+          "max": 50,
+          "p50": 33,
+          "p95": 40,
+          "samples": 60
+        },
+        "loaded": 6037
+      }
+    ]
+  }
+}

@@ -1,5 +1,8 @@
+mod agent_bridge;
 pub mod drivers;
 pub mod storage;
+pub mod stream;
+mod viewer_bench;
 use dbcore::*;
 use std::{
     collections::HashMap,
@@ -9,7 +12,7 @@ use std::{
     },
     time::{Duration, Instant},
 };
-use storage::{HistoryEntry, Paths, Profile};
+use storage::{HistoryEntry, HistorySource, Paths, Profile};
 use tauri::Manager;
 use tracing_subscriber::prelude::*;
 
@@ -327,7 +330,45 @@ async fn execute(
     host: tauri::State<'_, Host>,
     session_id: String,
     run_id: String,
+    req: ExecRequest,
+) -> CommandResult<Vec<ResultSet>> {
+    execute_impl(host, session_id, run_id, req, None, HistorySource::Ui).await
+}
+#[tauri::command]
+async fn execute_stream(
+    host: tauri::State<'_, Host>,
+    session_id: String,
+    run_id: String,
+    req: ExecRequest,
+    on_event: tauri::ipc::Channel<stream::StreamEvent>,
+) -> CommandResult<()> {
+    execute_impl(
+        host,
+        session_id,
+        run_id,
+        req,
+        Some(on_event),
+        HistorySource::Ui,
+    )
+    .await
+    .map(|_| ())
+}
+#[tauri::command]
+async fn execute_agent(
+    host: tauri::State<'_, Host>,
+    session_id: String,
+    run_id: String,
+    req: ExecRequest,
+) -> CommandResult<Vec<ResultSet>> {
+    execute_impl(host, session_id, run_id, req, None, HistorySource::Agent).await
+}
+async fn execute_impl(
+    host: tauri::State<'_, Host>,
+    session_id: String,
+    run_id: String,
     mut req: ExecRequest,
+    channel: Option<tauri::ipc::Channel<stream::StreamEvent>>,
+    source: HistorySource,
 ) -> CommandResult<Vec<ResultSet>> {
     let record = host.session(&session_id)?;
     let run = host.run(&session_id, &run_id)?;
@@ -347,6 +388,7 @@ async fn execute(
         };
     let result = host.observe(&record, result);
     let entry = HistoryEntry {
+        source,
         timestamp: time::OffsetDateTime::now_utc()
             .format(&time::format_description::well_known::Rfc3339)
             .unwrap_or_default(),
@@ -365,7 +407,13 @@ async fn execute(
     if host.history(entry).await.is_err() {
         tracing::error!("Could not save query history");
     }
-    result
+    // shortcut: drivers collect before host chunking; add a driver sink when database latency dominates first paint.
+    if let Some(channel) = channel {
+        stream::send_results(result?, &channel, &run.token).await?;
+        Ok(vec![])
+    } else {
+        result
+    }
 }
 #[tauri::command]
 async fn cancel(host: tauri::State<'_, Host>, run_id: String) -> CommandResult<()> {
@@ -434,7 +482,16 @@ pub fn run() {
             file_logger(log)
                 .try_init()
                 .map_err(|_| "Cannot initialize file logging")?;
+            let config = paths.config.clone();
+            let enabled = agent_bridge::Bridge::configured(&config)?;
             app.manage(Host::new(paths));
+            app.manage(agent_bridge::Bridge::default());
+            if enabled {
+                let handle = app.handle().clone();
+                tauri::async_runtime::block_on(
+                    app.state::<agent_bridge::Bridge>().start(handle, &config),
+                )?;
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -448,12 +505,24 @@ pub fn run() {
             explorer_children,
             browse,
             execute,
+            execute_agent,
+            agent_bridge::agent_bridge_set,
+            agent_bridge::agent_bridge_status,
+            agent_bridge::agent_bridge_reply,
+            execute_stream,
+            viewer_bench::viewer_bench_enabled,
+            viewer_bench::viewer_bench_write,
             cancel,
             expand,
             history_list
         ])
-        .run(tauri::generate_context!())
-        .expect("Failed to run db-tool");
+        .build(tauri::generate_context!())
+        .expect("Failed to build db-tool")
+        .run(|app, event| {
+            if matches!(event, tauri::RunEvent::Exit) {
+                agent_bridge::cleanup(app);
+            }
+        });
 }
 
 #[cfg(test)]
@@ -508,6 +577,7 @@ mod tests {
     }
     fn request(text: &str, timeout_ms: u64) -> ExecRequest {
         ExecRequest {
+            read_only: false,
             text: text.into(),
             params: Default::default(),
             row_limit: 1000,
@@ -611,7 +681,11 @@ mod tests {
             &serde_json::to_vec(&vec![profile.clone()]).unwrap(),
         )
         .unwrap();
-        assert_eq!(drivers_list(app.state()).await.unwrap()[0].id, "postgres");
+        assert!(drivers_list(app.state())
+            .await
+            .unwrap()
+            .iter()
+            .any(|d| d.id == "postgres"));
         assert_eq!(profiles_list(app.state()).await.unwrap().len(), 1);
         assert!(
             connection_test(app.state(), profile.clone(), Some("testpw".into()))

@@ -1,5 +1,6 @@
 use dbcore::*;
 use driver_postgres::PostgresDriver;
+use futures_util::FutureExt;
 use std::{
     collections::BTreeMap,
     sync::Arc,
@@ -35,6 +36,7 @@ fn config() -> Option<ConnectConfig> {
 }
 fn req(text: &str) -> ExecRequest {
     ExecRequest {
+        read_only: false,
         text: text.into(),
         params: Default::default(),
         row_limit: 1000,
@@ -91,6 +93,7 @@ async fn real_postgres_contract() {
     let limited = s
         .execute(
             &ExecRequest {
+                read_only: false,
                 row_limit: 2,
                 ..req("SELECT generate_series(1,1000000)")
             },
@@ -111,6 +114,7 @@ async fn real_postgres_contract() {
     let err = s
         .execute(
             &ExecRequest {
+                read_only: false,
                 timeout_ms: 500,
                 ..req("SELECT pg_sleep(10)")
             },
@@ -285,4 +289,133 @@ async fn real_postgres_contract() {
         driver.connect(&bad).await.err().unwrap().kind,
         ErrorKind::Connection
     );
+}
+
+#[tokio::test]
+async fn read_only_execution_is_enforced_and_cleans_up() {
+    let Some(cfg) = config() else {
+        eprintln!("DBTOOL_TEST_PG unset: live read-only test not run");
+        return;
+    };
+    let driver = PostgresDriver::new();
+    assert!(driver.manifest().capabilities.read_only_exec);
+    let s = driver.connect(&cfg).await.unwrap();
+    let suffix = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let name = format!("agent_ro_{}_{suffix}", std::process::id());
+    let checked = std::panic::AssertUnwindSafe(async {
+        run(&*s, &format!("CREATE TABLE {name}(id integer)")).await;
+        for text in [
+            format!("CREATE TABLE {name}_blocked(id integer)"),
+            format!("INSERT INTO {name} VALUES(1)"),
+        ] {
+            let error = s
+                .execute(
+                    &ExecRequest {
+                        read_only: true,
+                        ..req(&text)
+                    },
+                    CancelToken::new(),
+                )
+                .await
+                .unwrap_err();
+            assert_eq!(error.kind, ErrorKind::Query);
+            assert!(error.message.contains("read-only"), "{error}");
+        }
+        let result = s
+            .execute(
+                &ExecRequest {
+                    read_only: true,
+                    ..req("SELECT 1; SELECT 2")
+                },
+                CancelToken::new(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(result.len(), 2);
+        for text in [
+            "COMMIT; SELECT 1",
+            "SET TRANSACTION READ WRITE",
+            &format!("ROLLBACK; CREATE TABLE {name}_escaped(id integer)"),
+        ] {
+            assert_eq!(
+                s.execute(
+                    &ExecRequest {
+                        read_only: true,
+                        ..req(text)
+                    },
+                    CancelToken::new()
+                )
+                .await
+                .unwrap_err()
+                .kind,
+                ErrorKind::Unsupported
+            );
+        }
+        for text in [
+            "SELECT set_config('transaction_read_only','off',true)",
+            "DO $$ BEGIN EXECUTE 'SET TRANSACTION READ WRITE'; END $$",
+        ] {
+            assert_eq!(
+                s.execute(
+                    &ExecRequest {
+                        read_only: true,
+                        ..req(text)
+                    },
+                    CancelToken::new()
+                )
+                .await
+                .unwrap_err()
+                .kind,
+                ErrorKind::Query
+            );
+        }
+        run(&*s, "BEGIN").await;
+        assert_eq!(
+            s.execute(
+                &ExecRequest {
+                    read_only: true,
+                    ..req("SELECT 1")
+                },
+                CancelToken::new()
+            )
+            .await
+            .unwrap_err()
+            .kind,
+            ErrorKind::Unsupported
+        );
+        run(&*s, "ROLLBACK").await;
+        let error = s
+            .execute(
+                &ExecRequest {
+                    read_only: true,
+                    timeout_ms: 50,
+                    ..req("SELECT pg_sleep(10)")
+                },
+                CancelToken::new(),
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(error.kind, ErrorKind::Timeout);
+        run(&*s, &format!("INSERT INTO {name} VALUES(2)")).await;
+    })
+    .catch_unwind()
+    .await;
+    s.close().await;
+    let cleanup = driver.connect(&cfg).await.unwrap();
+    let cleaned = cleanup
+        .execute(
+            &req(&format!(
+                "DROP TABLE IF EXISTS {name}, {name}_blocked, {name}_escaped"
+            )),
+            CancelToken::new(),
+        )
+        .await;
+    cleanup.close().await;
+    if let Err(panic) = checked {
+        std::panic::resume_unwind(panic);
+    }
+    cleaned.unwrap();
 }

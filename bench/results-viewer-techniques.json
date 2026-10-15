@@ -1,0 +1,71 @@
+{
+  "at": "2026-10-15T04:52:06.998Z",
+  "label": "techniques",
+  "environment": {
+    "os": "darwin 27.0.0",
+    "cpu": "Apple M5",
+    "arch": "arm64",
+    "browser": "156.0.8078.4",
+    "mode": "Vite dev / headless Chromium",
+    "viewport": "1440x1000"
+  },
+  "results": {
+    "techniques": [
+      {
+        "hitTest": {
+          "linear": 172.4000000357628,
+          "quadtree": 10.300000011920929,
+          "build": 5.599999964237213,
+          "queries": 10000
+        },
+        "format": {
+          "uncached": 8.699999988079071,
+          "cached": 0.5,
+          "calls": 10000
+        },
+        "incremental": {
+          "seedMs": 0.6000000238418579,
+          "movedExisting": 0,
+          "newNodes": 50
+        }
+      },
+      {
+        "hitTest": {
+          "linear": 171.89999997615814,
+          "quadtree": 7.200000047683716,
+          "build": 2.199999988079071,
+          "queries": 10000
+        },
+        "format": {
+          "uncached": 6.900000035762787,
+          "cached": 0.19999998807907104,
+          "calls": 10000
+        },
+        "incremental": {
+          "seedMs": 0.20000004768371582,
+          "movedExisting": 0,
+          "newNodes": 50
+        }
+      },
+      {
+        "hitTest": {
+          "linear": 254.5999999642372,
+          "quadtree": 4.400000035762787,
+          "build": 0.800000011920929,
+          "queries": 10000
+        },
+        "format": {
+          "uncached": 6.899999976158142,
+          "cached": 0.10000002384185791,
+          "calls": 10000
+        },
+        "incremental": {
+          "seedMs": 0.30000001192092896,
+          "movedExisting": 0,
+          "newNodes": 50
+        }
+      }
+    ]
+  },
+  "errors": []
+}

@@ -38,7 +38,7 @@
      - browse 페이징
      - 탐색
 2. **등록:** `src-tauri/src/drivers.rs`에 한 줄을 추가한다. `src-tauri/Cargo.toml`에 의존성 한 줄을 추가한다.
-3. **증명:**
+3. **증명** (주의: W3/W4가 ui/와 src-tauri/lib.rs를 동시에 수정 중이므로 전체 git diff는 오염된다. 대신 **이 워커가 만든/수정한 파일 목록**을 worker_done의 --files-modified에 정확히 넣어라. 코디네이터가 그 파일만 별도 커밋해 diff로 증명한다. 등록 줄과 Cargo 의존성은 공유 파일이므로 수정 직전 다시 읽고 한 줄만 추가):
    - 작업 시작 시점의 `git rev-parse HEAD`를 기록해 둔다.
    - 완료 후 `git diff --stat <그 커밋>`을 실행해 다음을 보여 준다:
      - `ui/` 변경 0

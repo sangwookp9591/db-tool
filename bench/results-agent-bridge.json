@@ -1,0 +1,12 @@
+{
+  "exit_code": 0,
+  "stdout": "Waiting for write approval to expire; do not approve the query in the app.\n{\"passed\":true,\"checks\":[\"owner-only discovery\",\"authentication\",\"origin rejection\",\"initialize\",\"tools/list\",\"open_connection\",\"explore\",\"read-only exact value\",\"read-only write rejection\",\"approval timeout denial\",\"no write persisted\",\"agent history\"]}\n",
+  "stderr": "",
+  "additional_checks": {
+    "ui_toggle_persisted": true,
+    "settings_mode_0600": true,
+    "normal_exit_discovery_removed": true,
+    "test_credential_absent_from_app_files": true,
+    "temporary_keychain_entry_deleted": true
+  }
+}

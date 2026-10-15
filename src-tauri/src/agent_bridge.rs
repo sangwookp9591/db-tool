@@ -1,0 +1,401 @@
+use crate::{storage, DbError, Host};
+use axum::{
+    extract::{DefaultBodyLimit, Request, State},
+    http::{header, StatusCode},
+    middleware::{self, Next},
+    response::{IntoResponse, Response},
+    routing::post,
+    Json, Router,
+};
+use serde::Serialize;
+use serde_json::{json, Value};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
+use tauri::{Emitter, Manager};
+use tokio::sync::oneshot;
+use tokio_util::sync::CancellationToken;
+
+type Forward = Arc<dyn Fn(BridgeRequest) -> Result<(), DbError> + Send + Sync>;
+#[derive(Clone, Serialize)]
+struct BridgeRequest {
+    request_id: String,
+    method: String,
+    params: Value,
+    timeout_ms: u64,
+}
+struct Shared {
+    token: String,
+    pending: Mutex<HashMap<String, oneshot::Sender<Value>>>,
+    forward: Forward,
+    cancel: Arc<dyn Fn(String) + Send + Sync>,
+}
+struct Running {
+    shared: Arc<Shared>,
+    stop: CancellationToken,
+}
+#[derive(Default)]
+pub struct Bridge {
+    running: tokio::sync::Mutex<Option<Running>>,
+}
+impl Bridge {
+    pub fn configured(config: &std::path::Path) -> Result<bool, DbError> {
+        let settings = read_settings(config)?;
+        Ok(std::env::var("DBTOOL_AGENT_BRIDGE").as_deref() == Ok("1")
+            || settings["agent_bridge"].as_bool().unwrap_or(false))
+    }
+    pub async fn stop(&self, config: &std::path::Path) {
+        if let Some(running) = self.running.lock().await.take() {
+            running.stop.cancel();
+            let requests = std::mem::take(&mut *running.shared.pending.lock().unwrap());
+            for (id, reply) in requests {
+                (running.shared.cancel)(id);
+                let _ = reply.send(denied());
+            }
+        }
+        let _ = std::fs::remove_file(config.join("agent-bridge.json"));
+    }
+    pub async fn start(
+        &self,
+        app: tauri::AppHandle,
+        config: &std::path::Path,
+    ) -> Result<(), DbError> {
+        let mut running = self.running.lock().await;
+        if running.is_some() {
+            return Ok(());
+        }
+        let send = app.clone();
+        let forward: Forward = Arc::new(move |request| {
+            send.emit_to("main", "agent-bridge-request", request)
+                .map_err(|_| DbError::internal("Cannot reach app webview"))
+        });
+        let cancel = Arc::new(move |id| {
+            let _ = app.emit_to("main", "agent-bridge-cancel", json!({"request_id": id}));
+        });
+        let shared = Arc::new(Shared {
+            token: format!(
+                "{}{}",
+                uuid::Uuid::new_v4().simple(),
+                uuid::Uuid::new_v4().simple()
+            ),
+            pending: Mutex::new(HashMap::new()),
+            forward,
+            cancel,
+        });
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .map_err(|_| DbError::internal("Cannot bind agent bridge"))?;
+        let address = listener
+            .local_addr()
+            .map_err(|_| DbError::internal("Cannot read agent bridge address"))?;
+        storage::write_private(
+            &config.join("agent-bridge.json"),
+            &serde_json::to_vec(
+                &json!({"url": format!("http://{address}/mcp"), "token": shared.token}),
+            )
+            .map_err(|_| DbError::internal("Cannot encode agent bridge configuration"))?,
+        )?;
+        let stop = CancellationToken::new();
+        let shutdown = stop.clone();
+        let router = router(shared.clone());
+        tauri::async_runtime::spawn(async move {
+            if axum::serve(listener, router)
+                .with_graceful_shutdown(shutdown.cancelled_owned())
+                .await
+                .is_err()
+            {
+                tracing::error!("Agent bridge stopped unexpectedly");
+            }
+        });
+        *running = Some(Running { shared, stop });
+        Ok(())
+    }
+}
+fn read_settings(config: &std::path::Path) -> Result<Value, DbError> {
+    match std::fs::read(config.join("settings.json")) {
+        Ok(data) => {
+            let value: Value = serde_json::from_slice(&data)
+                .map_err(|_| DbError::internal("Invalid settings file"))?;
+            if !value.is_object() {
+                return Err(DbError::internal("Invalid settings file"));
+            }
+            Ok(value)
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(json!({})),
+        Err(_) => Err(DbError::internal("Cannot read settings file")),
+    }
+}
+#[tauri::command]
+pub async fn agent_bridge_set(
+    app: tauri::AppHandle,
+    bridge: tauri::State<'_, Bridge>,
+    host: tauri::State<'_, Host>,
+    enabled: bool,
+) -> Result<(), DbError> {
+    let _guard = host.storage.lock().await;
+    let mut settings = read_settings(&host.paths.config)?;
+    if enabled {
+        bridge.start(app, &host.paths.config).await?;
+    } else {
+        bridge.stop(&host.paths.config).await;
+    }
+    settings["agent_bridge"] = json!(enabled);
+    storage::write_private(
+        &host.paths.config.join("settings.json"),
+        &serde_json::to_vec(&settings).map_err(|_| DbError::internal("Cannot encode settings"))?,
+    )
+}
+#[tauri::command]
+pub async fn agent_bridge_status(bridge: tauri::State<'_, Bridge>) -> Result<bool, DbError> {
+    Ok(bridge.running.lock().await.is_some())
+}
+#[tauri::command]
+pub async fn agent_bridge_reply(
+    bridge: tauri::State<'_, Bridge>,
+    request_id: String,
+    result: Value,
+) -> Result<(), DbError> {
+    if let Some(running) = bridge.running.lock().await.as_ref() {
+        if let Some(reply) = running
+            .shared
+            .pending
+            .lock()
+            .map_err(|_| DbError::internal("Bridge lock unavailable"))?
+            .remove(&request_id)
+        {
+            let _ = reply.send(result);
+        }
+    }
+    Ok(())
+}
+fn denied() -> Value {
+    json!({"error":{"kind":"UserDenied", "message":"Agent request denied or approval expired"}})
+}
+fn router(shared: Arc<Shared>) -> Router {
+    Router::new()
+        .route("/mcp", post(rpc))
+        .layer(DefaultBodyLimit::max(1024 * 1024))
+        .layer(middleware::from_fn_with_state(shared.clone(), authorize))
+        .with_state(shared)
+}
+async fn authorize(State(shared): State<Arc<Shared>>, request: Request, next: Next) -> Response {
+    if request.headers().contains_key(header::ORIGIN) {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    let expected = format!("Bearer {}", shared.token);
+    let actual = request
+        .headers()
+        .get(header::AUTHORIZATION)
+        .map(|h| h.as_bytes())
+        .unwrap_or_default();
+    if actual.len() != expected.len()
+        || actual
+            .iter()
+            .zip(expected.bytes())
+            .fold(0u8, |diff, (a, b)| diff | (a ^ b))
+            != 0
+    {
+        return StatusCode::UNAUTHORIZED.into_response();
+    }
+    if let Some(version) = request.headers().get("mcp-protocol-version") {
+        if !matches!(
+            version.to_str(),
+            Ok("2025-11-25" | "2025-06-18" | "2025-03-26")
+        ) {
+            return StatusCode::BAD_REQUEST.into_response();
+        }
+    }
+    next.run(request).await
+}
+async fn rpc(
+    State(shared): State<Arc<Shared>>,
+    body: Result<Json<Value>, axum::extract::rejection::JsonRejection>,
+) -> Response {
+    let request = match body { Ok(Json(value)) => value, Err(_) => return Json(json!({"jsonrpc":"2.0","id":null,"error":{"code":-32700,"message":"Invalid JSON request"}})).into_response() };
+    let id = request.get("id").cloned().unwrap_or(Value::Null);
+    if request["jsonrpc"] != "2.0"
+        || !request["method"].is_string()
+        || (!id.is_null() && !id.is_string() && !id.is_number())
+    {
+        return Json(
+            json!({"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"Invalid request"}}),
+        )
+        .into_response();
+    }
+    let method = request["method"].as_str().unwrap();
+    if request.get("id").is_none() {
+        return if method == "notifications/initialized" {
+            StatusCode::ACCEPTED.into_response()
+        } else {
+            StatusCode::BAD_REQUEST.into_response()
+        };
+    }
+    let result = match method {
+        "initialize" => {
+            let requested = request["params"]["protocolVersion"].as_str().unwrap_or("");
+            let version = if matches!(requested, "2025-03-26" | "2025-06-18" | "2025-11-25") {
+                requested
+            } else {
+                "2025-11-25"
+            };
+            json!({"protocolVersion":version,"capabilities":{"tools":{}},"serverInfo":{"name":"db-tool","version":env!("CARGO_PKG_VERSION")}})
+        }
+        "ping" => json!({}),
+        "tools/list" | "tools/call" => {
+            let value = forward(
+                &shared,
+                method,
+                request.get("params").cloned().unwrap_or(json!({})),
+            )
+            .await;
+            if method == "tools/call" {
+                json!({"content":[{"type":"text","text":value.to_string()}],"structuredContent":value,"isError":value.get("error").is_some()})
+            } else {
+                value
+            }
+        }
+        _ => return Json(
+            json!({"jsonrpc":"2.0","id":id,"error":{"code":-32601,"message":"Method not found"}}),
+        )
+        .into_response(),
+    };
+    Json(json!({"jsonrpc":"2.0","id":id,"result":result})).into_response()
+}
+async fn forward(shared: &Shared, method: &str, params: Value) -> Value {
+    let timeout_ms = params
+        .get("arguments")
+        .and_then(|a| a.get("timeout_ms"))
+        .and_then(Value::as_u64)
+        .map(|ms| ms.clamp(1, 3_600_000) + 30_000)
+        .unwrap_or(60_000);
+    let request_id = uuid::Uuid::new_v4().to_string();
+    let (send, receive) = oneshot::channel();
+    {
+        let mut pending = shared.pending.lock().unwrap();
+        if pending.len() >= 64 {
+            return json!({"error":{"kind":"Busy","message":"Too many pending agent requests"}});
+        }
+        pending.insert(request_id.clone(), send);
+    }
+    let sent = (shared.forward)(BridgeRequest {
+        request_id: request_id.clone(),
+        method: method.into(),
+        params,
+        timeout_ms,
+    });
+    let result = if sent.is_ok() {
+        match tokio::time::timeout(Duration::from_millis(timeout_ms), receive).await {
+            Ok(Ok(value)) => value,
+            _ => {
+                (shared.cancel)(request_id.clone());
+                denied()
+            }
+        }
+    } else {
+        json!({"error":{"kind":"Internal","message":"App webview is unavailable"}})
+    };
+    shared.pending.lock().unwrap().remove(&request_id);
+    result
+}
+// Remove discovery data even when the window closes via the normal application exit path.
+pub fn cleanup(app: &tauri::AppHandle) {
+    let host = app.state::<Host>();
+    let bridge = app.state::<Bridge>();
+    tauri::async_runtime::block_on(bridge.stop(&host.paths.config));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    async fn request(address: std::net::SocketAddr, headers: &str, body: &str) -> String {
+        let mut socket = tokio::net::TcpStream::connect(address).await.unwrap();
+        let text = format!("POST /mcp HTTP/1.1\r\nHost: {address}\r\nConnection: close\r\nContent-Type: application/json\r\nContent-Length: {}\r\n{headers}\r\n{body}", body.len());
+        socket.write_all(text.as_bytes()).await.unwrap();
+        let mut reply = String::new();
+        socket.read_to_string(&mut reply).await.unwrap();
+        reply
+    }
+    #[tokio::test]
+    async fn http_auth_origin_protocol_and_webview_forwarding() {
+        let (sender, mut requests) = tokio::sync::mpsc::unbounded_channel();
+        let shared = Arc::new(Shared {
+            token: "test-token".into(),
+            pending: Mutex::new(HashMap::new()),
+            forward: Arc::new(move |r| {
+                sender
+                    .send(r)
+                    .map_err(|_| DbError::internal("test channel closed"))
+            }),
+            cancel: Arc::new(|_| {}),
+        });
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let app = router(shared.clone());
+        let server = tokio::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
+        let payload = r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25"}}"#;
+        assert!(request(address, "", payload)
+            .await
+            .starts_with("HTTP/1.1 401"));
+        assert!(request(address, "Authorization: Bearer wrong\r\n", payload)
+            .await
+            .starts_with("HTTP/1.1 401"));
+        let auth = "Authorization: Bearer test-token\r\n";
+        assert!(request(
+            address,
+            &format!("{auth}Origin: https://evil.example\r\n"),
+            payload
+        )
+        .await
+        .starts_with("HTTP/1.1 403"));
+        let response = request(address, auth, payload).await;
+        assert!(response.contains("application/json"));
+        assert!(response.contains("2025-11-25"));
+        assert!(request(
+            address,
+            auth,
+            r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#
+        )
+        .await
+        .starts_with("HTTP/1.1 202"));
+        assert!(request(
+            address,
+            &format!("{auth}MCP-Protocol-Version: wrong\r\n"),
+            payload
+        )
+        .await
+        .starts_with("HTTP/1.1 400"));
+        let pending = request(
+            address,
+            auth,
+            r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#,
+        );
+        let respond = async {
+            let event = requests.recv().await.unwrap();
+            assert_eq!(event.method, "tools/list");
+            let reply = shared
+                .pending
+                .lock()
+                .unwrap()
+                .remove(&event.request_id)
+                .unwrap();
+            reply.send(json!({"tools":[{"name":"fixture"}]})).unwrap();
+        };
+        let (response, _) = tokio::join!(pending, respond);
+        assert!(response.contains("fixture"));
+        assert!(shared.pending.lock().unwrap().is_empty());
+        server.abort();
+    }
+    #[test]
+    fn old_contract_defaults_remain_compatible() {
+        let history: storage::HistoryEntry = serde_json::from_value(json!({"timestamp":"now","profile_name":"test","text":"SELECT 1","elapsed_ms":1,"row_count":1,"error":null})).unwrap();
+        assert_eq!(serde_json::to_value(history).unwrap()["source"], "ui");
+        let request: dbcore::ExecRequest =
+            serde_json::from_value(json!({"text":"SELECT 1"})).unwrap();
+        assert!(!request.read_only);
+    }
+}

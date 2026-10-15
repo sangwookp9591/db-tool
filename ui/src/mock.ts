@@ -6,7 +6,7 @@ const fields: DriverManifest['connection_fields'] = [
   { key: 'user', label: 'User', kind: 'Text', required: true, default: 'demo', secret: false, placeholder: '' },
   { key: 'password', label: 'Password', kind: 'Password', required: false, default: null, secret: true, placeholder: '' }
 ];
-const capabilities: DriverManifest['capabilities'] = { cancel: 'Server', timeout: true, params: true, transactions: true, paged_browse: true, graph_expand: false, multi_statement: true, edit_rows: false };
+const capabilities: DriverManifest['capabilities'] = { read_only_exec: true, cancel: 'Server', timeout: true, params: true, transactions: true, paged_browse: true, graph_expand: false, multi_statement: true, edit_rows: false };
 export const drivers: DriverManifest[] = [
   { id: 'postgres', display_name: 'PostgreSQL · demo', paradigm: 'Relational', query_language: { id: 'sql', display: 'SQL', editor_mode: 'sql', supports_params: true }, connection_fields: fields, capabilities, default_query: 'SELECT * FROM people;' },
   { id: 'neo4j', display_name: 'Graph · demo', paradigm: 'Graph', query_language: { id: 'cypher', display: 'Cypher', editor_mode: 'cypher', supports_params: true }, connection_fields: fields.map(f => f.key === 'port' ? { ...f, default: '7687' } : f), capabilities: { ...capabilities, cancel: 'Abort', graph_expand: true, multi_statement: false }, default_query: 'MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 100;' }
@@ -27,12 +27,13 @@ function graphFor(seed = ''): Graph {
   const ids = seed ? [seed, `${seed}-a`, `${seed}-b`] : ['alice', 'bob', 'project'];
   return { nodes: ids.map((id, i) => ({ id, labels: [i === 2 ? 'Project' : 'Person'], props: [['name', text(seed ? `Neighbor ${id}` : ['Alice', 'Bob', 'Database tool'][i])], ['score', int(String(i + 1))]] })), rels: ids.slice(1).map((id, i) => ({ id: `${ids[0]}-${id}`, rel_type: i ? 'WORKS_ON' : 'KNOWS', start: ids[0], end: id, props: [['since', int('2024')]] })) };
 }
-async function execute(sessionId: string, runId: string, req: ExecRequest): Promise<ResultSet[]> {
+async function execute(sessionId: string, runId: string, req: ExecRequest, source: "ui" | "agent" = "ui"): Promise<ResultSet[]> {
   const profile = session(sessionId);
   const start = performance.now();
   let result: ResultSet[] = [];
   let error: DbError | null = null;
   try {
+    if (req.read_only && /^\s*(update|create|delete|insert)\b/i.test(req.text)) throw failure('Query', 'Read-only transaction rejects writes.');
     if (/^\s*SELECT\s+(?:slow|(?:pg_)?sleep)\b/i.test(req.text)) await new Promise<void>((resolve, reject) => {
       const delay = req.timeout_ms > 0 ? Math.min(15000, req.timeout_ms) : 15000;
       const timer = setTimeout(() => req.timeout_ms > 0 && req.timeout_ms < 15000 ? reject(failure('Timeout', 'Execution timeout exceeded.')) : resolve(), delay);
@@ -54,12 +55,15 @@ async function execute(sessionId: string, runId: string, req: ExecRequest): Prom
     }
     return result;
   } catch (e) { error = e as DbError; throw e; }
-  finally { runs.delete(runId); history.unshift({ timestamp: Date.now(), profile_name: profile.name, text: req.text, elapsed_ms: Math.round(performance.now() - start), row_count: result.reduce((sum, r) => sum + r.row_count, 0), error: error?.message ?? null }); }
+  finally { runs.delete(runId); history.unshift({ source, timestamp: Date.now(), profile_name: profile.name, text: req.text, elapsed_ms: Math.round(performance.now() - start), row_count: result.reduce((sum, r) => sum + r.row_count, 0), error: error?.message ?? null }); }
 }
 export async function mockInvoke<K extends keyof Commands>(command: K, args: Commands[K]['args']): Promise<Commands[K]['result']> {
   const a = args as Record<string, unknown>;
   let result: unknown;
   switch (command) {
+    case 'agent_bridge_status': result = false; break;
+    case 'agent_bridge_set': if (a.enabled) throw failure('Unsupported', 'The MCP bridge requires the desktop app'); break;
+    case 'agent_bridge_reply': break;
     case 'drivers_list': result = drivers; break;
     case 'profiles_list': result = profiles; break;
     case 'profile_save': {
@@ -80,7 +84,8 @@ export async function mockInvoke<K extends keyof Commands>(command: K, args: Com
       result = [node]; break;
     }
     case 'browse': { session(a.sessionId as string); const count = Math.max(0, Math.min(a.limit as number, 100000 - (a.offset as number))); result = { ...base('Browse people'), table: tableRows(count, a.offset as number), row_count: count, page: { offset: a.offset, limit: a.limit, has_more: (a.offset as number) + count < 100000 } }; break; }
-    case 'execute': result = await execute(a.sessionId as string, a.runId as string, a.req as ExecRequest); break;
+    case 'execute_agent': result = await execute(a.sessionId as string, a.runId as string, a.req as ExecRequest, 'agent'); break;
+    case 'execute': result = await execute(a.sessionId as string, a.runId as string, a.req as ExecRequest, a.source as "ui" | "agent"); break;
     case 'cancel': runs.get(a.runId as string)?.(); break;
     case 'expand': { session(a.sessionId as string); const graph = graphFor(a.elementId as string); const nodes = graph.nodes.slice(0, a.limit as number); result = { ...base('Neighbors'), graph: { nodes, rels: graph.rels.filter(r => nodes.some(n => n.id === r.end)) }, row_count: nodes.length }; break; }
     case 'history_list': result = history.slice(0, a.limit as number); break;

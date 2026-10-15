@@ -5,3 +5,5 @@
 .modal-dialog{padding:0;border:0;background:transparent;color:var(--text);max-width:95vw;max-height:90vh}.modal-dialog::backdrop{background:#0006}
 
 @media(prefers-color-scheme:dark){:root{--syntax-404740:#b5c3b6;--syntax-708:#d7acf0;--syntax-219:#b0bdfa;--syntax-164:#a3d7ba;--syntax-a11:#e8b09e;--syntax-e40:#f2bf87;--syntax-00f:#a3c4ef;--syntax-30a:#bba9f2;--syntax-085:#96d3b5;--syntax-167:#90d0df;--syntax-256:#a6d1db;--syntax-00c:#b3c4f4;--syntax-940:#c5b297;--syntax-f00:#ffb4ad}}
+
+.agent-activity{font-size:12px;white-space:nowrap}.agent-activity.running{animation:agent-pulse 1s ease-in-out infinite}.profile-form pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:45vh;overflow:auto}@keyframes agent-pulse{50%{opacity:.4}}@media(prefers-reduced-motion:reduce){.agent-activity.running{animation:none}}

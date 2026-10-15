@@ -8,8 +8,10 @@ license.workspace = true
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio"] }
 dbcore.workspace = true
 driver-postgres = { path = "../crates/driver-postgres" }
+driver-neo4j = { path = "../crates/driver-neo4j" }
 async-trait.workspace = true
 serde.workspace = true
 serde_json.workspace = true

@@ -1,0 +1,27 @@
+{
+  "passed": true,
+  "checks": [
+    "mock global API",
+    "capability registration",
+    "typed result cap200",
+    "visible query tab",
+    "agent history",
+    "in-app denial",
+    "document.modelContext shim",
+    "old registration aborted"
+  ],
+  "registered": 21,
+  "aborted": true,
+  "tools": [
+    "list_drivers",
+    "list_connections",
+    "open_connection",
+    "close_connection",
+    "explore",
+    "run_query",
+    "get_history",
+    "get_ui_state",
+    "open_query_tab",
+    "browse"
+  ]
+}

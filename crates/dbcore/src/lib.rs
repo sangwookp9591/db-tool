@@ -49,6 +49,8 @@ pub enum FieldKind {
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Capabilities {
+    #[serde(default)]
+    pub read_only_exec: bool,
     pub cancel: CancelSupport,
     pub timeout: bool,
     pub params: bool,
@@ -144,6 +146,8 @@ pub struct PageRequest {
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ExecRequest {
+    #[serde(default)]
+    pub read_only: bool,
     pub text: String,
     #[serde(default)]
     pub params: serde_json::Map<String, serde_json::Value>,

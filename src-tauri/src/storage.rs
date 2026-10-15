@@ -14,8 +14,17 @@ pub struct Profile {
     #[serde(default)]
     pub save_secret: bool,
 }
+#[derive(Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum HistorySource {
+    #[default]
+    Ui,
+    Agent,
+}
 #[derive(Clone, Serialize, Deserialize)]
 pub struct HistoryEntry {
+    #[serde(default)]
+    pub source: HistorySource,
     pub timestamp: String,
     pub profile_name: String,
     pub text: String,

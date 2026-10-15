@@ -1,0 +1,1157 @@
+{
+  "at": "2026-10-15T04:47:32.505Z",
+  "label": "after",
+  "environment": {
+    "os": "darwin 27.0.0",
+    "cpu": "Apple M5",
+    "arch": "arm64",
+    "browser": "156.0.8078.4",
+    "mode": "Vite dev / headless Chromium",
+    "viewport": "1440x1000"
+  },
+  "results": {
+    "table-1000-10": [
+      {
+        "first": 251,
+        "loaded": 236.30000001192093,
+        "frames": {
+          "p50": 16.699999999999932,
+          "p95": 16.799999999999955,
+          "max": 16.800000000000182,
+          "samples": 60
+        },
+        "domCells": 288,
+        "heap": 4834098
+      },
+      {
+        "first": 47.60000002384186,
+        "loaded": 20.200000047683716,
+        "frames": {
+          "p50": 16.699999999999818,
+          "p95": 16.799999999999727,
+          "max": 16.800000000000182,
+          "samples": 60
+        },
+        "domCells": 288,
+        "heap": 4906864
+      },
+      {
+        "first": 47.5,
+        "loaded": 23,
+        "frames": {
+          "p50": 16.699999999999818,
+          "p95": 16.800000000000182,
+          "max": 16.800000000000182,
+          "samples": 60
+        },
+        "domCells": 288,
+        "heap": 4532853
+      }
+    ],
+    "table-10000-10": [
+      {
+        "first": 65.39999997615814,
+        "loaded": 55.30000001192093,
+        "frames": {
+          "p50": 16.699999999999818,
+          "p95": 16.800000000000182,
+          "max": 16.800000000000182,
+          "samples": 60
+        },
+        "domCells": 288,
+        "heap": 11552556
+      },
+      {
+        "first": 52.09999996423721,
+        "loaded": 57.39999997615814,
+        "frames": {
+          "p50": 16.699999999999818,
+          "p95": 16.700000000000728,
+          "max": 16.800000000000182,
+          "samples": 60
+        },
+        "domCells": 288,
+        "heap": 10174598
+      },
+      {
+        "first": 90.19999998807907,
+        "loaded": 95.69999998807907,
+        "frames": {
+          "p50": 16.699999999999818,
+          "p95": 16.700000000000728,
+          "max": 33.30000000000018,
+          "samples": 60
+        },
+        "domCells": 288,
+        "heap": 8951346
+      }
+    ],
+    "table-100000-10": [
+      {
+        "first": 67.20000004768372,
+        "loaded": 387.7000000476837,
+        "frames": {
+          "p50": 16.699999999999818,
+          "p95": 16.700000000000728,
+          "max": 16.799999999999272,
+          "samples": 60
+        },
+        "domCells": 288,
+        "heap": 76477700
+      },
+      {
+        "first": 84.79999995231628,
+        "loaded": 419.0999999642372,
+        "frames": {
+          "p50": 16.700000000000728,
+          "p95": 50.100000000000364,
+          "max": 100,
+          "samples": 60
+        },
+        "domCells": 288,
+        "heap": 70093168
+      },
+      {
+        "first": 65.5,
+        "loaded": 319.0999999642372,
+        "frames": {
+          "p50": 16.69999999999891,
+          "p95": 16.799999999999272,
+          "max": 16.80000000000109,
+          "samples": 60
+        },
+        "domCells": 288,
+        "heap": 66468568
+      }
+    ],
+    "table-10000-200": [
+      {
+        "first": 64.69999998807907,
+        "loaded": 735.9000000357628,
+        "frames": {
+          "p50": 16.69999999999891,
+          "p95": 16.700000000000728,
+          "max": 16.799999999999272,
+          "samples": 60
+        },
+        "domCells": 288,
+        "heap": 121616460
+      },
+      {
+        "first": 66.80000001192093,
+        "loaded": 740.3999999761581,
+        "frames": {
+          "p50": 16.69999999999891,
+          "p95": 16.799999999999272,
+          "max": 16.80000000000109,
+          "samples": 60
+        },
+        "domCells": 288,
+        "heap": 121617192
+      },
+      {
+        "first": 67.09999996423721,
+        "loaded": 752.5,
+        "frames": {
+          "p50": 16.69999999999709,
+          "p95": 16.700000000000728,
+          "max": 16.700000000000728,
+          "samples": 60
+        },
+        "domCells": 288,
+        "heap": 121396372
+      }
+    ],
+    "graph-100": [
+      {
+        "first": 349.10000002384186,
+        "layout": 1742.2000000476837,
+        "frames": {
+          "p50": 16.700000000000728,
+          "p95": 16.700000000000728,
+          "max": 16.799999999999272,
+          "samples": 60
+        },
+        "click": 50.89999997615814,
+        "merge": 0.40000003576278687,
+        "expand": 32.10000002384186,
+        "metrics": [
+          {
+            "name": "graph-first-frame",
+            "startTime": 17303.19999998808,
+            "duration": 10.5
+          },
+          {
+            "name": "graph-visible",
+            "startTime": 16975,
+            "duration": 349.10000002384186
+          },
+          {
+            "name": "graph-stable",
+            "startTime": 17303.19999998808,
+            "duration": 1742.2000000476837,
+            "detail": {
+              "nodes": 100
+            }
+          },
+          {
+            "name": "properties",
+            "startTime": 20091.80000001192,
+            "duration": 31.899999976158142
+          },
+          {
+            "name": "properties",
+            "startTime": 20091.30000001192,
+            "duration": 50.89999997615814
+          },
+          {
+            "name": "expand-merge",
+            "startTime": 20142.19999998808,
+            "duration": 0.40000003576278687
+          },
+          {
+            "name": "expand-frame",
+            "startTime": 20142.19999998808,
+            "duration": 32.10000002384186
+          }
+        ]
+      },
+      {
+        "first": 46.40000003576279,
+        "layout": 1211.5,
+        "frames": {
+          "p50": 16.69999999999709,
+          "p95": 16.799999999999272,
+          "max": 16.799999999999272,
+          "samples": 60
+        },
+        "click": 54.89999997615814,
+        "merge": 0.800000011920929,
+        "expand": 90.80000001192093,
+        "metrics": [
+          {
+            "name": "graph-first-frame",
+            "startTime": 20210.400000035763,
+            "duration": 15.799999952316284
+          },
+          {
+            "name": "graph-visible",
+            "startTime": 20194.5,
+            "duration": 46.40000003576279
+          },
+          {
+            "name": "graph-stable",
+            "startTime": 20210.400000035763,
+            "duration": 1211.5,
+            "detail": {
+              "nodes": 100
+            }
+          },
+          {
+            "name": "properties",
+            "startTime": 22456.400000035763,
+            "duration": 36.299999952316284
+          },
+          {
+            "name": "properties",
+            "startTime": 22456.30000001192,
+            "duration": 54.89999997615814
+          },
+          {
+            "name": "expand-merge",
+            "startTime": 22511.30000001192,
+            "duration": 0.800000011920929
+          },
+          {
+            "name": "expand-frame",
+            "startTime": 22511.30000001192,
+            "duration": 90.80000001192093
+          }
+        ]
+      },
+      {
+        "first": 56.10000002384186,
+        "layout": 1263.3999999761581,
+        "frames": {
+          "p50": 16.69999999999709,
+          "p95": 16.700000000000728,
+          "max": 16.799999999999272,
+          "samples": 60
+        },
+        "click": 48.69999998807907,
+        "merge": 0.3999999761581421,
+        "expand": 33.10000002384186,
+        "metrics": [
+          {
+            "name": "graph-first-frame",
+            "startTime": 22677.900000035763,
+            "duration": 19.299999952316284
+          },
+          {
+            "name": "graph-visible",
+            "startTime": 22658.80000001192,
+            "duration": 56.10000002384186
+          },
+          {
+            "name": "graph-stable",
+            "startTime": 22677.900000035763,
+            "duration": 1263.3999999761581,
+            "detail": {
+              "nodes": 100
+            }
+          },
+          {
+            "name": "properties",
+            "startTime": 24974.19999998808,
+            "duration": 33.200000047683716
+          },
+          {
+            "name": "properties",
+            "startTime": 24974,
+            "duration": 48.69999998807907
+          },
+          {
+            "name": "expand-merge",
+            "startTime": 25022.80000001192,
+            "duration": 0.3999999761581421
+          },
+          {
+            "name": "expand-frame",
+            "startTime": 25022.80000001192,
+            "duration": 33.10000002384186
+          }
+        ]
+      }
+    ],
+    "graph-300": [
+      {
+        "first": 49.90000003576279,
+        "layout": 1522.5,
+        "frames": {
+          "p50": 16.700000000000728,
+          "p95": 16.700000000000728,
+          "max": 16.80000000000291,
+          "samples": 60
+        },
+        "click": 48.69999998807907,
+        "merge": 0.30000001192092896,
+        "expand": 34.60000002384186,
+        "metrics": [
+          {
+            "name": "graph-first-frame",
+            "startTime": 25124.100000023842,
+            "duration": 18.899999976158142
+          },
+          {
+            "name": "graph-visible",
+            "startTime": 25108,
+            "duration": 49.90000003576279
+          },
+          {
+            "name": "graph-stable",
+            "startTime": 25124.100000023842,
+            "duration": 1522.5,
+            "detail": {
+              "nodes": 300
+            }
+          },
+          {
+            "name": "properties",
+            "startTime": 27691.80000001192,
+            "duration": 32.80000001192093
+          },
+          {
+            "name": "properties",
+            "startTime": 27691.5,
+            "duration": 48.69999998807907
+          },
+          {
+            "name": "expand-merge",
+            "startTime": 27740.19999998808,
+            "duration": 0.30000001192092896
+          },
+          {
+            "name": "expand-frame",
+            "startTime": 27740.19999998808,
+            "duration": 34.60000002384186
+          }
+        ]
+      },
+      {
+        "first": 59.59999996423721,
+        "layout": 1513.7000000476837,
+        "frames": {
+          "p50": 16.700000000000728,
+          "p95": 16.799999999999272,
+          "max": 66.5,
+          "samples": 60
+        },
+        "click": 51.19999998807907,
+        "merge": 1.100000023841858,
+        "expand": 36.19999998807907,
+        "metrics": [
+          {
+            "name": "graph-first-frame",
+            "startTime": 27826.69999998808,
+            "duration": 15.400000035762787
+          },
+          {
+            "name": "graph-visible",
+            "startTime": 27798.400000035763,
+            "duration": 59.59999996423721
+          },
+          {
+            "name": "graph-stable",
+            "startTime": 27826.69999998808,
+            "duration": 1513.7000000476837,
+            "detail": {
+              "nodes": 300
+            }
+          },
+          {
+            "name": "properties",
+            "startTime": 30441.5,
+            "duration": 32.5
+          },
+          {
+            "name": "properties",
+            "startTime": 30441.100000023842,
+            "duration": 51.19999998807907
+          },
+          {
+            "name": "expand-merge",
+            "startTime": 30492.30000001192,
+            "duration": 1.100000023841858
+          },
+          {
+            "name": "expand-frame",
+            "startTime": 30492.30000001192,
+            "duration": 36.19999998807907
+          }
+        ]
+      },
+      {
+        "first": 64,
+        "layout": 1545.800000011921,
+        "frames": {
+          "p50": 16.69999999999709,
+          "p95": 16.700000000004366,
+          "max": 16.700000000004366,
+          "samples": 60
+        },
+        "click": 50.80000001192093,
+        "merge": 0.5,
+        "expand": 33.40000003576279,
+        "metrics": [
+          {
+            "name": "graph-first-frame",
+            "startTime": 30610.5,
+            "duration": 15.900000035762787
+          },
+          {
+            "name": "graph-visible",
+            "startTime": 30578.400000035763,
+            "duration": 64
+          },
+          {
+            "name": "graph-stable",
+            "startTime": 30610.5,
+            "duration": 1545.800000011921,
+            "detail": {
+              "nodes": 300
+            }
+          },
+          {
+            "name": "properties",
+            "startTime": 33191.10000002384,
+            "duration": 32.89999997615814
+          },
+          {
+            "name": "properties",
+            "startTime": 33190.80000001192,
+            "duration": 50.80000001192093
+          },
+          {
+            "name": "expand-merge",
+            "startTime": 33241.69999998808,
+            "duration": 0.5
+          },
+          {
+            "name": "expand-frame",
+            "startTime": 33241.69999998808,
+            "duration": 33.40000003576279
+          }
+        ]
+      }
+    ],
+    "graph-1000": [
+      {
+        "first": 66.39999997615814,
+        "layout": 3039.800000011921,
+        "frames": {
+          "p50": 16.69999999999709,
+          "p95": 16.799999999995634,
+          "max": 16.80000000000291,
+          "samples": 60
+        },
+        "click": 78.89999997615814,
+        "merge": 1.600000023841858,
+        "expand": 33.80000001192093,
+        "metrics": [
+          {
+            "name": "graph-first-frame",
+            "startTime": 33325.60000002384,
+            "duration": 24.80000001192093
+          },
+          {
+            "name": "graph-visible",
+            "startTime": 33296.90000003576,
+            "duration": 66.39999997615814
+          },
+          {
+            "name": "graph-stable",
+            "startTime": 33325.60000002384,
+            "duration": 3039.800000011921,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "properties",
+            "startTime": 37411.80000001192,
+            "duration": 65.19999998807907
+          },
+          {
+            "name": "properties",
+            "startTime": 37410.40000003576,
+            "duration": 78.89999997615814
+          },
+          {
+            "name": "expand-merge",
+            "startTime": 37489.30000001192,
+            "duration": 1.600000023841858
+          },
+          {
+            "name": "expand-frame",
+            "startTime": 37489.30000001192,
+            "duration": 33.80000001192093
+          }
+        ]
+      },
+      {
+        "first": 246.5,
+        "layout": 2775.5,
+        "frames": {
+          "p50": 16.69999999999709,
+          "p95": 16.700000000004366,
+          "max": 16.80000000000291,
+          "samples": 60
+        },
+        "click": 78.10000002384186,
+        "merge": 0.800000011920929,
+        "expand": 34.80000001192093,
+        "metrics": [
+          {
+            "name": "graph-first-frame",
+            "startTime": 37826.5,
+            "duration": 21.69999998807907
+          },
+          {
+            "name": "graph-visible",
+            "startTime": 37609.40000003576,
+            "duration": 246.5
+          },
+          {
+            "name": "graph-stable",
+            "startTime": 37826.5,
+            "duration": 2775.5,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "properties",
+            "startTime": 41645.80000001192,
+            "duration": 62.60000002384186
+          },
+          {
+            "name": "properties",
+            "startTime": 41644.69999998808,
+            "duration": 78.10000002384186
+          },
+          {
+            "name": "expand-merge",
+            "startTime": 41722.80000001192,
+            "duration": 0.800000011920929
+          },
+          {
+            "name": "expand-frame",
+            "startTime": 41722.80000001192,
+            "duration": 34.80000001192093
+          }
+        ]
+      },
+      {
+        "first": 47.69999998807907,
+        "layout": 2708.100000023842,
+        "frames": {
+          "p50": 16.69999999999709,
+          "p95": 16.700000000004366,
+          "max": 16.80000000000291,
+          "samples": 60
+        },
+        "click": 83.30000001192093,
+        "merge": 1,
+        "expand": 33.89999997615814,
+        "metrics": [
+          {
+            "name": "graph-first-frame",
+            "startTime": 41826.5,
+            "duration": 22.100000023841858
+          },
+          {
+            "name": "graph-visible",
+            "startTime": 41810.10000002384,
+            "duration": 47.69999998807907
+          },
+          {
+            "name": "graph-stable",
+            "startTime": 41826.5,
+            "duration": 2708.100000023842,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "properties",
+            "startTime": 45576.10000002384,
+            "duration": 65.39999997615814
+          },
+          {
+            "name": "properties",
+            "startTime": 45574.80000001192,
+            "duration": 83.30000001192093
+          },
+          {
+            "name": "expand-merge",
+            "startTime": 45658.10000002384,
+            "duration": 1
+          },
+          {
+            "name": "expand-frame",
+            "startTime": 45658.10000002384,
+            "duration": 33.89999997615814
+          }
+        ]
+      }
+    ],
+    "graph-5000": [
+      {
+        "first": 95.80000001192093,
+        "layout": 12888.399999976158,
+        "frames": {
+          "p50": 16.69999999999709,
+          "p95": 16.700000000004366,
+          "max": 16.799999999995634,
+          "samples": 60
+        },
+        "click": 207.69999998807907,
+        "merge": 3.599999964237213,
+        "expand": 35,
+        "metrics": [
+          {
+            "name": "graph-first-frame",
+            "startTime": 45758.60000002384,
+            "duration": 83.59999996423721
+          },
+          {
+            "name": "graph-visible",
+            "startTime": 45747.10000002384,
+            "duration": 95.80000001192093
+          },
+          {
+            "name": "graph-stable",
+            "startTime": 45758.60000002384,
+            "duration": 12888.399999976158,
+            "detail": {
+              "nodes": 5000
+            }
+          },
+          {
+            "name": "properties",
+            "startTime": 59755.19999998808,
+            "duration": 186.9000000357628
+          },
+          {
+            "name": "properties",
+            "startTime": 59747.80000001192,
+            "duration": 207.69999998807907
+          },
+          {
+            "name": "expand-merge",
+            "startTime": 59955.60000002384,
+            "duration": 3.599999964237213
+          },
+          {
+            "name": "expand-frame",
+            "startTime": 59955.60000002384,
+            "duration": 35
+          }
+        ]
+      },
+      {
+        "first": 748.8999999761581,
+        "layout": 13258.5,
+        "frames": {
+          "p50": 16.69999999999709,
+          "p95": 16.80000000000291,
+          "max": 16.80000000000291,
+          "samples": 60
+        },
+        "click": 207.39999997615814,
+        "merge": 4.800000011920929,
+        "expand": 32.09999996423721,
+        "metrics": [
+          {
+            "name": "graph-first-frame",
+            "startTime": 60909.10000002384,
+            "duration": 79.80000001192093
+          },
+          {
+            "name": "graph-visible",
+            "startTime": 60244.10000002384,
+            "duration": 748.8999999761581
+          },
+          {
+            "name": "graph-stable",
+            "startTime": 60909.10000002384,
+            "duration": 13258.5,
+            "detail": {
+              "nodes": 5000
+            }
+          },
+          {
+            "name": "properties",
+            "startTime": 75238.60000002384,
+            "duration": 184
+          },
+          {
+            "name": "properties",
+            "startTime": 75233.60000002384,
+            "duration": 207.39999997615814
+          },
+          {
+            "name": "expand-merge",
+            "startTime": 75441.10000002384,
+            "duration": 4.800000011920929
+          },
+          {
+            "name": "expand-frame",
+            "startTime": 75441.10000002384,
+            "duration": 32.09999996423721
+          }
+        ]
+      },
+      {
+        "first": 733,
+        "layout": 12881.900000035763,
+        "frames": {
+          "p50": 16.69999999999709,
+          "p95": 16.69999999999709,
+          "max": 16.80000000000291,
+          "samples": 60
+        },
+        "click": 199.5,
+        "merge": 5.899999976158142,
+        "expand": 42.10000002384186,
+        "metrics": [
+          {
+            "name": "graph-first-frame",
+            "startTime": 76356,
+            "duration": 84.80000001192093
+          },
+          {
+            "name": "graph-visible",
+            "startTime": 75711.40000003576,
+            "duration": 733
+          },
+          {
+            "name": "graph-stable",
+            "startTime": 76356,
+            "duration": 12881.900000035763,
+            "detail": {
+              "nodes": 5000
+            }
+          },
+          {
+            "name": "properties",
+            "startTime": 90294,
+            "duration": 180.69999998807907
+          },
+          {
+            "name": "properties",
+            "startTime": 90290.19999998808,
+            "duration": 199.5
+          },
+          {
+            "name": "expand-merge",
+            "startTime": 90489.80000001192,
+            "duration": 5.899999976158142
+          },
+          {
+            "name": "expand-frame",
+            "startTime": 90489.80000001192,
+            "duration": 42.10000002384186
+          }
+        ]
+      }
+    ],
+    "transitions": [
+      {
+        "samples": [
+          {
+            "name": "first-Table",
+            "duration": 36.39999997615814
+          },
+          {
+            "name": "first-Graph",
+            "duration": 30.600000023841858
+          },
+          {
+            "name": "return-Table",
+            "duration": 36
+          },
+          {
+            "name": "return-Graph",
+            "duration": 33.39999997615814
+          },
+          {
+            "name": "return-Table",
+            "duration": 31.30000001192093
+          },
+          {
+            "name": "return-Graph",
+            "duration": 35.30000001192093
+          },
+          {
+            "name": "return-Table",
+            "duration": 30.600000023841858
+          },
+          {
+            "name": "return-Graph",
+            "duration": 34
+          },
+          {
+            "name": "return-Table",
+            "duration": 35.5
+          },
+          {
+            "name": "return-Graph",
+            "duration": 32.39999997615814
+          },
+          {
+            "name": "return-Table",
+            "duration": 31.900000035762787
+          },
+          {
+            "name": "return-Graph",
+            "duration": 35.59999996423721
+          },
+          {
+            "name": "return-Table",
+            "duration": 30.600000023841858
+          },
+          {
+            "name": "return-Graph",
+            "duration": 33.39999997615814
+          },
+          {
+            "name": "return-Table",
+            "duration": 33.19999998807907
+          },
+          {
+            "name": "return-Graph",
+            "duration": 33.40000003576279
+          },
+          {
+            "name": "return-Table",
+            "duration": 36.39999997615814
+          },
+          {
+            "name": "return-Graph",
+            "duration": 32.90000003576279
+          },
+          {
+            "name": "return-Table",
+            "duration": 31.099999964237213
+          },
+          {
+            "name": "return-Graph",
+            "duration": 34.60000002384186
+          }
+        ],
+        "resultSwitch": [
+          33.40000003576279,
+          33.69999998807907,
+          33.30000001192093,
+          33.59999996423721,
+          33.80000001192093,
+          31,
+          35.5,
+          32.90000003576279,
+          33.89999997615814,
+          31.899999976158142
+        ]
+      },
+      {
+        "samples": [
+          {
+            "name": "first-Table",
+            "duration": 30.700000047683716
+          },
+          {
+            "name": "first-Graph",
+            "duration": 35.89999997615814
+          },
+          {
+            "name": "return-Table",
+            "duration": 31.899999976158142
+          },
+          {
+            "name": "return-Graph",
+            "duration": 34
+          },
+          {
+            "name": "return-Table",
+            "duration": 34.69999998807907
+          },
+          {
+            "name": "return-Graph",
+            "duration": 33.40000003576279
+          },
+          {
+            "name": "return-Table",
+            "duration": 33.5
+          },
+          {
+            "name": "return-Graph",
+            "duration": 31.099999964237213
+          },
+          {
+            "name": "return-Table",
+            "duration": 35.19999998807907
+          },
+          {
+            "name": "return-Graph",
+            "duration": 30.200000047683716
+          },
+          {
+            "name": "return-Table",
+            "duration": 36.69999998807907
+          },
+          {
+            "name": "return-Graph",
+            "duration": 31.80000001192093
+          },
+          {
+            "name": "return-Table",
+            "duration": 33.299999952316284
+          },
+          {
+            "name": "return-Graph",
+            "duration": 35.30000001192093
+          },
+          {
+            "name": "return-Table",
+            "duration": 32.60000002384186
+          },
+          {
+            "name": "return-Graph",
+            "duration": 33.30000001192093
+          },
+          {
+            "name": "return-Table",
+            "duration": 31
+          },
+          {
+            "name": "return-Graph",
+            "duration": 36
+          },
+          {
+            "name": "return-Table",
+            "duration": 31.600000023841858
+          },
+          {
+            "name": "return-Graph",
+            "duration": 34.5
+          }
+        ],
+        "resultSwitch": [
+          33.5,
+          33,
+          33.80000001192093,
+          33.5,
+          33.89999997615814,
+          32.799999952316284,
+          33.80000001192093,
+          32.60000002384186,
+          33.09999996423721,
+          33.700000047683716
+        ]
+      },
+      {
+        "samples": [
+          {
+            "name": "first-Table",
+            "duration": 35.80000001192093
+          },
+          {
+            "name": "first-Graph",
+            "duration": 33.39999997615814
+          },
+          {
+            "name": "return-Table",
+            "duration": 31.19999998807907
+          },
+          {
+            "name": "return-Graph",
+            "duration": 33.39999997615814
+          },
+          {
+            "name": "return-Table",
+            "duration": 34
+          },
+          {
+            "name": "return-Graph",
+            "duration": 34.40000003576279
+          },
+          {
+            "name": "return-Table",
+            "duration": 33.39999997615814
+          },
+          {
+            "name": "return-Graph",
+            "duration": 33
+          },
+          {
+            "name": "return-Table",
+            "duration": 32.10000002384186
+          },
+          {
+            "name": "return-Graph",
+            "duration": 35
+          },
+          {
+            "name": "return-Table",
+            "duration": 32.69999998807907
+          },
+          {
+            "name": "return-Graph",
+            "duration": 37.09999996423721
+          },
+          {
+            "name": "return-Table",
+            "duration": 29.30000001192093
+          },
+          {
+            "name": "return-Graph",
+            "duration": 33.30000001192093
+          },
+          {
+            "name": "return-Table",
+            "duration": 31.5
+          },
+          {
+            "name": "return-Graph",
+            "duration": 35.39999997615814
+          },
+          {
+            "name": "return-Table",
+            "duration": 34
+          },
+          {
+            "name": "return-Graph",
+            "duration": 33.10000002384186
+          },
+          {
+            "name": "return-Table",
+            "duration": 32.89999997615814
+          },
+          {
+            "name": "return-Graph",
+            "duration": 34.10000002384186
+          }
+        ],
+        "resultSwitch": [
+          32.69999998807907,
+          32.30000001192093,
+          31.599999964237213,
+          36.69999998807907,
+          30.80000001192093,
+          32.90000003576279,
+          35.39999997615814,
+          34,
+          32.30000001192093,
+          31.19999998807907
+        ]
+      }
+    ],
+    "codec": [
+      {
+        "rawBytes": 36644862,
+        "packedBytes": 19945132,
+        "rawParse": [
+          98.59999996423721,
+          148.19999998807907,
+          105.19999998807907,
+          121.5,
+          124
+        ],
+        "packedParse": [
+          61.60000002384186,
+          117.30000001192093,
+          68.59999996423721,
+          86,
+          67.80000001192093
+        ]
+      },
+      {
+        "rawBytes": 36644862,
+        "packedBytes": 19945132,
+        "rawParse": [
+          121.5,
+          113.19999998807907,
+          108.59999996423721,
+          106.69999998807907,
+          107.30000001192093
+        ],
+        "packedParse": [
+          130.60000002384186,
+          70.40000003576279,
+          76.40000003576279,
+          64.80000001192093,
+          79.5
+        ]
+      },
+      {
+        "rawBytes": 36644862,
+        "packedBytes": 19945132,
+        "rawParse": [
+          127.39999997615814,
+          113.39999997615814,
+          173,
+          115.29999995231628,
+          109.19999998807907
+        ],
+        "packedParse": [
+          67.80000001192093,
+          72.10000002384186,
+          70,
+          71.30000001192093,
+          69.39999997615814
+        ]
+      }
+    ]
+  },
+  "errors": []
+}

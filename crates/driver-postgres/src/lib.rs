@@ -70,6 +70,7 @@ impl PostgresDriver {
                     })
                     .collect(),
                 capabilities: Capabilities {
+                    read_only_exec: true,
                     cancel: CancelSupport::Server,
                     timeout: true,
                     params: false,
@@ -351,6 +352,68 @@ impl PgSession {
         }
         Ok(rows)
     }
+    async fn run_guarded(
+        &self,
+        req: &ExecRequest,
+        state: &mut TxState,
+        cancel: &CancelToken,
+    ) -> Result<Vec<ResultSet>, DbError> {
+        if !req.read_only {
+            return self.run(req, state, cancel).await;
+        }
+        if state.explicit {
+            return Err(DbError::unsupported("Read-only agent execution is unavailable inside a user transaction; finish it first"));
+        }
+        // Prevent SQL from ending or reconfiguring the host-owned read-only transaction.
+        for sql in split_statements(&req.text)? {
+            let words = split::keywords(&sql);
+            if matches!(
+                words.first().map(String::as_str),
+                Some(
+                    "BEGIN"
+                        | "START"
+                        | "COMMIT"
+                        | "END"
+                        | "ROLLBACK"
+                        | "ABORT"
+                        | "SAVEPOINT"
+                        | "RELEASE"
+                        | "SET"
+                        | "RESET"
+                        | "DISCARD"
+                        | "PREPARE"
+                        | "EXECUTE"
+                )
+            ) {
+                return Err(DbError::unsupported(
+                    "Transaction and session control is unavailable in read-only execution",
+                ));
+            }
+        }
+        // Acquire a snapshot before untrusted SQL so even DO/set_config cannot switch to READ WRITE.
+        state.explicit = true;
+        let begin = self
+            .client
+            .batch_execute("BEGIN READ ONLY; SELECT 1")
+            .await
+            .map_err(|e| self.error(e));
+        let result = match begin {
+            Ok(()) => self.run(req, state, cancel).await,
+            Err(error) => Err(error),
+        };
+        let cleanup = self
+            .client
+            .batch_execute("ROLLBACK")
+            .await
+            .map_err(|e| self.error(e));
+        state.explicit = false;
+        if cleanup.is_err() {
+            self.connection.abort();
+            self.closed.store(true, Ordering::Release);
+        }
+        cleanup?;
+        result
+    }
     async fn execute_cancelled(
         &self,
         req: &ExecRequest,
@@ -362,7 +425,7 @@ impl PgSession {
         if cancel.is_cancelled() {
             return Err(DbError::new(ErrorKind::Cancelled, "Execution cancelled"));
         }
-        let future = self.run(req, &mut state, &cancel);
+        let future = self.run_guarded(req, &mut state, &cancel);
         tokio::pin!(future);
         let kind = tokio::select! {
             biased;
@@ -448,6 +511,7 @@ impl Session for PgSession {
         };
         let limit = clamp_row_limit(page.limit);
         let req = ExecRequest {
+            read_only: false,
             text: format!(
                 "SELECT * FROM {}.{} ORDER BY {order} LIMIT {} OFFSET {}",
                 quote_ident(schema),

@@ -38,6 +38,7 @@ pub struct DriverManifest {
 }
 pub struct FieldSpec { key, label, kind: FieldKind /*Text|Number|Password|FilePath|Bool|Select{options}*/, required, default: Option<String>, secret: bool, placeholder }
 pub struct Capabilities {
+    pub read_only_exec: bool,      // serde(default)=false; DB-enforced read-only execution
     pub cancel: CancelSupport,     // None | Abort(클라이언트만 중단) | Server(서버에 취소 요청)
     pub timeout: bool,
     pub params: bool,              // 쿼리 파라미터 (JSON 객체)
@@ -74,7 +75,7 @@ pub struct ExplorerNode {
     pub actions: Vec<NodeAction>, // { id, label, kind: Browse | OpenQuery{text} | Insert{text} }
 }
 pub struct PageRequest { pub offset: u64, pub limit: u32 }
-pub struct ExecRequest { pub text: String, pub params: serde_json::Map<String,Value>, pub row_limit: u32, pub graph_node_limit: u32, pub timeout_ms: u64 }
+pub struct ExecRequest { pub read_only: bool /*serde(default)=false*/, pub text: String, pub params: serde_json::Map<String,Value>, pub row_limit: u32, pub graph_node_limit: u32, pub timeout_ms: u64 }
 
 pub struct ResultSet {
     pub title: String,                  // 문장 요약
