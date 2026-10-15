@@ -1,0 +1,16 @@
+Supplemental idle: 6 planned A/B pairs, 0 measured.
+No per-app process snapshots were taken because no pair passed its preconditions.
+Cumulative gate wait seconds: 2400.1854230830213
+
+empty 1 Tabularis: load_or_build_gate_timeout
+empty 1 AxDB: load_or_build_gate_timeout
+empty 2 Tabularis: load_or_build_gate_timeout
+empty 2 AxDB: load_or_build_gate_timeout
+empty 3 Tabularis: load_or_build_gate_timeout
+empty 3 AxDB: load_or_build_gate_timeout
+connected 1 Tabularis: load_or_build_gate_timeout
+connected 1 AxDB: load_or_build_gate_timeout
+connected 2 Tabularis: total_gate_wait_budget_exhausted
+connected 2 AxDB: total_gate_wait_budget_exhausted
+connected 3 Tabularis: total_gate_wait_budget_exhausted
+connected 3 AxDB: total_gate_wait_budget_exhausted

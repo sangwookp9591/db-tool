@@ -1,0 +1,63 @@
+{
+  "scope": "Coordinator adjusted scope: default-big5 pairs; supplemental idle6 pairs subject to40min gate budget; remaining15 query pairs unmeasured",
+  "query_pairs": 5,
+  "query_observations": 10,
+  "supplemental_idle_planned_pairs": 6,
+  "supplemental_idle_measured_pairs": 0,
+  "supplemental_idle_gate_wait_seconds": 2400.1854230830213,
+  "unmeasured_query_pairs": 15,
+  "formal_query_null_counts": {
+    "first_ms": 0,
+    "count_ms": 0
+  },
+  "original_idle_null_counts": {
+    "window_ms": 3,
+    "ax_marker_ms": 5
+  },
+  "binary_sha256_verified_after_measurement": {
+    "AxDB": "b2a9fdf3f9a4b38920aa1028f2c5f76683d5b21cbf20abb93284223dc0757f77",
+    "Tabularis": "859e6405b26939ce0b12ccd747896a36737115a83c13d4fa4ad3762b60cb04c4"
+  },
+  "query_metrics": {
+    "Tabularis": {
+      "first_ms": {
+        "n": 5,
+        "median": 221.29504167241976,
+        "min": 174.96641667094082,
+        "max": 388.25487496796995
+      },
+      "count_ms": {
+        "n": 5,
+        "median": 221.65687498636544,
+        "min": 175.30687502585351,
+        "max": 388.50999996066093
+      },
+      "rss_mib": {
+        "n": 5,
+        "median": 411.875,
+        "min": 374.171875,
+        "max": 517.453125
+      }
+    },
+    "AxDB": {
+      "first_ms": {
+        "n": 5,
+        "median": 163.41174999251962,
+        "min": 128.47649998730049,
+        "max": 237.63887502718717
+      },
+      "count_ms": {
+        "n": 5,
+        "median": 163.47616666462272,
+        "min": 128.6201249458827,
+        "max": 238.54262504028156
+      },
+      "rss_mib": {
+        "n": 5,
+        "median": 202.234375,
+        "min": 200.65625,
+        "max": 233.5
+      }
+    }
+  }
+}

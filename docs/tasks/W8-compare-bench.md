@@ -49,3 +49,21 @@
 - 측정 중에는 빌드를 하지 않는다.
 - 측정 후 띄운 앱은 모두 종료한다.
 - git commit을 하지 않는다.
+
+## 코디네이터 추가 정보 (2026-10-15 16:55)
+- **이름 변경 반영:** 제품명은 AxDB, 바이너리는 `axdb`, 환경 변수는 `AXDB_*`, 키체인 서비스는 `axdb`, 테스트 PG DB는 `axdb_test`다. 기존 `dbtool_test` DB에도 fixture가 있다: `e2e.big` 25만 행, `e2e.typed`.
+- **AxDB 측 연결 준비:**
+  - `AXDB_CONFIG_DIR=/private/tmp/claude-501/-Users-iron-Project-psw-db-tool/1fe252ea-91ad-4737-8951-7e8f929f6ea0/scratchpad/e2e-cfg`에 프로필 e2e-pg(dbtool_test), e2e-neo4j, e2e-sqlite가 있다.
+  - 키체인(서비스 axdb, ACL -A)도 준비되어 있다.
+  - 측정용 사본이 필요하면 이 디렉터리를 복사해서 쓴다.
+- **GUI 입력 주의(이 머신에서 관찰한 사실):**
+  - WKWebView 앱의 secure(password) 입력칸에 `orca computer type-text`를 쓰면 문자가 두 번씩 들어간다.
+  - 일반 텍스트 칸은 click → CmdOrCtrl+A → type-text가 동작한다.
+  - Tabularis 비밀번호 입력이 같은 문제를 일으키면 다음을 시도한다:
+    - set-value
+    - Tabularis 설정 파일이나 키체인을 소스(`scratchpad/ref/tabularis`의 keychain_utils.rs, config)에서 확인해 직접 준비
+    - pg 연결 URI에 비밀번호 포함(테스트 전용)
+- Tabularis는 첫 실행 때 커뮤니티 모달이 뜬다("Maybe later"로 닫는다).
+- 다른 워커는 없다. 측정 전에 `uptime`으로 load를 확인하고, load가 높으면 기다리거나 기록해 둔다.
+- AxDB release `.app` 생성: `pnpm dlx @tauri-apps/cli@2 build`. 실패하면 `cargo build -p axdb --release` 바이너리로 측정하고, 번들 크기는 바이너리와 dist 크기 합으로 보고한다.
+- 키체인 프롬프트(SecurityAgent)가 뜨면 측정 대상에서 제외하고 원인을 기록한다. 사용자 로그인 암호는 입력하지 않는다.

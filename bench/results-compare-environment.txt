@@ -1,0 +1,40 @@
+$ date -Iseconds
+2026-10-15T16:55:05+09:00
+
+$ git rev-parse HEAD
+414c8ad4a3a65519670a94bb44d0c338064f92e0
+
+$ sw_vers
+ProductName:		macOS
+ProductVersion:		27.0.1
+BuildVersion:		26A434
+
+$ sysctl machdep.cpu.brand_string hw.memsize
+machdep.cpu.brand_string: Apple M5
+hw.memsize: 25769803776
+
+$ uptime
+16:55  up 3 days,  7:37, 21 users, load averages: 14.52 18.79 17.72
+
+$ du -sk target/release/bundle/macos/AxDB.app /private/tmp/claude-501/-Users-iron-Project-psw-db-tool/1fe252ea-91ad-4737-8951-7e8f929f6ea0/scratchpad/baseline/tabularis.app
+12208	target/release/bundle/macos/AxDB.app
+32896	/private/tmp/claude-501/-Users-iron-Project-psw-db-tool/1fe252ea-91ad-4737-8951-7e8f929f6ea0/scratchpad/baseline/tabularis.app
+
+Tabularis initial inspection: no connections.json or config.json; existing plugins/pending_approvals, alive and update cache preserved. Test GUI created one compare-pg profile; password supplied via localhost test URI. PostgreSQL plugin download failed; built-in deprecated driver connected successfully.
+
+Initial idle probe: startup observation limited to 10s; AX polling ran on main loop. Retained raw nulls: window 3/20, AX 5/20. After those 20 runs, probe changed to independent AX observation, 30s startup limit, and actual sample elapsed times. Coordinator requested gate load1<=8, max600s per A/B pair; conclusion uses passed pairs only, nulls excluded with counts, fewer than3 pairs means insufficient sample. Initial idle had no load gate; later raw audit found per-app pre-run loads7.12–110.13, so no retroactive gate pass is claimed.
+
+Post-query connection metadata check: Tabularis params.driver="postgres". A postgresql-plugin helper was observed during registry/plugin discovery; helper existence alone does not establish that the saved connection changed its driver.
+target/release/bundle/macos/AxDB.app/Contents/MacOS/axdb:                                                                                                Mach-O 64-bit executable arm64
+/private/tmp/claude-501/-Users-iron-Project-psw-db-tool/1fe252ea-91ad-4737-8951-7e8f929f6ea0/scratchpad/baseline/tabularis.app/Contents/MacOS/tabularis: Mach-O 64-bit executable arm64
+37010 96975   0.0 /Users/iron/.rustup/toolchains/1.94.0-aarch64-apple-darwin/bin/cargo
+45445 37010  23.0 /Users/iron/.rustup/toolchains/1.94.0-aarch64-apple-darwin/bin/rustc
+47237 37010   4.6 (rustc)
+47299 37010  21.1 /Users/iron/.rustup/toolchains/1.94.0-aarch64-apple-darwin/bin/rustc
+47421 37010  22.1 /Users/iron/.rustup/toolchains/1.94.0-aarch64-apple-darwin/bin/rustc
+
+Coordinator scope adjustment (2026-10-15 18:15 KST): retain five passed default-big pairs as conclusion; skip remaining15 query pairs (default generated5, matched100k big5, matched100k generated5); only supplemental idle3 pairs/state, with a40-minute cumulative gate wait budget. Unmeasured pairs after the budget are reported as load-limited. Coordinator identified concurrent worker builds as a source of load independent of the measured apps; actual cargo/rustc was detected before the generated query after its600s gate timeout, so that query was not launched.
+
+While supplemental idle gate was waiting, concurrent workers modified application source files; these changes are outside this worker ownership. Both measured .app executable SHA-256 hashes were rechecked and remained identical to the initial pinned release artifacts, so source working-tree changes are not attributed to these measurements. Current HEAD: 3d46192f95f54a4099ce04a4d4d89d3b4c0ad0ac
+
+Final cleanup verification 2026-10-15T19:01:21.688397+09:00: measured release app processes and plugin helpers absent; Tabularis preservation backup absent; no commit by this worker.

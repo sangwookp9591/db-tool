@@ -1,0 +1,14 @@
+{
+  "AxDB": {
+    "path": "/Users/iron/Project/psw/db-tool/target/release/bundle/macos/AxDB.app",
+    "logical_bytes": 12495001,
+    "file_count": 2,
+    "binary_sha256": "b2a9fdf3f9a4b38920aa1028f2c5f76683d5b21cbf20abb93284223dc0757f77"
+  },
+  "Tabularis": {
+    "path": "/private/tmp/claude-501/-Users-iron-Project-psw-db-tool/1fe252ea-91ad-4737-8951-7e8f929f6ea0/scratchpad/baseline/tabularis.app",
+    "logical_bytes": 33678076,
+    "file_count": 5,
+    "binary_sha256": "859e6405b26939ce0b12ccd747896a36737115a83c13d4fa4ad3762b60cb04c4"
+  }
+}
