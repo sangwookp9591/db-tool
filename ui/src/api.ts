@@ -1,6 +1,14 @@
+import type { Scope, AiSettings, AiReply } from './ai/types';
+import type { Channel } from '@tauri-apps/api/core';
 import { invoke } from '@tauri-apps/api/core';
 import type { DriverManifest, Profile, ExplorerNode, ResultSet, ExecRequest, HistoryEntry, ChangePreview, AgentClient, AgentAudit, SchemaGraph, Value } from './contract';
 export interface Commands {
+  context_get: { args: { sessionId: string; scope: Scope }; result: Record<string, unknown> };
+  context_error: { args: { runId: string }; result: Record<string, unknown> };
+  ai_settings: { args: Record<string, never>; result: { settings: AiSettings; has_key: boolean } };
+  ai_configure: { args: { settings: AiSettings; apiKey: string | null }; result: void };
+  ai_request: { args: { sessionId: string; scope: Scope; question: string; channel: Channel<string> }; result: AiReply };
+
   agent_clients_list: { args: Record<string, never>; result: AgentClient[] };
   agent_client_save: { args: { input: Omit<AgentClient, 'id' | 'revoked'> & { id?: string } }; result: { client: AgentClient; token: string | null } };
   agent_client_rotate: { args: { clientId: string }; result: { token: string } };

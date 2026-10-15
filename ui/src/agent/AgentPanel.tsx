@@ -18,6 +18,7 @@ export function AgentPanel({ host, registrationKey, ready }: { ready: boolean; h
   if (!registry.current) registry.current = createRegistry({
     snapshot: () => current.current.snapshot(), invoke: (name, args) => current.current.invoke(name, args),
     open: id => current.current.open(id), close: id => current.current.close(id), openTab: (id, text) => current.current.openTab(id, text), uiState: () => current.current.uiState(), results: r => current.current.results(r), history: () => current.current.history(),
+    workContext: () => current.current.workContext?.() ?? null,
     activity: (running, total) => setActivity({ running, total }),
     approve: request => new Promise(resolve => {
       if (request.signal.aborted || pending.current) { resolve(false); return; }
@@ -46,6 +47,7 @@ export function AgentPanel({ host, registrationKey, ready }: { ready: boolean; h
           const abort = () => finish(false); pending.current = finish; controller.signal.addEventListener('abort', abort, { once: true });
           setApproval({ text: params.text ?? '', connection: params.connection ?? '', preview: params.preview, finish });
         }) };
+        else if (method === 'context') result = current.current.workContext?.() ?? null;
         else if (method === 'results') { current.current.results(params.results ?? []); current.current.history(); result = {}; }
         else result = method === 'tools/list' ? { tools: agent.current!.listTools() } : await agent.current!.callTool(params.name ?? '', params.arguments ?? {}, { signal: controller.signal });
         await api('agent_bridge_reply', { requestId: request_id, result });

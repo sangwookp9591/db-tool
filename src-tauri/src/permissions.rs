@@ -18,6 +18,9 @@ pub const TOOLS: &[&str] = &[
     "get_history",
     "get_perf_metrics",
     "get_ui_state",
+    "get_schema_context",
+    "get_work_context",
+    "explain_error",
     "open_query_tab",
 ];
 #[derive(Clone, Copy, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]

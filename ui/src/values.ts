@@ -1,9 +1,5 @@
-import type { Value, ResultSet } from './contract';
+import type { Value } from './contract';
 import { nodeCaption } from './graph';
-
-export function resultSummary(results: ResultSet[]) {
-  return results.map(r => ({ title: r.title, row_count: r.row_count, truncated: r.truncated, views: ['table', 'graph', 'documents', 'message'].filter(k => r[k as keyof ResultSet] !== null) }));
-}
 
 // Tokenize strings before whitespace: never decode numbers or strings from JSON.
 export function formatJson(raw: string, pretty = true): string {

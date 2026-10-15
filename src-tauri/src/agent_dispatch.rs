@@ -1,5 +1,6 @@
 use crate::{
     agent_bridge::{forward, Shared},
+    context,
     permissions::{self, AccessMode, AgentClient, Permission},
     storage, Host,
 };
@@ -71,6 +72,9 @@ fn valid_arguments(tool: &str, args: &Value) -> bool {
             &["session_id", "element_id"],
         ),
         "get_history" => (&["limit"], &[]),
+        "get_schema_context" => (&["session_id", "focus"], &["session_id"]),
+        "get_work_context" => (&[], &[]),
+        "explain_error" => (&["run"], &["run"]),
         _ => return true,
     };
     if required.iter().any(|key| {
@@ -126,6 +130,14 @@ pub async fn dispatch(shared: &Shared, client: &AgentClient, method: &str, param
                     .allowed_tools
                     .iter()
                     .any(|n| Some(n.as_str()) == t["name"].as_str())
+                    && (!matches!(
+                        t["name"].as_str(),
+                        Some("get_schema_context" | "get_work_context" | "explain_error")
+                    ) || profiles(&host).is_ok_and(|profiles| {
+                        profiles
+                            .iter()
+                            .any(|p| client.permission(&p.id) != Permission::None)
+                    }))
                     && (t["name"] != "preview_changes"
                         || profiles(&host).is_ok_and(|profiles| {
                             profiles.iter().any(|p| {
@@ -146,7 +158,55 @@ pub async fn dispatch(shared: &Shared, client: &AgentClient, method: &str, param
     let tool = params["name"].as_str().unwrap_or("");
     let arguments = params.get("arguments").cloned().unwrap_or(json!({}));
     let args = &arguments;
-    let id = connection_id(&host, tool, args);
+    let context_tool = matches!(
+        tool,
+        "get_schema_context" | "get_work_context" | "explain_error"
+    );
+    let work = if context_tool {
+        if !client.allowed_tools.iter().any(|t| t == tool) {
+            let _ = permissions::audit(&host, client, tool, None, "denied", None);
+            return permissions::error("Forbidden");
+        }
+        if !valid_arguments(tool, args) {
+            let _ = permissions::audit(&host, client, tool, None, "denied", None);
+            return permissions::error("InvalidInput");
+        }
+        let input = match tool {
+            "get_schema_context" => Some(context::WorkInput {
+                session_id: args["session_id"].as_str().unwrap_or("").into(),
+                scope: context::Scope {
+                    focus: args["focus"].as_str().map(str::to_owned),
+                    ..Default::default()
+                },
+            }),
+            "get_work_context" => serde_json::from_value::<context::WorkInput>(
+                forward(shared, "context", json!({})).await,
+            )
+            .ok(),
+            "explain_error" => context::run(&host, args["run"].as_str().unwrap_or(""))
+                .ok()
+                .map(|r| context::WorkInput {
+                    session_id: r.session_id,
+                    scope: context::Scope {
+                        text: r.text,
+                        run: Some(r.run),
+                        ..Default::default()
+                    },
+                }),
+            _ => None,
+        };
+        if input.is_none() {
+            let _ = permissions::audit(&host, client, tool, None, "denied", None);
+            return permissions::error("NotFound");
+        }
+        input
+    } else {
+        None
+    };
+    let id = work
+        .as_ref()
+        .and_then(|w| connection_id(&host, tool, &json!({"session_id":w.session_id})))
+        .or_else(|| connection_id(&host, tool, args));
     let text = args["text"].as_str();
     let requires_connection = matches!(
         tool,
@@ -158,6 +218,9 @@ pub async fn dispatch(shared: &Shared, client: &AgentClient, method: &str, param
             | "browse"
             | "expand_node"
             | "open_query_tab"
+            | "get_schema_context"
+            | "get_work_context"
+            | "explain_error"
     );
     let decision = if requires_connection && id.is_none() {
         Err("NotFound")
@@ -189,6 +252,25 @@ pub async fn dispatch(shared: &Shared, client: &AgentClient, method: &str, param
         return json!({"error":e});
     }
     let mut result = match tool {
+        "get_schema_context" | "get_work_context" | "explain_error" => {
+            let mut work = work.expect("context input checked");
+            work.scope.include_rows = false;
+            work.scope.selected_rows = None;
+            encoded(
+                context::build(&host, &work.session_id, work.scope)
+                    .await
+                    .map(|mut value| {
+                        value["permissions"]["client_grant"] =
+                            json!(client.permission(id.as_deref().unwrap_or("")));
+                        value["permissions"]["write"] = json!(
+                            value["access_mode"] != "read_only"
+                                && client.permission(id.as_deref().unwrap_or(""))
+                                    == Permission::WriteWithApproval
+                        );
+                        value
+                    }),
+            )
+        }
         "list_connections" => visible_connections(&host, client),
         "get_history" => {
             let limit = args["limit"].as_u64().unwrap_or(100).min(1000) as usize;
@@ -275,10 +357,11 @@ pub async fn dispatch(shared: &Shared, client: &AgentClient, method: &str, param
     };
     // A delayed credential dialog or UI response cannot return data after a grant is withdrawn.
     let valid = permissions::current(&host.paths.config, client).is_ok_and(|now| {
-        !requires_connection
-            || id
-                .as_ref()
-                .is_some_and(|id| now.permission(id) != Permission::None)
+        (!context_tool || now.allowed_tools.iter().any(|name| name == tool))
+            && (!requires_connection
+                || id
+                    .as_ref()
+                    .is_some_and(|id| now.permission(id) != Permission::None))
     });
     if !valid {
         let _ = permissions::audit(&host, client, tool, id.as_deref(), "denied", text);
@@ -367,10 +450,11 @@ async fn run_query(
             return json!({"error":e});
         }
     }
+    let run_id = uuid::Uuid::new_v4().to_string();
     let result = crate::execute_impl(
         host,
         session.into(),
-        uuid::Uuid::new_v4().to_string(),
+        run_id.clone(),
         req,
         None,
         storage::HistorySource::Agent,
@@ -379,7 +463,9 @@ async fn run_query(
     if let Ok(results) = &result {
         let _ = forward(shared, "results", json!({"results":results})).await;
     }
-    encoded(result.map(|results| json!({"results":results})))
+    let mut response = encoded(result.map(|results| json!({"results":results})));
+    response["run"] = json!(run_id);
+    response
 }
 // Count limits are aggregate across result sets; typed values remain unchanged.
 pub fn bound(value: &mut Value, limit: usize) {
@@ -491,6 +577,24 @@ mod tests {
         );
         assert_eq!(value["statements"][0]["after"]["rows"], json!([]));
         assert_eq!(value["results"][0]["truncated"], true);
+    }
+    #[test]
+    fn context_arguments_cannot_enable_row_export() {
+        assert!(valid_arguments(
+            "get_schema_context",
+            &json!({"session_id":"s","focus":"users"})
+        ));
+        assert!(valid_arguments("get_work_context", &json!({})));
+        assert!(valid_arguments("explain_error", &json!({"run":"r"})));
+        assert!(!valid_arguments(
+            "get_schema_context",
+            &json!({"session_id":"s","include_rows":true})
+        ));
+        assert!(!valid_arguments(
+            "get_work_context",
+            &json!({"session_id":"s"})
+        ));
+        assert!(!valid_arguments("explain_error", &json!({"run":1})));
     }
     #[test]
     fn validates_direct_host_tool_arguments() {

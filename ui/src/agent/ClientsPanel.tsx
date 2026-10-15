@@ -2,7 +2,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { api } from '../api';
 import type { AgentClient, AgentAudit, AgentPermission, DriverManifest, Profile } from '../contract';
 import { Dialog } from '../Dialog';
-export const AGENT_TOOLS = ['list_drivers', 'list_connections', 'open_connection', 'close_connection', 'explore', 'run_query', 'preview_changes', 'browse', 'expand_node', 'get_history', 'get_perf_metrics', 'get_ui_state', 'open_query_tab'];
+export const AGENT_TOOLS = ['list_drivers', 'list_connections', 'open_connection', 'close_connection', 'explore', 'run_query', 'preview_changes', 'browse', 'expand_node', 'get_history', 'get_perf_metrics', 'get_ui_state', 'open_query_tab', 'get_schema_context', 'get_work_context', 'explain_error'];
 const permissions: AgentPermission[] = ['none', 'read', 'preview', 'write_with_approval'];
 const labels = { none: '접근 없음', read: '읽기', preview: '읽기 + 미리보기', write_with_approval: '쓰기 (앱 승인)' };
 export function ClientsPanel({ profiles, drivers, onClose }: { profiles: Profile[]; drivers: DriverManifest[]; onClose: () => void }) {

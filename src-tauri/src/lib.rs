@@ -1,4 +1,6 @@
 mod agent_bridge;
+mod context;
+mod assistant;
 mod agent_dispatch;
 mod permissions;
 pub mod drivers;
@@ -33,6 +35,7 @@ pub struct Host {
     paths: Paths,
     sessions: Mutex<HashMap<String, Arc<SessionRecord>>>,
     runs: Mutex<HashMap<String, RunRecord>>,
+    context_runs: Mutex<std::collections::VecDeque<context::RunContext>>,
     storage: tokio::sync::Mutex<()>,
     agent_storage: Mutex<()>,
     approvals: Mutex<HashMap<String, permissions::Approval>>,
@@ -45,6 +48,7 @@ impl Host {
             paths,
             sessions: Mutex::new(HashMap::new()),
             runs: Mutex::new(HashMap::new()),
+            context_runs: Mutex::new(std::collections::VecDeque::new()),
             storage: tokio::sync::Mutex::new(()),
             agent_storage: Mutex::new(()),
             approvals: Mutex::new(HashMap::new()),
@@ -294,6 +298,7 @@ async fn session_close(host: tauri::State<'_, Host>, session_id: String) -> Comm
         }
         record.session.close().await;
     }
+    if let Ok(mut contexts) = host.context_runs.lock() { contexts.retain(|r| r.session_id != session_id); }
     Ok(())
 }
 #[tauri::command]
@@ -343,7 +348,9 @@ async fn browse(
             let _=future.await;Err(DbError::new(ErrorKind::Cancelled,"Browse cancelled; reconnect required"))
         }
     };
-    host.observe(&record, result)
+    let result = host.observe(&record, result);
+    context::remember(&host, &session_id, &run_id, "", result.as_ref().map(std::slice::from_ref));
+    result
 }
 #[tauri::command]
 async fn execute(
@@ -415,6 +422,7 @@ async fn execute_impl(
             }
         };
     let result = host.observe(&record, result);
+    context::remember(host, &session_id, &run_id, &req.text, result.as_deref());
     let entry = HistoryEntry {
         kind: "execute".into(),
         source,
@@ -567,6 +575,11 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            context::context_get,
+            context::context_error,
+            assistant::ai_settings,
+            assistant::ai_configure,
+            assistant::ai_request,
             drivers_list,
             profiles_list,
             profile_save,

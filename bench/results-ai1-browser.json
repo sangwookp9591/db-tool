@@ -1,0 +1,18 @@
+{
+  "source": "Ego Chromium with mocked Tauri IPC, not native or provider proof",
+  "checks": [
+    "default off and key setup guidance",
+    "streamed suggestion",
+    "insert causes no execute/preview",
+    "AI Run uses read_only and write rejected by mock",
+    "preview requires separate approval click",
+    "approval precedes write execute",
+    "refusal message shown and insert action absent"
+  ],
+  "calls": [
+    "execute_agent",
+    "preview",
+    "agent_approve_write",
+    "execute_agent"
+  ]
+}

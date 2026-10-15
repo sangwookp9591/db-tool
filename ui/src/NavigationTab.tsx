@@ -7,7 +7,7 @@ import type { ComponentType } from 'preact';
 import type { EditorHandle } from './Editor';
 import type { DriverManifest, ResultSet } from './contract';
 type Step = {kind:'query';title:string} | {kind:'schema';scope:string|null;title:string} | ({kind:'browse'} & BrowseTarget);
-export function NavigationTab(props: {readOnly?:boolean;kind:'query'|'browse'|'schema';scope?:string|null;nodeId?:string;title:string;initialText:string;sessionId:string;manifest:DriverManifest;graphLimit:number;active:boolean;onRun:(id:string|null)=>void;onReady:(handle:EditorHandle|null)=>void;onHistory:()=>void;onResults:(results:ResultSet[])=>void;onError:(error:unknown)=>void}) {
+export function NavigationTab(props: {aiSuggested?:boolean;readOnly?:boolean;kind:'query'|'browse'|'schema';scope?:string|null;nodeId?:string;title:string;initialText:string;sessionId:string;manifest:DriverManifest;graphLimit:number;active:boolean;onRun:(id:string|null)=>void;onReady:(handle:EditorHandle|null)=>void;onHistory:()=>void;onResults:(results:ResultSet[])=>void;onError:(error:unknown)=>void}) {
   const [busy,setBusy]=useState(false);
   function run(id:string|null){setBusy(!!id);props.onRun(id);}
   const [needsSchema,setNeedsSchema]=useState(props.kind!=='query'||!!props.nodeId);

@@ -84,3 +84,23 @@ describe('agent registry', () => {
   });
 });
 function result(count: number): ResultSet { return { title: 'select', table: { columns: [{ name: 'id', type_name: 'int8' }], rows: Array.from({ length: count }, () => [{ t: 'Int', v: '9223372036854775807' }]) }, graph: null, documents: null, message: null, affected: null, row_count: count, truncated: false, page: null, elapsed_ms: 1 }; }
+
+describe('AI context tools', () => {
+  it('shares the Rust builder and excludes row data from work snapshots', async () => {
+    const { state, host, invoke, api } = setup(); state.sessions.p = 's';
+    host.workContext = () => ({session_id:'s',scope:{text:'SELECT 1',run:'r',include_rows:true,selected_rows:{columns:[],rows:[]}}});
+    await api.callTool('get_schema_context', {session_id:'s',focus:'users'});
+    expect(invoke).toHaveBeenLastCalledWith('context_get',{sessionId:'s',scope:{focus:'users'}});
+    await api.callTool('get_work_context', {});
+    expect(invoke).toHaveBeenLastCalledWith('context_get',{sessionId:'s',scope:{text:'SELECT 1',run:'r',focus:undefined}});
+    await api.callTool('explain_error',{run:'r'});
+    expect(invoke).toHaveBeenLastCalledWith('context_error',{runId:'r'});
+    expect(invoke.mock.calls.every(([name]) => !['execute','execute_agent','preview'].includes(name))).toBe(true);
+  });
+  it('rejects extra context parameters and closed sessions', async () => {
+    const { api, invoke } = setup();
+    expect(await api.callTool('get_schema_context',{session_id:'missing'})).toHaveProperty('error');
+    expect(await api.callTool('get_work_context',{include_rows:true})).toHaveProperty('error');
+    expect(invoke).not.toHaveBeenCalled();
+  });
+});

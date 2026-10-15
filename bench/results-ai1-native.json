@@ -1,0 +1,11 @@
+{
+  "source": "target-ai1/debug/axdb native MCP + isolated SQLite, no provider call",
+  "checks": [
+    "native MCP schema uses manifest, entities and FK without rows",
+    "native work context reads active editor without execution",
+    "error tool resolves failed run and related schema",
+    "read client sees read permission and no write grant",
+    "none hides context tools and prevents all context access",
+    "context arguments cannot opt into row export"
+  ]
+}
