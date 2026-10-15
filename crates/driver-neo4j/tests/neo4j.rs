@@ -43,6 +43,27 @@ async fn real_neo4j_contract() {
     let driver = Neo4jDriver::new();
     let s = driver.connect(&cfg).await.unwrap();
     s.ping().await.unwrap();
+    for (text, expected, count) in [
+        ("RETURN 1 AS z, 2 AS a, 3 AS m", vec!["z", "a", "m"], 1),
+        (
+            "MATCH (n:NoSuchLabel) RETURN n.x AS x, n.y AS y",
+            vec!["x", "y"],
+            0,
+        ),
+    ] {
+        let result = run(&*s, text).await;
+        let table = result.table.unwrap();
+        assert_eq!(
+            table
+                .columns
+                .iter()
+                .map(|c| c.name.as_str())
+                .collect::<Vec<_>>(),
+            expected
+        );
+        assert_eq!(table.rows.len(), count);
+    }
+
     assert!(s.server_info().await.unwrap().contains("Neo4j"));
     let mut parameter = req("RETURN $n AS n, $map AS m, $list AS l");
     parameter.params=serde_json::json!({"n":{"t":"Int","v":"9007199254740993"},"map":{"a":true},"list":[1,null,"x"]}).as_object().unwrap().clone();

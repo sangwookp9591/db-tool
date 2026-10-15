@@ -1,3 +1,5 @@
+import { api } from '../api';
+import { readGraphProbes } from './index';
 import { render } from 'preact';
 import { Results } from '../Results';
 import { mergeGraph } from '../graph';
@@ -6,8 +8,10 @@ import { finish, frame, painted, perf, registerScenario, sampleFrames, start } f
 import '../style.css';
 import { fixtureStream } from './fixtureStream';
 const root = document.getElementById('app')!;
+let benchmarkSession = '';
+async function graphSession() { if (benchmarkSession) return; const drivers = await api('drivers_list', {}), profiles = await api('profiles_list', {}); const profile = profiles.find(p => drivers.some(d => d.id === p.driver_id && d.capabilities.graph_expand))!; benchmarkSession = await api('session_open', { profileId: profile.id, secret: null }); }
 const error = (e: unknown) => { throw e; };
-function mount(results: ReturnType<typeof fixtureResult>[], limit = 5000) { render(<Results results={results} sessionId="benchmark" canExpand={false} graphLimit={limit} rowLimit={100000} onError={error} />, root); }
+function mount(results: ReturnType<typeof fixtureResult>[], limit = 5000) { render(<Results results={results} sessionId={benchmarkSession} canExpand={!!benchmarkSession} graphLimit={limit} rowLimit={100000} onError={error} />, root); }
 async function clear() { render(null, root); await frame(); perf.clear(); }
 async function waitFor(selector: string) { const deadline = performance.now() + 30000; while (!document.querySelector(selector)) { if (performance.now() > deadline) throw new Error(`Timeout: ${selector}`); await frame(); } }
 for (const [rows, columns] of [[1000, 10], [10000, 10], [100000, 10], [10000, 200]]) registerScenario(`table-${rows}-${columns}`, async () => {
@@ -23,26 +27,30 @@ for (const [rows, columns] of [[1000, 10], [10000, 10], [100000, 10], [10000, 20
   return { first, loaded, frames, domCells: document.querySelectorAll('[role=gridcell]').length, heap: (performance as Performance & { memory?: { usedJSHeapSize: number } }).memory?.usedJSHeapSize ?? null };
 });
 for (const count of [100, 300, 1000, 5000]) registerScenario(`graph-${count}`, async () => {
-  await clear(); const graph = fixtureGraph(count); const since = start('graph-bench'); mount([fixtureResult(fixtureTable(10, 10), graph)]);
-  await waitFor('canvas'); await painted('graph-visible', since);
+  await clear(); await graphSession(); const graph = fixtureGraph(count); const since = start('graph-bench'); mount([fixtureResult(fixtureTable(10, 10), graph)]);
+  await waitFor('canvas[data-ready=true]'); await painted('graph-visible', since);
   const layoutFrames = await sampleFrames(() => {});
   const deadline = performance.now() + 60000; while (!perf.marks().some(m => m.name === 'graph-stable')) { if (performance.now() > deadline) throw new Error('Layout failed to stabilize'); await frame(); }
   const canvas = document.querySelector('canvas')!;
   const frames = await sampleFrames(i => { canvas.dispatchEvent(new WheelEvent('wheel', { deltaY: i % 2 ? -20 : 20, clientX: 600, clientY: 300, bubbles: true, cancelable: true })); });
-  (document.querySelector('.graph-accessible summary') as HTMLElement).click(); await waitFor('.graph-accessible button');
-  const button = [...document.querySelectorAll<HTMLButtonElement>('.graph-accessible button')][0];
-  const clickStart = start('node-click'); button.click(); await waitFor('.properties'); const click = await painted('properties', clickStart);
-  const expandStart = start('expand-bench'); const merged = mergeGraph(graph, fixtureGraph(50, count, 'n0')); const merge = finish('expand-merge', expandStart); mount([fixtureResult(null, merged)], count + 50); const expand = await painted('expand-frame', expandStart);
+  const search = document.querySelector<HTMLInputElement>('[aria-label="Search graph"]')!;
+  search.value = 'Node 0'; search.dispatchEvent(new Event('input', { bubbles: true })); await frame(); await frame();
+  const rect = canvas.getBoundingClientRect();
+  const clickStart = start('node-click'); canvas.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 })); await waitFor('.properties'); const click = await painted('properties', clickStart);
+  const expandStart = start('expand-bench');
+  (document.querySelector('.properties > button') as HTMLButtonElement).click();
+  const expandDeadline = performance.now() + 60000; while (!perf.marks().some(m => m.name === 'expand-frame')) { if (performance.now() > expandDeadline) throw new Error('Expand timed out'); await frame(); }
+  const merge = perf.marks().find(m => m.name === 'expand-merge')!.duration, expand = perf.marks().find(m => m.name === 'expand-frame')!.duration;
   return { first: perf.marks().find(m => m.name === 'graph-visible')?.duration, layout: perf.marks().find(m => m.name === 'graph-stable')?.duration ?? null, layoutFrames, frames, click, merge, expand, metrics: perf.marks() };
 });
 registerScenario('transitions', async () => {
-  await clear(); mount([fixtureResult(fixtureTable(1000, 10), fixtureGraph(300)), fixtureResult(fixtureTable(1000, 10))]); await waitFor('canvas');
-  const samples: { name: string; duration: number }[] = [];
+  await clear(); const graphStart = start('first-graph-pane'); mount([fixtureResult(fixtureTable(1000, 10), fixtureGraph(300)), fixtureResult(fixtureTable(1000, 10))]); await waitFor('canvas[data-ready=true]');
+  const samples: { name: string; duration: number }[] = [{ name: 'first-Graph', duration: await painted('first-graph-pane', graphStart) }];
   for (let i = 0; i < 10; i++) for (const name of ['Table', 'Graph']) {
-    const since = start('view-switch'); const button = [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Result views"] button')].find(b => b.textContent === name)!; button.click(); samples.push({ name: `${i === 0 ? 'first' : 'return'}-${name}`, duration: await painted('view-switch', since) });
+    const since = start('view-switch'); const button = [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Result views"] button')].find(b => b.textContent === name)!; button.click(); samples.push({ name: `${i === 0 && name === 'Table' ? 'first' : 'return'}-${name}`, duration: await painted('view-switch', since) });
   }
   const resultSwitch = [];
-  for (let i = 0; i < 10; i++) { const since = performance.now(); (document.querySelectorAll<HTMLButtonElement>('[aria-label="Result sets"] button')[i % 2]).click(); resultSwitch.push(await painted('result-switch', since)); }
+  for (let i = 0; i < 10; i++) { const since = performance.now(); (document.querySelectorAll<HTMLButtonElement>('[aria-label="Result sets"] button')[(i + 1) % 2]).click(); resultSwitch.push(await painted('result-switch', since)); }
   return { samples, resultSwitch };
 });
 window.dispatchEvent(new Event('bench-ready'));
@@ -65,4 +73,19 @@ registerScenario('techniques', async () => {
   const graph = fixtureGraph(300), previous = graph.nodes.map((n, i) => ({ id: n.id, x: i, y: i }));
   const merged = mergeGraph(graph, fixtureGraph(50, 300, 'n0')); t = performance.now(); const seeded = seedPositions(merged, previous); const seedMs = performance.now() - t;
   return { hitTest: { linear, quadtree, build, queries: 10000 }, format: { uncached, cached, calls: 10000 }, incremental: { seedMs, movedExisting: seeded.slice(0, 300).filter((n, i) => n.x !== previous[i].x || n.y !== previous[i].y).length, newNodes: seeded.length - previous.length } };
+});
+
+registerScenario('graph-idle-300', async () => {
+  await clear(); mount([fixtureResult(null, fixtureGraph(300))], 300); await waitFor('canvas[data-ready=true]'); while (!perf.marks().some(m => m.name === 'graph-stable')) await frame(); await frame(); await frame();
+  let previous = readGraphProbes()[0], movement = 0, comparisons = 0; const startFrames = previous.frames, until = performance.now() + 5000;
+  while (performance.now() < until) { await frame(); const next = readGraphProbes()[0]; for (let i = 0; i < previous.positions.length; i += 2) { movement += Math.hypot(previous.positions[i] - next.positions[i], previous.positions[i + 1] - next.positions[i + 1]); comparisons++; } previous = next; }
+  return { duration: 5000, nodes: previous.positions.length / 2, averageMovementPx: comparisons ? movement / comparisons : 0, renderFrames: previous.frames - startFrames };
+});
+
+registerScenario('graph-motion-300', async () => {
+  await clear(); mount([fixtureResult(null, fixtureGraph(300))], 300);
+  let previous: ReturnType<typeof readGraphProbes>[number] | undefined, movement = 0, samples = 0;
+  const until = performance.now() + 5000;
+  while (performance.now() < until) { await frame(); const next = readGraphProbes()[0]; if (previous?.ready && next?.ready && previous.positions.length === next.positions.length) for (let i = 0; i < previous.positions.length; i += 2) { movement += Math.hypot(previous.positions[i] - next.positions[i], previous.positions[i + 1] - next.positions[i + 1]); samples++; } previous = next; }
+  return { duration: 5000, averageVisibleMovementPx: samples ? movement / samples : 0, renderFrames: previous?.frames ?? 0 };
 });

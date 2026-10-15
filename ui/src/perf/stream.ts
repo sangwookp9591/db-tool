@@ -27,7 +27,7 @@ export async function executeQuery(args: Commands['execute']['args'], update: (r
   const done = new Promise<void>((resolve, reject) => { resolveDone = resolve; rejectDone = reject; });
   // Install a handler immediately so a malformed channel event never becomes an unhandled rejection.
   void done.catch(() => {});
-  const flush = () => { frameId = 0; if (failed) return; update([...stream.results]); if (first && stream.results.some(r => r.table?.rows.length)) { first = false; void painted('execute-first-row', since); } };
+  const flush = () => { frameId = 0; if (failed) return; update([...stream.results]); if (first && stream.results.some(r => !r.graph && r.table?.rows.length)) { first = false; void painted('execute-first-row', since); } };
   const receive = (event: StreamEvent) => {
     if (failed) return;
     try {
@@ -38,7 +38,7 @@ export async function executeQuery(args: Commands['execute']['args'], update: (r
   };
   try {
     if (isMock) await streamResults(await api('execute', args), receive);
-    else { const onEvent = new Channel<StreamEvent>(); onEvent.onmessage = receive; await invoke<void>('execute_stream', { ...args, onEvent }); }
+    else { const onEvent = new Channel<StreamEvent>(); onEvent.onmessage = receive; const direct = await invoke<ResultSet[]>('execute_stream', { ...args, onEvent }); if (direct.length) { direct.forEach((result, index) => receive({ kind: 'start', index, result })); receive({ kind: 'done' }); } }
     await done; cancelAnimationFrame(frameId); flush(); return stream.results;
   } catch (error) { failed = true; cancelAnimationFrame(frameId); throw error; }
 }

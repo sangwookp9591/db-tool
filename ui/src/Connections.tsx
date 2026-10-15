@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import type { DriverManifest, Profile, ExplorerNode, NodeAction } from './contract';
 import { api, isMock } from './api';
 import { Dialog } from './Dialog';
@@ -18,7 +18,7 @@ export function Connections(props: Props) {
     })}
     {!props.profiles.length && <p class="muted">Add a connection to get started.</p>}
     {notice && <div class="notice" role="status">{notice}<button aria-label="Dismiss connection test" onClick={() => setNotice('')}>×</button></div>}
-    {editing && <ProfileForm profile={editing === 'new' ? undefined : editing} drivers={props.drivers} onClose={() => setEditing(null)} onSaved={async () => { await props.onProfiles(); setEditing(null); }} onError={props.onError} />}
+    {editing && <ProfileForm key={editing === 'new' ? 'new' : editing.id} profile={editing === 'new' ? undefined : editing} drivers={props.drivers} onClose={() => setEditing(null)} onSaved={async () => { await props.onProfiles(); setEditing(null); }} onError={props.onError} />}
   </aside>;
 }
 function ProfileForm({ profile, drivers, onClose, onSaved, onError }: { profile?: Profile; drivers: DriverManifest[]; onClose: () => void; onSaved: () => Promise<void>; onError: (error: unknown) => void }) {
@@ -31,20 +31,28 @@ function ProfileForm({ profile, drivers, onClose, onSaved, onError }: { profile?
   const [saveSecret, setSaveSecret] = useState(profile?.save_secret ?? false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
+  const form = useRef<HTMLFormElement>(null);
+  function clearDraft() {
+    form.current?.querySelectorAll('input').forEach(input => { input.value = ''; input.checked = false; });
+    for (const key of Object.keys(secrets)) delete secrets[key];
+    setSecrets({}); setName(''); setFields({}); setSaveSecret(false); setNotice('');
+  }
+  function close() { clearDraft(); onClose(); }
+
   const draft = (): Profile => ({ id: profile?.id ?? crypto.randomUUID(), name: name.trim(), driver_id: driverId, fields: Object.fromEntries(Object.entries(fields).filter(([key]) => !manifest?.connection_fields.some(f => f.key === key && f.secret))), save_secret: saveSecret });
   // shortcut: host accepts one secret field; extend the host contract before supporting multiple credentials.
   const secret = () => Object.values(secrets).find(Boolean) ?? null;
   async function submit(test: boolean) {
     if (!manifest) return;
     setBusy(true); setNotice('');
-    try { if (test) setNotice(await api('connection_test', { profile: draft(), secret: secret() })); else { await api('profile_save', { profile: draft(), secret: secret() }); setSecrets({}); await onSaved(); } }
+    try { if (test) setNotice(await api('connection_test', { profile: draft(), secret: secret() })); else { await api('profile_save', { profile: draft(), secret: secret() }); clearDraft(); await onSaved(); } }
     catch (error) { onError(error); } finally { setBusy(false); }
   }
-  return <Dialog label={profile ? 'Edit connection' : 'Add connection'} onClose={onClose}><section class="profile-form"><div class="section-title"><strong>{profile ? 'Edit connection' : 'Add connection'}</strong><button onClick={onClose} aria-label="Close connection form">×</button></div><form onSubmit={e => { e.preventDefault(); void submit(false); }}>
+  return <Dialog label={profile ? 'Edit connection' : 'Add connection'} onClose={close}><section class="profile-form"><div class="section-title"><strong>{profile ? 'Edit connection' : 'Add connection'}</strong><button onClick={close} aria-label="Close connection form">×</button></div><form ref={form} autoComplete="off" onSubmit={e => { e.preventDefault(); void submit(false); }}>
     <label>Name<input required autoFocus value={name} onInput={e => setName(e.currentTarget.value)} /></label><label>Driver<select disabled={!!profile} value={driverId} onChange={e => { const id = e.currentTarget.value; setDriverId(id); setFields(defaults(drivers.find(d => d.id === id))); setSecrets({}); }}>{drivers.map(d => <option key={d.id} value={d.id}>{d.display_name}</option>)}</select></label>
     {manifest?.connection_fields.map(field => <label key={field.key}>{field.label}{field.required ? ' *' : ''}{typeof field.kind === 'object' && !field.secret ? <select value={fields[field.key] ?? ''} required={field.required} onChange={e => setFields(f => ({ ...f, [field.key]: e.currentTarget.value }))}>{!field.default && <option value="">Choose…</option>}{field.kind.Select.options.map(option => <option key={option}>{option}</option>)}</select> : field.kind === 'Bool' && !field.secret ? <input type="checkbox" checked={fields[field.key] === 'true'} onChange={e => setFields(f => ({ ...f, [field.key]: String(e.currentTarget.checked) }))} /> : <FieldInput field={field} existing={!!profile} value={field.secret ? secrets[field.key] ?? '' : fields[field.key] ?? ''} onInput={e => { const value = e.currentTarget.value; if (field.secret) setSecrets(s => ({ ...s, [field.key]: value })); else setFields(f => ({ ...f, [field.key]: value })); }} />}</label>)}
     {manifest?.connection_fields.some(f => f.secret) && <label class="checkbox"><input type="checkbox" checked={saveSecret} onChange={e => setSaveSecret(e.currentTarget.checked)} />키체인에 저장</label>}
-    <div class="toolbar"><button type="submit" disabled={busy || !manifest}>Save</button><button aria-label="Test connection" data-testid="test-connection-form" type="button" disabled={busy || !manifest} onClick={e => { if (e.currentTarget.form?.reportValidity()) void submit(true); }}>Test connection</button><button type="button" onClick={onClose}>Cancel</button></div>{notice && <p role="status">{notice}</p>}
+    <div class="toolbar"><button type="submit" disabled={busy || !manifest}>Save</button><button aria-label="Test connection" data-testid="test-connection-form" type="button" disabled={busy || !manifest} onClick={e => { if (e.currentTarget.form?.reportValidity()) void submit(true); }}>Test connection</button><button type="button" onClick={close}>Cancel</button></div>{notice && <p role="status">{notice}</p>}
   </form></section></Dialog>;
 }
 function Explorer({ sessionId, manifest, onAction, onError }: { sessionId: string; manifest: DriverManifest; onAction: (node: ExplorerNode, action: NodeAction) => void; onError: (error: unknown) => void }) {

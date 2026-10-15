@@ -19,3 +19,12 @@ pub fn viewer_bench_write(
     }
     storage::write_private(&host.paths.config.join("perf.json"), &bytes)
 }
+#[tauri::command]
+pub fn viewer_bench_target() -> String {
+    let target = std::env::var("DBTOOL_BENCH_TARGET").unwrap_or_default();
+    if viewer_bench_enabled() && matches!(target.as_str(), "graph" | "workspace" | "idle") {
+        target
+    } else {
+        "all".into()
+    }
+}

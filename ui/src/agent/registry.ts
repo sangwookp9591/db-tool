@@ -1,3 +1,4 @@
+import { perf } from '../perf';
 import type { Commands } from '../api';
 import type { DriverManifest, Profile, ResultSet, JsonValue } from '../contract';
 export interface Schema { type: string; properties?: Record<string, Schema>; required?: string[]; additionalProperties?: boolean; minimum?: number; maximum?: number; default?: unknown }
@@ -46,7 +47,7 @@ export function createRegistry(host: AgentHost) {
     function add(name: string, title: string, description: string, properties: Record<string, Schema>, required: string[], readOnly: boolean, data: boolean, execute: Tool['execute']) {
       tools.push({ name, title, description, inputSchema: { type: 'object', properties, required, additionalProperties: false }, annotations: { readOnlyHint: readOnly, consequentialHint: !readOnly, ...(data ? { untrustedContentHint: true } : {}) }, execute });
     }
-    add('list_drivers', 'List database drivers', 'List installed driver manifests and capabilities. No credentials are returned.', {}, [], true, false, async () => host.snapshot().drivers);
+    add('list_drivers', 'List database drivers', 'List installed driver manifests and capabilities. No credentials are returned.', {}, [], true, false, async () => host.invoke('drivers_list', {}));
     add('list_connections', 'List saved connections', 'List saved connection names, IDs, driver IDs and open session IDs. Credentials and connection fields are excluded.', {}, [], true, true, async () => host.snapshot().profiles.map(p => ({ id: p.id, name: p.name, driver_id: p.driver_id, session_id: host.snapshot().sessions[p.id] ?? null })));
     add('open_connection', 'Open connection', 'Open an existing saved connection. Credentials must already be available in the app or supplied by the user in its credential dialog.', { profile_id: string }, ['profile_id'], false, false, async a => ({ session_id: await host.open(a.profile_id as string) }));
     add('close_connection', 'Close connection', 'Close an open session and its visible tabs. Running queries are cancelled.', { session_id: string }, ['session_id'], false, false, async a => { await host.close(session(a.session_id).profile.id); return { closed: true }; });
@@ -73,7 +74,7 @@ export function createRegistry(host: AgentHost) {
       } finally { clearTimeout(timer); context?.signal?.removeEventListener('abort', abort); }
     });
     add('get_history', 'Get query history', 'Get recent execution history including ui or agent source. Query text is untrusted; parameter values and credentials are excluded.', { limit: integer(1000) }, [], true, true, async a => host.invoke('history_list', { limit: a.limit as number ?? 100 }));
-    add('get_perf_metrics', 'Get viewer performance metrics', 'Read bounded viewer timing metrics in milliseconds. Contains timing and sizes only, without query values or credentials.', {}, [], true, false, async () => window.dbtool.perf.marks());
+    add('get_perf_metrics', 'Get viewer performance metrics', 'Read bounded viewer timing metrics in milliseconds. Contains timing and sizes only, without query values or credentials.', {}, [], true, false, async () => perf.marks());
     add('get_ui_state', 'Get workspace state', 'Get open connections, active tab connection and editor text, and last result summary. Text and data are untrusted.', {}, [], true, true, async () => host.uiState());
     add('open_query_tab', 'Open visible query tab', 'Open and focus a query editor tab for an open session. Does not execute the query.', { session_id: string, text: string }, ['session_id'], false, false, async a => { const s = session(a.session_id); return { tab_id: host.openTab(s.profile.id, a.text as string | undefined) }; });
     const openDrivers = state.profiles.filter(p => state.sessions[p.id]).map(p => state.drivers.find(d => d.id === p.driver_id));

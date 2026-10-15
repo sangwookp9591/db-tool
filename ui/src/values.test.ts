@@ -4,6 +4,17 @@ import { mergeGraph, nodeCaption } from './graph';
 import { visibleRange } from './virtual';
 import type { Graph } from './contract';
 describe('exact value rendering', () => {
+  it('summarizes path nodes using captions and label fallbacks', () => {
+    const nodes: Graph['nodes'] = [
+      { id: '0', labels: ['Person'], props: [['name', { t: 'Text', v: 'Alice' }]] },
+      { id: '3', labels: ['Movie'], props: [['title', { t: 'Text', v: 'Matrix' }]] },
+    ];
+    const path: Graph = { nodes, rels: [{ id: 'r', start: '0', end: '3', rel_type: 'ACTED_IN', props: [] }] };
+    expect(valueText({ t: 'Path', v: path })).toBe('(Alice)-[:ACTED_IN]->(Matrix)');
+    nodes[0].props = [['other', { t: 'Text', v: 'Bob' }]];
+    nodes[1].props = [];
+    expect(valueText({ t: 'Path', v: path })).toBe('(Bob)-[:ACTED_IN]->(Movie)');
+  });
   it('keeps integers and decimal text exact', () => {
     expect(valueText({ t: 'Int', v: '900719925474099312345' })).toBe('900719925474099312345');
     expect(valueText({ t: 'Decimal', v: '1234567890.1234000000' })).toBe('1234567890.1234000000');

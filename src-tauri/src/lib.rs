@@ -341,7 +341,7 @@ async fn execute_stream(
     run_id: String,
     req: ExecRequest,
     on_event: tauri::ipc::Channel<stream::StreamEvent>,
-) -> CommandResult<()> {
+) -> CommandResult<Vec<ResultSet>> {
     execute_impl(
         host,
         session_id,
@@ -351,7 +351,6 @@ async fn execute_stream(
         HistorySource::Ui,
     )
     .await
-    .map(|_| ())
 }
 #[tauri::command]
 async fn execute_agent(
@@ -409,7 +408,12 @@ async fn execute_impl(
     }
     // shortcut: drivers collect before host chunking; add a driver sink when database latency dominates first paint.
     if let Some(channel) = channel {
-        stream::send_results(result?, &channel, &run.token).await?;
+        let results = result?;
+        // WKWebView Channel delivery regressed graph/small results; preserve direct invoke for those measured cases.
+        if results.iter().any(|r| r.graph.is_some()) || results.iter().all(|r| r.table.as_ref().is_none_or(|t| t.rows.len() <= 2000)) {
+            return Ok(results);
+        }
+        stream::send_results(results, &channel, &run.token).await?;
         Ok(vec![])
     } else {
         result
@@ -475,15 +479,15 @@ pub fn run() {
                 app.path().app_data_dir()?,
                 app.path().app_log_dir()?,
             )?;
-            let log = std::fs::OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(paths.log.join("db-tool.log"))?;
+            let log = storage::open_private_log(&paths.log.join("db-tool.log"))?;
             file_logger(log)
                 .try_init()
                 .map_err(|_| "Cannot initialize file logging")?;
             let config = paths.config.clone();
             let enabled = agent_bridge::Bridge::configured(&config)?;
+            if viewer_bench::viewer_bench_enabled() {
+                if let Some(window) = app.get_webview_window("main") { window.set_always_on_top(true)?; window.set_focus()?; }
+            }
             app.manage(Host::new(paths));
             app.manage(agent_bridge::Bridge::default());
             if enabled {
@@ -511,6 +515,7 @@ pub fn run() {
             agent_bridge::agent_bridge_reply,
             execute_stream,
             viewer_bench::viewer_bench_enabled,
+            viewer_bench::viewer_bench_target,
             viewer_bench::viewer_bench_write,
             cancel,
             expand,

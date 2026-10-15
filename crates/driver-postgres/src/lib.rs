@@ -139,6 +139,7 @@ impl Driver for PostgresDriver {
         let session = PgSession {
             client,
             tls,
+            cancel_address: (field("host", "localhost"), pg.get_ports()[0]),
             state: Mutex::new(TxState::default()),
             closed: AtomicBool::new(false),
             connection: task.abort_handle(),
@@ -156,6 +157,7 @@ struct TxState {
 pub struct PgSession {
     client: Client,
     tls: MakeTlsConnector,
+    cancel_address: (String, u16),
     state: Mutex<TxState>,
     closed: AtomicBool,
     connection: tokio::task::AbortHandle,
@@ -169,6 +171,43 @@ impl Drop for PgSession {
 impl PgSession {
     fn error(&self, e: tokio_postgres::Error) -> DbError {
         pg_error(e, self.secret.as_deref())
+    }
+    async fn cancel_and_wait(&self) -> Result<(), DbError> {
+        use tokio::io::AsyncReadExt;
+        use tokio_postgres::tls::MakeTlsConnect;
+        let (host, port) = &self.cancel_address;
+        let socket = tokio::net::TcpStream::connect((host.as_str(), *port))
+            .await
+            .map_err(|_| DbError::internal("Cannot connect cancellation socket"))?;
+        let raw = socket
+            .into_std()
+            .map_err(|_| DbError::internal("Cannot retain cancellation socket"))?;
+        let mut acknowledgement = tokio::net::TcpStream::from_std(
+            raw.try_clone()
+                .map_err(|_| DbError::internal("Cannot retain cancellation socket"))?,
+        )
+        .map_err(|_| DbError::internal("Cannot retain cancellation socket"))?;
+        let socket = tokio::net::TcpStream::from_std(raw)
+            .map_err(|_| DbError::internal("Cannot restore cancellation socket"))?;
+        let tls = <MakeTlsConnector as MakeTlsConnect<tokio::net::TcpStream>>::make_tls_connect(
+            &mut self.tls.clone(),
+            host,
+        )
+        .map_err(|_| DbError::internal("Cannot initialize cancellation TLS"))?;
+        self.client
+            .cancel_token()
+            .cancel_query_raw(socket, tls)
+            .await
+            .map_err(|e| self.error(e))?;
+        // PostgreSQL closes this socket after processing CancelRequest; flush alone is not an acknowledgement.
+        let mut byte = [0];
+        while acknowledgement
+            .read(&mut byte)
+            .await
+            .map_err(|_| DbError::internal("Cannot await cancellation"))?
+            != 0
+        {}
+        Ok(())
     }
     async fn run(
         &self,
@@ -425,24 +464,47 @@ impl PgSession {
         if cancel.is_cancelled() {
             return Err(DbError::new(ErrorKind::Cancelled, "Execution cancelled"));
         }
-        let future = self.run_guarded(req, &mut state, &cancel);
-        tokio::pin!(future);
-        let kind = tokio::select! {
-            biased;
-            _=cancel.cancelled()=>ErrorKind::Cancelled,
-            _=&mut deadline=>ErrorKind::Timeout,
-            result=&mut future=>return result,
+        let mut sent_cancel = false;
+        let kind = {
+            let future = self.run_guarded(req, &mut state, &cancel);
+            tokio::pin!(future);
+            let kind = tokio::select! {
+                biased;
+                _=cancel.cancelled()=>ErrorKind::Cancelled,
+                _=&mut deadline=>ErrorKind::Timeout,
+                result=&mut future=>return result,
+            };
+            cancel.cancel();
+            // Retry across protocol boundaries: a cancel that arrives while the backend is idle is ignored.
+            let mut retry = tokio::time::interval(Duration::from_millis(50));
+            loop {
+                tokio::select! {
+                    biased;
+                    result = &mut future => { let _ = result; break; },
+                    _ = retry.tick() => {
+                        sent_cancel = true;
+                        if !matches!(tokio::time::timeout(Duration::from_secs(3), self.cancel_and_wait()).await, Ok(Ok(()))) {
+                            self.connection.abort();
+                            self.closed.store(true, Ordering::Release);
+                        }
+                    }
+                }
+            }
+            kind
         };
-        cancel.cancel();
-        // Retry across protocol boundaries: a cancel that arrives while the backend is idle is ignored.
-        let mut retry = tokio::time::interval(Duration::from_millis(50));
-        loop {
-            tokio::select! {
-                result = &mut future => { let _ = result; break; },
-                _ = retry.tick() => {
-                    if self.client.cancel_token().cancel_query(self.tls.clone()).await.is_err() {
+        if sent_cancel && !self.closed.load(Ordering::Acquire) {
+            // Drain late cancel responses while this execution still owns the session lock.
+            for attempt in 0..3 {
+                match self.client.simple_query("SELECT 1").await {
+                    Ok(_) => break,
+                    Err(e) if e.code().is_some_and(|c| c.code() == "25P02") => break,
+                    Err(e) if e.code().is_some_and(|c| c.code() == "57014") && attempt < 2 => {
+                        continue
+                    }
+                    Err(_) => {
                         self.connection.abort();
                         self.closed.store(true, Ordering::Release);
+                        break;
                     }
                 }
             }

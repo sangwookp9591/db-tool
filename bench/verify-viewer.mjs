@@ -2,6 +2,7 @@ import { chromium } from '../ui/node_modules/playwright/index.mjs';
 import assert from 'node:assert/strict';
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+await page.addInitScript(() => { window.__workerMessages = 0; const Base = window.Worker; window.Worker = class extends Base { constructor(...args) { super(...args); this.addEventListener('message', () => window.__workerMessages++); } }; });
 const errors = []; page.on('pageerror', e => errors.push(e.message));
 await page.goto('http://127.0.0.1:1424/viewer-bench.html');
 await page.waitForFunction(() => window.dbtool?.perf);
@@ -29,5 +30,26 @@ await page.locator('[aria-label="Result views"] button').filter({ hasText: /^Tab
 assert.equal(await page.locator('.virtual-scroll:visible').evaluate(el => el.scrollTop), 500);
 await page.locator('[aria-label="Result views"] button').filter({ hasText: /^Graph$/ }).first().click();
 assert.equal(await page.evaluate(() => window.__canvas === document.querySelector('canvas')), true);
+await page.waitForFunction(() => window.dbtool.perf.marks().some(m => m.name === 'graph-stable'));
+const workerMessages = await page.evaluate(() => window.__workerMessages);
+await page.locator('[aria-label="Result views"] button').filter({ hasText: /^Table$/ }).first().click();
+await page.locator('[aria-label="Result views"] button').filter({ hasText: /^Graph$/ }).first().click();
+await page.evaluate(async () => { await new Promise(requestAnimationFrame); await new Promise(requestAnimationFrame); });
+assert.equal(await page.evaluate(() => window.__workerMessages), workerMessages, 'Stable graph must not recompute on re-entry');
 await page.screenshot({ path: 'bench/viewer-verified.png' });
+await page.goto('http://127.0.0.1:1424'); await page.waitForLoadState('networkidle');
+await page.locator('.connection-actions button').first().click();
+await page.waitForFunction(() => window.dbtool.perf.marks().some(m => m.name === 'new-query-tab'));
+const splitter = page.getByRole('separator', { name: 'Resize editor and results' });
+const initialPane = await splitter.getAttribute('aria-valuenow'); await splitter.focus(); await page.keyboard.press('ArrowUp');
+const resizedPane = await splitter.getAttribute('aria-valuenow'); assert.notEqual(resizedPane, initialPane);
+await page.getByRole('button', { name: '＋ Query · SQL', exact: true }).click();
+assert.notEqual(await page.locator('.tab-body:not([hidden]) [role=separator]').getAttribute('aria-valuenow'), resizedPane);
+await page.locator('.workspace-tabs [role=tab]').first().click();
+assert.equal(await page.locator('.tab-body:not([hidden]) [role=separator]').getAttribute('aria-valuenow'), resizedPane);
+assert.ok(await page.locator('.tab-body:not([hidden]) .results-wrap').evaluate(el => el.getBoundingClientRect().height) >= 240);
+
+const metrics = await page.evaluate(() => window.dbtool.agent.callTool('get_perf_metrics', {}));
+assert.ok(Array.isArray(metrics) && metrics.some(m => m.name === 'new-query-tab'));
+
 await browser.close(); assert.deepEqual(errors, []); console.log('Viewer DOM, exact values, index sorting/filtering and keep-alive verified');

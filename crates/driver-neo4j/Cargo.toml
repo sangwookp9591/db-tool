@@ -10,6 +10,6 @@ async-trait.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
-neo4rs = { version = "=0.9.0-rc.10", features = ["unstable-v1"] }
+neo4rs = { path = "../../vendor/neo4rs", version = "=0.9.0-rc.10", features = ["unstable-v1"] }
 chrono = "0.4"
 url = "2"

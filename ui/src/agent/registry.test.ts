@@ -11,6 +11,15 @@ function setup(readOnly = true) {
   return { state, host, invoke, approve, registry, api };
 }
 describe('agent registry', () => {
+  it('loads manifests from the host before the UI snapshot is ready', async () => {
+    const { state, invoke, api } = setup(); const drivers = state.drivers; state.drivers = [];
+    let ready!: (value: DriverManifest[]) => void;
+    invoke.mockReturnValue(new Promise(resolve => { ready = resolve; }));
+    const request = api.callTool('list_drivers', {});
+    ready(drivers);
+    expect(await request).toEqual(drivers);
+    expect(invoke).toHaveBeenCalledWith('drivers_list', {});
+  });
   it('derives optional tools from open session capabilities and rechecks target capability', async () => {
     const { state, api } = setup(); expect(api.listTools().map(t => t.name)).not.toContain('browse');
     state.sessions.p = 's'; expect(api.listTools().map(t => t.name)).toContain('browse'); expect(api.listTools().map(t => t.name)).not.toContain('expand_node');

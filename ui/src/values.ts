@@ -1,4 +1,5 @@
 import type { Value } from './contract';
+import { nodeCaption } from './graph';
 
 // Tokenize strings before whitespace: never decode numbers or strings from JSON.
 export function formatJson(raw: string, pretty = true): string {
@@ -33,7 +34,7 @@ export function valueText(value: Value, detail = false): string {
     case 'Map': return `{${propsText(value.v)}}`;
     case 'Node': return `(:${value.v.labels.join(':')} {${propsText(value.v.props)}})`;
     case 'Rel': return `[:${value.v.rel_type}]`;
-    case 'Path': return value.v.nodes.map((n, i) => `(${n.id})${value.v.rels[i] ? `-[:${value.v.rels[i].rel_type}]->` : ''}`).join('');
+    case 'Path': return value.v.nodes.map((n, i) => `(${nodeCaption(n)})${value.v.rels[i] ? `-[:${value.v.rels[i].rel_type}]->` : ''}`).join('');
     case 'Point': return `Point(${value.v.x}, ${value.v.y}${value.v.z === null ? '' : `, ${value.v.z}`}; srid=${value.v.srid})`;
     case 'Other': return value.v.text;
     default: return String(value.v);

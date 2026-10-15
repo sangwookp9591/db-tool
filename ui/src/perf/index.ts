@@ -30,3 +30,6 @@ export const perf = {
 };
 declare global { interface DBTool { perf: typeof perf } interface Window { dbtool: DBTool } }
 if (typeof window !== 'undefined') window.dbtool = { ...window.dbtool, perf };
+const graphProbes = new Map<symbol, () => { frames: number; positions: Float32Array; ready: boolean }>();
+export function registerGraphProbe(read: () => { frames: number; positions: Float32Array; ready: boolean }) { const key = Symbol(); graphProbes.set(key, read); return () => { graphProbes.delete(key); }; }
+export function readGraphProbes() { return [...graphProbes.values()].map(read => read()); }

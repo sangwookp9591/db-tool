@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import type { ComponentType } from 'preact';
 import type { DbError, ResultSet } from './contract';
 import { VirtualTable } from './VirtualTable';
@@ -37,5 +37,16 @@ function ResultView({ active = true, result, sessionId, canExpand, graphLimit, r
     {opened.has('JSON') && <div class="documents" hidden={view !== 'JSON'}>{result.documents?.map((value, i) => <pre key={i}>{valueText(value, true)}</pre>)}</div>}
     {opened.has('Message') && <pre class="message-result" hidden={view !== 'Message'}>{result.message}</pre>}
     {!available.length && <p>No result views.</p>}
-  </div><div class="result-status" role="status"><span>{result.elapsed_ms.toLocaleString()} ms</span><span>{result.row_count.toLocaleString()} rows</span>{result.affected !== null && <span>affected: {result.affected.toLocaleString()}</span>}{result.truncated && <span class="truncated">한도 {result.table ? rowLimit : graphLimit}에서 잘림{result.table && result.graph ? ` (graph limit ${graphLimit})` : ''}</span>}</div></>;
+  </div><ResultStatus result={result} rowLimit={rowLimit} graphLimit={graphLimit} /></>;
+}
+
+function ResultStatus({ result, rowLimit, graphLimit }: { result: ResultSet; rowLimit: number; graphLimit: number }) {
+  const current = { elapsed: result.elapsed_ms, rows: result.row_count };
+  const latest = useRef(current); latest.current = current;
+  const [counter, setCounter] = useState(current);
+  const last = useRef(0), timer = useRef(0);
+  useEffect(() => { if (!timer.current) timer.current = window.setTimeout(() => { timer.current = 0; last.current = performance.now(); setCounter(latest.current); }, Math.max(0, 100 - (performance.now() - last.current))); }, [result.elapsed_ms, result.row_count]);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  useEffect(() => { setCounter(latest.current); last.current = performance.now(); }, [result.table?.columns, result.graph, result.documents, result.message]);
+  return <div class="result-status" role="status"><span>{counter.elapsed.toLocaleString()} ms</span><span>{counter.rows.toLocaleString()} rows</span>{result.affected !== null && <span>affected: {result.affected.toLocaleString()}</span>}{result.truncated && <span class="truncated">한도 {result.table ? rowLimit : graphLimit}에서 잘림{result.table && result.graph ? ` (graph limit ${graphLimit})` : ''}</span>}</div>;
 }

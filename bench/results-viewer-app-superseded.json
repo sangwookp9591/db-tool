@@ -1,0 +1,80 @@
+{
+  "environment": {
+    "at": "2026-10-15T04:57:59.848Z",
+    "mode": "Tauri debug / WKWebView",
+    "ports": [
+      55432,
+      57687
+    ],
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)"
+  },
+  "fixtureLabel": "DbtP_1792040279848",
+  "results": {
+    "table-1000-10-legacy": [
+      {
+        "first": 99,
+        "frames": {
+          "max": 61,
+          "p50": 33,
+          "p95": 54,
+          "samples": 60
+        },
+        "loaded": 46
+      },
+      {
+        "first": 66,
+        "frames": {
+          "max": 48,
+          "p50": 33,
+          "p95": 34,
+          "samples": 60
+        },
+        "loaded": 45
+      },
+      {
+        "first": 67,
+        "frames": {
+          "max": 36,
+          "p50": 33,
+          "p95": 34,
+          "samples": 60
+        },
+        "loaded": 37
+      }
+    ],
+    "table-10000-10-legacy": [
+      {
+        "first": 307,
+        "frames": {
+          "max": 90,
+          "p50": 33,
+          "p95": 37,
+          "samples": 60
+        },
+        "loaded": 277
+      },
+      {
+        "first": 691,
+        "frames": {
+          "max": 35,
+          "p50": 33,
+          "p95": 34,
+          "samples": 60
+        },
+        "loaded": 659
+      },
+      {
+        "first": 292,
+        "frames": {
+          "max": 41,
+          "p50": 33,
+          "p95": 35,
+          "samples": 60
+        },
+        "loaded": 267
+      }
+    ]
+  },
+  "complete": false,
+  "error": "Superseded by final UI-expansion benchmark; PostgreSQL matrix already captured in initial run"
+}

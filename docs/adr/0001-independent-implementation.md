@@ -50,3 +50,4 @@ Neo4j Browser (`neo4j/neo4j-browser`): **GPL-3.0**. 코드를 재사용하면 �
 | Tabularis | Apache-2.0 | 동작 참고 | 기능 플래그로 UI 분기, keyring crate로 자격 증명 보관, 실행 중 작업 abort |
 | Neo4j Browser | GPL-3.0 | 동작 참고만 (코드 미사용) | 그래프/표 결과 전환, 노드 더블클릭 시 이웃 확장, 초기 표시 노드 한도 |
 | Beekeeper Studio / DbGate | GPL-3.0 / GPL-3.0 | 미사용 | — |
+| neo4rs 0.9.0-rc.10 | MIT | 코드 재사용(vendored, 패치) | fields 순서 노출 getter 추가; Bolt RUN 헤더와 0행 컬럼 순서 보존 |

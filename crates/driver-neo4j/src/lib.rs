@@ -189,7 +189,17 @@ impl NeoSession {
             graph.execute(q).await
         }
         .map_err(|e| self.error(e))?;
-        let mut columns: Vec<Column> = Vec::new();
+        let mut columns: Vec<Column> = stream
+            .fields()
+            .iter()
+            .map(|field| match field {
+                BoltType::String(name) => Ok(Column {
+                    name: name.value.clone(),
+                    type_name: "Null".into(),
+                }),
+                _ => Err(DbError::query("Invalid Bolt column name")),
+            })
+            .collect::<Result<_, DbError>>()?;
         let mut rows = Vec::new();
         let mut collector = Collector::default();
         let mut truncated = false;
@@ -197,21 +207,6 @@ impl NeoSession {
             if rows.len() == row_limit {
                 truncated = true;
                 break;
-            }
-            if columns.is_empty() {
-                let mut keys = row
-                    .keys()
-                    .into_iter()
-                    .map(|s| s.value.clone())
-                    .collect::<Vec<_>>();
-                keys.sort();
-                columns = keys
-                    .into_iter()
-                    .map(|name| Column {
-                        name,
-                        type_name: "Null".into(),
-                    })
-                    .collect();
             }
             let mut cells = Vec::with_capacity(columns.len());
             for col in &mut columns {

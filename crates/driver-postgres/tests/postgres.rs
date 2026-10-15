@@ -419,3 +419,35 @@ async fn read_only_execution_is_enforced_and_cleans_up() {
     }
     cleaned.unwrap();
 }
+
+#[tokio::test]
+async fn cancellation_races_do_not_poison_next_query() {
+    let Some(cfg) = config() else {
+        return;
+    };
+    let session = PostgresDriver::new().connect(&cfg).await.unwrap();
+    for i in 0..200 {
+        let token = CancelToken::new();
+        let trigger = token.clone();
+        let stop = tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_micros((i % 10) * 100)).await;
+            trigger.cancel();
+        });
+        let text = if i % 2 == 0 {
+            "SELECT 1"
+        } else {
+            "SELECT pg_sleep(0.001)"
+        };
+        let result = session.execute(&req(text), token).await;
+        if let Err(error) = result {
+            assert_eq!(error.kind, ErrorKind::Cancelled);
+        }
+        stop.await.unwrap();
+        assert_eq!(
+            run(&*session, "SELECT 42").await[0].row_count,
+            1,
+            "iteration {i}"
+        );
+    }
+    session.close().await;
+}

@@ -95,6 +95,23 @@ pub fn read_history(path: &Path) -> Result<Vec<HistoryEntry>, DbError> {
         })
         .collect()
 }
+pub fn open_private_log(path: &Path) -> std::io::Result<std::fs::File> {
+    let mut options = std::fs::OpenOptions::new();
+    options.create(true).append(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let file = options.open(path)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        file.set_permissions(std::fs::Permissions::from_mode(0o600))?;
+    }
+    Ok(file)
+}
+
 pub fn write_private(path: &Path, data: &[u8]) -> Result<(), DbError> {
     use std::io::Write;
     let temp = path.with_extension(format!("{}.tmp", uuid::Uuid::new_v4()));
@@ -144,6 +161,19 @@ pub fn keychain_set(id: &str, value: Option<&str>) -> Result<(), DbError> {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(unix)]
+    #[test]
+    fn log_permissions_are_private_for_new_and_existing_files() {
+        use std::os::unix::fs::PermissionsExt;
+        let path = std::env::temp_dir().join(format!("dbtool-log-mode-{}", uuid::Uuid::new_v4()));
+        drop(super::open_private_log(&path).unwrap());
+        assert_eq!(std::fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o600);
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
+        drop(super::open_private_log(&path).unwrap());
+        assert_eq!(std::fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o600);
+        std::fs::remove_file(path).unwrap();
+    }
+
     use super::*;
     #[test]
     fn profile_secrets_and_atomic_files() {

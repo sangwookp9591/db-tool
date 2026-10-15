@@ -62,3 +62,13 @@ it('sorts decimals exactly, including sign, fractional scale, exponent and zero'
   const table = { columns: [{ name: 'money', type_name: 'numeric' }], rows: values.map(v => [{ t: 'Decimal' as const, v }]) };
   expect([...tableIndex(table, '', 0)].map(i => values[i])).toEqual(['-10.01', '-9.99', '-0', '0.000', '1.2300', '1.23', '9.9', '10.01', '1e2']);
 });
+import { fitGraph, relationOffsets, edgeCurve, curvePoint, curveDistance } from '../graph';
+it('fits all nodes with padding and separates parallel, reverse and self-loop relations', () => {
+  const nodes = [{ id: 'a', x: -2000, y: -1000 }, { id: 'b', x: 3000, y: 900 }], fit = fitGraph(nodes, 800, 300);
+  for (const n of nodes) { expect(Math.abs(n.x * fit.scale + fit.x)).toBeLessThan(400 - 40); expect(Math.abs(n.y * fit.scale + fit.y)).toBeLessThan(150 - 40); }
+  const rels = [{ id: 'r1', start: 'a', end: 'b', rel_type: 'X', props: [] }, { id: 'r2', start: 'b', end: 'a', rel_type: 'Y', props: [] }];
+  const offsets = relationOffsets(rels), first = edgeCurve(nodes[0], nodes[1], offsets.get('r1')!), second = edgeCurve(nodes[1], nodes[0], offsets.get('r2')!);
+  expect(Math.hypot(curvePoint(first, .5).x - curvePoint(second, .5).x, curvePoint(first, .5).y - curvePoint(second, .5).y)).toBeGreaterThan(25);
+  expect(curveDistance(first, curvePoint(first, .5))).toBeLessThan(.001);
+  expect(curvePoint(edgeCurve(nodes[0], nodes[0], 24, true), .5).y).toBeLessThan(nodes[0].y - 40);
+});
