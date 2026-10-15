@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/dbcore", "crates/driver-postgres", "src-tauri"]
+members = ["crates/dbcore", "crates/driver-postgres", "crates/driver-neo4j", "src-tauri"]
 resolver = "2"
 
 [workspace.package]
