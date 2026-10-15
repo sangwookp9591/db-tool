@@ -72,3 +72,21 @@ it('fits all nodes with padding and separates parallel, reverse and self-loop re
   expect(curveDistance(first, curvePoint(first, .5))).toBeLessThan(.001);
   expect(curvePoint(edgeCurve(nodes[0], nodes[0], 24, true), .5).y).toBeLessThan(nodes[0].y - 40);
 });
+
+import { bitmapTransform } from '../graph';
+it('maps the full-scene bitmap to the exact camera through pan and zoom', () => {
+  const base = { x: -150, y: 30, scale: .25 }, width = 1400, height = 900;
+  for (const camera of [base, { x: 280, y: -140, scale: 2 }, { x: -800, y: 600, scale: .001 }]) {
+    const t = bitmapTransform(base, camera, width, height);
+    for (const p of [{ x: -1000, y: 2000 }, { x: 0, y: 0 }]) {
+      expect((width / 2 + base.x + p.x * base.scale) * t.scale + t.x).toBeCloseTo(width / 2 + camera.x + p.x * camera.scale);
+      expect((height / 2 + base.y + p.y * base.scale) * t.scale + t.y).toBeCloseTo(height / 2 + camera.y + p.y * camera.scale);
+    }
+  }
+});
+
+it('fits dense edge bounds without exceeding the JavaScript argument limit', () => {
+  const points = Array.from({ length: 200000 }, (_, i) => ({ x: i, y: -i }));
+  const fit = fitGraph(points, 1440, 1000);
+  expect(Number.isFinite(fit.x) && Number.isFinite(fit.y) && Number.isFinite(fit.scale)).toBe(true);
+});

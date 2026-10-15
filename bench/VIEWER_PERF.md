@@ -152,3 +152,71 @@ Reproduce browser: prepare immutable before/after UI trees on1425/1426 with the 
 Native: pnpm --dir ui build; TAURI_CONFIG='{"build":{"devUrl":null}}' CARGO_TARGET_DIR=target-w4 cargo build -p db-tool; DBTOOL_BINARY=target-w4/debug/db-tool node bench/viewer-bench-app.mjs [matrix|small|graph|workspace|idle]. No argument runs the complete matrix, separate processes are serialized by a lock. Both config-dir aliases point to a private temporary directory and bridge is disabled. Each exact DbtP_ label and temporary profile is removed in finally. Reports retain uptime and raw samples; native graphics tests require a visible app window.
 
 Implementation references: [Tauri Channels](https://v2.tauri.app/develop/calling-frontend/#channels), [d3-force simulation](https://d3js.org/d3-force/simulation).
+
+## W4b 팬·줌
+
+2026-10-15. 시작 기준은 `8c0bb73`, 전체 시작 상태는 [viewer-w4b-baseline.txt](viewer-w4b-baseline.txt)에 보존했다. 실행 중 외부에서 HEAD가 `d92c751`로 이동했으며 이 워커는 커밋하지 않았다. before GraphView는 `d92c751`의 W4 정적 뷰어와 SHA-256이 일치한다. 기존 변경과 외부 문서 삭제는 보존했다.
+
+### 프로파일 원인과 적용 범위
+
+- 먼저 최적화 없이 단계별 `performance.measure`를 넣었다. [최초 프로파일](results-viewer-w4b-profile-before.json)에서 5,000노드 곡선 계산·culling p95 2.7ms, 전체 JS 그리기 호출 p95 4.5ms인데 프레임 간격 p95는 183.4ms였다. 측정한 기본 fit 배율에서는 라벨·화살표 분기가 실행되지 않았다. quadtree는 원래 좌표가 바뀔 때만 생성되며 팬·줌 경로에서 생성하지 않는다. 색상별 노드 일괄 그리기도 이미 유지되고 있었다.
+
+- [Chromium before trace](viewer-w4b-trace-before.json.gz)에서 1,000노드 `LayerTreeHost::DoUpdateLayers`는 67회 합계 3,266.8ms, 최대 102.15ms였다. [after trace](viewer-w4b-trace-after-trace.json.gz)는 69회 합계 329.1ms, 최대 45.00ms였다. 벡터 Canvas의 표면 갱신 경로가 주된 병목이라는 판단을 뒷받침한다. trace는 진단용 개별 실행이며 아래 교대 비교와 표본을 섞지 않았다. [집계 및 소스 해시](results-viewer-w4b-summary.json), [after 단계 프로파일](results-viewer-w4b-profile-after-trace.json).
+
+- **적용:** 입력 중 전체 장면을 한 번 그린 비트맵을 카메라 변환으로 표시하고, 마지막 입력 120ms 뒤 정밀 벡터 프레임을 한 번 그린다. 노드와 곡선 제어점의 전체 bounds로 캐시하므로 직전 viewport 밖으로 팬할 때 이전 화면의 잘린 스냅샷을 사용하지 않는다. 장면·좌표·검색·테마·크기 변경 시 캐시를 무효화하고 숨김·정리 시 타이머를 취소한다. 첫 표시와 expand는 기존 벡터 경로를 사용한다.
+
+- **추가 확인 후 적용:** 검색의 카메라·강조 갱신을 `useLayoutEffect`에서 처리한다. 검색 재그리기가 속성 클릭 프레임에 겹쳤던 1,000노드 집중 비교에서 클릭 시간이 before 66.7~86.2ms, after 37.8~48.7ms였다([before](results-viewer-before-w4b-search.json), [after](results-viewer-after-w4b-search.json)). 최종 전체 측정은 이 변경을 포함한다. `fitGraph`는 많은 곡선 bounds도 인자 펼침 한도를 넘지 않도록 순회로 계산하며 200,000개 좌표 회귀 검사를 추가했다.
+
+- **되돌린 최적화는 없음.** Path2D 캐시, 추가 LOD, 텍스트 폭 캐시는 도입하지 않았다. 곡선 계산·텍스트·quadtree가 측정된 프레임 지연의 주된 원인이 아니었고, 비트맵만으로 active-frame 목표가 충족됐다. 기존 culling·색상별 batching을 유지한다.
+
+### 최종 Chromium 교대 실행
+
+환경: `{"os": "darwin 27.0.0", "cpu": "Apple M5", "arch": "arm64", "browser": "156.0.8078.4", "viewport": "1440x1000", "mode": "Vite dev / headless Chromium / alternating paired runs"}`. DPR 1, 동일 deterministic mock graph와 동일 harness를 사용했다. 고정 before/after UI 복사본을 1425/1426에서 제공하고 매 반복의 순서를 before→after, after→before, before→after로 바꿨다. 60개 교대 wheel 입력의 rAF 간격을 쓰는 W4 방법이며, 이 숫자는 wheel/zoom proxy다. 실제 포인터 pan·드래그·hit-test는 별도 기능 검사로 확인했다. 각 원자료에 실행 직전 load average와 uptime을 기록했다.
+
+[최종 before 원자료](results-viewer-before-w4b-accepted.json) · [최종 after 원자료](results-viewer-after-w4b-accepted.json). 아래 표는 이 두 complete=true 파일만 사용한다. 각 latency 셀은 3회 p50 / p95이고 p95는 3개 중 최대다.
+
+| 노드 | 실행별 팬·줌 p95 before → after | 목표 | 판정 |
+|---|---|---:|---|
+| 300 | 33.4 / 33.4 / 33.3 → 16.8 / 16.8 / 16.7 | ≤16.8ms | 충족 |
+| 1000 | 50.1 / 50.1 / 50.1 → 16.7 / 16.8 / 16.8 | ≤20ms | 충족 |
+| 5000 | 150.1 / 150.0 / 166.7 → 16.8 / 16.8 / 16.8 | ≤50ms | 충족 |
+
+| 노드 | 첫 표시 before → after | 속성 클릭 before → after | 순수 merge before → after | expand→첫 merged paint before → after |
+|---|---|---|---|---|
+| 300 | 195.00 / 229.70 → 180.80 / 200.10 | 50.00 / 50.00 → 48.80 / 49.00 | 0.20 / 0.20 → 0.20 / 0.20 | 52.40 / 58.40 → 52.80 / 53.50 |
+| 1000 | 517.00 / 521.00 → 489.80 / 575.30 | 66.60 / 99.90 → 38.30 / 38.40 | 0.20 / 0.20 → 0.30 / 0.30 | 124.80 / 173.60 → 107.20 / 107.40 |
+| 5000 | 2080.40 / 2221.60 → 2198.50 / 2217.90 | 168.10 / 202.00 → 41.80 / 42.10 | 1.20 / 1.40 → 1.00 / 1.20 | 312.60 / 351.70 → 301.60 / 331.40 |
+
+**비회귀 전체 조건은 미달이다.** 1,000노드 첫 표시 p95가 521.0→575.3ms로 늘었고, 5,000노드 첫 표시 p50도 2,080.4→2,198.5ms로 늘었다. 1,000노드 순수 merge는 계측의 0.1ms 단위에서 0.2→0.3ms다. 가장 느린 1,000노드 after 표본의 Worker workMs는 360.5ms(before 같은 반복 308.9ms), layout wall은 505.8ms(before 437.1ms)였다. Worker 코드는 변경하지 않았지만 공유 호스트의 부하 변동만으로 회귀를 배제할 수 없으므로 무회귀라고 주장하지 않는다. 속성 클릭과 expand p95는 모든 크기에서 개선됐다.
+
+**남은 상호작용 제한:** 5,000노드 after active-frame 최대는 150.0ms다. 첫 제스처의 캐시 생성 한 프레임과 입력 종료 후 정밀 rasterization 비용은 남아 있다. 깊게 줌하는 동안 fitted bitmap의 세부 정보가 일시적으로 흐려질 수 있고, 120ms idle 이후 정밀 그리기로 복원된다. p95 충족을 모든 프레임 60fps나 첫 제스처 지연 제거로 확대 해석하지 않는다.
+
+### 흔들림·유휴·CLS와 실제 입력
+
+- 최종 before/after 각 3회: 초기 표시 이후 보이는 노드 이동 평균 **0px**, 수렴 후 5초 이동 **0px**, 유휴 render frames **0**, CLS **0**, recent-input을 포함한 전체 layout-shift 합 **0**. 추가 `graph-panzoom-300/1000/5000`의 입력 종료 후 이동 및 유휴 render도 모두 **0**이었다.
+
+- [실제 입력 검증](results-viewer-w4b-verification.json)은 complete=true, 페이지 오류 0, 7개 검사 통과다. trusted pan 좌표 보존, trusted 노드 드래그 후 고정, 클릭 선택, expand 병합, 테마·resize·DPR 2 갱신, 후속 유휴 0을 확인했다. DPR 2에서 delta=0 wheel을 거쳐 정밀 프레임으로 돌아왔을 때 픽셀 SHA-256이 기존 프레임과 일치했다. 이는 해당 경로의 픽셀 복원을 확인한 것으로 모든 줌 배율의 시각 품질 보장은 아니다. [before](viewer-w4b-before.png), [pan](viewer-w4b-pan.png), [dark](viewer-w4b-dark.png).
+
+### WKWebView 및 CPU: 최종 검증 미완료
+
+- Rust 파일 범위를 늘리지 않기 위해 기존 `DBTOOL_BENCH_TARGET=idle`에 300/1,000노드 각 3회 시나리오를 추가했다. 앱 내 `fixtureGraph`를 렌더하므로 **WKWebView의 실제 UI/Canvas 측정**이며 DB transport나 실제 DB 그래프의 성능 증거는 아니다. 이 타깃은 드라이버 세션이나 DB 연결을 생성하지 않는다. 환경은 Tauri debug의 임베드 production UI, `tauri://localhost`, WebKit/605.1.15, 1280×800 창이다.
+
+- 검색 동기화 조정 전 [완료된 예비 실행](results-viewer-app-idle-w4b.json): 300노드 실행별 p95 **34 / 39 / 34ms**, 1,000노드 **34 / 34 / 34ms**. load average는 표본별 원자료에 있다. 300노드 12초 유휴 이동 0px, render 0이었으나 기존 `ps %cpu` 평균은 **2.62%**였다.
+
+- macOS `man ps`에 따르면 `%cpu`는 최대 1분 전 활동의 감쇠 평균이다. 앞선 제스처가 섞일 수 있어 누적 `ps TIME`의 실제 구간 차분을 추가했다. [중간 CPU 재측정](results-viewer-app-idle-w4b-interval.json)의 차분 값은 0.69%, 기존 감쇠 평균은 0.05%였지만 CPU 측정 시간이 14.49초로 그래프 유휴 보유 12초를 넘었다. **이 차분 값을 CPU 충족 증거에서 제외한다.**
+
+- 최종 harness는 그래프 유휴 보유를 30초로 늘리고, CPU 구간이 그 안에 완전히 들어갔는지 assert한다. 기존 `meanPercent` 의미는 유지하고 `intervalMeanPercent`에 차분 CPU를 기록한다. parser assert 2개와 JS 문법 검사는 통과했으나 최신 네이티브 실측은 이 검사까지 도달하지 못했다.
+
+- 최신 바이너리 [불완전 재실행](results-viewer-app-idle-w4b-accepted-interrupted.json)은 300노드 2개 표본 이후 120초 넘게 진행이 멈췄다. 앱 CPU 0.0%, focused UI 없음, window screenIndex null이 관측됐다. WKWebView 가시성/occlusion에 따른 rAF 중단이 의심되지만 원인을 확정하지 못했다. 이 프로세스를 종료했고 runner는 `Native app exited before benchmark completion`으로 실패했다. **최신 WKWebView 전체 300/1,000노드 비교와 최종 유휴 CPU <1%는 검증 미완료**다. 앞선 성공 실행이나 멈춘 앱의 CPU 0%를 최종 성공으로 사용하지 않는다. 안정적으로 보이는 전용 창에서 재실행해야 한다.
+
+### 검사·재현·판정
+
+- `pnpm --dir ui exec tsc --noEmit` 통과, Vitest **34/34**, `pnpm --dir ui build` 통과. `TAURI_CONFIG='{"build":{"devUrl":null}}' CARGO_TARGET_DIR=target-w4b cargo build -p db-tool` 통과. 실제 포인터 브라우저 검사 7/7 통과. `git diff --check` 통과. UI의 DB driver id 리터럴 분기 grep은 mock/tests 제외 **0**이다. 전체 Rust/DB 통합 테스트는 실행하지 않았다.
+
+- Chromium: `/tmp/dbtool-w4b/before-ui`와 `after-ui`는 동일 harness이며 before는 W4 GraphView/graph.ts, after는 최종 renderer다. 두 Vite 서버를 1425/1426에 실행하고 `SCENARIOS=graph-300,graph-1000,graph-5000,graph-panzoom-300,graph-panzoom-1000,graph-panzoom-5000,graph-idle-300,graph-motion-300 REPEATS=3 OUTPUT_SUFFIX=w4b-accepted node bench/viewer-bench-paired.mjs`를 실행한다. source 해시는 [집계 파일](results-viewer-w4b-summary.json)에 있다. 기본 W4 `graph-N` 시나리오를 유지했고 별도 전후 immutable 트리로 비교했다.
+
+- trace: `TRACE=1 PORT=1426 PHASE=after-trace node bench/viewer-w4b-profile.mjs`; before 포트 1425에서도 trace를 재수집할 수 있다. `graphProfile` 쿼리는 최종 GraphView의 단계별 계측을 켠다. 기능 검사: `node bench/verify-viewer-w4b.mjs`(1426, DPR 2).
+
+- 네이티브: 위 build 뒤 `DBTOOL_BINARY=target-w4b/debug/db-tool OUTPUT_SUFFIX=w4b-accepted node bench/viewer-bench-app.mjs idle`. 창을 계속 보이게 유지해야 한다. 프로필은 private temp dir, bridge는 꺼짐이며 이 idle 타깃에서 DB를 사용하지 않는다. `OUTPUT_SUFFIX`는 기존 W4 결과를 덮어쓰지 않도록 추가했다. `w4b`, `w4b-final`, `w4b-search`, `profile-bitmap` 원자료는 중간 진단이며 최종 Chromium 표에 섞지 않았다.
+
+결과: Chromium active-frame 목표 3개와 이동·유휴·CLS 0은 확인했다. 첫 표시의 완전한 비회귀와 최신 네이티브/유휴 CPU 조건은 남아 있다.

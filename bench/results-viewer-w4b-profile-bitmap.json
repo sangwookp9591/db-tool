@@ -1,0 +1,146 @@
+{
+  "at": "2026-10-15T07:08:23.670Z",
+  "load": [
+    15.255859375,
+    24.99853515625,
+    33.6259765625
+  ],
+  "browser": "156.0.8078.4",
+  "results": {
+    "300": {
+      "frames": {
+        "p50": 16.699999999999818,
+        "p95": 16.799999999999955,
+        "max": 16.800000000000182,
+        "samples": 60
+      },
+      "phases": {
+        "graph-phase-setup": {
+          "p50": 0.19999998807907104,
+          "p95": 2.5,
+          "samples": 5
+        },
+        "graph-phase-curves-cull": {
+          "p50": 0.19999998807907104,
+          "p95": 1.199999988079071,
+          "samples": 5
+        },
+        "graph-phase-edges": {
+          "p50": 0.10000002384185791,
+          "p95": 1.199999988079071,
+          "samples": 5
+        },
+        "graph-phase-arrows-edge-text": {
+          "p50": 0,
+          "p95": 0,
+          "samples": 5
+        },
+        "graph-phase-nodes": {
+          "p50": 0.10000002384185791,
+          "p95": 0.8999999761581421,
+          "samples": 5
+        },
+        "graph-phase-node-text": {
+          "p50": 0,
+          "p95": 0,
+          "samples": 5
+        },
+        "graph-render": {
+          "p50": 0.800000011920929,
+          "p95": 21,
+          "samples": 5
+        }
+      }
+    },
+    "1000": {
+      "frames": {
+        "p50": 16.699999999999818,
+        "p95": 16.699999999999818,
+        "max": 50,
+        "samples": 60
+      },
+      "phases": {
+        "graph-phase-setup": {
+          "p50": 0.19999998807907104,
+          "p95": 1.800000011920929,
+          "samples": 5
+        },
+        "graph-phase-curves-cull": {
+          "p50": 0.5,
+          "p95": 0.699999988079071,
+          "samples": 5
+        },
+        "graph-phase-edges": {
+          "p50": 0.30000001192092896,
+          "p95": 0.5,
+          "samples": 5
+        },
+        "graph-phase-arrows-edge-text": {
+          "p50": 0,
+          "p95": 0,
+          "samples": 5
+        },
+        "graph-phase-nodes": {
+          "p50": 0.3999999761581421,
+          "p95": 0.40000003576278687,
+          "samples": 5
+        },
+        "graph-phase-node-text": {
+          "p50": 0,
+          "p95": 0,
+          "samples": 5
+        },
+        "graph-render": {
+          "p50": 1.300000011920929,
+          "p95": 52.30000001192093,
+          "samples": 5
+        }
+      }
+    },
+    "5000": {
+      "frames": {
+        "p50": 16.69999999999891,
+        "p95": 16.700000000000728,
+        "max": 150,
+        "samples": 60
+      },
+      "phases": {
+        "graph-phase-setup": {
+          "p50": 0.10000002384185791,
+          "p95": 1.2000000476837158,
+          "samples": 5
+        },
+        "graph-phase-curves-cull": {
+          "p50": 2,
+          "p95": 2.600000023841858,
+          "samples": 5
+        },
+        "graph-phase-edges": {
+          "p50": 0.699999988079071,
+          "p95": 1.899999976158142,
+          "samples": 5
+        },
+        "graph-phase-arrows-edge-text": {
+          "p50": 0,
+          "p95": 0,
+          "samples": 5
+        },
+        "graph-phase-nodes": {
+          "p50": 1.0999999642372131,
+          "p95": 1.800000011920929,
+          "samples": 5
+        },
+        "graph-phase-node-text": {
+          "p50": 0,
+          "p95": 0,
+          "samples": 5
+        },
+        "graph-render": {
+          "p50": 4.399999976158142,
+          "p95": 155.5,
+          "samples": 5
+        }
+      }
+    }
+  }
+}

@@ -24,10 +24,10 @@ export function seedPositions(graph: Graph, previous: GraphPosition[]): GraphPos
     return { id: n.id, x: (parent?.x ?? 0) + Math.cos(i * 2.4) * radius, y: (parent?.y ?? 0) + Math.sin(i * 2.4) * radius };
   });
 }
-export function fitGraph(nodes: GraphPosition[], width: number, height: number, padding = 48) {
+export function fitGraph(nodes: Pick<GraphPosition, 'x' | 'y'>[], width: number, height: number, padding = 48) {
   if (!nodes.length) return { x: 0, y: 0, scale: 1 };
-  const left = Math.min(...nodes.map(n => n.x)) - 20, right = Math.max(...nodes.map(n => n.x)) + 20;
-  const top = Math.min(...nodes.map(n => n.y)) - 20, bottom = Math.max(...nodes.map(n => n.y)) + 20;
+  let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity;
+  for (const n of nodes) { left = Math.min(left, n.x - 20); right = Math.max(right, n.x + 20); top = Math.min(top, n.y - 20); bottom = Math.max(bottom, n.y + 20); }
   padding = Math.min(padding, Math.max(0, width / 6), Math.max(0, height / 6));
   const scale = Math.max(.001, Math.min(2, Math.max(1, width - padding * 2) / (right - left), Math.max(1, height - padding * 2) / (bottom - top)));
   return { x: -(left + right) / 2 * scale, y: -(top + bottom) / 2 * scale, scale };
@@ -56,4 +56,9 @@ export function curveDistance(g: EdgeCurve, point: Point) {
   let distance = Infinity, a = g.a;
   for (let i = 1; i <= 32; i++) { const b = curvePoint(g, i / 32), dx = b.x - a.x, dy = b.y - a.y, t = Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / (dx * dx + dy * dy || 1))); distance = Math.min(distance, Math.hypot(point.x - a.x - t * dx, point.y - a.y - t * dy)); a = b; }
   return distance;
+}
+
+export function bitmapTransform(base: { x: number; y: number; scale: number }, camera: typeof base, width: number, height: number) {
+  const scale = camera.scale / base.scale;
+  return { scale, x: width / 2 + camera.x - (width / 2 + base.x) * scale, y: height / 2 + camera.y - (height / 2 + base.y) * scale };
 }

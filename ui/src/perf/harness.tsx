@@ -93,3 +93,9 @@ registerScenario('graph-motion-300', async () => {
 registerScenario('reset', async () => { await clear(); return {}; });
 registerScenario('graph-probe', async () => readGraphProbes().map(p => ({ ...p, positions: Array.from(p.positions) })));
 registerScenario('graph-limit', async () => { await clear(); await graphSession(); mount([fixtureResult(null, fixtureGraph(300))], 300); await waitFor('canvas[data-ready=true]'); });
+
+for (const count of [300, 1000, 5000]) registerScenario(`graph-panzoom-${count}`, async () => {
+  await clear(); mount([fixtureResult(null, fixtureGraph(count))], count); await waitFor('canvas[data-ready=true]'); await frame(); await frame();
+  const { graphInteraction } = await import('./graphInteraction');
+  return { ...(await graphInteraction(document.querySelector('canvas')!)), metrics: perf.marks() };
+});

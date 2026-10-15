@@ -1,0 +1,134 @@
+{
+  "complete": true,
+  "environment": {
+    "at": "2026-10-15T07:17:37.428Z",
+    "href": "tauri://localhost",
+    "mode": "Tauri debug / WKWebView",
+    "target": "idle",
+    "targets": [
+      "127.0.0.1:55432",
+      "bolt://127.0.0.1:57687"
+    ],
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)"
+  },
+  "fixtureLabel": "DbtP_1792048657428",
+  "graphPanZoom": [
+    {
+      "averageMovementPx": 0,
+      "count": 300,
+      "frames": {
+        "max": 93,
+        "p50": 33,
+        "p95": 34,
+        "samples": 60
+      },
+      "idleRenderFrames": 0,
+      "input": "60 alternating synthetic wheel events; rAF intervals (same W4 method)",
+      "load": "16:17  up 3 days, 7 hrs, 20 users, load averages: 14.58 19.38 27.04",
+      "repeat": 0
+    },
+    {
+      "averageMovementPx": 0,
+      "count": 300,
+      "frames": {
+        "max": 57,
+        "p50": 33,
+        "p95": 39,
+        "samples": 60
+      },
+      "idleRenderFrames": 0,
+      "input": "60 alternating synthetic wheel events; rAF intervals (same W4 method)",
+      "load": "16:17  up 3 days, 7 hrs, 20 users, load averages: 17.90 19.99 27.21",
+      "repeat": 1
+    },
+    {
+      "averageMovementPx": 0,
+      "count": 300,
+      "frames": {
+        "max": 35,
+        "p50": 33,
+        "p95": 34,
+        "samples": 60
+      },
+      "idleRenderFrames": 0,
+      "input": "60 alternating synthetic wheel events; rAF intervals (same W4 method)",
+      "load": "16:17  up 3 days, 7 hrs, 20 users, load averages: 17.90 19.99 27.21",
+      "repeat": 2
+    },
+    {
+      "averageMovementPx": 0,
+      "count": 1000,
+      "frames": {
+        "max": 35,
+        "p50": 33,
+        "p95": 34,
+        "samples": 60
+      },
+      "idleRenderFrames": 0,
+      "input": "60 alternating synthetic wheel events; rAF intervals (same W4 method)",
+      "load": "16:17  up 3 days, 7 hrs, 20 users, load averages: 16.94 19.75 27.08",
+      "repeat": 0
+    },
+    {
+      "averageMovementPx": 0,
+      "count": 1000,
+      "frames": {
+        "max": 35,
+        "p50": 33,
+        "p95": 34,
+        "samples": 60
+      },
+      "idleRenderFrames": 0,
+      "input": "60 alternating synthetic wheel events; rAF intervals (same W4 method)",
+      "load": "16:17  up 3 days, 7 hrs, 20 users, load averages: 16.94 19.75 27.08",
+      "repeat": 1
+    },
+    {
+      "averageMovementPx": 0,
+      "count": 1000,
+      "frames": {
+        "max": 59,
+        "p50": 33,
+        "p95": 34,
+        "samples": 60
+      },
+      "idleRenderFrames": 0,
+      "input": "60 alternating synthetic wheel events; rAF intervals (same W4 method)",
+      "load": "16:17  up 3 days, 7 hrs, 20 users, load averages: 15.91 19.49 26.95",
+      "repeat": 2
+    }
+  ],
+  "idle": {
+    "averageMovementPx": 0,
+    "duration": 12000,
+    "nodes": 300,
+    "renderFrames": 0
+  },
+  "idleReady": false,
+  "results": {},
+  "stage": "ready",
+  "uptime": "16:17  up 3 days, 7 hrs, 20 users, load averages: 15.59 19.66 27.18",
+  "idleCpu": {
+    "pids": [
+      11470,
+      11650
+    ],
+    "webkitCandidates": [
+      11650
+    ],
+    "samples": [
+      0,
+      0,
+      0,
+      4.4,
+      3.8,
+      3.6,
+      4.3,
+      4.7,
+      3.4000000000000004,
+      2
+    ],
+    "meanPercent": 2.6199999999999997,
+    "ownership": "app plus new WebKit processes since spawn; conservative if another app launched WebKit concurrently"
+  }
+}

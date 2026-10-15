@@ -1,0 +1,13 @@
+{
+  "complete": true,
+  "errors": [],
+  "checks": [
+    "trusted pan leaves all graph coordinates fixed",
+    "idle precision redraw restores identical pixels at DPR 2 without a blank bitmap",
+    "canvas click after pan/zoom selects the actual centered node",
+    "trusted node drag invalidates bitmap and pins the released position",
+    "expand still merges new graph data and invalidates the bitmap",
+    "theme and viewport resize refresh the bitmap at DPR 2",
+    "no idle rendering or graph movement after interaction/expansion/resize"
+  ]
+}

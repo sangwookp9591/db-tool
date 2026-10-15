@@ -1,0 +1,78 @@
+commit 8c0bb73f05a37524ec1d780a64f6adb674923686
+Author: sangwookp9591 <sangwookp9591@gmail.com>
+Date:   Thu Oct 15 15:20:03 2026 +0900
+
+    fix: 실제 앱 검증 결함 수정(W7a) + 뷰어 성능 진행분(W4)
+    
+    W7a:
+    - Neo4j 컬럼 순서를 Bolt RUN 헤더 순서로(0행 헤더 포함). neo4rs 0.9.0-rc.10 배포본 vendoring,
+      getter 1개 패치(vendor/neo4rs/PATCHES.md), MIT 고지, ADR-0001 재사용 표 기록
+    - PG 취소 경합(늦은 CancelRequest가 다음 문장 취소) 수정 + 200회 회귀 테스트
+    - 연결 폼 취소/닫기 시 draft·secret 초기화, Path 요약 캡션 표시, 로그 파일 0600
+    코디네이터 검증: 격리 스냅샷 cargo test 전체 통과(실제 PG/Neo4j/SQLite), vitest 31/31,
+    실제 앱 E2E 20/21 + 컬럼 순서 z,a,m / 0행 헤더 x,y 확인.
+    알려진 회귀: 앱 시작 직후 브리지 요청 유실(60s 후 UserDenied) — W7b 수정 중.
+    
+    Claude-Session: https://claude.ai/code/session_01ShF3B2muvagSH5oCk9z66i
+
+On branch main
+Your branch is ahead of 'origin/main' by 8 commits.
+  (use "git push" to publish your local commits)
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   README.md
+	modified:   bench/VIEWER_PERF.md
+	modified:   bench/results-viewer-app.json
+	modified:   bench/summarize-viewer.mjs
+	modified:   bench/verify-viewer.mjs
+	modified:   bench/viewer-bench-app.mjs
+	modified:   bench/viewer-bench.mjs
+	modified:   bench/viewer-verified.png
+	modified:   docs/ARCHITECTURE.md
+	modified:   src-tauri/src/agent_bridge.rs
+	modified:   src-tauri/src/lib.rs
+	modified:   src-tauri/src/viewer_bench.rs
+	modified:   ui/src/App.tsx
+	modified:   ui/src/GraphView.tsx
+	modified:   ui/src/Results.tsx
+	modified:   ui/src/VirtualTable.tsx
+	modified:   ui/src/agent/AgentPanel.tsx
+	modified:   ui/src/agent/registry.test.ts
+	modified:   ui/src/agent/registry.ts
+	modified:   ui/src/api.ts
+	modified:   ui/src/main.tsx
+	modified:   ui/src/perf/app.tsx
+	modified:   ui/src/perf/harness.tsx
+	modified:   ui/src/perf/nativeWorkspace.tsx
+	modified:   ui/src/style.css
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	bench/agent-bridge-startup.mjs
+	bench/fixtures.json
+	bench/results-viewer-after-current-load.json
+	bench/results-viewer-after-final-graph.json
+	bench/results-viewer-after-final-limit.json
+	bench/results-viewer-after-final-table.json
+	bench/results-viewer-app-idle.json
+	bench/results-viewer-app-matrix-interrupted.json
+	bench/results-viewer-app-small.json
+	bench/results-viewer-before-current-load.json
+	bench/results-viewer-before-final-graph.json
+	bench/results-viewer-before-final-limit.json
+	bench/results-viewer-before-final-table.json
+	bench/results-viewer-cls-absolute-smoke.json
+	bench/results-viewer-cls-smoke.json
+	bench/results-viewer-idle-after-native.json
+	bench/results-viewer-idle-before-native.json
+	bench/results-w7b-bridge.json
+	bench/viewer-bench-paired.mjs
+	docs/VERIFICATION.md
+	docs/W7b_BRIDGE_READY_REPORT.md
+	docs/tasks/W4b-graph-panzoom.md
+	docs/tasks/W7b-bridge-ready.md
+	ui/src/perf/benchConfig.ts
+
+no changes added to commit (use "git add" and/or "git commit -a")

@@ -1,0 +1,78 @@
+{
+  "at": "2026-10-15T07:34:10.947Z",
+  "load": [
+    9.62109375,
+    12.5478515625,
+    17.33642578125
+  ],
+  "browser": "156.0.8078.4",
+  "results": {
+    "1000": {
+      "frames": {
+        "p50": 16.699999999999818,
+        "p95": 16.799999999999955,
+        "max": 50,
+        "samples": 60
+      },
+      "phases": {
+        "graph-phase-setup": {
+          "p50": 0.19999998807907104,
+          "p95": 3.100000023841858,
+          "samples": 5
+        },
+        "graph-phase-curves-cull": {
+          "p50": 0.800000011920929,
+          "p95": 2.100000023841858,
+          "samples": 5
+        },
+        "graph-phase-edges": {
+          "p50": 0.20000004768371582,
+          "p95": 1,
+          "samples": 5
+        },
+        "graph-phase-arrows-edge-text": {
+          "p50": 0,
+          "p95": 0,
+          "samples": 5
+        },
+        "graph-phase-nodes": {
+          "p50": 0.3999999761581421,
+          "p95": 0.8999999761581421,
+          "samples": 5
+        },
+        "graph-phase-node-text": {
+          "p50": 0,
+          "p95": 0,
+          "samples": 5
+        },
+        "graph-render": {
+          "p50": 1.7000000476837158,
+          "p95": 48.90000003576279,
+          "samples": 5
+        },
+        "graph-bitmap": {
+          "p50": 0,
+          "p95": 0.10000002384185791,
+          "samples": 59
+        }
+      }
+    }
+  },
+  "trace": {
+    "FireAnimationFrame": {
+      "totalMs": 83.55599999999981,
+      "maxMs": 49.015,
+      "count": 238
+    },
+    "Commit": {
+      "totalMs": 335.76099999999997,
+      "maxMs": 45.051,
+      "count": 165
+    },
+    "LayerTreeHost::DoUpdateLayers": {
+      "totalMs": 329.05499999999995,
+      "maxMs": 45.004,
+      "count": 69
+    }
+  }
+}

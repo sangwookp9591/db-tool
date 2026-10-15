@@ -95,14 +95,26 @@ async function run() {
       }
     }
     if (target === 'all' || target === 'workspace') { await clear(); root.remove(); const runs = []; for (let i = 0; i < 3; i++) runs.push(await (await import('./nativeWorkspace')).nativeWorkspace(manifests, config)); output.workspace = runs; }
+    if (target === 'idle') {
+      const { fixtureGraph, fixtureResult } = await import('./fixtures'), { graphInteraction } = await import('./graphInteraction');
+      const samples = [];
+      for (const count of [300, 1000]) for (let repeat = 0; repeat < 3; repeat++) {
+        await clear(); mount([fixtureResult(null, fixtureGraph(count))], count);
+        await waitFor(() => !!root.querySelector('canvas[data-ready=true]')); await frame(); await frame();
+        const load = await invoke<string | null>('viewer_bench_load');
+        samples.push({ count, repeat, load, ...(await graphInteraction(root.querySelector('canvas')!)) });
+        output.graphPanZoom = samples; await invoke('viewer_bench_write', { report: output });
+      }
+    }
     if (target === 'all' || target === 'idle') {
       document.body.append(root); root.tabIndex = -1; root.focus({ preventScroll: true }); await clear(); mount([(await import('./fixtures')).fixtureResult(null, (await import('./fixtures')).fixtureGraph(300))], 300);
       await waitFor(() => !!root.querySelector('canvas[data-ready=true]')); await waitFor(() => perf.marks().some(m => m.name === 'graph-stable')); await frame(); await frame();
       const { readGraphProbes } = await import('./index'); const begin = readGraphProbes()[0];
+      const idleWindowMs = 30000; output.idleReadyAt = Date.now(); output.idleWindowMs = idleWindowMs;
       output.idleReady = true; await invoke('viewer_bench_write', { report: output });
-      await new Promise(resolve => setTimeout(resolve, 12000));
+      await new Promise(resolve => setTimeout(resolve, idleWindowMs));
       const end = readGraphProbes()[0]; let movement = 0; for (let i = 0; i < begin.positions.length; i += 2) movement += Math.hypot(begin.positions[i] - end.positions[i], begin.positions[i + 1] - end.positions[i + 1]);
-      output.idle = { nodes: end.positions.length / 2, renderFrames: end.frames - begin.frames, averageMovementPx: movement / Math.max(1, end.positions.length / 2), duration: 12000 }; output.idleReady = false;
+      output.idle = { nodes: end.positions.length / 2, renderFrames: end.frames - begin.frames, averageMovementPx: movement / Math.max(1, end.positions.length / 2), duration: idleWindowMs }; output.idleReady = false;
     }
   } catch (error) { output.error = error instanceof Error ? error.message : JSON.stringify(error); }
   finally { render(null, root); root.remove(); output.complete = !output.error && !output.cleanupError; await invoke('viewer_bench_write', { report: output }); }

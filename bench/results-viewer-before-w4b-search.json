@@ -1,0 +1,1781 @@
+{
+  "environment": {
+    "os": "darwin 27.0.0",
+    "cpu": "Apple M5",
+    "arch": "arm64",
+    "browser": "156.0.8078.4",
+    "viewport": "1440x1000",
+    "mode": "Vite dev / headless Chromium / alternating paired runs"
+  },
+  "complete": true,
+  "at": "2026-10-15T07:24:25.679Z",
+  "results": {
+    "graph-1000": [
+      {
+        "first": 735.8000000119209,
+        "layout": 568.9000000357628,
+        "layoutFrames": {
+          "p50": 16.699999999999818,
+          "p95": 16.700000000000273,
+          "max": 16.800000000000182,
+          "samples": 60
+        },
+        "frames": {
+          "p50": 50,
+          "p95": 66.70000000000027,
+          "max": 83.39999999999964,
+          "samples": 60
+        },
+        "click": 86.19999998807907,
+        "merge": 2.400000035762787,
+        "expand": 291,
+        "metrics": [
+          {
+            "name": "graph-stable",
+            "startTime": 1718.800000011921,
+            "duration": 568.9000000357628,
+            "detail": {
+              "nodes": 1000,
+              "ticks": 56,
+              "workMs": 398.4999998807907,
+              "cached": false
+            }
+          },
+          {
+            "name": "graph-first-frame",
+            "startTime": 1718.800000011921,
+            "duration": 582.3000000119209
+          },
+          {
+            "name": "graph-render",
+            "startTime": 2290,
+            "duration": 11.200000047683716,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-visible",
+            "startTime": 1636.1000000238419,
+            "duration": 735.8000000119209
+          },
+          {
+            "name": "graph-render",
+            "startTime": 3422,
+            "duration": 2.100000023841858,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 3476.800000011921,
+            "duration": 1.699999988079071,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 3532.800000011921,
+            "duration": 1.300000011920929,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 3585.300000011921,
+            "duration": 1.4000000357627869,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 3641.400000035763,
+            "duration": 1,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 3692.7000000476837,
+            "duration": 1.199999988079071,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 3769.300000011921,
+            "duration": 1.199999988079071,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 3824.900000035763,
+            "duration": 1.199999988079071,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 3876.5,
+            "duration": 0.7000000476837158,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 3927.2000000476837,
+            "duration": 1,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 3986.400000035763,
+            "duration": 1,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 4037.100000023842,
+            "duration": 1.5,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 4091.300000011921,
+            "duration": 0.800000011920929,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 4141.5,
+            "duration": 1,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 4194.300000011921,
+            "duration": 0.9000000357627869,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 4249,
+            "duration": 1.5,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 4303.700000047684,
+            "duration": 0.5999999642372131,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 4353.700000047684,
+            "duration": 0.8999999761581421,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 4407.600000023842,
+            "duration": 0.8999999761581421,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 4459,
+            "duration": 1,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 4514.900000035763,
+            "duration": 1.800000011920929,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 4595,
+            "duration": 0.7000000476837158,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 4647.600000023842,
+            "duration": 1.100000023841858,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 4713.600000023842,
+            "duration": 1.199999988079071,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 4768.400000035763,
+            "duration": 1.300000011920929,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 4820.900000035763,
+            "duration": 1.199999988079071,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 4873.900000035763,
+            "duration": 0.699999988079071,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 4919.900000035763,
+            "duration": 0.699999988079071,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 4973.400000035763,
+            "duration": 1.5999999642372131,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 5024.800000011921,
+            "duration": 1,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 5081.600000023842,
+            "duration": 1,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 5131.800000011921,
+            "duration": 1.100000023841858,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 5183.5,
+            "duration": 1.100000023841858,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 5234.800000011921,
+            "duration": 1.4000000357627869,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 5288,
+            "duration": 0.800000011920929,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 5336.400000035763,
+            "duration": 1,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 5392.800000011921,
+            "duration": 1,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 5449.5,
+            "duration": 2.400000035762787,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 5503.900000035763,
+            "duration": 1.5,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 5553.700000047684,
+            "duration": 1.2999999523162842,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 5604.100000023842,
+            "duration": 1,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 5656.5,
+            "duration": 2.800000011920929,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 5709.900000035763,
+            "duration": 1,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 5758.700000047684,
+            "duration": 0.8999999761581421,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 5810.700000047684,
+            "duration": 0.7999999523162842,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 5862.600000023842,
+            "duration": 0.8999999761581421,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 5916.200000047684,
+            "duration": 1.199999988079071,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 5968.400000035763,
+            "duration": 1,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 6020.600000023842,
+            "duration": 0.8999999761581421,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 6071.900000035763,
+            "duration": 0.800000011920929,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 6123.700000047684,
+            "duration": 0.5999999642372131,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 6174.100000023842,
+            "duration": 0.699999988079071,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 6226.100000023842,
+            "duration": 0.699999988079071,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 6276.700000047684,
+            "duration": 1,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 6332.100000023842,
+            "duration": 0.800000011920929,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 6393.300000011921,
+            "duration": 0.9000000357627869,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 6445.600000023842,
+            "duration": 0.5,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 6495.300000011921,
+            "duration": 0.5,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 6544.800000011921,
+            "duration": 0.6000000238418579,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 6598,
+            "duration": 0.7000000476837158,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 6656.200000047684,
+            "duration": 1.2999999523162842,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "properties",
+            "startTime": 6654.600000023842,
+            "duration": 66.39999997615814
+          },
+          {
+            "name": "properties",
+            "startTime": 6653.600000023842,
+            "duration": 86.19999998807907
+          },
+          {
+            "name": "expand-merge",
+            "startTime": 6751,
+            "duration": 2.400000035762787
+          },
+          {
+            "name": "graph-first-frame",
+            "startTime": 6755.700000047684,
+            "duration": 23.69999998807907
+          },
+          {
+            "name": "graph-render",
+            "startTime": 6768,
+            "duration": 11.5,
+            "detail": {
+              "nodes": 1050
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 6970.5,
+            "duration": 1.2000000476837158,
+            "detail": {
+              "nodes": 1050
+            }
+          },
+          {
+            "name": "expand-frame",
+            "startTime": 6742.200000047684,
+            "duration": 291
+          }
+        ],
+        "cls": 0,
+        "allLayoutShifts": 0,
+        "pair": 0,
+        "uptime": "16:24  up 3 days,  7:07, 20 users, load averages: 20.71 15.66 21.97",
+        "load": [
+          20.71044921875,
+          15.6591796875,
+          21.97412109375
+        ]
+      },
+      {
+        "first": 534.1999999880791,
+        "layout": 455.5,
+        "layoutFrames": {
+          "p50": 16.69999999999891,
+          "p95": 16.700000000000728,
+          "max": 16.80000000000109,
+          "samples": 60
+        },
+        "frames": {
+          "p50": 50,
+          "p95": 50.100000000000364,
+          "max": 66.60000000000218,
+          "samples": 60
+        },
+        "click": 66.69999998807907,
+        "merge": 0.40000003576278687,
+        "expand": 110.30000001192093,
+        "metrics": [
+          {
+            "name": "graph-stable",
+            "startTime": 13291.100000023842,
+            "duration": 455.5,
+            "detail": {
+              "nodes": 1000,
+              "ticks": 56,
+              "workMs": 327.39999997615814,
+              "cached": false
+            }
+          },
+          {
+            "name": "graph-first-frame",
+            "startTime": 13291.100000023842,
+            "duration": 464.89999997615814
+          },
+          {
+            "name": "graph-render",
+            "startTime": 13754.200000047684,
+            "duration": 1.899999976158142,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-visible",
+            "startTime": 13269.600000023842,
+            "duration": 534.1999999880791
+          },
+          {
+            "name": "graph-render",
+            "startTime": 14854.100000023842,
+            "duration": 1,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 14898.800000011921,
+            "duration": 1.199999988079071,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 14945.800000011921,
+            "duration": 1.5,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 14991.100000023842,
+            "duration": 0.699999988079071,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 15038.100000023842,
+            "duration": 0.800000011920929,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 15082.600000023842,
+            "duration": 0.8999999761581421,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 15128.400000035763,
+            "duration": 1.0999999642372131,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 15171.800000011921,
+            "duration": 0.6000000238418579,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 15216.600000023842,
+            "duration": 0.800000011920929,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 15259.700000047684,
+            "duration": 0.699999988079071,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 15304.200000047684,
+            "duration": 0.7999999523162842,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 15347.400000035763,
+            "duration": 1,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 15394.300000011921,
+            "duration": 0.699999988079071,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 15437.700000047684,
+            "duration": 0.7999999523162842,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 15482.700000047684,
+            "duration": 0.7999999523162842,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 15525.700000047684,
+            "duration": 1,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 15570.300000011921,
+            "duration": 0.699999988079071,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 15612.800000011921,
+            "duration": 0.6000000238418579,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 15657.100000023842,
+            "duration": 0.800000011920929,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 15699.700000047684,
+            "duration": 0.699999988079071,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 15746,
+            "duration": 0.7000000476837158,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 15788.800000011921,
+            "duration": 0.9000000357627869,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 15833.900000035763,
+            "duration": 0.800000011920929,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 15877.400000035763,
+            "duration": 0.5999999642372131,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 15922.900000035763,
+            "duration": 0.8999999761581421,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 15966.700000047684,
+            "duration": 0.699999988079071,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 16011.100000023842,
+            "duration": 0.699999988079071,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 16053.700000047684,
+            "duration": 0.699999988079071,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 16098.300000011921,
+            "duration": 1.100000023841858,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 16142.100000023842,
+            "duration": 0.8999999761581421,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 16188.5,
+            "duration": 0.800000011920929,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 16233.200000047684,
+            "duration": 0.8999999761581421,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 16281,
+            "duration": 0.9000000357627869,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 16326.200000047684,
+            "duration": 0.5999999642372131,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 16372.800000011921,
+            "duration": 0.6000000238418579,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 16416.80000001192,
+            "duration": 0.699999988079071,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 16462.5,
+            "duration": 0.5,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 16506.100000023842,
+            "duration": 0.5,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 16553.100000023842,
+            "duration": 0.6000000238418579,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 16597,
+            "duration": 1,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 16645,
+            "duration": 0.5,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 16688.80000001192,
+            "duration": 0.6000000238418579,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 16734.30000001192,
+            "duration": 0.699999988079071,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 16778.700000047684,
+            "duration": 0.5999999642372131,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 16823.900000035763,
+            "duration": 0.699999988079071,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 16867.400000035763,
+            "duration": 0.5999999642372131,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 16912.200000047684,
+            "duration": 0.7999999523162842,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 16955.200000047684,
+            "duration": 0.5,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 17000.80000001192,
+            "duration": 0.699999988079071,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 17045,
+            "duration": 0.6000000238418579,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 17090.700000047684,
+            "duration": 0.5999999642372131,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 17134.600000023842,
+            "duration": 0.6000000238418579,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 17179.400000035763,
+            "duration": 0.699999988079071,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 17237.80000001192,
+            "duration": 1,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 17285.700000047684,
+            "duration": 0.5,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 17330.200000047684,
+            "duration": 0.5999999642372131,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 17376.5,
+            "duration": 0.5,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 17420.30000001192,
+            "duration": 0.699999988079071,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 17466.5,
+            "duration": 0.6000000238418579,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 17510.30000001192,
+            "duration": 0.6000000238418579,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 17572.700000047684,
+            "duration": 0.699999988079071,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "properties",
+            "startTime": 17572.30000001192,
+            "duration": 46.80000001192093
+          },
+          {
+            "name": "properties",
+            "startTime": 17572.200000047684,
+            "duration": 66.69999998807907
+          },
+          {
+            "name": "expand-merge",
+            "startTime": 17640.5,
+            "duration": 0.40000003576278687
+          },
+          {
+            "name": "graph-first-frame",
+            "startTime": 17641.30000001192,
+            "duration": 15.100000023841858
+          },
+          {
+            "name": "graph-render",
+            "startTime": 17655.700000047684,
+            "duration": 0.699999988079071,
+            "detail": {
+              "nodes": 1050
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 17702.700000047684,
+            "duration": 0.699999988079071,
+            "detail": {
+              "nodes": 1050
+            }
+          },
+          {
+            "name": "expand-frame",
+            "startTime": 17639,
+            "duration": 110.30000001192093
+          }
+        ],
+        "cls": 0,
+        "allLayoutShifts": 0,
+        "pair": 1,
+        "uptime": "16:24  up 3 days,  7:07, 20 users, load averages: 20.60 15.80 21.95",
+        "load": [
+          20.6005859375,
+          15.8017578125,
+          21.95068359375
+        ]
+      },
+      {
+        "first": 498,
+        "layout": 428.80000001192093,
+        "layoutFrames": {
+          "p50": 16.69999999999709,
+          "p95": 16.700000000000728,
+          "max": 16.799999999999272,
+          "samples": 60
+        },
+        "frames": {
+          "p50": 50,
+          "p95": 83.29999999999927,
+          "max": 133.40000000000146,
+          "samples": 60
+        },
+        "click": 67.19999998807907,
+        "merge": 0.19999998807907104,
+        "expand": 110.79999995231628,
+        "metrics": [
+          {
+            "name": "graph-stable",
+            "startTime": 17840.100000023842,
+            "duration": 428.80000001192093,
+            "detail": {
+              "nodes": 1000,
+              "ticks": 56,
+              "workMs": 314.49999994039536,
+              "cached": false
+            }
+          },
+          {
+            "name": "graph-first-frame",
+            "startTime": 17840.100000023842,
+            "duration": 433.89999997615814
+          },
+          {
+            "name": "graph-render",
+            "startTime": 18272.30000001192,
+            "duration": 1.800000011920929,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-visible",
+            "startTime": 17822.400000035763,
+            "duration": 498
+          },
+          {
+            "name": "graph-render",
+            "startTime": 19401.30000001192,
+            "duration": 4.199999988079071,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 19530.900000035763,
+            "duration": 1.399999976158142,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 19617.30000001192,
+            "duration": 1,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 19685,
+            "duration": 1.100000023841858,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 19741.700000047684,
+            "duration": 1.2999999523162842,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 19798.80000001192,
+            "duration": 1.300000011920929,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 19860.80000001192,
+            "duration": 2,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 19914.600000023842,
+            "duration": 0.800000011920929,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 19966.700000047684,
+            "duration": 1,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 20026.30000001192,
+            "duration": 1,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 20079,
+            "duration": 0.9000000357627869,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 20128.100000023842,
+            "duration": 0.8999999761581421,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 20178.200000047684,
+            "duration": 1.0999999642372131,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 20231.5,
+            "duration": 1.300000011920929,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 20311.400000035763,
+            "duration": 0.8999999761581421,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 20364.600000023842,
+            "duration": 2,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 20415.900000035763,
+            "duration": 0.699999988079071,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 20465.30000001192,
+            "duration": 1,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 20513,
+            "duration": 1.100000023841858,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 20560.100000023842,
+            "duration": 0.8999999761581421,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 20607.30000001192,
+            "duration": 1,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 20652,
+            "duration": 0.800000011920929,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 20698.200000047684,
+            "duration": 0.7999999523162842,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 20742.200000047684,
+            "duration": 0.7999999523162842,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 20787.600000023842,
+            "duration": 1.100000023841858,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 20830.80000001192,
+            "duration": 0.699999988079071,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 20875.5,
+            "duration": 0.800000011920929,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 20918.700000047684,
+            "duration": 0.7999999523162842,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 20963.5,
+            "duration": 0.7000000476837158,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 21006.100000023842,
+            "duration": 0.8999999761581421,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 21051.600000023842,
+            "duration": 0.800000011920929,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 21116.600000023842,
+            "duration": 1.300000011920929,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 21215.100000023842,
+            "duration": 0.8999999761581421,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 21265.5,
+            "duration": 1.100000023841858,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 21316.400000035763,
+            "duration": 0.5,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 21365.400000035763,
+            "duration": 0.5999999642372131,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 21413.200000047684,
+            "duration": 0.5999999642372131,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 21457.30000001192,
+            "duration": 0.6000000238418579,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 21502.200000047684,
+            "duration": 0.5999999642372131,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 21545.80000001192,
+            "duration": 0.6000000238418579,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 21591.30000001192,
+            "duration": 0.6000000238418579,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 21636.30000001192,
+            "duration": 0.6000000238418579,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 21681.700000047684,
+            "duration": 0.699999988079071,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 21725.700000047684,
+            "duration": 0.5,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 21771.100000023842,
+            "duration": 0.6000000238418579,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 21816.600000023842,
+            "duration": 0.6000000238418579,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 21861.200000047684,
+            "duration": 0.5999999642372131,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 21904.400000035763,
+            "duration": 0.800000011920929,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 21950.100000023842,
+            "duration": 0.6000000238418579,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 21993.80000001192,
+            "duration": 0.5,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 22039.200000047684,
+            "duration": 0.7999999523162842,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 22082.600000023842,
+            "duration": 0.6000000238418579,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 22128.700000047684,
+            "duration": 0.5,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 22171.200000047684,
+            "duration": 0.5999999642372131,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 22216.700000047684,
+            "duration": 0.699999988079071,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 22260,
+            "duration": 0.6000000238418579,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 22304,
+            "duration": 0.5,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 22346.200000047684,
+            "duration": 0.5,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 22390.30000001192,
+            "duration": 0.5,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 22432.700000047684,
+            "duration": 0.5999999642372131,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 22489.200000047684,
+            "duration": 0.7999999523162842,
+            "detail": {
+              "nodes": 1000
+            }
+          },
+          {
+            "name": "properties",
+            "startTime": 22488.900000035763,
+            "duration": 46.69999998807907
+          },
+          {
+            "name": "properties",
+            "startTime": 22488.80000001192,
+            "duration": 67.19999998807907
+          },
+          {
+            "name": "expand-merge",
+            "startTime": 22557.600000023842,
+            "duration": 0.19999998807907104
+          },
+          {
+            "name": "graph-first-frame",
+            "startTime": 22558.200000047684,
+            "duration": 13.399999976158142
+          },
+          {
+            "name": "graph-render",
+            "startTime": 22570.900000035763,
+            "duration": 0.699999988079071,
+            "detail": {
+              "nodes": 1050
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 22617.900000035763,
+            "duration": 0.800000011920929,
+            "detail": {
+              "nodes": 1050
+            }
+          },
+          {
+            "name": "expand-frame",
+            "startTime": 22556.200000047684,
+            "duration": 110.79999995231628
+          }
+        ],
+        "cls": 0,
+        "allLayoutShifts": 0,
+        "pair": 2,
+        "uptime": "16:24  up 3 days,  7:07, 20 users, load averages: 19.67 15.69 21.87",
+        "load": [
+          19.67138671875,
+          15.6884765625,
+          21.87451171875
+        ]
+      }
+    ]
+  },
+  "errors": []
+}

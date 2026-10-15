@@ -1,0 +1,50 @@
+import { chromium } from '../ui/node_modules/playwright/index.mjs';
+import { writeFile } from 'node:fs/promises';
+import assert from 'node:assert/strict';
+const browser = await chromium.launch({headless:true});
+const output = { complete:false, errors:[], checks:[] };
+try {
+  const page = await browser.newPage({viewport:{width:1440,height:1000},deviceScaleFactor:2});
+  page.on('pageerror',e=>output.errors.push(e.message));
+  await page.goto('http://127.0.0.1:1426/viewer-bench.html');
+  await page.waitForFunction(()=>window.dbtool?.perf);
+  await page.evaluate(()=>window.dbtool.perf.run('graph-limit'));
+  const canvas = page.locator('canvas'), rect = await canvas.boundingBox();
+  const probe = ()=>page.evaluate(()=>window.dbtool.perf.run('graph-probe'));
+  const settle = ()=>page.evaluate(async()=>{await new Promise(r=>setTimeout(r,200));await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);});
+  const pixels = ()=>page.evaluate(async()=>{const c=document.querySelector('canvas'), data=c.getContext('2d').getImageData(0,0,c.width,c.height).data;return [...new Uint8Array(await crypto.subtle.digest('SHA-256',data))].map(v=>v.toString(16).padStart(2,'0')).join('');});
+  await settle(); const initial = await probe();
+  await page.screenshot({path:new URL('./viewer-w4b-before.png',import.meta.url).pathname});
+  // Capture is trusted so the product's actual pointer-capture and hit-testing paths run.
+  await page.mouse.move(rect.x+5,rect.y+5);await page.mouse.down();
+  for(let i=0;i<12;i++)await page.mouse.move(rect.x+5+(i+1)*7,rect.y+5+(i+1)*3);
+  await page.screenshot({path:new URL('./viewer-w4b-pan.png',import.meta.url).pathname});
+  await page.mouse.up();await settle();
+  assert.deepEqual((await probe())[0].positions,initial[0].positions);output.checks.push('trusted pan leaves all graph coordinates fixed');
+  await page.getByRole('button',{name:'Reset view',exact:true}).click();await settle();
+  const before = await pixels();
+  await page.evaluate(()=>document.querySelector('canvas').dispatchEvent(new WheelEvent('wheel',{deltaY:0,bubbles:true,cancelable:true})));
+  await page.evaluate(()=>new Promise(requestAnimationFrame));
+  const nonempty = await page.evaluate(()=>document.querySelector('canvas').getContext('2d').getImageData(0,0,document.querySelector('canvas').width,document.querySelector('canvas').height).data.some((v,i)=>i%4===3&&v>0));assert.ok(nonempty);
+  await settle();assert.deepEqual(await pixels(),before);output.checks.push('idle precision redraw restores identical pixels at DPR 2 without a blank bitmap');
+  await page.getByLabel('Search graph').fill('Node 0');await settle();
+  await page.mouse.click(rect.x+rect.width/2,rect.y+rect.height/2);await page.getByLabel('Graph properties').waitFor();
+  assert.match(await page.getByLabel('Graph properties').innerText(),/bench:n0/);output.checks.push('canvas click after pan/zoom selects the actual centered node');
+  await page.getByRole('button',{name:'Close properties'}).click();
+  const centered = await probe();
+  await page.mouse.move(rect.x+rect.width/2,rect.y+rect.height/2);await page.mouse.down();await page.mouse.move(rect.x+rect.width/2+80,rect.y+rect.height/2+40,{steps:6});await page.mouse.up();await settle();
+  const dragged = await probe();assert.notDeepEqual(dragged[0].positions.slice(0,2),centered[0].positions.slice(0,2));
+  await new Promise(r=>setTimeout(r,350));assert.deepEqual((await probe())[0].positions,dragged[0].positions);output.checks.push('trusted node drag invalidates bitmap and pins the released position');
+  await page.getByLabel('Search graph').fill('Node 1');await settle();
+  await page.mouse.click(rect.x+rect.width/2,rect.y+rect.height/2);await page.getByLabel('Graph properties').waitFor();
+  await page.getByRole('button',{name:'Expand neighbors'}).click();
+  await page.waitForFunction(()=>Number(document.querySelector('canvas').dataset.totalNodes)>300);await settle();
+  output.checks.push('expand still merges new graph data and invalidates the bitmap');
+  await page.emulateMedia({colorScheme:'dark'});await settle();
+  await page.screenshot({path:new URL('./viewer-w4b-dark.png',import.meta.url).pathname});
+  await page.setViewportSize({width:1100,height:850});await settle();
+  const size = await canvas.evaluate(c=>({w:c.width,h:c.height,rect:c.getBoundingClientRect().toJSON()}));assert.equal(size.w,size.rect.width*2);assert.equal(size.h,size.rect.height*2);output.checks.push('theme and viewport resize refresh the bitmap at DPR 2');
+  const idleBefore=await probe();await new Promise(r=>setTimeout(r,500));const idleAfter=await probe();assert.equal(idleBefore[0].frames,idleAfter[0].frames);assert.deepEqual(idleBefore[0].positions,idleAfter[0].positions);output.checks.push('no idle rendering or graph movement after interaction/expansion/resize');
+  assert.deepEqual(output.errors,[]);output.complete=true;console.log(output);
+} catch(e) {output.errors.push(String(e));throw e;}
+finally {await writeFile(new URL('./results-viewer-w4b-verification.json',import.meta.url),JSON.stringify(output,null,2));await browser.close();}
