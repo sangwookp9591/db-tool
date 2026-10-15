@@ -1,6 +1,12 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { DriverManifest, Profile, ExplorerNode, ResultSet, ExecRequest, HistoryEntry, ChangePreview } from './contract';
+import type { DriverManifest, Profile, ExplorerNode, ResultSet, ExecRequest, HistoryEntry, ChangePreview, AgentClient, AgentAudit, SchemaGraph, Value } from './contract';
 export interface Commands {
+  agent_clients_list: { args: Record<string, never>; result: AgentClient[] };
+  agent_client_save: { args: { input: Omit<AgentClient, 'id' | 'revoked'> & { id?: string } }; result: { client: AgentClient; token: string | null } };
+  agent_client_rotate: { args: { clientId: string }; result: { token: string } };
+  agent_client_revoke: { args: { clientId: string }; result: void };
+  agent_audit_list: { args: Record<string, never>; result: AgentAudit[] };
+  agent_approve_write: { args: { sessionId: string; runId: string; req: ExecRequest }; result: void };
   agent_bridge_ready: { args: Record<string, never>; result: void };
   agent_bridge_status: { args: Record<string, never>; result: boolean };
   agent_bridge_set: { args: { enabled: boolean }; result: void };
@@ -13,7 +19,8 @@ export interface Commands {
   session_open: { args: { profileId: string; secret: string | null }; result: string };
   session_close: { args: { sessionId: string }; result: void };
   explorer_children: { args: { sessionId: string; parent: string | null }; result: ExplorerNode[] };
-  browse: { args: { sessionId: string; nodeId: string; offset: number; limit: number; runId: string }; result: ResultSet };
+  schema_graph: { args: { sessionId: string; scope: string | null }; result: SchemaGraph };
+  browse: { args: { filter?: [string, Value][]; sessionId: string; nodeId: string; offset: number; limit: number; runId: string }; result: ResultSet };
   execute: { args: { sessionId: string; runId: string; req: ExecRequest }; result: ResultSet[] };
   preview: { args: { sessionId: string; runId: string; req: ExecRequest; source?: 'ui' | 'agent' }; result: ChangePreview };
   execute_agent: { args: { sessionId: string; runId: string; req: ExecRequest }; result: ResultSet[] };

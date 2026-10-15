@@ -55,3 +55,10 @@ fn preview_contract_is_additive_and_defaults_to_no_support() {
             .unwrap()
     );
 }
+
+#[test]
+fn viewer_contract_defaults_are_additive() {
+ let page:PageRequest=serde_json::from_value(json!({"offset":0,"limit":100})).unwrap();assert!(page.filter.is_empty());
+ let caps:Capabilities=serde_json::from_value(json!({"cancel":"None","timeout":false,"params":false,"transactions":false,"paged_browse":false,"graph_expand":false,"multi_statement":false,"edit_rows":false})).unwrap();assert!(!caps.schema_graph);assert!(!caps.filtered_browse);
+ assert_eq!(serde_json::to_value(NodeActionKind::OpenSchemaGraph {scope:Some("public".into())}).unwrap(),json!({"OpenSchemaGraph":{"scope":"public"}}));
+}

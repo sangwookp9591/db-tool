@@ -39,6 +39,8 @@ pub struct DriverManifest {
 pub struct FieldSpec { key, label, kind: FieldKind /*Text|Number|Password|FilePath|Bool|Select{options}*/, required, default: Option<String>, secret: bool, placeholder }
 pub enum PreviewSupport { None, Transactional, DryRun } // serde default None
 pub struct Capabilities {
+    pub schema_graph: bool,        // serde default false; 엔티티·필드·관계 다이어그램
+    pub filtered_browse: bool,     // serde default false; typed Value의 AND 동등 필터
     pub preview_changes: PreviewSupport, // serde(default); capability-driven UI/tools
     pub read_only_exec: bool,      // serde(default)=false; DB-enforced read-only execution
     pub cancel: CancelSupport,     // None | Abort(클라이언트만 중단) | Server(서버에 취소 요청)
@@ -62,6 +64,7 @@ pub struct ConnectConfig { pub fields: BTreeMap<String,String>, pub secret: Opti
     async fn ping(&self) -> Result<(), DbError>;
     async fn server_info(&self) -> Result<String, DbError>;
     async fn list_children(&self, parent: Option<&str>) -> Result<Vec<ExplorerNode>, DbError>;
+    async fn schema_graph(&self, scope: Option<&str>) -> Result<SchemaGraph, DbError>;         // default Unsupported
     async fn browse(&self, node_id: &str, page: PageRequest) -> Result<ResultSet, DbError>;      // capabilities.paged_browse
     async fn preview(&self, req: &ExecRequest, cancel: CancelToken) -> Result<ChangePreview, DbError>; // default Unsupported
     async fn execute(&self, req: &ExecRequest, cancel: CancelToken) -> Result<Vec<ResultSet>, DbError>;
@@ -75,9 +78,9 @@ pub struct ExplorerNode {
     pub kind: String,          // "schema"|"table"|"column"|"label"|"rel_type"|"property"|… UI는 아이콘 힌트로만 사용
     pub icon: Icon,            // Folder|Table|Column|Key|Index|Label|Relationship|Property|Collection|Database|View|Function
     pub has_children: bool,
-    pub actions: Vec<NodeAction>, // { id, label, kind: Browse | OpenQuery{text} | Insert{text} }
+    pub actions: Vec<NodeAction>, // { id, label, kind: Browse | OpenQuery{text} | Insert{text} | OpenSchemaGraph{scope} }
 }
-pub struct PageRequest { pub offset: u64, pub limit: u32 }
+pub struct PageRequest { pub offset: u64, pub limit: u32, pub filter: Vec<(String, Value)> /* serde default [] */ }
 pub struct ExecRequest { pub read_only: bool /*serde(default)=false*/, pub text: String, pub params: serde_json::Map<String,Value>, pub row_limit: u32, pub graph_node_limit: u32, pub timeout_ms: u64, pub preview_sample_limit: u32 /*serde(default)=50*/ }
 
 pub struct ChangePreview { pub statements: Vec<StatementPreview>, pub committed: bool /*always false*/, pub notes: Vec<String> }
@@ -134,7 +137,8 @@ pub enum ErrorKind { Connection, Auth, Query, Timeout, Cancelled, Unsupported, I
 | `connection_test(profile, secret?)` | 연결 → `ping` → `server_info` → 닫기 |
 | `session_open(profile_id) → session_id` / `session_close` | 여러 연결을 동시에 연다 |
 | `explorer_children(session_id, parent?)` | |
-| `browse(session_id, node_id, offset, limit, run_id)` | |
+| `browse(session_id, node_id, offset, limit, run_id, filter?)` | typed Value AND 필터, 미지원 capability는 거부 |
+| `schema_graph(session_id, scope?)` | 공통 SchemaGraph, 기본 Session 구현은 Unsupported |
 | `execute(session_id, run_id, req)` | 타임아웃(`tokio::time::timeout`)과 취소를 모두 적용한다. 결과를 이력에 기록한다 |
 | `preview(session_id, run_id, req, source?)` | 드라이버 preview 실행, 취소/타임아웃 후 정리 대기, 이력 kind=preview. source 기본 ui, 에이전트는 agent. 거부 배치는 notes만 반환하고 실행하지 않는다 |
 | `execute_stream(session_id, run_id, req, on_event)` | 같은 실행·취소·이력 경로를 쓴다. 그래프 또는 모든 표가 2,000행 이하이면 기존 ResultSet 배열을 반환한다. 그 외 큰 표는 Channel로 보내고 빈 배열을 반환한다 |

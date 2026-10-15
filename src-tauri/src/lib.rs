@@ -1,4 +1,6 @@
 mod agent_bridge;
+mod agent_dispatch;
+mod permissions;
 pub mod drivers;
 pub mod storage;
 pub mod stream;
@@ -32,6 +34,9 @@ pub struct Host {
     sessions: Mutex<HashMap<String, Arc<SessionRecord>>>,
     runs: Mutex<HashMap<String, RunRecord>>,
     storage: tokio::sync::Mutex<()>,
+    agent_storage: Mutex<()>,
+    approvals: Mutex<HashMap<String, permissions::Approval>>,
+    previews: Mutex<HashMap<String, permissions::Approval>>,
 }
 impl Host {
     pub fn new(paths: Paths) -> Self {
@@ -41,6 +46,9 @@ impl Host {
             sessions: Mutex::new(HashMap::new()),
             runs: Mutex::new(HashMap::new()),
             storage: tokio::sync::Mutex::new(()),
+            agent_storage: Mutex::new(()),
+            approvals: Mutex::new(HashMap::new()),
+            previews: Mutex::new(HashMap::new()),
         }
     }
     fn session(&self, id: &str) -> Result<Arc<SessionRecord>, DbError> {
@@ -119,6 +127,9 @@ impl Host {
             .await?;
         Ok((session, secret))
     }
+    fn access_mode(&self, record: &SessionRecord) -> Result<permissions::AccessMode, DbError> {
+        Ok(storage::read_profiles(&self.paths.config.join("profiles.json"))?.into_iter().find(|p|p.id==record.profile.id).map(|p|p.access_mode).unwrap_or(record.profile.access_mode))
+    }
     fn observe<T>(&self, record: &SessionRecord, result: Result<T, DbError>) -> Result<T, DbError> {
         if let Err(error) = &result {
             if error.kind == ErrorKind::Connection {
@@ -179,6 +190,7 @@ async fn profile_save(
     secret: Option<String>,
 ) -> CommandResult<Profile> {
     let driver = host.driver(&profile.driver_id)?;
+    if profile.access_mode == permissions::AccessMode::ReadOnly && !driver.manifest().capabilities.read_only_exec { return Err(DbError::unsupported("Driver cannot enforce read-only execution")); }
     let secret = secret.or(storage::strip_secrets(&mut profile, driver.manifest()));
     if profile.id.is_empty() {
         profile.id = uuid::Uuid::new_v4().to_string();
@@ -297,6 +309,11 @@ async fn explorer_children(
     )
 }
 #[tauri::command]
+async fn schema_graph(host: tauri::State<'_, Host>, session_id: String, scope: Option<String>) -> CommandResult<SchemaGraph> {
+    let record=host.session(&session_id)?;
+    host.observe(&record,record.session.schema_graph(scope.as_deref()).await)
+}
+#[tauri::command]
 async fn browse(
     host: tauri::State<'_, Host>,
     session_id: String,
@@ -304,12 +321,15 @@ async fn browse(
     offset: u64,
     limit: u32,
     run_id: String,
+    filter: Option<Vec<(String, Value)>>,
 ) -> CommandResult<ResultSet> {
     let record = host.session(&session_id)?;
+    if filter.as_ref().is_some_and(|f|!f.is_empty()) && !host.driver(&record.profile.driver_id)?.manifest().capabilities.filtered_browse { return Err(DbError::unsupported("Filtered browse is not supported")); }
     let run = host.run(&session_id, &run_id)?;
     let future = record.session.browse(
         &node_id,
         PageRequest {
+            filter: filter.unwrap_or_default(),
             offset,
             limit: clamp_row_limit(limit),
         },
@@ -332,7 +352,7 @@ async fn execute(
     run_id: String,
     req: ExecRequest,
 ) -> CommandResult<Vec<ResultSet>> {
-    execute_impl(host, session_id, run_id, req, None, HistorySource::Ui).await
+    execute_impl(&host, session_id, run_id, req, None, HistorySource::Ui).await
 }
 #[tauri::command]
 async fn execute_stream(
@@ -343,7 +363,7 @@ async fn execute_stream(
     on_event: tauri::ipc::Channel<stream::StreamEvent>,
 ) -> CommandResult<Vec<ResultSet>> {
     execute_impl(
-        host,
+        &host,
         session_id,
         run_id,
         req,
@@ -359,10 +379,14 @@ async fn execute_agent(
     run_id: String,
     req: ExecRequest,
 ) -> CommandResult<Vec<ResultSet>> {
-    execute_impl(host, session_id, run_id, req, None, HistorySource::Agent).await
+    if !req.read_only {
+        let approval=host.approvals.lock().map_err(|_|DbError::internal("Approval lock unavailable"))?.remove(&run_id);
+        if !approval.is_some_and(|a|a.created.elapsed().as_secs()<60 && permissions::fingerprint(&session_id,&req).is_ok_and(|f|f==a.fingerprint)) { return Err(DbError::new(ErrorKind::Auth,"In-app approval required")); }
+    }
+    execute_impl(&host, session_id, run_id, req, None, HistorySource::Agent).await
 }
 async fn execute_impl(
-    host: tauri::State<'_, Host>,
+    host: &Host,
     session_id: String,
     run_id: String,
     mut req: ExecRequest,
@@ -371,6 +395,11 @@ async fn execute_impl(
 ) -> CommandResult<Vec<ResultSet>> {
     let record = host.session(&session_id)?;
     let run = host.run(&session_id, &run_id)?;
+    if host.access_mode(&record)? == permissions::AccessMode::ReadOnly {
+        if !host.driver(&record.profile.driver_id)?.manifest().capabilities.read_only_exec { return Err(DbError::unsupported("Driver cannot enforce read-only execution")); }
+        req.read_only = true;
+    }
+    if req.read_only && !host.driver(&record.profile.driver_id)?.manifest().capabilities.read_only_exec { return Err(DbError::unsupported("Driver cannot enforce read-only execution")); }
     req.row_limit = clamp_row_limit(req.row_limit);
     let started = Instant::now();
     let future = record.session.execute(&req, run.token.clone());
@@ -392,6 +421,7 @@ async fn execute_impl(
         timestamp: time::OffsetDateTime::now_utc()
             .format(&time::format_description::well_known::Rfc3339)
             .unwrap_or_default(),
+        profile_id: Some(record.profile.id.clone()),
         profile_name: storage::redact(&record.profile.name, record.secret.as_deref()),
         text: storage::redact(&req.text, record.secret.as_deref()),
         elapsed_ms: started.elapsed().as_millis() as u64,
@@ -423,6 +453,7 @@ async fn execute_impl(
 #[tauri::command]
 async fn preview(host: tauri::State<'_, Host>, session_id: String, run_id: String, mut req: ExecRequest, source: Option<HistorySource>) -> CommandResult<ChangePreview> {
     let record = host.session(&session_id)?;
+    if host.access_mode(&record)? == permissions::AccessMode::ReadOnly { return Err(DbError::new(ErrorKind::Auth,"Preview forbidden on a read-only connection")); }
     let run = host.run(&session_id, &run_id)?;
     req.preview_sample_limit = req.preview_sample_limit.min(1000);
     let started = Instant::now();
@@ -436,6 +467,7 @@ async fn preview(host: tauri::State<'_, Host>, session_id: String, run_id: Strin
     let entry = HistoryEntry {
         kind: "preview".into(), source: source.unwrap_or_default(),
         timestamp: time::OffsetDateTime::now_utc().format(&time::format_description::well_known::Rfc3339).unwrap_or_default(),
+        profile_id: Some(record.profile.id.clone()),
         profile_name: storage::redact(&record.profile.name, record.secret.as_deref()),
         text: storage::redact(&req.text, record.secret.as_deref()),
         elapsed_ms: started.elapsed().as_millis() as u64,
@@ -443,6 +475,12 @@ async fn preview(host: tauri::State<'_, Host>, session_id: String, run_id: Strin
         error: result.as_ref().err().map(|e| storage::redact(&e.message, record.secret.as_deref())),
     };
     if host.history(entry).await.is_err() { tracing::error!("Could not save preview history"); }
+    if result.is_ok() {
+        let fingerprint=permissions::fingerprint(&session_id,&req)?;
+        let mut previews=host.previews.lock().map_err(|_|DbError::internal("Preview lock unavailable"))?;
+        previews.retain(|_,p|p.created.elapsed().as_secs()<60);
+        if previews.len()<64 {previews.insert(fingerprint.clone(),permissions::Approval{fingerprint,created:Instant::now()});}
+    }
     result
 }
 #[tauri::command]
@@ -537,6 +575,7 @@ pub fn run() {
             session_open,
             session_close,
             explorer_children,
+            schema_graph,
             browse,
             execute,
             execute_agent,
@@ -554,7 +593,13 @@ pub fn run() {
             viewer_bench::viewer_bench_checkpoint,
             cancel,
             expand,
-            history_list
+            history_list,
+            permissions::agent_clients_list,
+            permissions::agent_client_save,
+            permissions::agent_client_rotate,
+            permissions::agent_client_revoke,
+            permissions::agent_audit_list,
+            permissions::agent_approve_write
         ])
         .build(tauri::generate_context!())
         .expect("Failed to build axdb")
@@ -655,6 +700,7 @@ mod tests {
             driver_id: "postgres".into(),
             fields: Default::default(),
             save_secret: false,
+            access_mode: Default::default(),
         };
         app.state::<Host>().sessions.lock().unwrap().insert(
             "s".into(),
@@ -725,6 +771,7 @@ mod tests {
             ]
             .into(),
             save_secret: false,
+            access_mode: Default::default(),
         };
         // OS keychain interaction is deliberately separate from live DB command verification.
         storage::write_private(
@@ -817,4 +864,45 @@ mod tests {
         assert!(!history.contains("testpw"));
         std::fs::remove_dir_all(dir).unwrap();
     }
+    #[tokio::test]
+    async fn read_only_mode_updates_open_sessions_and_approvals_are_bound_and_single_use() {
+        let (app,dir)=setup();
+        let profile=Profile{id:"readonly".into(),name:"test".into(),driver_id:"sqlite".into(),fields:std::collections::BTreeMap::from([("path".into(),dir.join("test.sqlite").to_string_lossy().to_string())]),save_secret:false,access_mode:Default::default()};
+        storage::write_private(&dir.join("profiles.json"),&serde_json::to_vec(&vec![profile.clone()]).unwrap()).unwrap();
+        let session=session_open(app.state(),profile.id.clone(),None).await.unwrap();
+        execute(app.state(),session.clone(),"setup".into(),request("CREATE TABLE items(id integer); INSERT INTO items VALUES(1)",1000)).await.unwrap();
+        let write=request("DELETE FROM items",1000);
+        assert!(execute_agent(app.state(),session.clone(),"unapproved".into(),write.clone()).await.is_err());
+        assert!(permissions::agent_approve_write(app.state(),session.clone(),"missing-preview".into(),write.clone()).is_err());
+        preview(app.state(),session.clone(),"preview".into(),write.clone(),Some(HistorySource::Agent)).await.unwrap();
+        let mut changed=write.clone();changed.params.insert("modified".into(),serde_json::json!(true));
+        assert!(permissions::agent_approve_write(app.state(),session.clone(),"changed".into(),changed).is_err());
+        permissions::agent_approve_write(app.state(),session.clone(),"approved".into(),write.clone()).unwrap();
+        execute_agent(app.state(),session.clone(),"approved".into(),write.clone()).await.unwrap();
+        assert!(execute_agent(app.state(),session.clone(),"approved".into(),write.clone()).await.is_err());
+        let mut profile=profile;profile.access_mode=permissions::AccessMode::ReadOnly;
+        storage::write_private(&dir.join("profiles.json"),&serde_json::to_vec(&vec![profile]).unwrap()).unwrap();
+        let err=execute(app.state(),session.clone(),"ui-write".into(),request("INSERT INTO items VALUES(2)",1000)).await.unwrap_err();assert_eq!(err.kind,ErrorKind::Query);
+        assert!(preview(app.state(),session.clone(),"no-preview".into(),write,None).await.is_err());
+        let result=execute(app.state(),session.clone(),"count".into(),request("SELECT count(*) FROM items",1000)).await.unwrap();assert_eq!(result[0].table.as_ref().unwrap().rows[0][0],Value::Int("0".into()));
+        session_close(app.state(),session).await.unwrap();std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[tokio::test]
+    async fn client_crud_rotation_and_private_audit_commands() {
+        let (app,dir)=setup();
+        app.manage(agent_bridge::Bridge::default());
+        let input=permissions::ClientInput{id:None,name:"scoped".into(),connections:Default::default(),allowed_tools:vec!["list_connections".into()],max_rows:3,expires_at:None};
+        let created=permissions::agent_client_save(app.state(),input).unwrap();let raw=created["token"].as_str().unwrap();let id=created["client"]["id"].as_str().unwrap().to_owned();
+        assert!(permissions::authenticate(&dir,raw).unwrap().is_some());
+        let listed=serde_json::to_string(&permissions::agent_clients_list(app.state()).unwrap()).unwrap();assert!(!listed.contains(raw)&&!listed.contains("token_hash")&&!listed.contains("token_salt"));
+        let rotated=permissions::agent_client_rotate(app.state(),app.state(),id.clone()).await.unwrap();assert!(permissions::authenticate(&dir,raw).unwrap().is_none());
+        let client=permissions::authenticate(&dir,rotated["token"].as_str().unwrap()).unwrap().unwrap();
+        for _ in 0..55 {permissions::audit(&app.state::<Host>(),&client,"run_query",None,"denied",Some("SELECT 'private-statement'")).unwrap();}
+        permissions::audit(&app.state::<Host>(),&client,"private-tool-secret",Some("private-profile-secret"),"denied",None).unwrap();
+        let events=permissions::agent_audit_list(app.state()).unwrap();assert_eq!(events.len(),50);let log=std::fs::read_to_string(dir.join("agent-audit.jsonl")).unwrap();assert!(!log.contains("private-statement")&&!log.contains(raw)&&!log.contains("private-tool-secret")&&!log.contains("private-profile-secret"));
+        permissions::agent_client_revoke(app.state(),id).unwrap();assert!(permissions::authenticate(&dir,rotated["token"].as_str().unwrap()).unwrap().is_none());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
 }

@@ -26,6 +26,6 @@ onmessage = event => {
   revision = message.revision; ticks = 0; workMs = 0; paused = false;
   const nodes: Node[] = message.nodes.map((n: Node) => ({ ...n, ...(n.fixed ? { fx: n.x, fy: n.y } : {}) }));
   simulation?.stop();
-  simulation = forceSimulation(nodes).stop().alpha(message.incremental ? .12 : 1).alphaMin(.01).alphaDecay(.08).velocityDecay(.7).force('link', forceLink<Node, { source: string; target: string }>(message.links).id(n => n.id).distance(140)).force('charge', forceManyBody().strength(-250)).force('center', forceCenter(0, 0)).force('collide', forceCollide(40));
+  simulation = forceSimulation(nodes).stop().alpha(message.incremental ? .12 : 1).alphaMin(.01).alphaDecay(.08).velocityDecay(.7).force('link', forceLink<Node, { source: string; target: string }>(message.links).id(n => n.id).distance((message.radius ?? 40)*3.5)).force('charge', forceManyBody().strength(-250)).force('center', forceCenter(0, 0)).force('collide', forceCollide(message.radius ?? 40));
   step();
 };

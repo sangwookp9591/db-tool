@@ -1,6 +1,7 @@
-use crate::{storage, DbError, Host};
+use crate::{storage, permissions, DbError, Host};
 use axum::{
     extract::{DefaultBodyLimit, Request, State},
+    Extension,
     http::{header, StatusCode},
     middleware::{self, Next},
     response::{IntoResponse, Response},
@@ -26,12 +27,21 @@ struct BridgeRequest {
     params: Value,
     timeout_ms: u64,
 }
-struct Shared {
+pub(crate) struct Shared {
+    pub(crate) app: Option<tauri::AppHandle>,
+    config: std::path::PathBuf,
+    permits: tokio::sync::Semaphore,
     token: String,
     ready: watch::Receiver<bool>,
     pending: Mutex<HashMap<String, oneshot::Sender<Value>>>,
     forward: Forward,
     cancel: Arc<dyn Fn(String) + Send + Sync>,
+}
+impl Shared {
+    pub(crate) async fn prepared(&self, timeout: Duration) -> bool {
+        let mut ready=self.ready.clone();
+        tokio::time::timeout(timeout, ready.wait_for(|value| *value)).await.is_ok_and(|value| value.is_ok())
+    }
 }
 struct Running {
     shared: Arc<Shared>,
@@ -51,6 +61,9 @@ impl Default for Bridge {
     }
 }
 impl Bridge {
+    pub async fn update_local_token(&self,config:&std::path::Path,raw:&str)->Result<(),DbError> {
+        if let Some(running)=self.running.lock().await.as_mut(){running.discovery["token"]=json!(raw);if *self.ready.borrow(){publish(config,&running.discovery)?;}}Ok(())
+    }
     pub fn loading(&self, config: &std::path::Path) {
         self.ready.send_replace(false);
         let _ = std::fs::remove_file(config.join("agent-bridge.json"));
@@ -93,10 +106,14 @@ impl Bridge {
             send.emit_to("main", "agent-bridge-request", request)
                 .map_err(|_| DbError::internal("Cannot reach app webview"))
         });
+        let cancel_app = app.clone();
         let cancel = Arc::new(move |id| {
-            let _ = app.emit_to("main", "agent-bridge-cancel", json!({"request_id": id}));
+            let _ = cancel_app.emit_to("main", "agent-bridge-cancel", json!({"request_id": id}));
         });
         let shared = Arc::new(Shared {
+            app: Some(app),
+            config: config.to_owned(),
+            permits: tokio::sync::Semaphore::new(64),
             token: format!(
                 "{}{}",
                 uuid::Uuid::new_v4().simple(),
@@ -107,6 +124,11 @@ impl Bridge {
             forward,
             cancel,
         });
+        {
+            let host=shared.app.as_ref().unwrap().state::<Host>();
+            let _guard=host.agent_storage.lock().map_err(|_|DbError::internal("Agent storage lock unavailable"))?;
+            permissions::migrate_local(config, &shared.token)?;
+        }
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
             .await
             .map_err(|_| DbError::internal("Cannot bind agent bridge"))?;
@@ -220,25 +242,15 @@ fn router(shared: Arc<Shared>) -> Router {
         .layer(middleware::from_fn_with_state(shared.clone(), authorize))
         .with_state(shared)
 }
-async fn authorize(State(shared): State<Arc<Shared>>, request: Request, next: Next) -> Response {
-    if request.headers().contains_key(header::ORIGIN) {
-        return StatusCode::FORBIDDEN.into_response();
-    }
-    let expected = format!("Bearer {}", shared.token);
-    let actual = request
-        .headers()
-        .get(header::AUTHORIZATION)
-        .map(|h| h.as_bytes())
-        .unwrap_or_default();
-    if actual.len() != expected.len()
-        || actual
-            .iter()
-            .zip(expected.bytes())
-            .fold(0u8, |diff, (a, b)| diff | (a ^ b))
-            != 0
-    {
-        return StatusCode::UNAUTHORIZED.into_response();
-    }
+async fn authorize(State(shared): State<Arc<Shared>>, mut request: Request, next: Next) -> Response {
+    if request.headers().contains_key(header::ORIGIN) { return StatusCode::FORBIDDEN.into_response(); }
+    let raw=request.headers().get(header::AUTHORIZATION).and_then(|h|h.to_str().ok()).and_then(|s|s.strip_prefix("Bearer "));
+    let client=match raw.map(|raw|permissions::authenticate(&shared.config,raw)) {
+        Some(Ok(Some(client)))=>client,
+        Some(Err(_))=>return StatusCode::SERVICE_UNAVAILABLE.into_response(),
+        _=>return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    request.extensions_mut().insert(client);
     if let Some(version) = request.headers().get("mcp-protocol-version") {
         if !matches!(
             version.to_str(),
@@ -251,6 +263,7 @@ async fn authorize(State(shared): State<Arc<Shared>>, request: Request, next: Ne
 }
 async fn rpc(
     State(shared): State<Arc<Shared>>,
+    Extension(client): Extension<permissions::AgentClient>,
     body: Result<Json<Value>, axum::extract::rejection::JsonRejection>,
 ) -> Response {
     let request = match body { Ok(Json(value)) => value, Err(_) => return Json(json!({"jsonrpc":"2.0","id":null,"error":{"code":-32700,"message":"Invalid JSON request"}})).into_response() };
@@ -284,12 +297,8 @@ async fn rpc(
         }
         "ping" => json!({}),
         "tools/list" | "tools/call" => {
-            let value = forward(
-                &shared,
-                method,
-                request.get("params").cloned().unwrap_or(json!({})),
-            )
-            .await;
+            let _permit = match shared.permits.try_acquire() { Ok(p)=>p,Err(_)=>return Json(json!({"jsonrpc":"2.0","id":id,"result":{"error":{"kind":"Busy","message":"Too many pending agent requests"}}})).into_response() };
+            let value = crate::agent_dispatch::dispatch(&shared,&client,method,request.get("params").cloned().unwrap_or(json!({}))).await;
             if method == "tools/call" {
                 json!({"content":[{"type":"text","text":value.to_string()}],"structuredContent":value,"isError":value.get("error").is_some()})
             } else {
@@ -303,7 +312,7 @@ async fn rpc(
     };
     Json(json!({"jsonrpc":"2.0","id":id,"result":result})).into_response()
 }
-async fn forward(shared: &Shared, method: &str, params: Value) -> Value {
+pub(crate) async fn forward(shared: &Shared, method: &str, params: Value) -> Value {
     forward_with_ready_timeout(shared, method, params, Duration::from_secs(10)).await
 }
 async fn forward_with_ready_timeout(
@@ -370,6 +379,9 @@ pub fn cleanup(app: &tauri::AppHandle) {
 mod tests {
     use super::*;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    fn test_config(raw:&str)->std::path::PathBuf {
+        let dir=std::env::temp_dir().join(format!("axdb-a1-auth-{}",uuid::Uuid::new_v4()));std::fs::create_dir_all(&dir).unwrap();permissions::migrate_local(&dir,raw).unwrap();dir
+    }
     async fn request(address: std::net::SocketAddr, headers: &str, body: &str) -> String {
         let mut socket = tokio::net::TcpStream::connect(address).await.unwrap();
         let text = format!("POST /mcp HTTP/1.1\r\nHost: {address}\r\nConnection: close\r\nContent-Type: application/json\r\nContent-Length: {}\r\n{headers}\r\n{body}", body.len());
@@ -382,6 +394,7 @@ mod tests {
     async fn http_auth_origin_protocol_and_webview_forwarding() {
         let (sender, mut requests) = tokio::sync::mpsc::unbounded_channel();
         let shared = Arc::new(Shared {
+            app: None, config: test_config("test-token"), permits: tokio::sync::Semaphore::new(64),
             token: "test-token".into(),
             ready: watch::channel(true).1,
             pending: Mutex::new(HashMap::new()),
@@ -460,6 +473,7 @@ mod tests {
         let (sender, requests) = tokio::sync::mpsc::unbounded_channel();
         (
             Arc::new(Shared {
+                app: None, config: test_config("test"), permits: tokio::sync::Semaphore::new(64),
                 token: "test".into(),
                 ready,
                 pending: Mutex::new(HashMap::new()),
@@ -481,6 +495,7 @@ mod tests {
             }
             assert!(requests.try_recv().is_err());
             ready.send_replace(true);
+            assert!(shared.prepared(Duration::from_millis(5)).await);
             let event = requests.recv().await.unwrap();
             shared
                 .pending
@@ -502,6 +517,7 @@ mod tests {
         let value =
             forward_with_ready_timeout(&shared, "tools/list", json!({}), Duration::from_millis(5))
                 .await;
+        assert!(!shared.prepared(Duration::from_millis(1)).await);
         assert_eq!(value["error"]["kind"], "Unavailable");
         assert!(shared.pending.lock().unwrap().is_empty());
         assert!(requests.try_recv().is_err());

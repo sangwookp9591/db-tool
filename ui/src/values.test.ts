@@ -1,8 +1,18 @@
 import { describe, it, expect } from 'vitest';
-import { formatJson, valueText } from './values';
+import { formatJson, valueText, resultSummary } from './values';
 import { mergeGraph, nodeCaption } from './graph';
 import { visibleRange } from './virtual';
-import type { Graph } from './contract';
+import type { Graph, ResultSet } from './contract';
+it('keeps the agent result summary without retaining result buffers', () => {
+  const result: ResultSet = { title: 'result', row_count: 100000, truncated: true, table: { columns: [], rows: [] }, graph: { nodes: [], rels: [] }, documents: [{ t: 'Text', v: 'private document' }], message: null, affected: null, elapsed_ms: 1, page: null };
+  const summary = resultSummary([result]);
+  expect(summary).toEqual([{ title: 'result', row_count: 100000, truncated: true, views: ['table', 'graph', 'documents'] }]);
+  expect(result.documents).toEqual([{ t: 'Text', v: 'private document' }]);
+  result.row_count = 0; result.table = null; result.graph = null; result.documents = null;
+  expect(summary[0].row_count).toBe(100000);
+  expect(resultSummary([{ ...result, message: '' }])[0].views).toEqual(['message']);
+  expect(resultSummary([])).toEqual([]);
+});
 describe('exact value rendering', () => {
   it('summarizes path nodes using captions and label fallbacks', () => {
     const nodes: Graph['nodes'] = [

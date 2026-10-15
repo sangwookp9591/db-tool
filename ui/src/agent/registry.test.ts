@@ -47,14 +47,19 @@ describe('agent registry', () => {
     expect(response.results[0].table!.rows).toHaveLength(200); expect(response.results[0].table!.rows[0][0]).toEqual({ t: 'Int', v: '9223372036854775807' }); expect(response.results[0].truncated).toBe(true);
   });
   it.each([true, false])('requires approval for writes or missing enforcement, denial never executes (%s)', async readOnly => {
-    const { state, api, invoke, approve } = setup(readOnly); state.sessions.p = 's';
+    const { state, api, invoke, approve } = setup(readOnly); state.sessions.p = 's'; state.drivers[0].capabilities.preview_changes = 'Transactional';
     const response = await api.callTool('run_query', { session_id: 's', text: 'DELETE FROM items', ...(readOnly ? { read_only: false } : {}) });
-    expect(response).toMatchObject({ error: { kind: 'UserDenied' } }); expect(approve).toHaveBeenCalledOnce(); expect(invoke).not.toHaveBeenCalled();
+    expect(response).toMatchObject({ error: { kind: 'UserDenied' } }); expect(approve).toHaveBeenCalledOnce(); expect(invoke).toHaveBeenCalledWith('preview', expect.anything()); expect(invoke.mock.calls.some(([name]) => name === 'execute_agent')).toBe(false);
   });
   it('executes only after explicit approval and reports agent history', async () => {
-    const { state, api, invoke, approve, host } = setup(); state.sessions.p = 's'; approve.mockResolvedValue(true);
+    const { state, api, invoke, approve, host } = setup(); state.sessions.p = 's'; state.drivers[0].capabilities.preview_changes = 'Transactional'; approve.mockResolvedValue(true);
     await api.callTool('run_query', { session_id: 's', text: 'DELETE FROM items', read_only: false });
-    expect(invoke).toHaveBeenCalledWith('execute_agent', expect.objectContaining({ req: expect.objectContaining({ read_only: false }) })); expect(host.history).toHaveBeenCalledOnce();
+    expect(invoke).toHaveBeenCalledWith('execute_agent', expect.objectContaining({ req: expect.objectContaining({ read_only: false }) })); expect(host.history).toHaveBeenCalledOnce(); expect(invoke).toHaveBeenCalledWith('agent_approve_write', expect.anything());
+  });
+  it('refuses writes without preview support before asking for approval', async () => {
+    const { state, api, invoke, approve } = setup(); state.sessions.p = 's';
+    expect(await api.callTool('run_query', { session_id: 's', text: 'DELETE FROM items', read_only: false })).toMatchObject({ error: { kind: 'Unsupported' } });
+    expect(invoke).not.toHaveBeenCalled(); expect(approve).not.toHaveBeenCalled();
   });
   it.each([true, false])('classifies transport cancellation before execution as Timeout (read_only=%s)', async readOnly => {
     const { state, api, invoke } = setup(); state.sessions.p = 's'; const controller = new AbortController(); controller.abort();

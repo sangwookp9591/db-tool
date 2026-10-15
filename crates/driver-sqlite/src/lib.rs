@@ -1,5 +1,6 @@
 //! SQLite driver. Every connection operation runs on the blocking pool.
 mod preview;
+mod schema;
 use async_trait::async_trait;
 use dbcore::*;
 use fallible_iterator::FallibleIterator;
@@ -57,6 +58,8 @@ impl SqliteDriver {
                     },
                 ],
                 capabilities: Capabilities {
+                    schema_graph: true,
+                    filtered_browse: true,
                     preview_changes: PreviewSupport::Transactional,
                     cancel: CancelSupport::Server,
                     timeout: true,
@@ -245,6 +248,7 @@ impl SqliteSession {
 }
 #[async_trait]
 impl Session for SqliteSession {
+    async fn schema_graph(&self, _scope: Option<&str>) -> Result<SchemaGraph, DbError> { self.load_schema_graph().await }
     async fn ping(&self) -> Result<(), DbError> {
         self.with_connection(|c| c.query_row("SELECT 1", [], |_| Ok(())).map_err(sql_error))
             .await
@@ -293,8 +297,10 @@ impl Session for SqliteSession {
         let limit = clamp_row_limit(page.limit);
         let offset = i64::try_from(page.offset)
             .map_err(|_| DbError::query("Page offset exceeds SQLite range"))?;
+        let predicates = page.filter.iter().map(|(field,value)| Ok(format!("{} {} {}",quote(field),if matches!(value,Value::Null) {"IS"}else{"="},dbcore::filter::sql_literal(value)?))).collect::<Result<Vec<_>,DbError>>()?;
+        let condition=if predicates.is_empty(){String::new()}else{format!(" WHERE {}",predicates.join(" AND "))};
         let mut req = request(format!(
-            "SELECT * FROM {} LIMIT {} OFFSET {offset}",
+            "SELECT * FROM {}{condition} LIMIT {} OFFSET {offset}",
             quote(name),
             u64::from(limit) + 1
         ));
@@ -310,7 +316,7 @@ impl Session for SqliteSession {
     async fn list_children(&self, parent: Option<&str>) -> Result<Vec<ExplorerNode>, DbError> {
         let parent = parent.map(str::to_owned);
         self.with_connection(move |c| {
-            let Some(parent) = parent else { return Ok(vec![node("tables".into(), "Tables", Icon::Folder, true), node("views".into(), "Views", Icon::Folder, true)]); };
+            let Some(parent) = parent else { let mut tables=node("tables".into(), "Tables", Icon::Folder, true); tables.actions.push(NodeAction {id:"diagram".into(),label:"다이어그램 보기".into(),kind:NodeActionKind::OpenSchemaGraph {scope:None}}); return Ok(vec![tables,node("views".into(), "Views", Icon::Folder, true)]); };
             if parent == "tables" || parent == "views" {
                 let mut stmt = c.prepare("SELECT name FROM sqlite_master WHERE type=?1 AND name NOT LIKE 'sqlite_%' ORDER BY name").map_err(sql_error)?;
                 let names = stmt.query_map([if parent == "tables" { "table" } else { "view" }], |r| r.get::<_, String>(0)).map_err(sql_error)?;

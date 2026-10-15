@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt, sync::Arc};
 pub use tokio_util::sync::CancellationToken as CancelToken;
 pub mod preview;
+pub mod filter;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct DriverManifest {
@@ -48,8 +49,12 @@ pub enum FieldKind {
     Bool,
     Select { options: Vec<String> },
 }
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct Capabilities {
+    #[serde(default)]
+    pub schema_graph: bool,
+    #[serde(default)]
+    pub filtered_browse: bool,
     #[serde(default)]
     pub preview_changes: PreviewSupport,
     #[serde(default)]
@@ -63,8 +68,9 @@ pub struct Capabilities {
     pub multi_statement: bool,
     pub edit_rows: bool,
 }
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub enum CancelSupport {
+    #[default]
     None,
     Abort,
     Server,
@@ -146,6 +152,9 @@ pub trait Driver: Send + Sync {
 }
 #[async_trait]
 pub trait Session: Send + Sync {
+    async fn schema_graph(&self, _scope: Option<&str>) -> Result<SchemaGraph, DbError> {
+        Err(DbError::unsupported("Schema graph is not supported"))
+    }
     async fn preview(
         &self,
         _req: &ExecRequest,
@@ -198,14 +207,46 @@ pub struct NodeAction {
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum NodeActionKind {
+    OpenSchemaGraph { scope: Option<String> },
     Browse,
     OpenQuery { text: String },
     Insert { text: String },
 }
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct PageRequest {
+    #[serde(default)]
+    pub filter: Vec<(String, Value)>,
     pub offset: u64,
     pub limit: u32,
+}
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct SchemaGraph {
+    pub entities: Vec<SchemaEntity>,
+    pub relations: Vec<SchemaRelation>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct SchemaEntity {
+    pub id: String,
+    pub name: String,
+    pub kind: String,
+    pub fields: Vec<SchemaField>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct SchemaField {
+    pub name: String,
+    pub type_name: String,
+    pub pk: bool,
+    pub nullable: bool,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct SchemaRelation {
+    pub id: String,
+    pub name: String,
+    pub from: String,
+    pub from_fields: Vec<String>,
+    pub to: String,
+    pub to_fields: Vec<String>,
+    pub kind: String,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ExecRequest {

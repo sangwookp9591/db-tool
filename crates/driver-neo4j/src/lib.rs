@@ -54,6 +54,8 @@ impl Neo4jDriver {
                 })
                 .collect(),
                 capabilities: Capabilities {
+                    schema_graph: true,
+                    filtered_browse: true,
                     preview_changes: PreviewSupport::Transactional,
                     read_only_exec: true,
                     cancel: CancelSupport::Abort,
@@ -328,6 +330,7 @@ impl NeoSession {
 }
 #[async_trait]
 impl Session for NeoSession {
+    async fn schema_graph(&self, scope: Option<&str>) -> Result<SchemaGraph, DbError> { self.load_schema_graph(scope).await }
     async fn preview(
         &self,
         req: &ExecRequest,

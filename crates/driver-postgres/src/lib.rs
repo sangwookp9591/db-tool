@@ -1,5 +1,6 @@
 //! PostgreSQL text-protocol driver; no dependency on the desktop host.
 mod preview;
+mod schema;
 mod split;
 use async_trait::async_trait;
 use dbcore::*;
@@ -72,6 +73,8 @@ impl PostgresDriver {
                     })
                     .collect(),
                 capabilities: Capabilities {
+                    schema_graph: true,
+                    filtered_browse: true,
                     preview_changes: PreviewSupport::Transactional,
                     read_only_exec: true,
                     cancel: CancelSupport::Server,
@@ -532,6 +535,7 @@ fn uuid_free_id() -> u64 {
 }
 #[async_trait]
 impl Session for PgSession {
+    async fn schema_graph(&self, scope: Option<&str>) -> Result<SchemaGraph, DbError> { self.load_schema_graph(scope).await }
     async fn preview(
         &self,
         req: &ExecRequest,
@@ -599,10 +603,16 @@ impl Session for PgSession {
                 .join(",")
         };
         let limit = clamp_row_limit(page.limit);
+        let predicates = page.filter.iter().map(|(field,value)| {
+            let literal = dbcore::filter::sql_literal(value)?;
+            let literal = if literal.starts_with('\'') { format!("E{}",literal.replace('\\',"\\\\")) } else {literal};
+            Ok(format!("{} {} {}",quote_ident(field),if matches!(value,Value::Null) {"IS"}else{"="},literal))
+        }).collect::<Result<Vec<_>,DbError>>()?;
+        let condition = if predicates.is_empty() {String::new()}else{format!(" WHERE {}",predicates.join(" AND "))};
         let req = ExecRequest {
-            read_only: false,
+            read_only: true,
             text: format!(
-                "SELECT * FROM {}.{} ORDER BY {order} LIMIT {} OFFSET {}",
+                "SELECT * FROM {}.{}{condition} ORDER BY {order} LIMIT {} OFFSET {}",
                 quote_ident(schema),
                 quote_ident(table),
                 limit + 1,
@@ -627,7 +637,7 @@ impl Session for PgSession {
         let mut nodes = Vec::new();
         let Some(parent) = parent else {
             for row in self.client.query("SELECT nspname FROM pg_namespace WHERE nspname NOT IN ('pg_catalog','information_schema') AND nspname NOT LIKE 'pg_toast%' AND nspname NOT LIKE 'pg_temp%' ORDER BY nspname",&[]).await.map_err(|e|self.error(e))? {
-                let name:String=row.get(0); nodes.push(node(path_id(&["schema",&name]),&name,"schema",Icon::Database,true,None));
+                let name:String=row.get(0); let mut n=node(path_id(&["schema",&name]),&name,"schema",Icon::Database,true,None); n.actions.push(NodeAction {id:"diagram".into(),label:"다이어그램 보기".into(),kind:NodeActionKind::OpenSchemaGraph {scope:Some(name)}}); nodes.push(n);
             }
             return Ok(nodes);
         };

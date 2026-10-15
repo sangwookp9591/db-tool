@@ -197,7 +197,7 @@ async fn real_postgres_contract() {
     let p = s
         .browse(
             &table.id,
-            PageRequest {
+            PageRequest { filter: vec![],
                 offset: 0,
                 limit: 2,
             },
@@ -209,7 +209,7 @@ async fn real_postgres_contract() {
     let p = s
         .browse(
             &table.id,
-            PageRequest {
+            PageRequest { filter: vec![],
                 offset: 4,
                 limit: 2,
             },
@@ -224,7 +224,7 @@ async fn real_postgres_contract() {
     let pending = s.execute(&request, token);
     let concurrent_browse = s.browse(
         &table.id,
-        PageRequest {
+        PageRequest { filter: vec![],
             offset: 0,
             limit: 2,
         },
@@ -646,4 +646,19 @@ async fn change_preview_rolls_back_rows_schema_and_preserves_user_transaction() 
     )
     .await
     .unwrap();
+}
+
+#[tokio::test]
+async fn schema_graph_and_filtered_browse() {
+    let Some(cfg)=config() else {eprintln!("AXDB_TEST_PG unset: V1 integration test not run");return;};
+    let s=PostgresDriver::new().connect(&cfg).await.unwrap();
+    run(&*s,"DROP SCHEMA IF EXISTS e2e_fk CASCADE; CREATE SCHEMA e2e_fk; CREATE TABLE e2e_fk.parent(tenant text, id bigint, name text, PRIMARY KEY(tenant,id)); CREATE TABLE e2e_fk.child(id int PRIMARY KEY,tenant text,parent_id bigint,FOREIGN KEY(tenant,parent_id) REFERENCES e2e_fk.parent(tenant,id)); INSERT INTO e2e_fk.parent VALUES('a',9223372036854775807,'exact'),('b',1,'other'); INSERT INTO e2e_fk.child VALUES(1,'a',9223372036854775807);").await;
+    let graph=s.schema_graph(Some("e2e_fk")).await.unwrap();
+    assert_eq!(graph.entities.len(),2);assert_eq!(graph.relations.len(),1);
+    let fk=&graph.relations[0];assert_eq!(fk.from_fields,["tenant","parent_id"]);assert_eq!(fk.to_fields,["tenant","id"]);
+    let result=s.browse(&fk.to,PageRequest {offset:0,limit:10,filter:vec![("tenant".into(),Value::Text("a".into())),("id".into(),Value::Int(i64::MAX.to_string()))]}).await.unwrap();
+    assert_eq!(result.row_count,1);assert_eq!(result.table.unwrap().rows[0][1],Value::Int(i64::MAX.to_string()));
+    let result=s.browse(&fk.to,PageRequest {offset:0,limit:10,filter:vec![("tenant".into(),Value::Text("a' OR TRUE--\\".into()))]}).await.unwrap();assert_eq!(result.row_count,0);
+    assert!(s.list_children(None).await.unwrap().iter().find(|n|n.label=="e2e_fk").unwrap().actions.iter().any(|a|matches!(a.kind,NodeActionKind::OpenSchemaGraph {..})));
+    s.close().await;
 }

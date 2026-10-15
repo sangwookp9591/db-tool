@@ -36,7 +36,8 @@ try {
   const blocked = await tool('run_query', { session_id, text: `CREATE TABLE ${probe}(id integer)`, read_only: true }); assert.equal(blocked.error?.kind, 'Query');
   console.log('Waiting for write approval to expire; do not approve the query in the app.');
   const started = Date.now();
-  const denied = await tool('run_query', { session_id, text: `CREATE TABLE ${probe}(id integer)`, read_only: false, timeout_ms: 1 });
+  // Complete the required rollback preview before measuring the separate approval deadline.
+  const denied = await tool('run_query', { session_id, text: `CREATE TABLE ${probe}(id integer)`, read_only: false, timeout_ms: 1000 });
   assert.equal(denied.error?.kind, 'UserDenied'); assert(Date.now() - started >= 29_000, 'Approval must remain pending until its deadline');
   const check = await tool('run_query', { session_id, text: `SELECT to_regclass('public.${probe}') IS NULL AS absent` }); assert.equal(check.results[0].table.rows[0][0].v, true);
   const history = await tool('get_history', { limit: 10 }); assert(history.some(entry => entry.source === 'agent'));

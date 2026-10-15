@@ -77,10 +77,36 @@ The smoke script checks authorization, Origin rejection, initialization, discove
 
 ## Safety model and limits
 
-- Every bridge request requires the random bearer token. Any Origin header is rejected (403), including same-origin-looking values, and no CORS permission is advertised. The server binds only loopback, limits JSON bodies to 1 MiB and pending requests to 64, and never logs tokens or parameter values.
+- Every bridge request requires a bearer token belonging to an active client profile. Any Origin header is rejected (403), including same-origin-looking values, and no CORS permission is advertised. The server binds only loopback, limits JSON bodies to 1 MiB and pending requests to 64, and never logs tokens or parameter values.
 - `run_query` defaults to read-only. Drivers declaring `read_only_exec` must enforce that mode themselves. PostgreSQL uses `BEGIN READ ONLY`, acquires an initial snapshot to prevent switching to READ WRITE, then always rolls back, including errors/cancellation. Transaction/session control is refused, and execution inside a user-owned transaction is refused with `Unsupported`. PostgreSQL read-only semantics still permit some temporary-object changes and nonpersistent side effects; use a restricted DB account when stronger isolation is needed.
-- Explicit writes and drivers without enforced read-only support require the in-app dialog. It displays the query text, connection name, agent origin, approve and deny controls. Escape, denial, overlapping approval requests, and deadline expiration fail closed with `UserDenied`. Approval is per call, never cached. For unsupported enforcement, approval permits execution without the read-only flag.
+- Explicit writes require a supported change preview and the in-app dialog. It displays the rollback preview, query text, connection name, approve and deny controls. Drivers without preview support cannot execute agent writes. Escape, denial, overlapping approval requests, and deadline expiration fail closed with `UserDenied`. Approval is per call, never cached. Read requests on drivers without read-only enforcement are refused by the host.
 - A bridge request expires at query timeout plus 30 seconds, or 60 seconds by default. Expiration aborts pending approval and cancels an executing query. A late approval cannot start an expired query. Credential prompts for opening a connection remain user-managed; an expired open request may still open a session if the user later submits its credential.
 - Data-bearing tools carry `untrustedContentHint`; database content, query text, history and profile names must never be treated as agent instructions. Hints are metadata, not a sandbox.
 - Profile secrets stay in the keychain and are excluded from connection listings. History keeps query text and redacts the current connection credential; arbitrary secrets deliberately embedded in SQL cannot be inferred automatically. Query results can contain sensitive data by design, so grant the bridge token only to a trusted local client.
 - The header shows agent call activity and pulses during execution, with reduced-motion support. Main connection, tree, execution, result-view, paging and approval controls expose accessible names and test IDs.
+
+
+## Scoped clients and connection access modes (A1)
+
+Open **에이전트 클라이언트** in the app header to create/edit clients, assign connection permissions and allowed tools, set `max_rows` (1–1000) and an optional RFC3339 `expires_at`, rotate/revoke tokens, and inspect the latest 50 audit entries. A generated token appears once with a copy button. `agent_clients.json` (0600) stores only a random salt and SHA-256 token hash; list responses exclude both. Configure each MCP client with its own bearer token and the same running bridge URL. Invalid, expired or revoked tokens return HTTP 401. Rotation invalidates the previous token immediately.
+
+| Permission | Host behavior |
+|---|---|
+| `none` / omitted | Connection is absent from lists; access returns `NotFound` |
+| `read` | `run_query` uses database-enforced read-only execution; requesting a write returns `Forbidden` |
+| `preview` | Read plus `preview_changes`; cannot commit changes |
+| `write_with_approval` | Read plus preview; each write requires a rollback preview and in-app approval |
+
+`allowed_tools` additionally restricts both `tools/list` and calls; a disallowed call returns `{error:{kind:"Forbidden",...}}`. There is no unconditional write grant. The host caps aggregate returned table rows, graph nodes and documents to `min(max_rows, 200)`, preserving the previous 200-item response ceiling. Preview samples are bounded too. Scoped history excludes other connections and old entries without a profile id. Scoped UI state returns permitted connections without global editor text or previous result summaries.
+
+The connection editor offers `read_only` only when the manifest declares `read_only_exec`; default is `read_write` for old and new profiles. The latest saved mode is checked by the host for UI/streaming execution as well as agent queries, including existing sessions. A read-only connection takes precedence over any client grant, and cannot run a write preview. PostgreSQL/Neo4j/SQLite browse use database read-only execution. Connection, tab and editor badges display **읽기 전용**.
+
+The legacy discovery bearer remains the **기본(로컬) 클라이언트**, with existing connection/tool access by default. Its raw token remains in the 0600 `agent-bridge.json` for compatibility; newly created scoped tokens are never saved in raw form. Restart creates a new legacy bearer while preserving scoped client profiles. Revoked clients stay revoked until an explicit token rotation. The default profile's rotation also updates discovery.
+
+`agent-audit.jsonl` (0600) records timestamp, client id, tool, connection id, decision (`allowed`, `denied`, `approved`, `rejected`) and statement SHA-256. It excludes query text, parameter values and bearer tokens. Approval rechecks token validity, permissions and connection mode; a late approval after revocation cannot execute. Local WebMCP writes also require a matching recent preview and one-use host approval bound to the session and execution request. These controls assume the app webview, Tauri IPC and the local OS account are trusted.
+
+See [A1_PERMISSIONS_REPORT.md](A1_PERMISSIONS_REPORT.md) for the threat model, exact evidence and known limits. Real-app checks (test profiles only):
+
+```sh
+AXDB_CONFIG_DIR=/absolute/private/test-config AXDB_APP_PID=<candidate-process-pid> node bench/permissions-e2e.mjs
+```

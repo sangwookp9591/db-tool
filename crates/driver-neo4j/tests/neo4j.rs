@@ -252,7 +252,7 @@ async fn real_neo4j_contract() {
             let result = s
                 .browse(
                     &rel.id,
-                    PageRequest {
+                    PageRequest { filter: vec![],
                         offset: 0,
                         limit: 2,
                     },
@@ -268,7 +268,7 @@ async fn real_neo4j_contract() {
     let first = s
         .browse(
             &label_node.id,
-            PageRequest {
+            PageRequest { filter: vec![],
                 offset: 0,
                 limit: 2,
             },
@@ -281,7 +281,7 @@ async fn real_neo4j_contract() {
     let last = s
         .browse(
             &label_node.id,
-            PageRequest {
+            PageRequest { filter: vec![],
                 offset: 2,
                 limit: 2,
             },
@@ -293,7 +293,7 @@ async fn real_neo4j_contract() {
     let maximum = s
         .browse(
             &label_node.id,
-            PageRequest {
+            PageRequest { filter: vec![],
                 offset: 0,
                 limit: 100_000,
             },
@@ -409,4 +409,16 @@ async fn change_preview_rolls_back_graph_writes_and_interruptions() {
         &format!("MATCH (n:AxdbPreview {{marker:'{marker}'}}) DETACH DELETE n"),
     )
     .await;
+}
+
+#[tokio::test]
+async fn schema_graph_and_filtered_browse() {
+    let Some(cfg)=config() else {eprintln!("AXDB_TEST_NEO4J unset: V1 integration test not run");return;};
+    let s=Neo4jDriver::new().connect(&cfg).await.unwrap();
+    run(&*s,"MATCH (n:DbtE_V1) DETACH DELETE n").await;
+    run(&*s,"CREATE (:DbtE_V1 {id:9223372036854775807,name:'exact'})-[:DbtE_V1_LINK]->(:DbtE_V1 {id:1,name:'other'}),(:DbtE_V1:DbtE_V1_Mixed {id:'text',name:'mixed'})").await;
+    let graph=s.schema_graph(None).await.unwrap();let e=graph.entities.iter().find(|e|e.name=="DbtE_V1").unwrap();assert!(e.fields.iter().any(|f|f.name=="id"&&f.type_name.contains("String")));assert!(graph.relations.iter().any(|r|r.name=="DbtE_V1_LINK"));
+    let result=s.browse(&e.id,PageRequest {offset:0,limit:10,filter:vec![("id".into(),Value::Int(i64::MAX.to_string()))]}).await.unwrap();assert_eq!(result.row_count,1);let Value::Node(n)=&result.table.unwrap().rows[0][0] else {panic!()};assert_eq!(n.props.iter().find(|(k,_)|k=="id").unwrap().1,Value::Int(i64::MAX.to_string()));
+    let result=s.browse(&e.id,PageRequest {offset:0,limit:10,filter:vec![("name".into(),Value::Text("exact' OR true //".into()))]}).await.unwrap();assert_eq!(result.row_count,0);
+    s.close().await;
 }

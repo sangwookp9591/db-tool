@@ -16,6 +16,7 @@ driver-sqlite = { path = "../crates/driver-sqlite" }
 async-trait.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+sha2 = "0.10.9"
 tokio.workspace = true
 tokio-util.workspace = true
 tauri = { version = "2", features = [] }
@@ -23,7 +24,7 @@ keyring = { version = "3", features = ["apple-native", "windows-native", "sync-s
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["fmt"] }
 uuid = { version = "1", features = ["v4"] }
-time = { version = "0.3", features = ["formatting"] }
+time = { version = "0.3", features = ["formatting", "parsing"] }
 
 [dev-dependencies]
 tauri = { version = "2", features = ["test"] }

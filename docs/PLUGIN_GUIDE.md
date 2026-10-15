@@ -41,6 +41,8 @@ SQLite는 `path: FilePath`와 `read_only_open: Bool`만 선언하며 비밀번�
 | params | JSON 입력의 타입과 바인딩 규칙을 검증하고 파라미터 바인딩 구현 |
 | transactions | 같은 세션에서 BEGIN/COMMIT/ROLLBACK의 상태 유지 |
 | paged_browse | offset/limit과 has_more를 정확히 반환 |
+| schema_graph | `Session::schema_graph(scope)`에서 엔티티·필드·관계를 공통 계약으로 반환 |
+| filtered_browse | `PageRequest.filter`의 모든 `(필드, typed Value)`를 AND 동등 조건으로 적용 |
 | multi_statement | 문자열 내부 세미콜론을 보존하며 문장별 결과 반환 |
 | graph_expand | 노드 식별자 검증, 이웃 한도와 그래프 정합성 보장 |
 | edit_rows | 실제 편집 계약과 저장 기능이 있을 때만 선언 |
@@ -69,6 +71,11 @@ BLOB은 전체 바이트 수와 첫 64바이트 hex를 반환하는 공통 계�
 노드 ID는 드라이버 전용의 불투명 식별자다. 테이블 이름에 따옴표나 세미콜론이 있어도
 식별자로 quote해야 한다. 문자열 연결로 SQL 식별자를 그대로 넣지 않는다.
 노드의 `Browse`, `OpenQuery` 액션을 선언하면 UI가 기존 동작으로 처리한다.
+`OpenSchemaGraph { scope }`는 다이어그램 탭을 연다. `scope`와 엔티티 `id`는 드라이버가
+해석하는 불투명 값이며 UI는 이름이나 드라이버 ID로 조회 문장을 생성하지 않는다.
+`schema_graph`·`filtered_browse`는 serde 기본값 false이고 `PageRequest.filter`의 기본값은 빈 목록이다.
+필터를 지원하지 않는 드라이버에 빈 목록 이외의 필터를 보내면 호스트가 Unsupported로 거부한다.
+FK 관계의 `from_fields`와 `to_fields`는 복합 키 순서대로 대응한다. NULL 키는 이동 링크를 만들지 않는다.
 
 browse는 `limit + 1`개까지만 확인하고 결과는 limit개만 반환해 `has_more`를 계산한다.
 SQLite OFFSET paging은 동시 쓰기 사이에 스냅샷을 유지하지 않으며, 정렬 없는 SQL의

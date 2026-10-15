@@ -13,6 +13,8 @@ pub struct Profile {
     pub fields: BTreeMap<String, String>,
     #[serde(default)]
     pub save_secret: bool,
+    #[serde(default)]
+    pub access_mode: crate::permissions::AccessMode,
 }
 #[derive(Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -28,6 +30,8 @@ pub struct HistoryEntry {
     #[serde(default)]
     pub source: HistorySource,
     pub timestamp: String,
+    #[serde(default)]
+    pub profile_id: Option<String>,
     pub profile_name: String,
     pub text: String,
     pub elapsed_ms: u64,
@@ -140,6 +144,15 @@ pub fn write_private(path: &Path, data: &[u8]) -> Result<(), DbError> {
     result
 }
 pub fn keychain_get(id: &str) -> Result<Option<String>, DbError> {
+    // Debug-only test seam: unsigned debug binaries change code identity on every rebuild,
+    // so macOS prompts for keychain access and blocks E2E runs. Compiled out of release builds.
+    #[cfg(debug_assertions)]
+    if let Some(path) = std::env::var_os("AXDB_DEV_SECRET_STORE") {
+        let data = std::fs::read(path).map_err(|_| DbError::internal("Cannot read dev secret store"))?;
+        let map: BTreeMap<String, String> = serde_json::from_slice(&data)
+            .map_err(|_| DbError::internal("Invalid dev secret store"))?;
+        return Ok(map.get(id).cloned());
+    }
     let entry = keyring::Entry::new("axdb", &format!("profile:{id}"))
         .map_err(|_| DbError::internal("Keychain unavailable"))?;
     match entry.get_password() {
@@ -195,6 +208,7 @@ mod tests {
                 ("host".into(), "127.0.0.1".into()),
             ]),
             save_secret: false,
+            access_mode: Default::default(),
         };
         assert_eq!(
             strip_secrets(&mut profile, &driver),

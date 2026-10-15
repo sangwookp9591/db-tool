@@ -111,7 +111,7 @@ async fn values_limits_errors_and_explorer() {
     let p = s
         .browse(
             "table:weird\";name",
-            PageRequest {
+            PageRequest { filter: vec![],
                 offset: 0,
                 limit: 2,
             },
@@ -123,7 +123,7 @@ async fn values_limits_errors_and_explorer() {
     let p = s
         .browse(
             "table:weird\";name",
-            PageRequest {
+            PageRequest { filter: vec![],
                 offset: 2,
                 limit: 2,
             },
@@ -485,4 +485,13 @@ async fn change_preview_rolls_back_rows_schema_and_interruptions() {
         run(&*s, "SELECT * FROM items ORDER BY id").await.table,
         original
     );
+}
+
+#[tokio::test]
+async fn schema_graph_and_filtered_browse() {
+    let (_dir,s)=fixture().await;
+    run(&*s,"CREATE TABLE parent(tenant TEXT,id INTEGER,PRIMARY KEY(tenant,id)); CREATE TABLE child(id INTEGER PRIMARY KEY,tenant TEXT,parent_id INTEGER,FOREIGN KEY(tenant,parent_id) REFERENCES parent); INSERT INTO parent VALUES('a',9223372036854775807),('b',1); INSERT INTO child VALUES(1,'a',9223372036854775807);").await;
+    let graph=s.schema_graph(None).await.unwrap();let fk=graph.relations.iter().find(|r|r.from=="table:child").unwrap();assert_eq!(fk.from_fields,["tenant","parent_id"]);assert_eq!(fk.to_fields,["tenant","id"]);
+    let result=s.browse(&fk.to,PageRequest {offset:0,limit:10,filter:vec![("tenant".into(),Value::Text("a".into())),("id".into(),Value::Int(i64::MAX.to_string()))]}).await.unwrap();assert_eq!(result.row_count,1);assert_eq!(result.table.unwrap().rows[0][1],Value::Int(i64::MAX.to_string()));
+    let result=s.browse(&fk.to,PageRequest {offset:0,limit:10,filter:vec![("tenant".into(),Value::Text("a' OR TRUE--".into()))]}).await.unwrap();assert_eq!(result.row_count,0);
 }

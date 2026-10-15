@@ -2,6 +2,7 @@ import { api } from '../api';
 import { readGraphProbes } from './index';
 import { render } from 'preact';
 import { Results } from '../Results';
+import { DocumentTree } from '../DocumentTree';
 import { mergeGraph } from '../graph';
 import { fixtureTable, fixtureGraph, fixtureResult } from './fixtures';
 import { finish, frame, painted, perf, registerScenario, sampleFrames, start } from './index';
@@ -91,6 +92,20 @@ registerScenario('graph-motion-300', async () => {
 });
 
 registerScenario('reset', async () => { await clear(); return {}; });
+registerScenario('documents-5000', async () => {
+  await clear();
+  const values: import('../contract').Value[] = Array.from({length:5000},(_,i)=>({t:'Map',v:[['a',{t:'Map',v:[['b',{t:'List',v:[{t:'Int',v:'9223372036854775807'},{t:'Other',v:{type_name:'ObjectId',text:'507f1f77bcf86cd799439011'}}]}]]}],['id',{t:'Int',v:String(i)}]]}));
+  const since=performance.now();render(<DocumentTree values={values}/>,root);await frame();await frame();const first=performance.now()-since;
+  const tree=root.querySelector<HTMLElement>('[role=tree]')!;
+  const frames=await sampleFrames(i=>{tree.scrollTop=i/59*tree.scrollHeight;});const rendered=root.querySelectorAll('[role=treeitem]').length;
+  tree.scrollTop=0;await frame();await frame();return {first,frames,rendered,documents:values.length};
+});
+registerScenario('linked-viewers', async () => {
+  await clear();
+  const graph=fixtureGraph(3),table: import('../contract').Table={columns:[{name:'node',type_name:'Node'}],rows:graph.nodes.map(n=>[{t:'Node',v:n}])};
+  const result=fixtureResult(table,graph);result.documents=graph.nodes.map(n=>({t:'Map',v:[['node',{t:'Node',v:n}]]}));
+  mount([result],3);await waitFor('canvas[data-ready=true]');return {};
+});
 registerScenario('graph-probe', async () => readGraphProbes().map(p => ({ ...p, positions: Array.from(p.positions) })));
 registerScenario('graph-limit', async () => { await clear(); await graphSession(); mount([fixtureResult(null, fixtureGraph(300))], 300); await waitFor('canvas[data-ready=true]'); });
 
