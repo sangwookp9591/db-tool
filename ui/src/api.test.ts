@@ -1,0 +1,16 @@
+import { beforeAll, expect, it, vi } from 'vitest';
+const invoke = vi.hoisted(() => vi.fn().mockResolvedValue(null));
+vi.mock('@tauri-apps/api/core', () => ({ invoke }));
+let api: typeof import('./api').api;
+beforeAll(async () => { vi.stubGlobal('window', { __TAURI_INTERNALS__: {} }); api = (await import('./api')).api; });
+it('uses the native bridge and camelCase command arguments with snake_case request bodies', async () => {
+  await api('session_open', { profileId: 'p', secret: null });
+  expect(invoke).toHaveBeenLastCalledWith('session_open', { profileId: 'p', secret: null });
+  const req = { text: 'SELECT 1', params: { id: '9007199254740993' }, row_limit: 1000, graph_node_limit: 300, timeout_ms: 30000 };
+  await api('execute', { sessionId: 's', runId: 'r', req });
+  expect(invoke).toHaveBeenLastCalledWith('execute', { sessionId: 's', runId: 'r', req });
+  await api('browse', { sessionId: 's', nodeId: 'opaque', offset: 100, limit: 100, runId: 'b' });
+  expect(invoke).toHaveBeenLastCalledWith('browse', { sessionId: 's', nodeId: 'opaque', offset: 100, limit: 100, runId: 'b' });
+  await api('expand', { sessionId: 's', elementId: 'element', limit: 300 });
+  expect(invoke).toHaveBeenLastCalledWith('expand', { sessionId: 's', elementId: 'element', limit: 300 });
+});
