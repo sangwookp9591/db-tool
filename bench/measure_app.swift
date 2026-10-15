@@ -7,8 +7,9 @@ import CoreGraphics
 func webkitPids() -> Set<Int32> {
     let p = Process(); p.executableURL = URL(fileURLWithPath: "/bin/ps")
     p.arguments = ["-axo", "pid=,comm="]
-    let pipe = Pipe(); p.standardOutput = pipe; try! p.run(); p.waitUntilExit()
-    let out = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)!
+    let pipe = Pipe(); p.standardOutput = pipe; try! p.run()
+    let data = pipe.fileHandleForReading.readDataToEndOfFile(); p.waitUntilExit()
+    let out = String(data: data, encoding: .utf8)!
     var s = Set<Int32>()
     for line in out.split(separator: "\n") where line.contains("com.apple.WebKit") {
         if let pid = Int32(line.trimmingCharacters(in: .whitespaces).split(separator: " ")[0]) { s.insert(pid) }
@@ -19,8 +20,9 @@ func webkitPids() -> Set<Int32> {
 func rssKB(_ pids: [Int32]) -> Int {
     let p = Process(); p.executableURL = URL(fileURLWithPath: "/bin/ps")
     p.arguments = ["-o", "rss=", "-p", pids.map(String.init).joined(separator: ",")]
-    let pipe = Pipe(); p.standardOutput = pipe; try! p.run(); p.waitUntilExit()
-    let out = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)!
+    let pipe = Pipe(); p.standardOutput = pipe; try! p.run()
+    let data = pipe.fileHandleForReading.readDataToEndOfFile(); p.waitUntilExit()
+    let out = String(data: data, encoding: .utf8)!
     return out.split(separator: "\n").compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }.reduce(0, +)
 }
 
