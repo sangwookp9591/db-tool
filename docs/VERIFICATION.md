@@ -120,9 +120,9 @@
 - **Windows는 실제 Windows 기기에서 실행하지 않았다.** 크로스 빌드와 Wine 실행까지만 확인했다.
   - 크로스 빌드: Docker에서 mingw로 `x86_64-pc-windows-gnu` release `axdb.exe`(PE32+ GUI)를 빌드했다. 처음에는 `src-tauri/icons/icon.ico`가 없어 **Windows 빌드 자체가 불가능**했다. 이 파일을 추가해 고쳤다. 스크립트는 `bench/windows-cross-build.sh`다.
   - Wine 10(x86_64, Rosetta 에뮬레이션)에서 Windows 테스트 바이너리를 실행했다(`bench/windows-wine-test.sh`).
-    - 통과: dbcore·계약, SQLite 9/9, **Redis 실제 서버 3/3**, PG·Neo4j·TLS 단위 테스트
-    - PG·Mongo 실제 DB 테스트: `rosetta error: invalid gdt selector`로 중단됐다. 에뮬레이터 한계로 보인다.
-    - Neo4j 실제 연결: 실패했다. Redis TCP는 같은 환경에서 성공했으므로 네트워크 문제는 아니다. 에뮬레이션 지연이 원인인지 Windows 결함인지는 **미확정**이다. 실제 Windows에서 확인해야 한다.
+    - 통과: dbcore·계약, SQLite 9/9, **Redis 실제 서버 3/3**, **Neo4j 실제 서버 3/3**(계약·미리보기·스키마 그래프), PG·Neo4j·TLS 단위 테스트
+    - PG·Mongo 실제 DB 테스트: `rosetta error: invalid gdt selector`로 중단됐다. x86 Wine을 Rosetta로 실행할 때의 에뮬레이터 한계로 보인다. 실제 Windows에서 확인해야 한다.
+    - 처음 Neo4j가 실패한 원인은 디스크 부족 때 테스트 Neo4j 컨테이너가 비정상 종료(Exited 134)된 것이었다. Wine 안에서 일반 TCP 연결조차 거부되는 것으로 확인했고, 컨테이너를 재시작하자 원래의 3초 연결 제한으로 통과했다.
   - Linux는 Docker `rust:1.94-bookworm`(aarch64, host 네트워크)에서 최종 트리로 확인했다. release 빌드에 성공했고, 실제 PG·Neo4j·Mongo·SQLite·Redis와 TLS 컨테이너 3개에 연결한 전체 테스트가 **80/80 통과**했다. Linux GUI 화면은 띄우지 않았다.
 - 외부 프로세스(JSON-RPC) 플러그인은 구현하지 않았다(ADR-0001). 드라이버는 컴파일 시 등록한다.
 - 키체인: GUI 쓰기 경로는 실제 OS 키체인 왕복 테스트(`real_os_keychain_roundtrip`, 명시 실행)로 대신 검증했다. E2E는 debug 전용 `AXDB_DEV_SECRET_STORE`를 썼고, 이 경로는 release에서 컴파일되지 않는다. 배포하려면 코드 서명이 필요하다.
@@ -155,6 +155,6 @@
 | 7 플랫폼 | macOS만 | Linux(Docker aarch64) release 빌드와 실제 DB·TLS 테스트 80/80. **Windows 빌드를 막던 icon.ico 누락 수정**, Windows exe 크로스 빌드 + Wine 부분 실행 | 6절 |
 
 **회귀(최종 트리)**
-- `cargo test --workspace`: **80 통과 / 0 실패, 3회 연속**, 2 ignored(유료 API, 실제 키체인). 실제 PG·Neo4j·Mongo·SQLite·Redis와 TLS 컨테이너 3개에 연결했다.
+- `cargo test --workspace`: **80 통과 / 0 실패, 3회 연속**(Claude 로그인 테스트 2개를 추가한 뒤 82/82, 2회 연속), 2 ignored(유료 API, 실제 키체인). 실제 PG·Neo4j·Mongo·SQLite·Redis와 TLS 컨테이너 3개에 연결했다.
 - `clippy --all-targets -D warnings`, vitest 45/45, UI driver-id 비교 grep 0
 - 실제 앱 E2E: e2e-bridge 21/21(PG·Neo4j·SQLite), preview 5/5, permissions 13/13
