@@ -29,6 +29,34 @@
     "Attempt to read created credential via security waited on keychain ACL; requester terminated, no successful secret read",
     "Tabularis profile password is null (stored in keychain); no plaintext credential reused",
     "Test DB Docker network password verified with PostgreSQL client against host.docker.internal:55432/dbtool_test",
-    "Removed own unsuccessful temporary credential, created verified fixture credential with scoped trust; production DBs untouched"
-  ]
+    "Removed own unsuccessful temporary credential, created verified fixture credential with scoped trust; production DBs untouched",
+    "Initial five-pair G1 series: ten attempts, five individually observed results but zero complete valid pairs; preserved separately after repeated focus/input failures",
+    "open -a created extra AxDB processes with default configuration; removed only W9 processes, switched GUI/activation to exact PID",
+    "AX number-field set-value reverted row limit to 1000 after input; preparation refused, fixed with activated keyboard input",
+    "Final Swift PID activation selfcheck and final four preparation trials passed; all 40 formal trials passed"
+  ],
+  "tabularis_settings_after": {
+    "connections.json": "c76c88ea20fe5e5bfcf4c904152821e5ab6524254c6f95868c32f905c09b37a7",
+    "config.json": "5ee8d316468837d59c93d5d8bb1127d8b30b6a60d8bb9e0fdc793393ab16002b",
+    "update_check_cache.json": "61a180dbae61e77136051cca2fd0aeb9cfc549b8700482e74df5a8d69e3c5826",
+    "tabularis.alive": "0c345864b02b643f11c35ca3376ebd075f8d5411393308c699c396d3adb4d702",
+    "query_history/19d2077a-5d16-4b60-95e0-2a05b28ffc20.json": "f1568e2a546f96621a65aed07e03d12f67c06c22ba49c0813e78cadd3960374e",
+    "plugins/drivers/postgresql/postgresql-plugin": "5d4a6d4ee1e3162ef224e02aa265b63e5e0ee53a465e77e01f44fe1e92489caf",
+    "plugins/drivers/postgresql/.tabularium": "b0de19a9fabf2b60deee56e761e7685592c22d80abc4a2b3e9675b16a07883a4",
+    "preferences/19d2077a-5d16-4b60-95e0-2a05b28ffc20/preferences.json": "b8d80dba3163b62b6efb9c6a20c9873c517a051662258b0fe79e4b72a29c3baf"
+  },
+  "settings_restored_exactly": true,
+  "keychain_cleanup": "Temporary benchmark entry deleted; initially missing entry restored",
+  "final_credential_mode": "AxDB session-only credential prompt with validated test fixture; no keychain reads during final trials",
+  "finished_at": "2026-10-16T11:12:40.361016+09:00",
+  "final_head": "4cb32131383ad9aeae9cd69fbdcff18d8d04baf1",
+  "product_sources_match_build_head": true,
+  "measured_executable_hashes": {
+    "Tabularis": "859e6405b26939ce0b12ccd747896a36737115a83c13d4fa4ad3762b60cb04c4",
+    "AxDB": "632f98c23dc98fb4ddedd0ccc0a81ce87f067e7d45308fc5ea9d68457166dfc0"
+  },
+  "runner_final_binary_hash_guard": "Passed for both executables at end of formal run (runner exit code 0)",
+  "late_axdb_bundle_present": false,
+  "late_hash_recheck": "Tabularis rechecked; AxDB target-w9 bundle unavailable at late validation after coordinator committed results, no rebuild performed",
+  "test_keychain_initial_state_restored": true
 }

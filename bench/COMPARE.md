@@ -212,6 +212,6 @@ W8에서 측정하지 않은 생성 쿼리와 동일 행 한도 조건을 측정
 - 이 결과는 이 머신과 설치 상태에서의 관측값이다. Tabularis는 내장 deprecated PG 드라이버를 썼다. 스크롤 끝 도달과 FPS는 측정하지 않았다.
 
 **자료**
-- 원자료: [쌍 측정](results-compare-gen-pairs.json), [게이트](results-compare-gen-gates.json), [환경](results-compare-gen-environment.json)
+- 원자료: [쌍 측정](results-compare-gen-pairs.json), [워커 독립 집계](results-compare-gen-summary.json, 코디네이터 집계와 일치), [게이트](results-compare-gen-gates.json), [환경](results-compare-gen-environment.json)
 - 준비 실패 기록: `results-compare-gen-preflight-*.json`, `results-compare-gen-pairs-input-errors.json`. 계측 전에 걸러낸 것이며 성능 집계에는 쓰지 않았다.
 - 재현: `bench/compare_generated.py`. 계산 자체 점검은 `bench/compare_generated_test.py`이며, bench 디렉터리에서 실행하면 2 tests OK다.
