@@ -1,0 +1,5 @@
+{
+  "commit": "20a1608",
+  "differentFiles": [],
+  "note": "Final snapshot restored exact 20a1608 UI; earlier diagnostic baseline additionally contained AI login UI and API types, outside viewer paths."
+}

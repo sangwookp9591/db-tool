@@ -2,7 +2,7 @@ import type { Table } from '../contract';
 export interface Scope { focus?: string; text?: string; run?: string; include_rows?: boolean; selected_rows?: Table; masked_columns?: string[] }
 export interface WorkInput { session_id: string; scope: Scope }
 export interface AiSettings { enabled: boolean; model: string; effort: string; auth: 'api_key' | 'claude_login' }
-export interface AiReply { text: string; refused: boolean; stop_reason: string }
+export interface AiReply { context?: Record<string, unknown>; context_elapsed_ms?: number; text: string; refused: boolean; stop_reason: string }
 export function suggestedQuery(text: string): string | null {
   return /```[^\n]*\n([\s\S]*?)```/.exec(text)?.[1]?.trim() || null;
 }

@@ -405,6 +405,14 @@ async fn send(
     }
     parser.finish()
 }
+fn redact_ai_key(value: &mut Value, key: &str) {
+    match value {
+        Value::String(s) => *s = s.replace(key, "***"),
+        Value::Array(a) => a.iter_mut().for_each(|v| redact_ai_key(v, key)),
+        Value::Object(o) => o.values_mut().for_each(|v| redact_ai_key(v, key)),
+        _ => {}
+    }
+}
 #[tauri::command]
 pub async fn ai_request(
     host: tauri::State<'_, Host>,
@@ -423,25 +431,23 @@ pub async fn ai_request(
     }
     let credential = credential(&settings).await?;
     let key = credential.secret();
-    let context = context::build(&host, &session_id, scope).await?;
+    let context_started = std::time::Instant::now();
+    let mut context = context::build(&host, &session_id, scope).await?;
+    let context_elapsed_ms = context_started.elapsed().as_millis();
     let secret = host.session(&session_id)?.secret.clone();
     let question = storage::redact(&storage::redact(&question, secret.as_deref()), Some(key));
-    let mut body = request_body(&settings, context, &question);
-    fn redact(value: &mut Value, key: &str) {
-        match value {
-            Value::String(s) => *s = s.replace(key, "***"),
-            Value::Array(a) => a.iter_mut().for_each(|v| redact(v, key)),
-            Value::Object(o) => o.values_mut().for_each(|v| redact(v, key)),
-            _ => {}
-        }
-    }
-    redact(&mut body, key);
-    send(ENDPOINT, &credential, body, |text| {
+    redact_ai_key(&mut context, key);
+    let mut body = request_body(&settings, context.clone(), &question);
+    redact_ai_key(&mut body, key);
+    let mut reply = send(ENDPOINT, &credential, body, |text| {
         channel
             .send(text)
             .map_err(|_| DbError::query("AI panel closed"))
     })
-    .await
+    .await?;
+    reply["context"] = context;
+    reply["context_elapsed_ms"] = json!(context_elapsed_ms);
+    Ok(reply)
 }
 
 #[cfg(test)]
@@ -454,6 +460,20 @@ mod tests {
             "Write query",
         )
     }
+    #[test]
+    fn returned_context_and_provider_context_share_pre_serialization_redaction() {
+        let key = "private-\"key\\value";
+        let mut context = json!({"schema":"table users(id)","text":format!("SELECT '{key}'"),"selected_rows":[{"note":key}]});
+        redact_ai_key(&mut context, key);
+        assert_eq!(context["selected_rows"][0]["note"], "***");
+        assert!(!context["text"].as_str().unwrap().contains(key));
+        let body = request_body(&Settings::default(), context.clone(), "Question");
+        let content = body["messages"][0]["content"].as_str().unwrap().strip_prefix("Work context:\n").unwrap().split("\n\nRequest:\n").next().unwrap();
+        let user: Value = serde_json::from_str(content).unwrap();
+        assert_eq!(user["text"], context["text"]);
+        assert_eq!(body["system"][1]["text"], context["schema"]);
+    }
+
     #[test]
     fn stable_schema_prefix_and_explicit_model_effort() {
         let body = body();

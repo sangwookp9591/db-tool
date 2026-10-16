@@ -1,0 +1,80 @@
+{
+  "environment": {
+    "os": "darwin 27.0.0",
+    "cpu": "Apple M5",
+    "arch": "arm64",
+    "browser": "156.0.8078.4",
+    "viewport": "1440x1000",
+    "mode": "Vite dev / headless Chromium / alternating paired runs"
+  },
+  "complete": true,
+  "at": "2026-10-16T04:07:15.525Z",
+  "results": {
+    "table-100000-10": [
+      {
+        "first": 128.39999997615814,
+        "loaded": 333.10000002384186,
+        "frames": {
+          "p50": 16.699999999999818,
+          "p95": 16.700000000000273,
+          "max": 16.800000000000182,
+          "samples": 60
+        },
+        "domCells": 288,
+        "heap": 78290391,
+        "cls": 0,
+        "allLayoutShifts": 0,
+        "pair": 0,
+        "uptime": "13:07  up 4 days,  3:49, 31 users, load averages: 6.21 6.44 5.86",
+        "load": [
+          6.20556640625,
+          6.44140625,
+          5.85693359375
+        ]
+      },
+      {
+        "first": 43.700000047683716,
+        "loaded": 234.10000002384186,
+        "frames": {
+          "p50": 16.699999999999818,
+          "p95": 16.800000000000182,
+          "max": 16.800000000000182,
+          "samples": 60
+        },
+        "domCells": 288,
+        "heap": 72179190,
+        "cls": 0,
+        "allLayoutShifts": 0,
+        "pair": 1,
+        "uptime": "13:07  up 4 days,  3:49, 31 users, load averages: 6.11 6.42 5.85",
+        "load": [
+          6.10888671875,
+          6.4169921875,
+          5.8515625
+        ]
+      },
+      {
+        "first": 33.30000001192093,
+        "loaded": 189.30000001192093,
+        "frames": {
+          "p50": 16.699999999999818,
+          "p95": 16.700000000000728,
+          "max": 16.800000000000182,
+          "samples": 60
+        },
+        "domCells": 288,
+        "heap": 86615938,
+        "cls": 0,
+        "allLayoutShifts": 0,
+        "pair": 2,
+        "uptime": "13:07  up 4 days,  3:49, 31 users, load averages: 6.11 6.42 5.85",
+        "load": [
+          6.10888671875,
+          6.4169921875,
+          5.8515625
+        ]
+      }
+    ]
+  },
+  "errors": []
+}

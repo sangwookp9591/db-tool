@@ -40,7 +40,7 @@ export function valueText(value: Value, detail = false): string {
     default: return String(value.v);
   }
 }
-export function valueClass(v: Value): string { return v.t === 'Null' ? 'value-null' : ['Int', 'Decimal', 'Float'].includes(v.t) ? 'value-number' : ''; }
+export function valueClass(v: Value): string { return v.t === 'Null' ? 'value-null' : ['Int', 'Decimal', 'Float'].includes(v.t) ? 'value-number' : v.t === 'Bool' ? 'value-boolean' : ['Date', 'Time', 'DateTime', 'DateTimeTz', 'Duration'].includes(v.t) ? 'value-date' : v.t === 'Bytes' ? 'value-binary' : ['Json', 'List', 'Map', 'Node', 'Rel', 'Path', 'Point'].includes(v.t) ? 'value-json' : 'value-string'; }
 export function valueTitle(v: Value): string { return v.t === 'Other' ? v.v.type_name : v.t; }
 export function normalizeError(error: unknown): import('./contract').DbError {
   if (error && typeof error === 'object' && 'kind' in error && 'message' in error) return error as import('./contract').DbError;

@@ -31,6 +31,7 @@ export interface Commands {
   profile_save: { args: { profile: Profile; secret: string | null }; result: Profile };
   profile_delete: { args: { profileId: string }; result: void };
   connection_test: { args: { profile: Profile; secret: string | null }; result: string };
+  session_info: { args: { sessionId: string }; result: string };
   session_open: { args: { profileId: string; secret: string | null }; result: string };
   session_close: { args: { sessionId: string }; result: void };
   explorer_children: { args: { sessionId: string; parent: string | null }; result: ExplorerNode[] };
@@ -41,6 +42,7 @@ export interface Commands {
   execute_agent: { args: { sessionId: string; runId: string; req: ExecRequest }; result: ResultSet[] };
   cancel: { args: { runId: string }; result: void };
   expand: { args: { sessionId: string; elementId: string; limit: number }; result: ResultSet };
+  history_delete: { args: { timestamp: string; profileName: string; text: string }; result: void };
   history_list: { args: { limit: number }; result: HistoryEntry[] };
 }
 export const isMock = !('__TAURI_INTERNALS__' in window);

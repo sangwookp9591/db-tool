@@ -1,0 +1,64 @@
+{
+  "at": "2026-10-16T02:52:44.992Z",
+  "label": "d1-single-view",
+  "complete": true,
+  "environment": {
+    "os": "darwin 27.0.0",
+    "cpu": "Apple M5",
+    "arch": "arm64",
+    "browser": "156.0.8078.4",
+    "uptime": "11:52  up 4 days,  2:35, 28 users, load averages: 13.60 12.06 16.93",
+    "mode": "Vite dev / headless Chromium",
+    "viewport": "1440x1000"
+  },
+  "results": {
+    "table-100000-10": [
+      {
+        "first": 60.80000001192093,
+        "loaded": 222.5,
+        "frames": {
+          "p50": 16.700000000000045,
+          "p95": 16.700000000000045,
+          "max": 16.800000000000068,
+          "samples": 60
+        },
+        "domCells": 306,
+        "heap": 74234448,
+        "cls": 0,
+        "allLayoutShifts": 0,
+        "uptime": "11:52  up 4 days,  2:35, 28 users, load averages: 13.60 12.06 16.93"
+      },
+      {
+        "first": 33.30000001192093,
+        "loaded": 203.5,
+        "frames": {
+          "p50": 16.699999999999818,
+          "p95": 16.700000000000273,
+          "max": 16.800000000000182,
+          "samples": 60
+        },
+        "domCells": 306,
+        "heap": 70245972,
+        "cls": 0,
+        "allLayoutShifts": 0,
+        "uptime": "11:52  up 4 days,  2:35, 28 users, load averages: 13.60 12.06 16.93"
+      },
+      {
+        "first": 33.69999998807907,
+        "loaded": 175.10000002384186,
+        "frames": {
+          "p50": 16.699999999999818,
+          "p95": 16.799999999999727,
+          "max": 16.799999999999727,
+          "samples": 60
+        },
+        "domCells": 306,
+        "heap": 67195888,
+        "cls": 0,
+        "allLayoutShifts": 0,
+        "uptime": "11:52  up 4 days,  2:35, 28 users, load averages: 13.23 12.01 16.89"
+      }
+    ]
+  },
+  "errors": []
+}

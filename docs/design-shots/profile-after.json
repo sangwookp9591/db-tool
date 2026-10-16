@@ -1,0 +1,31 @@
+{
+  "start": 570.9000000357628,
+  "fontBefore": "loaded",
+  "fontAfter": "loaded",
+  "result": {
+    "first": 60,
+    "loaded": 193.5999999642372,
+    "frames": {
+      "p50": 16.700000000000045,
+      "p95": 33.299999999999955,
+      "max": 66.69999999999982,
+      "samples": 60
+    },
+    "domCells": 306,
+    "heap": 64000000
+  },
+  "tasks": [
+    {
+      "start": 1665.9000000357628,
+      "duration": 62
+    }
+  ],
+  "resources": [
+    {
+      "name": "http://127.0.0.1:5178/assets/fixture.worker-2-wr0P-S.js",
+      "start": 578.6999999880791,
+      "duration": -2.199999988079071,
+      "bytes": 1395
+    }
+  ]
+}

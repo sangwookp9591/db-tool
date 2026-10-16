@@ -1,15 +1,21 @@
+import { Button } from '../ui/Button';
+import { SpringCheck } from '../ui/SpringCheck';
+import { Bot, X } from 'lucide-preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { listen } from '@tauri-apps/api/event';
 import { api, isMock } from '../api';
 import { Dialog } from '../Dialog';
 import { createRegistry, type AgentHost } from './registry';
-import type { ChangePreview, ResultSet } from '../contract';
+import type { ChangePreview, ResultSet, AgentCall } from '../contract';
 import { ClientsPanel } from './ClientsPanel';
 import { expose, register } from './webmcp';
-export function AgentPanel({ host, registrationKey, ready }: { ready: boolean; host: Omit<AgentHost, 'approve' | 'activity'>; registrationKey: string }) {
+export function AgentPanel({ host, registrationKey, ready, queryPulse, openRequest, onProfileSelect }: { queryPulse: {profileId:string;running:boolean;sequence:number} | null; openRequest:number; onProfileSelect:(id:string)=>void; ready: boolean; host: Omit<AgentHost, 'approve' | 'activity'>; registrationKey: string }) {
   const current = useRef(host); current.current = host;
   const [activity, setActivity] = useState({ running: 0, total: 0 });
+  const [calls, setCalls] = useState<AgentCall[]>([]);
+  const [bridgeReply, setBridgeReply] = useState(0);
   const [clientsOpen, setClientsOpen] = useState(false);
+  useEffect(() => { if (openRequest) setClientsOpen(true); }, [openRequest]);
   const [enabled, setEnabled] = useState(false);
   const [error, setError] = useState('');
   const [approval, setApproval] = useState<{ text: string; connection: string; preview?: ChangePreview; finish: (allow: boolean) => void } | null>(null);
@@ -48,18 +54,19 @@ export function AgentPanel({ host, registrationKey, ready }: { ready: boolean; h
           setApproval({ text: params.text ?? '', connection: params.connection ?? '', preview: params.preview, finish });
         }) };
         else if (method === 'context') result = current.current.workContext?.() ?? null;
-        else if (method === 'results') { current.current.results(params.results ?? []); current.current.history(); result = {}; }
+        else if (method === 'results') { setBridgeReply(value => value + 1); current.current.results(params.results ?? []); current.current.history(); result = {}; }
         else result = method === 'tools/list' ? { tools: agent.current!.listTools() } : await agent.current!.callTool(params.name ?? '', params.arguments ?? {}, { signal: controller.signal });
         await api('agent_bridge_reply', { requestId: request_id, result });
       })().catch(e => { if (alive) setError(String(e)); }).finally(() => { clearTimeout(timer); requests.delete(request_id); });
     });
+    const activityEvents = listen<AgentCall>('agent-call', event => { if (alive) setCalls(previous => { const existing = previous.find(call => call.id === event.payload.id); const next = { ...event.payload, startedAt: existing?.startedAt ?? Date.now() }; return [...previous.filter(call => call.id !== next.id), next].slice(-50); }); });
     const cancellation = listen<{ request_id: string }>('agent-bridge-cancel', event => requests.get(event.payload.request_id)?.abort());
-    void Promise.all([subscription, cancellation]).then(async () => { if (alive) await api('agent_bridge_ready', {}); }).catch(e => { if (alive) setError(String(e)); });
-    return () => { alive = false; requests.forEach(c => c.abort()); void subscription.then(off => off()); void cancellation.then(off => off()); };
+    void Promise.all([subscription, cancellation, activityEvents]).then(async () => { if (alive) await api('agent_bridge_ready', {}); }).catch(e => { if (alive) setError(String(e)); });
+    return () => { alive = false; requests.forEach(c => c.abort()); void subscription.then(off => off()); void cancellation.then(off => off()); void activityEvents.then(off => off()); };
   }, [ready]);
   return <><span class={`agent-activity ${activity.running ? 'running' : ''}`} role="status" aria-label="에이전트 활동" data-testid="agent-activity">에이전트 활동 · {activity.total}{activity.running > 0 && ` · ${activity.running} 실행 중`}</span>
-    <label><input type="checkbox" aria-label="Localhost MCP bridge" data-testid="agent-bridge-toggle" checked={enabled} onChange={e => { const value = e.currentTarget.checked; void api('agent_bridge_set', { enabled: value }).then(() => { setEnabled(value); setError(''); }).catch(e => setError(String(e))); }} />MCP bridge</label>{error && <span role="alert">{error}</span>}
-    <button disabled={isMock} title={isMock ? '데스크톱 앱에서 관리' : undefined} onClick={() => setClientsOpen(true)}>에이전트 클라이언트</button>{clientsOpen && <ClientsPanel profiles={host.snapshot().profiles} drivers={host.snapshot().drivers} onClose={() => setClientsOpen(false)} />}
-    {approval && <Dialog label="에이전트 요청 승인" onClose={() => approval.finish(false)}><section class="profile-form" data-testid="agent-approval"><h2>에이전트 요청</h2><p>연결: {approval.connection}</p><pre>{approval.text}</pre>{approval.preview && <><p>변경 미리보기 · 아직 커밋하지 않았습니다</p><pre style={{ maxHeight: '40vh', overflow: 'auto' }}>{JSON.stringify(approval.preview, null, 2)}</pre></>}<div class="toolbar"><button aria-label="Approve agent query" data-testid="agent-approve" onClick={() => approval.finish(true)}>승인</button><button autoFocus aria-label="Deny agent query" data-testid="agent-deny" onClick={() => approval.finish(false)}>거부</button></div></section></Dialog>}
+    <SpringCheck aria-label="Localhost MCP bridge" data-testid="agent-bridge-toggle" checked={enabled} onChange={value => { void api('agent_bridge_set', { enabled: value }).then(() => { setEnabled(value); setError(''); }).catch(e => setError(String(e))); }} label="MCP bridge" />{error && <span role="alert">{error}</span>}
+    <Button morph={false} class="agent-rail-button" aria-label="에이전트 클라이언트" onClick={() => setClientsOpen(true)}><Bot /><span>에이전트 클라이언트</span></Button>{clientsOpen && <ClientsPanel calls={calls} bridgeReply={bridgeReply} activity={activity} queryPulse={queryPulse} approvalConnection={approval?.connection} sessions={host.snapshot().sessions} onProfileSelect={id => { setClientsOpen(false); onProfileSelect(id); }} profiles={host.snapshot().profiles} drivers={host.snapshot().drivers} onClose={() => setClientsOpen(false)} />}
+    {approval && <Dialog label="에이전트 요청 승인" onClose={() => approval.finish(false)} footer={<><Button morph={false} aria-label="Approve agent query" data-testid="agent-approve" onClick={() => approval.finish(true)}>승인</Button><Button morph={false} autoFocus aria-label="Deny agent query" data-testid="agent-deny" onClick={() => approval.finish(false)}>거부</Button></>}><section class="profile-form" data-testid="agent-approval"><p>연결: {approval.connection}</p><pre>{approval.text}</pre>{approval.preview && <><p>변경 미리보기 · 아직 커밋하지 않았습니다</p><pre>{JSON.stringify(approval.preview, null, 2)}</pre></>}</section></Dialog>}
   </>;
 }

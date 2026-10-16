@@ -1,0 +1,9 @@
+{
+  "scope": "Shared-tree production JS snapshot including D1 integration, gallery excluded; clean output directory",
+  "baseline_js_gzip_bytes": 172157,
+  "current_js_gzip_bytes": 188876,
+  "delta_bytes": 16719,
+  "budget_bytes": 40000,
+  "pass": true,
+  "js_files": 23
+}

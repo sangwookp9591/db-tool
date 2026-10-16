@@ -1,0 +1,59 @@
+ M docs/DESIGN.md
+ M src-tauri/icons/icon.ico
+ M src-tauri/icons/icon.png
+ M src-tauri/src/agent_dispatch.rs
+ M src-tauri/src/assistant.rs
+ M src-tauri/src/lib.rs
+ M src-tauri/src/storage.rs
+ M src-tauri/tauri.conf.json
+ M ui/index.html
+ M ui/package.json
+ M ui/pnpm-lock.yaml
+ M ui/src/App.tsx
+ M ui/src/Connections.tsx
+ M ui/src/Dialog.tsx
+ M ui/src/DocumentTree.tsx
+ M ui/src/Editor.tsx
+ M ui/src/GraphView.tsx
+ M ui/src/NavigationTab.tsx
+ M ui/src/QueryTab.tsx
+ M ui/src/Results.tsx
+ M ui/src/VirtualTable.tsx
+ M ui/src/agent/AgentPanel.tsx
+ M ui/src/agent/ClientsPanel.tsx
+ M ui/src/ai/AssistantPanel.tsx
+ M ui/src/ai/types.ts
+ M ui/src/api.ts
+ M ui/src/contract.ts
+ M ui/src/main.tsx
+ M ui/src/mock.ts
+ M ui/src/perf/app.tsx
+ M ui/src/perf/fixtureStream.ts
+ M ui/src/perf/harness.tsx
+ M ui/src/perf/nativeWorkspace.tsx
+ M ui/src/perf/stream.ts
+ M ui/src/style.css
+ M ui/src/values.test.ts
+ M ui/src/values.ts
+ M ui/src/virtual.ts
+ M ui/viewer-bench.html
+?? THIRD_PARTY_NOTICES.md
+?? docs/D1_DESIGN_REPORT.md
+?? docs/D2_MICRO_REPORT.md
+?? docs/D3_COMPONENTS_REPORT.md
+?? docs/assets/
+?? docs/design-shots/
+?? src-tauri/icons/128x128.png
+?? src-tauri/icons/128x128@2x.png
+?? src-tauri/icons/32x32.png
+?? src-tauri/icons/icon-1024.png
+?? src-tauri/icons/icon.icns
+?? ui/public/
+?? ui/src/ai/suggestions.test.ts
+?? ui/src/ai/suggestions.ts
+?? ui/src/assets/
+?? ui/src/perf/paintQueue.test.ts
+?? ui/src/perf/paintQueue.ts
+?? ui/src/theme.css
+?? ui/src/theme.ts
+?? ui/src/ui/

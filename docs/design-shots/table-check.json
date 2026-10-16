@@ -1,0 +1,19 @@
+{
+  "first": {
+    "first": 212.39999997615814,
+    "loaded": 395.30000001192093,
+    "frames": {
+      "p50": 16.700000000000045,
+      "p95": 16.700000000000045,
+      "max": 16.800000000000182,
+      "samples": 60
+    },
+    "domCells": 306,
+    "heap": 81400000
+  },
+  "rows": 100000,
+  "scroll": true,
+  "selection": true,
+  "filter": true,
+  "sort": true
+}

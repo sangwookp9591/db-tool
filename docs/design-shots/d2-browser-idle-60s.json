@@ -1,0 +1,7 @@
+{
+  "scope": "Chromium gallery renderer TaskDuration; not native process CPU or W4 performance",
+  "durationSeconds": 60.004289000004064,
+  "taskSeconds": 0.021854,
+  "mainThreadTaskPercent": 0.03642072985815817,
+  "animations": 0
+}

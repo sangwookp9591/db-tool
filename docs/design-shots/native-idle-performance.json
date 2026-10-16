@@ -1,0 +1,180 @@
+{
+  "environment": {
+    "href": "tauri://localhost",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)",
+    "mode": "Tauri debug / WKWebView",
+    "targets": [
+      "127.0.0.1:55432",
+      "bolt://127.0.0.1:57687"
+    ],
+    "target": "idle",
+    "at": "2026-10-16T03:35:54.298Z"
+  },
+  "results": {},
+  "fixtureLabel": "DbtP_1792121754298",
+  "stage": "ready",
+  "graphPanZoom": [
+    {
+      "count": 300,
+      "repeat": 0,
+      "load": "12:35  up 4 days,  3:18, 30 users, load averages: 6.19 5.79 7.62",
+      "frames": {
+        "p50": 33,
+        "p95": 35,
+        "max": 35,
+        "samples": 60
+      },
+      "idleRenderFrames": 0,
+      "averageMovementPx": 0,
+      "input": "60 alternating synthetic wheel events; rAF intervals (same W4 method)"
+    },
+    {
+      "count": 300,
+      "repeat": 1,
+      "load": "12:35  up 4 days,  3:18, 30 users, load averages: 6.19 5.79 7.62",
+      "frames": {
+        "p50": 33,
+        "p95": 35,
+        "max": 35,
+        "samples": 60
+      },
+      "idleRenderFrames": 0,
+      "averageMovementPx": 0,
+      "input": "60 alternating synthetic wheel events; rAF intervals (same W4 method)"
+    },
+    {
+      "count": 300,
+      "repeat": 2,
+      "load": "12:36  up 4 days,  3:18, 30 users, load averages: 6.10 5.77 7.61",
+      "frames": {
+        "p50": 33,
+        "p95": 35,
+        "max": 35,
+        "samples": 60
+      },
+      "idleRenderFrames": 0,
+      "averageMovementPx": 0,
+      "input": "60 alternating synthetic wheel events; rAF intervals (same W4 method)"
+    },
+    {
+      "count": 1000,
+      "repeat": 0,
+      "load": "12:36  up 4 days,  3:18, 30 users, load averages: 6.10 5.77 7.61",
+      "frames": {
+        "p50": 33,
+        "p95": 35,
+        "max": 35,
+        "samples": 60
+      },
+      "idleRenderFrames": 0,
+      "averageMovementPx": 0,
+      "input": "60 alternating synthetic wheel events; rAF intervals (same W4 method)"
+    },
+    {
+      "count": 1000,
+      "repeat": 1,
+      "load": "12:36  up 4 days,  3:18, 30 users, load averages: 5.85 5.73 7.58",
+      "frames": {
+        "p50": 33,
+        "p95": 34,
+        "max": 50,
+        "samples": 60
+      },
+      "idleRenderFrames": 0,
+      "averageMovementPx": 0,
+      "input": "60 alternating synthetic wheel events; rAF intervals (same W4 method)"
+    },
+    {
+      "count": 1000,
+      "repeat": 2,
+      "load": "12:36  up 4 days,  3:18, 30 users, load averages: 5.70 5.70 7.56",
+      "frames": {
+        "p50": 33,
+        "p95": 35,
+        "max": 35,
+        "samples": 60
+      },
+      "idleRenderFrames": 0,
+      "averageMovementPx": 0,
+      "input": "60 alternating synthetic wheel events; rAF intervals (same W4 method)"
+    }
+  ],
+  "idleReadyAt": 1792121773192,
+  "idleWindowMs": 90000,
+  "idleReady": false,
+  "idle": {
+    "nodes": 300,
+    "renderFrames": 0,
+    "averageMovementPx": 0,
+    "duration": 90000,
+    "activeAnimations": 0
+  },
+  "complete": true,
+  "uptime": "12:35  up 4 days,  3:18, 30 users, load averages: 4.64 5.48 7.53",
+  "idleCpu": {
+    "pids": [
+      36925,
+      36937
+    ],
+    "webkitCandidates": [
+      36937
+    ],
+    "samples": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0.7,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "meanPercent": 0.016666666666666666,
+    "cpuDeltaSeconds": 0.06000000000000005,
+    "cpuElapsedMs": 60793.833249999996,
+    "intervalMeanPercent": 0.09869422076621572,
+    "measurement": "intervalMeanPercent: cumulative ps TIME delta inside the graph-idle window; meanPercent retains legacy rolling ps %cpu",
+    "ownership": "app plus new WebKit processes since spawn; conservative if another app launched WebKit concurrently"
+  },
+  "power": {
+    "source": "AC Power",
+    "lowpowermode": 1,
+    "changed": false,
+    "native_frame_budget_excluded_by_coordinator": true
+  },
+  "cpuPrecision": "ps TIME has 0.01-second resolution; this single interval is close to the 0.1% threshold"
+}

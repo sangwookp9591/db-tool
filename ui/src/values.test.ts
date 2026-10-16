@@ -48,8 +48,8 @@ describe('graph merge', () => {
 });
 describe('virtual table range', () => {
   it('bounds 100,000 rows to viewport plus overscan', () => {
-    expect(visibleRange(100000, 0, 280)).toEqual({ start: 0, end: 16 });
-    expect(visibleRange(100000, 28000, 280)).toEqual({ start: 994, end: 1016 });
+    expect(visibleRange(100000, 0, 260)).toEqual({ start: 0, end: 16 });
+    expect(visibleRange(100000, 26000, 260)).toEqual({ start: 994, end: 1016 });
     expect(visibleRange(100000, 2799900, 280).end).toBe(100000);
     expect(visibleRange(0, 0, 280)).toEqual({ start: 0, end: 0 });
   });

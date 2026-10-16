@@ -1,0 +1,12 @@
+{
+  "fixture": "intercepted mock AI response; no provider request",
+  "evidenceLevel": 2,
+  "associatedFooterSave": true,
+  "mockExplainCannotPromote": true,
+  "acceptExecutes": false,
+  "modifiedUndoRequiresConfirmation": true,
+  "dismissKeepsTab": true,
+  "confirmedUndoClosesOnlyTab": true,
+  "idleAnimations": 0,
+  "errors": []
+}

@@ -1,0 +1,1335 @@
+{
+  "at": "2026-10-16T02:46:44.709Z",
+  "label": "d1-production",
+  "complete": true,
+  "environment": {
+    "os": "darwin 27.0.0",
+    "cpu": "Apple M5",
+    "arch": "arm64",
+    "browser": "156.0.8078.4",
+    "uptime": "11:46  up 4 days,  2:29, 28 users, load averages: 12.28 13.69 20.08",
+    "mode": "Vite dev / headless Chromium",
+    "viewport": "1440x1000"
+  },
+  "results": {
+    "table-100000-10": [
+      {
+        "first": 112.89999997615814,
+        "loaded": 210.0999999642372,
+        "frames": {
+          "p50": 16.700000000000045,
+          "p95": 16.799999999999955,
+          "max": 16.800000000000182,
+          "samples": 60
+        },
+        "domCells": 306,
+        "heap": 74656113,
+        "cls": 0,
+        "allLayoutShifts": 0,
+        "uptime": "11:46  up 4 days,  2:29, 28 users, load averages: 12.28 13.69 20.08"
+      },
+      {
+        "first": 33.59999996423721,
+        "loaded": 224.0999999642372,
+        "frames": {
+          "p50": 16.699999999999818,
+          "p95": 16.799999999999727,
+          "max": 16.800000000000182,
+          "samples": 60
+        },
+        "domCells": 306,
+        "heap": 75010461,
+        "cls": 0,
+        "allLayoutShifts": 0,
+        "uptime": "11:46  up 4 days,  2:29, 28 users, load averages: 12.28 13.69 20.08"
+      },
+      {
+        "first": 33.89999997615814,
+        "loaded": 187.39999997615814,
+        "frames": {
+          "p50": 16.699999999999818,
+          "p95": 16.700000000000273,
+          "max": 16.799999999999727,
+          "samples": 60
+        },
+        "domCells": 306,
+        "heap": 68675857,
+        "cls": 0,
+        "allLayoutShifts": 0,
+        "uptime": "11:46  up 4 days,  2:29, 28 users, load averages: 11.53 13.51 19.98"
+      }
+    ],
+    "graph-300": [
+      {
+        "first": 176.5,
+        "layout": 109.10000002384186,
+        "layoutFrames": {
+          "p50": 16.699999999999818,
+          "p95": 16.700000000000728,
+          "max": 16.799999999999272,
+          "samples": 60
+        },
+        "frames": {
+          "p50": 16.699999999999818,
+          "p95": 16.700000000000728,
+          "max": 16.800000000000182,
+          "samples": 60
+        },
+        "click": 45.5,
+        "merge": 0.30000001192092896,
+        "expand": 53.5,
+        "metrics": [
+          {
+            "name": "graph-stable",
+            "startTime": 4401.699999988079,
+            "duration": 109.10000002384186,
+            "detail": {
+              "nodes": 300,
+              "ticks": 56,
+              "workMs": 84.30000001192093,
+              "cached": false
+            }
+          },
+          {
+            "name": "graph-first-frame",
+            "startTime": 4401.699999988079,
+            "duration": 123.89999997615814
+          },
+          {
+            "name": "graph-render",
+            "startTime": 4521.699999988079,
+            "duration": 3.899999976158142,
+            "detail": {
+              "nodes": 300
+            }
+          },
+          {
+            "name": "graph-visible",
+            "startTime": 4378.5,
+            "duration": 176.5
+          },
+          {
+            "name": "graph-render",
+            "startTime": 5604,
+            "duration": 19.899999976158142,
+            "detail": {
+              "nodes": 300
+            }
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 5628.599999964237,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 5637.199999988079,
+            "duration": 0.10000002384185791
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 5653.899999976158,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 5671.199999988079,
+            "duration": 0.10000002384185791
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 5688.099999964237,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 5704,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 5721.099999964237,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 5737.300000011921,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 5754.5,
+            "duration": 0.09999996423721313
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 5770.599999964237,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 5787.300000011921,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 5804,
+            "duration": 0.09999996423721313
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 5820.599999964237,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 5837.300000011921,
+            "duration": 0.09999996423721313
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 5853.899999976158,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 5870.5,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 5887.199999988079,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 5904.5,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 5920.599999964237,
+            "duration": 0.10000002384185791
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 5937.199999988079,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 5954,
+            "duration": 0.09999996423721313
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 5970.599999964237,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 5987.399999976158,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6004.599999964237,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6020.800000011921,
+            "duration": 0.09999996423721313
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6037.399999976158,
+            "duration": 0.10000002384185791
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6054,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6070.699999988079,
+            "duration": 0.10000002384185791
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6087.899999976158,
+            "duration": 0.10000002384185791
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6104,
+            "duration": 0.09999996423721313
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6120.599999964237,
+            "duration": 0.10000002384185791
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6137.300000011921,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6154,
+            "duration": 0.09999996423721313
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6170.699999988079,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6187.399999976158,
+            "duration": 0.10000002384185791
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6204,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6221.199999988079,
+            "duration": 0.10000002384185791
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6237.199999988079,
+            "duration": 0.10000002384185791
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6253.899999976158,
+            "duration": 0.10000002384185791
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6270.699999988079,
+            "duration": 0.10000002384185791
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6287.300000011921,
+            "duration": 0.09999996423721313
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6304,
+            "duration": 0.09999996423721313
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6320.5,
+            "duration": 0.09999996423721313
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6337.300000011921,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6354,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6370.699999988079,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6388,
+            "duration": 0.09999996423721313
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6404,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6420.800000011921,
+            "duration": 0.19999998807907104
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6437.300000011921,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6454.599999964237,
+            "duration": 0.10000002384185791
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6470.699999988079,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6487.599999964237,
+            "duration": 0.10000002384185791
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6504.099999964237,
+            "duration": 0.10000002384185791
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6520.599999964237,
+            "duration": 0.10000002384185791
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6537.399999976158,
+            "duration": 0.10000002384185791
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6554,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6570.699999988079,
+            "duration": 0.19999998807907104
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 6587.399999976158,
+            "duration": 0
+          },
+          {
+            "name": "graph-render",
+            "startTime": 6606.5,
+            "duration": 0.3999999761581421,
+            "detail": {
+              "nodes": 300
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 6637.300000011921,
+            "duration": 0.5,
+            "detail": {
+              "nodes": 300
+            }
+          },
+          {
+            "name": "properties",
+            "startTime": 6626.5,
+            "duration": 30.30000001192093
+          },
+          {
+            "name": "properties",
+            "startTime": 6625.699999988079,
+            "duration": 45.5
+          },
+          {
+            "name": "expand-merge",
+            "startTime": 6674.199999988079,
+            "duration": 0.30000001192092896
+          },
+          {
+            "name": "graph-first-frame",
+            "startTime": 6675.399999976158,
+            "duration": 12.800000011920929
+          },
+          {
+            "name": "graph-render",
+            "startTime": 6687.399999976158,
+            "duration": 0.800000011920929,
+            "detail": {
+              "nodes": 350
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 6707,
+            "duration": 0.30000001192092896,
+            "detail": {
+              "nodes": 350
+            }
+          },
+          {
+            "name": "expand-frame",
+            "startTime": 6671.800000011921,
+            "duration": 53.5
+          },
+          {
+            "name": "graph-stable",
+            "startTime": 6675.399999976158,
+            "duration": 57.10000002384186,
+            "detail": {
+              "nodes": 350,
+              "ticks": 30,
+              "workMs": 54.20000010728836,
+              "cached": false
+            }
+          }
+        ],
+        "cls": 0,
+        "allLayoutShifts": 0,
+        "uptime": "11:46  up 4 days,  2:29, 28 users, load averages: 11.53 13.51 19.98"
+      },
+      {
+        "first": 139.89999997615814,
+        "layout": 97.5,
+        "layoutFrames": {
+          "p50": 16.699999999999818,
+          "p95": 16.700000000000728,
+          "max": 16.800000000000182,
+          "samples": 60
+        },
+        "frames": {
+          "p50": 16.69999999999891,
+          "p95": 16.800000000000182,
+          "max": 16.80000000000109,
+          "samples": 60
+        },
+        "click": 48.69999998807907,
+        "merge": 0.09999996423721313,
+        "expand": 54,
+        "metrics": [
+          {
+            "name": "graph-stable",
+            "startTime": 6801.5,
+            "duration": 97.5,
+            "detail": {
+              "nodes": 300,
+              "ticks": 56,
+              "workMs": 80.5,
+              "cached": false
+            }
+          },
+          {
+            "name": "graph-first-frame",
+            "startTime": 6801.5,
+            "duration": 104.30000001192093
+          },
+          {
+            "name": "graph-render",
+            "startTime": 6904.699999988079,
+            "duration": 1.100000023841858,
+            "detail": {
+              "nodes": 300
+            }
+          },
+          {
+            "name": "graph-visible",
+            "startTime": 6797.300000011921,
+            "duration": 139.89999997615814
+          },
+          {
+            "name": "graph-render",
+            "startTime": 7987.800000011921,
+            "duration": 19.69999998807907,
+            "detail": {
+              "nodes": 300
+            }
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8012,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8021.5,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8038,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8054.5,
+            "duration": 0.09999996423721313
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8071.199999988079,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8087.899999976158,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8104.5,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8121.199999988079,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8137.800000011921,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8154.5,
+            "duration": 0.09999996423721313
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8171.199999988079,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8188,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8204.5,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8221.300000011921,
+            "duration": 0.09999996423721313
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8238,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8254.5,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8271.199999988079,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8287.899999976158,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8304.5,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8321.099999964237,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8337.899999976158,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8354.399999976158,
+            "duration": 0.10000002384185791
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8371.199999988079,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8387.199999988079,
+            "duration": 0.10000002384185791
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8403.899999976158,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8421.199999988079,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8437.199999988079,
+            "duration": 0.10000002384185791
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8453.899999976158,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8470.599999964237,
+            "duration": 0.10000002384185791
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8487.300000011921,
+            "duration": 0.09999996423721313
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8504.5,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8520.699999988079,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8537.199999988079,
+            "duration": 0.10000002384185791
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8554,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8570.599999964237,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8587.899999976158,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8604,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8621,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8637.199999988079,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8653.899999976158,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8670.5,
+            "duration": 0.09999996423721313
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8687.300000011921,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8703.899999976158,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8720.5,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8738.199999988079,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8754.5,
+            "duration": 0.09999996423721313
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8770.599999964237,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8787.199999988079,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8803.899999976158,
+            "duration": 0.10000002384185791
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8820.599999964237,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8837.800000011921,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8854.099999964237,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8870.699999988079,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8887.199999988079,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8904.5,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8920.599999964237,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8937.199999988079,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8954,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 8970.599999964237,
+            "duration": 0
+          },
+          {
+            "name": "graph-render",
+            "startTime": 8987.199999988079,
+            "duration": 0.30000001192092896,
+            "detail": {
+              "nodes": 300
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 9020.599999964237,
+            "duration": 0.30000001192092896,
+            "detail": {
+              "nodes": 300
+            }
+          },
+          {
+            "name": "properties",
+            "startTime": 9005.300000011921,
+            "duration": 33.5
+          },
+          {
+            "name": "properties",
+            "startTime": 9005.199999988079,
+            "duration": 48.69999998807907
+          },
+          {
+            "name": "expand-merge",
+            "startTime": 9055,
+            "duration": 0.09999996423721313
+          },
+          {
+            "name": "graph-first-frame",
+            "startTime": 9055.699999988079,
+            "duration": 15.300000011920929
+          },
+          {
+            "name": "graph-render",
+            "startTime": 9070.599999964237,
+            "duration": 0.40000003576278687,
+            "detail": {
+              "nodes": 350
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 9089.599999964237,
+            "duration": 0.30000001192092896,
+            "detail": {
+              "nodes": 350
+            }
+          },
+          {
+            "name": "graph-stable",
+            "startTime": 9055.699999988079,
+            "duration": 52.19999998807907,
+            "detail": {
+              "nodes": 350,
+              "ticks": 30,
+              "workMs": 49.300000071525574,
+              "cached": false
+            }
+          },
+          {
+            "name": "expand-frame",
+            "startTime": 9054,
+            "duration": 54
+          },
+          {
+            "name": "graph-render",
+            "startTime": 9108.099999964237,
+            "duration": 0.30000001192092896,
+            "detail": {
+              "nodes": 350
+            }
+          }
+        ],
+        "cls": 0,
+        "allLayoutShifts": 0,
+        "uptime": "11:46  up 4 days,  2:29, 28 users, load averages: 11.53 13.51 19.98"
+      },
+      {
+        "first": 137.5,
+        "layout": 86.30000001192093,
+        "layoutFrames": {
+          "p50": 16.69999999999891,
+          "p95": 16.799999999999272,
+          "max": 16.80000000000109,
+          "samples": 60
+        },
+        "frames": {
+          "p50": 16.69999999999891,
+          "p95": 16.799999999999272,
+          "max": 33.29999999999927,
+          "samples": 60
+        },
+        "click": 44.90000003576279,
+        "merge": 0,
+        "expand": 60.10000002384186,
+        "metrics": [
+          {
+            "name": "graph-stable",
+            "startTime": 9187.599999964237,
+            "duration": 86.30000001192093,
+            "detail": {
+              "nodes": 300,
+              "ticks": 56,
+              "workMs": 78.60000002384186,
+              "cached": false
+            }
+          },
+          {
+            "name": "graph-first-frame",
+            "startTime": 9187.599999964237,
+            "duration": 101.20000004768372
+          },
+          {
+            "name": "graph-render",
+            "startTime": 9287.800000011921,
+            "duration": 1,
+            "detail": {
+              "nodes": 300
+            }
+          },
+          {
+            "name": "graph-visible",
+            "startTime": 9183.800000011921,
+            "duration": 137.5
+          },
+          {
+            "name": "graph-render",
+            "startTime": 10371.199999988079,
+            "duration": 25.600000023841858,
+            "detail": {
+              "nodes": 300
+            }
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10403.699999988079,
+            "duration": 0.10000002384185791
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10421.300000011921,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10437.899999976158,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10454.5,
+            "duration": 0.09999996423721313
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10471.199999988079,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10487.899999976158,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10504.599999964237,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10520.800000011921,
+            "duration": 0.09999996423721313
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10537.300000011921,
+            "duration": 0.09999996423721313
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10554.599999964237,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10571.199999988079,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10587.5,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10604,
+            "duration": 0.09999996423721313
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10621.199999988079,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10637.800000011921,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10654.5,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10671.199999988079,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10687.399999976158,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10705.099999964237,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10721.199999988079,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10738.199999988079,
+            "duration": 0.10000002384185791
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10757.099999964237,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10770.800000011921,
+            "duration": 0.09999996423721313
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10787.899999976158,
+            "duration": 0.10000002384185791
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10804.599999964237,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10821.099999964237,
+            "duration": 0.20000004768371582
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10837.899999976158,
+            "duration": 0.10000002384185791
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10854,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10870.800000011921,
+            "duration": 0.19999998807907104
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10888,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10904.199999988079,
+            "duration": 0.10000002384185791
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10921,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10937.5,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10954.300000011921,
+            "duration": 0.09999996423721313
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10970.800000011921,
+            "duration": 0.09999996423721313
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 10987.5,
+            "duration": 0.09999996423721313
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 11004.300000011921,
+            "duration": 0.09999996423721313
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 11020.800000011921,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 11037.5,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 11054.199999988079,
+            "duration": 0.10000002384185791
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 11070.800000011921,
+            "duration": 0.09999996423721313
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 11087.399999976158,
+            "duration": 0.10000002384185791
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 11104.099999964237,
+            "duration": 0.20000004768371582
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 11121.099999964237,
+            "duration": 0.10000002384185791
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 11137.699999988079,
+            "duration": 0.19999998807907104
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 11154.5,
+            "duration": 0.5
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 11171.300000011921,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 11188.300000011921,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 11204.199999988079,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 11220.800000011921,
+            "duration": 0.09999996423721313
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 11246,
+            "duration": 0.09999996423721313
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 11271.399999976158,
+            "duration": 0.10000002384185791
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 11294,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 11304.5,
+            "duration": 0.09999996423721313
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 11320.899999976158,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 11337.399999976158,
+            "duration": 0.10000002384185791
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 11354.199999988079,
+            "duration": 0
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 11370.800000011921,
+            "duration": 0.09999996423721313
+          },
+          {
+            "name": "graph-bitmap",
+            "startTime": 11387.399999976158,
+            "duration": 0.10000002384185791
+          },
+          {
+            "name": "graph-render",
+            "startTime": 11404.099999964237,
+            "duration": 0.40000003576278687,
+            "detail": {
+              "nodes": 300
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 11437.699999988079,
+            "duration": 0.6000000238418579,
+            "detail": {
+              "nodes": 300
+            }
+          },
+          {
+            "name": "properties",
+            "startTime": 11426.199999988079,
+            "duration": 32.19999998807907
+          },
+          {
+            "name": "properties",
+            "startTime": 11426.099999964237,
+            "duration": 44.90000003576279
+          },
+          {
+            "name": "expand-merge",
+            "startTime": 11473.300000011921,
+            "duration": 0
+          },
+          {
+            "name": "graph-first-frame",
+            "startTime": 11474.5,
+            "duration": 13.599999964237213
+          },
+          {
+            "name": "graph-render",
+            "startTime": 11487.399999976158,
+            "duration": 0.800000011920929,
+            "detail": {
+              "nodes": 350
+            }
+          },
+          {
+            "name": "graph-render",
+            "startTime": 11509.199999988079,
+            "duration": 0.3999999761581421,
+            "detail": {
+              "nodes": 350
+            }
+          },
+          {
+            "name": "expand-frame",
+            "startTime": 11471.099999964237,
+            "duration": 60.10000002384186
+          }
+        ],
+        "cls": 0,
+        "allLayoutShifts": 0,
+        "uptime": "11:46  up 4 days,  2:29, 28 users, load averages: 10.77 13.32 19.88"
+      }
+    ]
+  },
+  "errors": []
+}

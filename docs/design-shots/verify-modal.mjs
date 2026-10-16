@@ -1,0 +1,13 @@
+import { chromium } from '../../ui/node_modules/playwright/index.mjs';
+import assert from 'node:assert/strict';import {writeFile} from 'node:fs/promises';
+const browser=await chromium.launch();const evidence=[];const out='/Users/iron/Project/psw/db-tool/docs/design-shots';
+for(const theme of ['midnight','daylight'])for(const [width,height] of [[1440,1000],[1024,700]]){
+ const page=await browser.newPage({viewport:{width,height}});await page.addInitScript(t=>localStorage.setItem('axdb-theme',t),theme);await page.goto('http://127.0.0.1:5177');await page.getByLabel('Add connection',{exact:true}).click();const dialog=page.getByRole('dialog');
+ for(const driver of ['postgres','mongodb']){
+  await dialog.getByRole('combobox',{name:'Driver',exact:true}).selectOption(driver);await dialog.locator('summary').filter({hasText:'고급 설정'}).click();
+  const name=dialog.getByRole('textbox',{name:/Name/});await name.fill('');await name.focus();const cdp=await page.context().newCDPSession(page);await cdp.send('Input.imeSetComposition',{text:'ㄱ',selectionStart:1,selectionEnd:1});assert.equal(await name.inputValue(),'ㄱ');await cdp.send('Input.imeSetComposition',{text:'가',selectionStart:1,selectionEnd:1});await cdp.send('Input.insertText',{text:'가나다'});assert.equal(await name.inputValue(),'가나다');await cdp.detach();
+  const before=await page.locator('.dialog-footer').boundingBox();await page.locator('.dialog-body').evaluate(e=>e.scrollTop=e.scrollHeight);const after=await page.locator('.dialog-footer').boundingBox();assert.equal(before.y,after.y);assert(after.y+after.height<=height);const state=await dialog.evaluate(e=>({dialogOverflow:getComputedStyle(e).overflow,dialogHeight:e.getBoundingClientRect().height,bodyScroll:e.querySelector('.dialog-body').scrollHeight>e.querySelector('.dialog-body').clientHeight,above:e.querySelector('.dialog-body-wrap').dataset.above,inputs:[...e.querySelectorAll('input:not([type=checkbox]),select')].filter(e=>e.getClientRects().length).map(e=>e.getBoundingClientRect().height)}));assert(state.inputs.every(h=>h===32));await page.screenshot({path:`${out}/modal-${driver}-${theme}-${width}.png`});await page.locator('.dialog-body').evaluate(e=>e.scrollTop=0);await page.screenshot({path:`${out}/modal-${driver}-${theme}-${width}-top.png`});evidence.push({theme,width,height,driver,ime:'ㄱ → 가 → 가나다',footerStable:true,...state});await page.locator('.dialog-body').evaluate(e=>e.scrollTop=0);await dialog.locator('summary').filter({hasText:'고급 설정'}).click();
+ }
+ await page.close();
+}
+await writeFile(`${out}/modal-checks.json`,JSON.stringify(evidence,null,2));console.log(evidence);await browser.close();

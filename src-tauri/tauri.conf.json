@@ -9,6 +9,27 @@
     "beforeDevCommand": "pnpm --dir ../ui dev",
     "beforeBuildCommand": "pnpm --dir ../ui build"
   },
-  "app": { "windows": [{ "title": "AxDB", "width": 1280, "height": 800 }], "security": { "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost" } },
-  "bundle": { "active": true, "targets": "all" }
+  "app": {
+    "windows": [
+      {
+        "title": "AxDB",
+        "width": 1280,
+        "height": 800
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
 }

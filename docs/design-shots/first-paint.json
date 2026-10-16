@@ -1,0 +1,86 @@
+[
+  {
+    "phase": "before",
+    "repeat": 0,
+    "paint": [
+      {
+        "name": "first-paint",
+        "ms": 48
+      },
+      {
+        "name": "first-contentful-paint",
+        "ms": 104
+      }
+    ]
+  },
+  {
+    "phase": "after",
+    "repeat": 0,
+    "paint": [
+      {
+        "name": "first-paint",
+        "ms": 56
+      },
+      {
+        "name": "first-contentful-paint",
+        "ms": 132
+      }
+    ]
+  },
+  {
+    "phase": "after",
+    "repeat": 1,
+    "paint": [
+      {
+        "name": "first-paint",
+        "ms": 28
+      },
+      {
+        "name": "first-contentful-paint",
+        "ms": 108
+      }
+    ]
+  },
+  {
+    "phase": "before",
+    "repeat": 1,
+    "paint": [
+      {
+        "name": "first-paint",
+        "ms": 20
+      },
+      {
+        "name": "first-contentful-paint",
+        "ms": 56
+      }
+    ]
+  },
+  {
+    "phase": "before",
+    "repeat": 2,
+    "paint": [
+      {
+        "name": "first-paint",
+        "ms": 16
+      },
+      {
+        "name": "first-contentful-paint",
+        "ms": 60
+      }
+    ]
+  },
+  {
+    "phase": "after",
+    "repeat": 2,
+    "paint": [
+      {
+        "name": "first-paint",
+        "ms": 32
+      },
+      {
+        "name": "first-contentful-paint",
+        "ms": 108
+      }
+    ]
+  }
+]

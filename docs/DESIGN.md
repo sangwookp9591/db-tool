@@ -117,11 +117,30 @@ AxDB는 "가볍고 빠른 다중 DB 작업대"다. 화면은 개발자 도구답
 | BorderGlow | focus된 편집기 패널, AI 패널, 연결 추가 대화상자 | 포인터 방향을 따라 경계 메시 그라디언트가 밝아진다. pointermove 때만 CSS 변수를 갱신하고, rAF 1회로 묶는다 |
 | SpringCheck | 체크박스 전체(읽기 전용, MCP 브리지, 행 포함 등) | 스프링으로 박스가 채워지고 체크가 그려진다. 레이블 취소선은 쓰지 않는다(의미가 다름) |
 | FuseButton | 연결 삭제, 이력 삭제, 토큰 폐기 | 누르면 완료 상태가 되고 5초짜리 "실행 취소" 퓨즈가 탄다. 퓨즈가 다 타야 실제로 삭제한다. 그 전에 취소하면 아무 일도 없다 |
+| CommandPalette · 21st.dev Command 참고 | 연결·테이블·최근 쿼리 검색 | `⌘K`/`Ctrl+K`, 검색, 화살표·Enter·Escape. 기존 모달이 열려 있으면 새 팔레트를 열지 않는다. 진입 160ms, 닫으면 제거 |
+| SlidingIndicator · affectUI Segmented Control 참고 | 탭과 세그먼트 | 기존 tab/radio 의미를 보존하며 선택 표시줄만 220ms 동안 translate·scale한다. 값이 같으면 정지 |
+| SpotlightCard · React Bits | 사이드바 연결 카드 | 포인터가 움직일 때만 rAF 1회로 묶어 강조 면을 translate한다. 키보드 focus는 정적 경계로 표시 |
+| ToastStack · affectUI Toaster 참고 | 실행 완료·오류·복사 알림 | 160ms 진입 후 정지. status/alert로 알리고 닫기 버튼으로 제거한다. 자동으로 사라져 읽기를 방해하지 않는다 |
+| Tooltip · 21st.dev Tooltip 참고 | 아이콘 버튼과 실행 단축키 도움말 | hover·focus로 열고 Escape로 닫는다. 트리거의 이름을 보존하고 aria-describedby로 설명을 연결한다. 120ms 진입 후 정지 |
+| Skeleton · affectUI Shimmer Loader 참고 | 결과 헤더와 탐색 패널의 로딩 자리 | 160ms 진입 후 정적인 자리 표시. running=false면 제거한다. 그리드 셀·캔버스 내부나 무한 shimmer에는 적용하지 않는다 |
+| IntegrationBeam · 사용자 제공 레퍼런스 | 연결 프로필 ↔ AxDB ↔ 에이전트 활동 | 실제 이벤트에서 `pulse(fromId,toId,tone)`을 호출할 때만 650ms 빔과 760ms 도착 ring을 재생한다. 승인 대기는 warning 점선, 타일 클릭은 상세 열기. 유휴 rAF·자동 반복 없음 |
+
+추가 7종의 원본 링크와 선택 이유, 재사용 API 및 검증 범위는 [D2_MICRO_REPORT.md](D2_MICRO_REPORT.md)에 기록한다. 재사용 컴포넌트의 갤러리 검증과 실제 앱 호출부 연결은 별도 증거로 확인한다.
+
+### 사용자 추가 레퍼런스 2차
+
+| 컴포넌트 | AxDB 위치 | 동작·근거 |
+|---|---|---|
+| Button | 모든 버튼 | 기존 aria/testid/ref 유지. 그리드·트리는 bare 경로로 단일 native DOM과 무동작을 유지한다. Run은 brand, 실행·테스트·AI·저장 대기에만 loading을 켠다 |
+| SuggestionCard | AI 응답의 코드 블록과 대안 | 수락은 새 탭 삽입만 한다. 삽입 취소는 탭을 닫고 수정·실행 이력이 있으면 확인한다. 검사 수준은 실제 로컬 파서·조회 스키마·사용자 요청 READ ONLY EXPLAIN 근거로만 표시한다 |
+| ToolCall / Group | MCP 활동과 AI 응답 맥락 | 실제 호출 메타데이터·수집 시간·기존 redaction을 거친 맥락만 표시한다. 미기록 시간은 생략하고 쓰기·미리보기·권한 거부에 Retry를 연결하지 않는다 |
+
+출처는 [사용자 제공 2차 명세](design-shots/ref-components-batch2.md)와 [D3 보고서](D3_COMPONENTS_REPORT.md)다.
 
 ### 모션 규칙(필수)
 - 애니메이션 라이브러리를 추가하지 않는다(motion, gsap, framer 금지). CSS transition, keyframes, WAAPI와 작은 spring 함수 하나만 쓴다.
-- transform과 opacity만 애니메이션한다. layout 속성(width, top 등)은 애니메이션하지 않는다.
-- 유휴 시 진행 중인 애니메이션은 0개다. 무한 애니메이션은 LatticeLoader뿐이고, 실행 중에만 존재한다.
+- 기본적으로 transform과 opacity만 애니메이션한다. 사용자 승인 예외로 작은 Button의 라벨 변경 시 width를 480ms 동안 1회 보간할 수 있다. 그리드·캔버스 내부에서는 이 예외를 쓰지 않는다.
+- 유휴 시 진행 중인 애니메이션은 0개다. 반복 애니메이션은 LatticeLoader 실행 중, Button loading, ToolCall running에만 존재하며 끝나면 즉시 제거한다.
 - `prefers-reduced-motion: reduce`이면 모든 spring과 물결을 끄고 즉시 상태로 바꾼다.
 - 결과 그리드와 그래프 캔버스 안에는 마이크로 인터랙션을 넣지 않는다(성능 영역).
 

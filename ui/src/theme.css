@@ -1,0 +1,51 @@
+@import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
+@font-face { font-family:'JetBrains Mono Variable';font-style:normal;font-display:swap;font-weight:100 800;src:url('@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2') format('woff2'); }
+
+:root {
+  color-scheme: dark;
+  --bg-base:#0B0D12; --bg-elevated:#11141B; --bg-overlay:#171B24; --bg-input:#0E1117;
+  --surface-primary:#141822; --surface-secondary:#1A1F2B; --surface-hover:#1D2330; --surface-active:#232B3B;
+  --text-primary:#E7EAF0; --text-secondary:#A3ABBA; --text-muted:#8790A2; --text-disabled:#4A5160;
+  --text-accent:#A89BFF; --text-inverse:#0B0D12;
+  --accent-primary:#8B7BFF; --accent-secondary:#22D3EE; --accent-success:#34D399;
+  --accent-warning:#FBBF24; --accent-error:#F87171; --accent-info:#60A5FA;
+  --border-subtle:#1C212C; --border-default:#262C39; --border-strong:#343B4B; --border-focus:#A89BFF;
+  --semantic-string:#9CD6B0; --semantic-number:#A8BAFF; --semantic-boolean:#E7B2F5;
+  --semantic-date:#E6BF83; --semantic-json:#7CCDD2; --semantic-binary:#C6A6E9; --semantic-null:var(--text-muted);
+  --paradigm-relational:#60A5FA; --paradigm-graph:#CD91ED; --paradigm-document:#34D399; --paradigm-keyvalue:#FBBF24;
+  --shadow:inset 0 1px 0 #ffffff08; --overlay-shadow:0 16px 48px #00000040,inset 0 1px 0 #ffffff08;
+  --backdrop:#03050AB3;
+  --brand-gradient:linear-gradient(135deg,var(--accent-primary),var(--accent-secondary));
+  --radius-sm:4px; --radius:6px; --radius-lg:10px; --radius-xl:14px;
+  --font-ui:'Pretendard Variable',system-ui,sans-serif;
+  --mono:'JetBrains Mono Variable',ui-monospace,monospace;
+  --syntax-404740:var(--text-secondary); --syntax-708:var(--semantic-boolean); --syntax-219:var(--semantic-number);
+  --syntax-164:var(--semantic-string); --syntax-a11:var(--semantic-string); --syntax-e40:var(--semantic-date);
+  --syntax-00f:var(--accent-info); --syntax-30a:var(--text-accent); --syntax-085:var(--semantic-string);
+  --syntax-167:var(--semantic-json); --syntax-256:var(--semantic-json); --syntax-00c:var(--semantic-number);
+  --syntax-940:var(--semantic-date); --syntax-f00:var(--accent-error);
+  --bg:var(--bg-base); --panel:var(--bg-elevated); --surface:var(--bg-elevated); --text:var(--text-primary);
+  --muted:var(--text-secondary); --border:var(--border-default); --accent:var(--accent-primary);
+  --highlight:color-mix(in srgb,var(--surface-hover) 35%,transparent); --selection:var(--surface-active);
+}
+:root[data-theme='daylight'] {
+  color-scheme:light;
+  --bg-base:#F6F7FA; --bg-elevated:#FFFFFF; --bg-overlay:#FFFFFF; --bg-input:#FFFFFF;
+  --surface-primary:#FBFBFD; --surface-secondary:#F0F2F6; --surface-hover:#EEF1F6; --surface-active:#E4E9F3;
+  --text-primary:#151922; --text-secondary:#4A5263; --text-muted:#697286; --text-disabled:#A9B0BD;
+  --text-accent:#5B45E0; --text-inverse:#FFFFFF;
+  --accent-primary:#5B45E0; --accent-secondary:#0891B2; --accent-success:#047857;
+  --accent-warning:#B45309; --accent-error:#DC2626; --accent-info:#2563EB;
+  --border-subtle:#E6E9EF; --border-default:#D9DEE7; --border-strong:#C3CAD6; --border-focus:#5B45E0;
+  --semantic-string:#217747; --semantic-number:#3F57BC; --semantic-boolean:#8F3AA7;
+  --semantic-date:#936117; --semantic-json:#13757D; --semantic-binary:#7852A6;
+  --paradigm-relational:#2563EB; --paradigm-graph:#A145B8; --paradigm-document:#047857; --paradigm-keyvalue:#B45309;
+  --shadow:0 1px 2px #0f172a0d,0 8px 24px #0f172a0f; --overlay-shadow:0 1px 2px #0f172a0d,0 16px 48px #0f172a26;
+  --backdrop:#15192266;
+}
+[data-paradigm='Relational'] { --paradigm:var(--paradigm-relational) }
+[data-paradigm='Graph'] { --paradigm:var(--paradigm-graph) }
+[data-paradigm='Document'] { --paradigm:var(--paradigm-document) }
+[data-paradigm='KeyValue'] { --paradigm:var(--paradigm-keyvalue) }
+
+:root{--select-chevron:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23A3ABBA' stroke-width='1.75'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")}[data-theme='daylight']{--select-chevron:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%234A5263' stroke-width='1.75'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")}

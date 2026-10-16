@@ -1,10 +1,18 @@
+import { SuggestionCard, type Suggestion } from '../ui/SuggestionCard';
+import { ToolCallGroup } from '../ui/ToolCall';
+import { suggestedQueries, parsedQuery, knownSimpleReferences, explainText } from './suggestions';
+import { Button } from '../ui/Button';
+import { SpringCheck } from '../ui/SpringCheck';
+import { JellyRadio } from '../ui/JellyRadio';
+import { LatticeLoader } from '../ui/LatticeLoader';
+import { X, Sparkles } from 'lucide-preact';
 import { useEffect, useState } from 'preact/hooks';
 import { Channel } from '@tauri-apps/api/core';
-import { api } from '../api';
+import { api, isMock } from '../api';
 import { Dialog } from '../Dialog';
-import type { Table } from '../contract';
-import { selectRows, suggestedQuery, type AiReply, type AiSettings, type WorkInput } from './types';
-export function AssistantPanel({ work, table, insert, close }: { work: () => WorkInput | null; table: () => Table | undefined; insert: (session: string, text: string) => void; close: () => void }) {
+import type { Table, DriverManifest, SchemaGraph } from '../contract';
+import { selectRows, type AiReply, type AiSettings, type WorkInput } from './types';
+export function AssistantPanel({ work, table, insert, undo, driver, close, open = true }: { open?:boolean; work: () => WorkInput | null; table: () => Table | undefined; insert: (session: string, text: string) => string | undefined; undo:(tabId:string)=>Promise<boolean>; driver:(session:string)=>DriverManifest|undefined; close: () => void }) {
   const [settings, setSettings] = useState<AiSettings>({ enabled: false, model: 'claude-opus-5-5', effort: 'medium', auth: 'api_key' });
   const [hasAnt, setHasAnt] = useState(false), [loggedIn, setLoggedIn] = useState(false), [loginUrl, setLoginUrl] = useState<string | null>(null), [code, setCode] = useState(''), [account, setAccount] = useState('');
   const [hasKey, setHasKey] = useState(false), [key, setKey] = useState(''), [ready, setReady] = useState(false);
@@ -12,9 +20,13 @@ export function AssistantPanel({ work, table, insert, close }: { work: () => Wor
   const [includeRows, setIncludeRows] = useState(false), [selection, setSelection] = useState(''), [masked, setMasked] = useState('');
   const [text, setText] = useState(''), [reply, setReply] = useState<AiReply | null>(null), [session, setSession] = useState('');
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
-  useEffect(() => { let alive = true; void api('ai_settings', {}).then(s => { if (alive) { setSettings(s.settings); setHasKey(s.has_key); setHasAnt(s.has_ant_cli); setReady(true); } }).catch(e => { if (alive) setError(String(e.message ?? e)); }); return () => { alive = false; }; }, []);
+  const [validating, setValidating] = useState(false);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [inserted, setInserted] = useState<{suggestionId:string;tabId:string}|null>(null);
+  const [busyAction, setBusyAction] = useState('');
+  useEffect(() => { if(!open)return; let alive = true; setReady(false); void api('ai_settings', {}).then(s => { if (alive) { setSettings(s.settings); setHasKey(s.has_key); setHasAnt(s.has_ant_cli); setReady(true); } }).catch(e => { if (alive) setError(String(e.message ?? e)); }); return () => { alive = false; }; }, [open]);
   async function save(remove = false) {
-    setBusy(true); setError('');
+    setBusyAction('save'); setBusy(true); setError('');
     try { await api('ai_configure', { settings, apiKey: remove ? '' : key || null }); const s = await api('ai_settings', {}); setSettings(s.settings); setHasKey(s.has_key); setHasAnt(s.has_ant_cli); setKey(''); }
     catch (e) { setError(String((e as Error).message ?? e)); }
     finally { setBusy(false); }
@@ -22,15 +34,15 @@ export function AssistantPanel({ work, table, insert, close }: { work: () => Wor
   async function refreshLogin() { try { const s = await api('ai_login_status', {}); setHasAnt(s.installed); setLoggedIn(s.logged_in); } catch (e) { setError(String((e as Error).message ?? e)); } }
   useEffect(() => { if (settings.auth === 'claude_login') void refreshLogin(); }, [settings.auth]);
   useEffect(() => {
-    if (loginUrl === null) return;
+    if (loginUrl === null || !open) return;
     const timer = setInterval(() => { void api('ai_login_poll', {}).then(async r => {
       if (r.state === 'done') { setLoginUrl(null); setCode(''); setAccount(r.account ?? ''); await refreshLogin(); }
       else if (r.state === 'failed') { setLoginUrl(null); setCode(''); setError('Claude 로그인이 시간 초과(15분)되었거나 실패했습니다. 다시 시도하세요.'); }
     }).catch(() => undefined); }, 2000);
     return () => clearInterval(timer);
-  }, [loginUrl]);
+  }, [loginUrl,open]);
   async function login(step: 'start' | 'submit' | 'cancel' | 'logout') {
-    setBusy(true); setError('');
+    setBusyAction('login'); setBusy(true); setError('');
     try {
       if (step === 'start') { const r = await api('ai_login_start', {}); setLoginUrl(r.url ?? ''); setCode(''); }
       else if (step === 'submit') { const r = await api('ai_login_submit', { code }); setAccount(r.account ?? ''); setLoginUrl(null); setCode(''); await refreshLogin(); }
@@ -42,7 +54,7 @@ export function AssistantPanel({ work, table, insert, close }: { work: () => Wor
   async function ask() {
     setError(''); setReply(null); setText('');
     const input = work(); if (!input) { setError('연결된 쿼리 탭을 먼저 여세요.'); return; }
-    setBusy(true); setSession(input.session_id);
+    setBusyAction('request'); setBusy(true); setSession(input.session_id);
     try {
       const selected = includeRows ? selectRows(table(), selection) : undefined;
       if (includeRows && !selected?.rows.length) throw new Error('전송할 행 번호를 선택하세요.');
@@ -54,39 +66,68 @@ export function AssistantPanel({ work, table, insert, close }: { work: () => Wor
     } catch (e) { setError(String((e as Error).message ?? e)); }
     finally { setBusy(false); }
   }
-  const query = reply && !reply.refused && reply.stop_reason === 'end_turn' ? suggestedQuery(reply.text) : null;
-  return <Dialog label="AI 도우미" onClose={() => { if (!busy) close(); }}><section class="profile-form" style={{ width: 'min(820px, 90vw)', maxHeight: '85vh', overflow: 'auto' }}>
-    <div class="section-title"><h2>AI 도우미</h2><button disabled={busy} aria-label="Close AI assistant" onClick={close}>×</button></div>
+  useEffect(() => {
+    let alive = true; setInserted(null);
+    const list: Suggestion[] = reply && !reply.refused && reply.stop_reason === 'end_turn' ? suggestedQueries(reply.text).map((query,index)=>({id:`suggestion-${index}`,title:index===0?'추천 쿼리':`대안 ${index+1}`,query,reason:'AI 제안입니다. 검사 근거를 확인하고 새 탭에 삽입하세요.',signal:0,evidence:'아직 검사하지 않았습니다.'})) : [];
+    setSuggestions(list);
+    if (!list.length) return;
+    void (async () => {
+      const manifest = driver(session), mode = manifest?.query_language.editor_mode ?? '';
+      let schema: SchemaGraph | undefined;
+      if (mode === 'sql' && manifest?.capabilities.schema_graph) { try { schema = await api('schema_graph',{sessionId:session,scope:null}); } catch { /* A missing metadata response cannot increase the evidence level. */ } }
+      const checked = await Promise.all(list.map(async item => {
+        const parsed = await parsedQuery(item.query,mode);
+        const known = parsed && schema && knownSimpleReferences(item.query,schema);
+        return {...item,signal:(known?2:parsed?1:0) as Suggestion['signal'],evidence:known?(isMock?'모의 스키마의 테이블·컬럼 참조 확인 · 실제 DB 검증 아님':'편집기 파싱과 실제 조회한 스키마의 테이블·컬럼 참조 확인'):parsed?'편집기 파싱 완료 · DB 서버의 문법·실행 검증은 아님':'이 언어의 완전한 구문 검사는 아직 실행하지 않았습니다.'};
+      }));
+      if(alive)setSuggestions(checked);
+    })().catch(() => { /* Keep unverified suggestions at level zero if the parser cannot load. */ });
+    return () => { alive=false; };
+  }, [reply,session]);
+  async function validate(suggestion: Suggestion) {
+    const manifest=driver(session); if(!manifest?.capabilities.read_only_exec)return;
+    setValidating(true); setError('');
+    try {
+      if(isMock)throw new Error('EXPLAIN은 실제 앱의 연결에서 검증하세요. mock 결과로 검사 수준을 올리지 않습니다.');
+      const text=explainText(suggestion.query,manifest.query_language.editor_mode);
+      await api('execute_agent',{sessionId:session,runId:crypto.randomUUID(),req:{text,params:{},row_limit:200,graph_node_limit:200,timeout_ms:5000,read_only:true}});
+      setSuggestions(previous=>previous.map(item=>item.id===suggestion.id?{...item,signal:3,evidence:'사용자가 요청한 EXPLAIN이 읽기 전용으로 통과했습니다. ANALYZE와 원문 실행은 하지 않았습니다.'}:item));
+    } catch(e) { setError(String((e as Error).message??e)); }
+    finally { setValidating(false); }
+  }
+  function closePanel() { setKey(''); setCode(''); if(loginUrl!==null){setLoginUrl(null);void api('ai_login_cancel',{}).catch(e=>setError(`로그인 취소 확인 실패: ${String((e as Error).message??e)}`));} close(); }
+  return <Dialog open={open} label="AI 도우미" closeLabel="Close AI assistant" wide closeDisabled={busy||validating} onClose={closePanel} footer={<><small>제안은 자동 실행되지 않습니다. 쓰기는 미리보기·승인을 거칩니다.</small><span class="toolbar-spacer" /></>}><section class="profile-form ai-assistant">
+
     <p>스키마·편집기 쿼리·최근 오류·컬럼과 행 수를 Anthropic에 보냅니다. 쿼리에 직접 쓴 값도 전송될 수 있으므로 확인하세요.</p>
-    <fieldset disabled={busy || !ready}><legend>설정 · 저장 후 적용</legend>
-      <label><input type="checkbox" checked={settings.enabled} onChange={e => setSettings({ ...settings, enabled: e.currentTarget.checked })} />AI 도우미 사용 (기본 꺼짐)</label>
+    <fieldset disabled={busy || validating || !ready}><legend>설정 · 저장 후 적용</legend>
+      <SpringCheck checked={settings.enabled} onChange={enabled => setSettings({ ...settings, enabled })} label="AI 도우미 사용 (기본 꺼짐)" />
       <label>모델<input value={settings.model} onInput={e => setSettings({ ...settings, model: e.currentTarget.value })} /></label>
-      <label>추론 수준<select value={settings.effort} onChange={e => setSettings({ ...settings, effort: e.currentTarget.value })}>{['low', 'medium', 'high', 'max'].map(v => <option key={v}>{v}</option>)}</select></label>
-      <label>인증 방식<select value={settings.auth} onChange={e => setSettings({ ...settings, auth: e.currentTarget.value as AiSettings['auth'] })}><option value="api_key">API 키 (OS 키체인)</option><option value="claude_login">Claude 로그인 (ant CLI)</option></select></label>
+      <div class="setting-row"><span>추론 수준</span><JellyRadio aria-label="추론 수준" items={["low", "medium", "high", "max"]} value={settings.effort} onChange={effort => setSettings({ ...settings, effort })} disabled={busy || validating || !ready} /></div>
+      <div class="setting-row"><span>인증 방식</span><JellyRadio aria-label="인증 방식" items={[{value:"api_key",label:"API 키 (OS 키체인)"},{value:"claude_login",label:"Claude 로그인 (ant CLI)"}]} value={settings.auth} onChange={auth => setSettings({ ...settings, auth: auth as AiSettings["auth"] })} disabled={busy || validating || !ready} /></div>
       {settings.auth === 'api_key' ? <label>Anthropic API 키<input type="password" autoComplete="off" value={key} placeholder={hasKey ? 'OS 키체인에 저장됨 · 변경 시 입력' : 'API 키 입력'} onInput={e => setKey(e.currentTarget.value)} /></label>
         : !hasAnt ? <small>ant CLI를 찾지 못했습니다. 설치 후 다시 여세요 (brew install anthropic/tap/ant).</small>
         : <div class="toolbar" aria-label="Claude login">
             <span role="status">{loggedIn ? `Claude 로그인됨${account ? ` · ${account}` : ''}` : 'Claude 로그인 필요'}</span>
-            {loginUrl === null && <button onClick={() => void login('start')}>{loggedIn ? '다시 로그인' : 'Claude 로그인'}</button>}
-            {loggedIn && loginUrl === null && <button onClick={() => void login('logout')}>로그아웃</button>}
+            {loginUrl === null && <Button morph={false} onClick={() => void login('start')}>{loggedIn ? '다시 로그인' : 'Claude 로그인'}</Button>}
+            {loggedIn && loginUrl === null && <Button morph={false} onClick={() => void login('logout')}>로그아웃</Button>}
           </div>}
       {settings.auth === 'claude_login' && loginUrl !== null && <div>
         <small>브라우저에서 승인한 뒤 표시된 코드를 붙여넣으세요.{loginUrl && <> 브라우저가 열리지 않으면 이 주소를 여세요: <input readOnly aria-label="Login URL" value={loginUrl} onFocus={e => e.currentTarget.select()} /></>}</small>
         <label>로그인 코드<input type="password" autoComplete="off" aria-label="Login code" value={code} onInput={e => setCode(e.currentTarget.value)} /></label>
-        <div class="toolbar"><button disabled={!code.trim()} onClick={() => void login('submit')}>로그인 완료</button><button onClick={() => void login('cancel')}>취소</button></div>
+        <div class="toolbar"><Button morph={false} disabled={!code.trim()} onClick={() => void login('submit')}>로그인 완료</Button><Button morph={false} onClick={() => void login('cancel')}>취소</Button></div>
       </div>}
-      <div class="toolbar"><button onClick={() => void save()}>설정 저장</button>{hasKey && <button onClick={() => void save(true)}>저장된 키 삭제</button>}</div>
+      <div class="toolbar"><Button morph loading={busy && busyAction === "save"} onClick={() => void save()}>설정 저장</Button>{hasKey && <Button morph={false} onClick={() => void save(true)}>저장된 키 삭제</Button>}</div>
     </fieldset>
-    {(settings.auth === 'api_key' ? !hasKey : !hasAnt || !loggedIn) ? <p>{settings.auth === 'api_key' ? '본인의 Anthropic API 키를 입력해 저장하세요. 키는 OS 키체인에 저장되며 요청 이력에는 남지 않습니다.' : 'Claude 로그인 방식을 쓰려면 위의 Claude 로그인 버튼으로 로그인하세요. 설정을 저장해야 적용됩니다.'}</p> : <fieldset disabled={busy || !settings.enabled}><legend>질문</legend>
-      <div class="toolbar"><button onClick={() => setQuestion('이 스키마에서 다음 조건의 쿼리를 작성해 주세요: ')}>쿼리 작성</button><button onClick={() => setQuestion('최근 오류를 설명하고 수정 쿼리를 제안해 주세요.')}>오류 설명</button><button onClick={() => setQuestion('마지막 결과를 요약해 주세요. 행이 없으면 컬럼과 행 수에 근거해 설명하세요.')}>결과 요약</button></div>
+    {(settings.auth === 'api_key' ? !hasKey : !hasAnt || !loggedIn) ? <p>{settings.auth === 'api_key' ? '본인의 Anthropic API 키를 입력해 저장하세요. 키는 OS 키체인에 저장되며 요청 이력에는 남지 않습니다.' : 'Claude 로그인 방식을 쓰려면 위의 Claude 로그인 버튼으로 로그인하세요. 설정을 저장해야 적용됩니다.'}</p> : <fieldset disabled={busy || validating || !settings.enabled}><legend>질문</legend>
+      <div class="toolbar"><Button morph={false} onClick={() => setQuestion('이 스키마에서 다음 조건의 쿼리를 작성해 주세요: ')}>쿼리 작성</Button><Button morph={false} onClick={() => setQuestion('최근 오류를 설명하고 수정 쿼리를 제안해 주세요.')}>오류 설명</Button><Button morph={false} onClick={() => setQuestion('마지막 결과를 요약해 주세요. 행이 없으면 컬럼과 행 수에 근거해 설명하세요.')}>결과 요약</Button></div>
       <textarea aria-label="AI question" value={question} onInput={e => setQuestion(e.currentTarget.value)} />
-      <label><input type="checkbox" checked={includeRows} onChange={e => setIncludeRows(e.currentTarget.checked)} />선택한 행 포함 · 최대 20행</label>
+      <SpringCheck checked={includeRows} onChange={setIncludeRows} label="선택한 행 포함 · 최대 20행" />
       {includeRows && <><label>첫 번째 표의 행 번호 (1부터, 쉼표 구분)<input value={selection} placeholder="1,3,5" onInput={e => setSelection(e.currentTarget.value)} /></label><label>추가 제외 컬럼 (쉼표 구분)<input value={masked} onInput={e => setMasked(e.currentTarget.value)} /></label><small>비밀번호·토큰 등 민감 컬럼과 중첩 JSON·그래프 값은 제외합니다.</small></>}
-      <button onClick={() => void ask()} disabled={!question.trim()}>질문 보내기</button>
+      <Button morph loading={busy && busyAction === "request"} onClick={() => void ask()} disabled={!question.trim() || validating}>질문 보내기</Button>
     </fieldset>}
-    {busy && <p role="status">처리 중…</p>}{error && <p role="alert">{error}</p>}
+    <LatticeLoader running={busy} label="처리 중…" />{error && <p role="alert">{error}</p>}
+    {reply?.context && <ToolCallGroup calls={[{id:'ai-context',name:'get_work_context',summary:'응답 요청에 실제 사용한 스키마·작업 맥락',status:'success',durationMs:reply.context_elapsed_ms,result:reply.context}]} />}
+    {suggestions.length > 0 && <SuggestionCard suggestions={suggestions} acceptedId={inserted?.suggestionId} disabled={busy||validating} validating={validating} onValidate={driver(session)?.capabilities.read_only_exec && ['sql','cypher'].includes(driver(session)?.query_language.editor_mode??'') ? suggestion=>void validate(suggestion) : undefined} onAccept={suggestion=>{const tabId=insert(session,suggestion.query);if(tabId)setInserted({suggestionId:suggestion.id,tabId});else setError('원래 연결이 닫혔습니다. 연결 후 다시 삽입하세요.');}} onUndo={()=>{if(inserted)void undo(inserted.tabId).then(closed=>{if(closed)setInserted(null);}).catch(e=>setError(String(e)));}} />}
     {text && <pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{text}</pre>}
-    {query && <button disabled={busy} onClick={() => { insert(session, query); close(); }}>새 쿼리 탭에 삽입</button>}
-    <small>제안은 자동 실행되지 않습니다. 쓰기는 기존 미리보기·승인 절차를 따릅니다.</small>
   </section></Dialog>;
 }

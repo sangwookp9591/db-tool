@@ -256,6 +256,11 @@ async fn connection_test(
     result
 }
 #[tauri::command]
+async fn session_info(host: tauri::State<'_, Host>, session_id: String) -> CommandResult<String> {
+    host.session(&session_id)?.session.server_info().await
+}
+
+#[tauri::command]
 async fn session_open(
     host: tauri::State<'_, Host>,
     profile_id: String,
@@ -538,6 +543,12 @@ async fn history_list(
     Ok(entries)
 }
 
+#[tauri::command]
+async fn history_delete(host: tauri::State<'_, Host>, timestamp: String, profile_name: String, text: String) -> CommandResult<()> {
+    let _guard = host.storage.lock().await;
+    storage::delete_history(&host.paths.data.join("history.jsonl"), &timestamp, &profile_name, &text)
+}
+
 fn file_logger(log: std::fs::File) -> impl tracing::Subscriber + Send + Sync {
     tracing_subscriber::registry().with(
         tracing_subscriber::fmt::layer()
@@ -599,6 +610,7 @@ pub fn run() {
             profile_delete,
             connection_test,
             session_open,
+            session_info,
             session_close,
             explorer_children,
             schema_graph,
@@ -620,6 +632,7 @@ pub fn run() {
             cancel,
             expand,
             history_list,
+            history_delete,
             permissions::agent_clients_list,
             permissions::agent_client_save,
             permissions::agent_client_rotate,

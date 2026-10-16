@@ -1,3 +1,4 @@
+import { paintQueue } from './paintQueue';
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { api, isMock, type Commands } from '../api';
 import type { ResultSet } from '../contract';
@@ -28,17 +29,19 @@ export async function executeQuery(args: Commands['execute']['args'], update: (r
   // Install a handler immediately so a malformed channel event never becomes an unhandled rejection.
   void done.catch(() => {});
   const flush = () => { frameId = 0; if (failed) return; update([...stream.results]); if (first && stream.results.some(r => !r.graph && r.table?.rows.length)) { first = false; void painted('execute-first-row', since); } };
-  const receive = (event: StreamEvent) => {
-    if (failed) return;
-    try {
-      stream.accept(event);
-      if (!frameId) frameId = requestAnimationFrame(flush);
-      if (event.kind === 'done') { finish('last-chunk', since); resolveDone(); }
-    } catch (error) { failed = true; rejectDone(error); }
-  };
+  const receiver = paintQueue<StreamEvent>(event => {
+    if (failed) return false;
+    stream.accept(event);
+    const firstRows = first && stream.results.some(result => !result.graph && !!result.table?.rows.length);
+    if (firstRows) { cancelAnimationFrame(frameId); flush(); }
+    else if (!frameId) frameId = requestAnimationFrame(flush);
+    if (event.kind === 'done') { finish('last-chunk', since); resolveDone(); }
+    return firstRows;
+  }, error => { failed = true; rejectDone(error); });
+  const receive = receiver.push;
   try {
     if (isMock) await streamResults(await api('execute', args), receive);
     else { const onEvent = new Channel<StreamEvent>(); onEvent.onmessage = receive; const direct = await invoke<ResultSet[]>('execute_stream', { ...args, onEvent }); if (direct.length) { direct.forEach((result, index) => receive({ kind: 'start', index, result })); receive({ kind: 'done' }); } }
-    await done; cancelAnimationFrame(frameId); flush(); return stream.results;
-  } catch (error) { failed = true; cancelAnimationFrame(frameId); throw error; }
+    await done; receiver.dispose(); cancelAnimationFrame(frameId); flush(); return stream.results;
+  } catch (error) { failed = true; receiver.dispose(); cancelAnimationFrame(frameId); throw error; }
 }

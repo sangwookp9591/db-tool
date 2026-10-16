@@ -1,0 +1,14 @@
+{
+  "baseline_ui_commit": "20a1608",
+  "baseline_js_gzip": 171534,
+  "final_js_gzip": 199196,
+  "js_gzip_delta": 27662,
+  "baseline_app_bytes": 90925121,
+  "final_app_bytes": 94271260,
+  "app_delta": 3346139,
+  "local_woff2_bytes": 2998128,
+  "new_icon_bytes": 174193,
+  "executable_sha256": "4692d3882d217157db61a810b7abb361d30bc78ced7c41ded65ff6a77896f42d",
+  "app_method": "matched local debug .app wrappers; after includes the requested official icns; not signed release bundles",
+  "artifact": "target/design-debug/AxDB.app"
+}

@@ -40,3 +40,5 @@ export interface BrowseTarget { nodeId: string; title: string; filter?: [string,
 export type AgentPermission = 'none' | 'read' | 'preview' | 'write_with_approval';
 export interface AgentClient { id: string; name: string; connections: Record<string, AgentPermission>; allowed_tools: string[]; max_rows: number; expires_at: string | null; revoked: boolean }
 export interface AgentAudit { timestamp: string; client_id: string; tool: string; connection_id: string | null; decision: string; statement_hash: string | null }
+
+export interface AgentCall { id: string; name: string; client_id: string; connection_id: string | null; status: 'running' | 'success' | 'error'; decision?: 'allowed' | 'denied' | 'approved' | null; duration_ms?: number; row_count?: number | null; startedAt?: number }

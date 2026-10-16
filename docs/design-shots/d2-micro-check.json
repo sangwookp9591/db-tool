@@ -1,0 +1,7 @@
+{
+  "idleAnimations": 0,
+  "idleFrameCallbacks": 0,
+  "reducedMotionAnimations": 0,
+  "interactions": "radio keyboard; slider clamp/keyboard/drag; dial keyboard/wheel/pointer; slots sanitization/metric; swipe keyboard/wheel/drag/actions; native checkbox; loader lifecycle; fuse undo/commit; command palette search/shortcut/keyboard; toast dismiss; tooltip focus/hover/Escape; sliding indicator alignment; spotlight pointer; static loading skeleton; integration beam event pulse/arrival/cleanup/details; reduced motion; 320px/768px overflow",
+  "pageErrors": []
+}

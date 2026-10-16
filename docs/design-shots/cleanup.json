@@ -1,0 +1,52 @@
+{
+  "stopped": [
+    {
+      "pid": 87908,
+      "port": 5174
+    },
+    {
+      "pid": 1316,
+      "port": 5175
+    },
+    {
+      "pid": 19207,
+      "port": 5176
+    },
+    {
+      "pid": 30583,
+      "port": 5177
+    },
+    {
+      "pid": 45856,
+      "port": 5180
+    },
+    {
+      "pid": 46018,
+      "port": 5181
+    },
+    {
+      "pid": 39480,
+      "app": true
+    }
+  ],
+  "removed": [
+    "/tmp/axdb-d1-before-ui",
+    "/tmp/axdb-d1-after-ui",
+    "/tmp/axdb-d1-final-ui",
+    "/tmp/axdb-d1-target",
+    "/tmp/axdb-d1-before.app",
+    "/tmp/axdb-d1-after.app",
+    "/tmp/axdb-d1-tabularis-reference",
+    "/tmp/axdb-d1-before-axdb",
+    "/var/folders/_p/fy8jj5b95c38w41rttwnnll40000gn/T/axdb-viewer-bench-oxCecO",
+    "/var/folders/_p/fy8jj5b95c38w41rttwnnll40000gn/T/axdb-viewer-bench-4JHNyi",
+    "/var/folders/_p/fy8jj5b95c38w41rttwnnll40000gn/T/axdb-d1-tabularis-o11msjxj",
+    "/tmp/axdb-d1-tabularis-test-settings-1792118854269401000"
+  ],
+  "preserved": [
+    "target/design-debug/AxDB.app",
+    "existing port 5173",
+    "shared e2e config and dev secret store",
+    "original Tabularis settings"
+  ]
+}

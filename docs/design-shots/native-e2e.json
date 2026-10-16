@@ -1,0 +1,19 @@
+{
+  "appPid": 39480,
+  "mock": false,
+  "checks": {
+    "e2e": {
+      "passed": 21,
+      "total": 21
+    },
+    "preview": {
+      "passed": 5,
+      "total": 5
+    },
+    "permissions": {
+      "passed": 13,
+      "total": 13
+    }
+  },
+  "executable_sha256": "4692d3882d217157db61a810b7abb361d30bc78ced7c41ded65ff6a77896f42d"
+}

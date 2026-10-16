@@ -1,3 +1,4 @@
+import { fontsReady } from '../theme';
 import { api } from '../api';
 import { readGraphProbes } from './index';
 import { render } from 'preact';
@@ -13,7 +14,7 @@ let benchmarkSession = '';
 async function graphSession() { if (benchmarkSession) return; const drivers = await api('drivers_list', {}), profiles = await api('profiles_list', {}); const profile = profiles.find(p => drivers.some(d => d.id === p.driver_id && d.capabilities.graph_expand))!; benchmarkSession = await api('session_open', { profileId: profile.id, secret: null }); }
 const error = (e: unknown) => { throw e; };
 function mount(results: ReturnType<typeof fixtureResult>[], limit = 5000) { render(<Results results={results} sessionId={benchmarkSession} canExpand={!!benchmarkSession} graphLimit={limit} rowLimit={100000} onError={error} />, root); }
-async function clear() { render(null, root); await frame(); perf.clear(); }
+async function clear() { await fontsReady; render(null, root); await frame(); perf.clear(); }
 async function waitFor(selector: string) { const deadline = performance.now() + 30000; while (!document.querySelector(selector)) { if (performance.now() > deadline) throw new Error(`Timeout: ${selector}`); await frame(); } }
 for (const [rows, columns] of [[1000, 10], [10000, 10], [100000, 10], [10000, 200]]) registerScenario(`table-${rows}-${columns}`, async () => {
   await clear(); const since = start('execute');

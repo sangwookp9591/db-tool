@@ -113,11 +113,11 @@ async function run() {
       document.body.append(root); root.tabIndex = -1; root.focus({ preventScroll: true }); await clear(); mount([(await import('./fixtures')).fixtureResult(null, (await import('./fixtures')).fixtureGraph(300))], 300);
       await waitFor(() => !!root.querySelector('canvas[data-ready=true]')); await waitFor(() => perf.marks().some(m => m.name === 'graph-stable')); await frame(); await frame();
       const { readGraphProbes } = await import('./index'); const begin = readGraphProbes()[0];
-      const idleWindowMs = 30000; output.idleReadyAt = Date.now(); output.idleWindowMs = idleWindowMs;
+      const idleWindowMs = 90000; output.idleReadyAt = Date.now(); output.idleWindowMs = idleWindowMs;
       output.idleReady = true; await invoke('viewer_bench_write', { report: output });
       await new Promise(resolve => setTimeout(resolve, idleWindowMs));
       const end = readGraphProbes()[0]; let movement = 0; for (let i = 0; i < begin.positions.length; i += 2) movement += Math.hypot(begin.positions[i] - end.positions[i], begin.positions[i + 1] - end.positions[i + 1]);
-      output.idle = { nodes: end.positions.length / 2, renderFrames: end.frames - begin.frames, averageMovementPx: movement / Math.max(1, end.positions.length / 2), duration: idleWindowMs }; output.idleReady = false;
+      output.idle = { nodes: end.positions.length / 2, renderFrames: end.frames - begin.frames, averageMovementPx: movement / Math.max(1, end.positions.length / 2), duration: idleWindowMs, activeAnimations: document.getAnimations().length }; output.idleReady = false;
     }
   } catch (error) { output.error = error instanceof Error ? error.message : JSON.stringify(error); }
   finally { render(null, root); root.remove(); output.complete = !output.error && !output.cleanupError; await invoke('viewer_bench_write', { report: output }); }

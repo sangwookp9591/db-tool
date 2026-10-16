@@ -1,3 +1,5 @@
+import { Button } from './ui/Button';
+import { ArrowLeft, ArrowRight } from 'lucide-preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { BrowseTarget, SchemaGraph } from './contract';
 import { api } from './api';
@@ -7,7 +9,7 @@ import type { ComponentType } from 'preact';
 import type { EditorHandle } from './Editor';
 import type { DriverManifest, ResultSet } from './contract';
 type Step = {kind:'query';title:string} | {kind:'schema';scope:string|null;title:string} | ({kind:'browse'} & BrowseTarget);
-export function NavigationTab(props: {aiSuggested?:boolean;readOnly?:boolean;kind:'query'|'browse'|'schema';scope?:string|null;nodeId?:string;title:string;initialText:string;sessionId:string;manifest:DriverManifest;graphLimit:number;active:boolean;onRun:(id:string|null)=>void;onReady:(handle:EditorHandle|null)=>void;onHistory:()=>void;onResults:(results:ResultSet[])=>void;onError:(error:unknown)=>void}) {
+export function NavigationTab(props: {onDirty?:(dirty:boolean)=>void;aiSuggested?:boolean;readOnly?:boolean;kind:'query'|'browse'|'schema';scope?:string|null;nodeId?:string;title:string;initialText:string;sessionId:string;manifest:DriverManifest;graphLimit:number;active:boolean;onRun:(id:string|null)=>void;onReady:(handle:EditorHandle|null)=>void;onHistory:()=>void;onResults:(results:ResultSet[])=>void;onError:(error:unknown)=>void}) {
   const [busy,setBusy]=useState(false);
   function run(id:string|null){setBusy(!!id);props.onRun(id);}
   const [needsSchema,setNeedsSchema]=useState(props.kind!=='query'||!!props.nodeId);
@@ -24,7 +26,7 @@ export function NavigationTab(props: {aiSuggested?:boolean;readOnly?:boolean;kin
     let alive=true;void api('schema_graph',{sessionId:props.sessionId,scope}).then(s=>{if(alive)setSchema(s);}).catch(e=>{if(alive)props.onError(e);});return()=>{alive=false;};
   },[props.sessionId,scope,retry,needsSchema]);
   function browse(target:BrowseTarget){setSteps(previous=>[...previous.slice(0,index+1),{kind:'browse',...target}]);setIndex(index+1);}
-  return <div class="navigation-tab"><nav class="toolbar" aria-label="Navigation history"><button aria-label="Back in tab" disabled={busy||index===0} onClick={()=>setIndex(i=>i-1)}>←</button><button aria-label="Forward in tab" disabled={busy||index===steps.length-1} onClick={()=>setIndex(i=>i+1)}>→</button>{steps.map((s,i)=><button key={i} disabled={busy} aria-current={i===index?'page':undefined} onClick={()=>setIndex(i)}>{s.title}{s.kind==='browse'&&s.filter?.length?' · filtered':''}</button>)}</nav><div class="navigation-content">
-    {step.kind==='schema' ? schema && SchemaView ? <SchemaView schema={schema} sessionId={props.sessionId} active={props.active} onBrowse={browse} onError={props.onError}/> : <button onClick={()=>setRetry(n=>n+1)}>Load / retry schema graph</button> : step.kind==='query' ? <QueryTab {...props} onRun={run} onResults={received=>{if(received.some(r=>r.graph))setNeedsSchema(true);props.onResults(received);}} initialText={draft.current} sourceText={props.initialText} onReady={editorReady} entityId={props.nodeId} onBrowse={browse} schema={schema ?? undefined}/> : <BrowseTab key={index} active={props.active} sessionId={props.sessionId} nodeId={step.nodeId} filter={step.filter} manifest={props.manifest} graphLimit={props.graphLimit} schema={schema ?? undefined} onBrowse={browse} onRun={run} onError={props.onError} onResults={props.onResults}/>}
+  return <div class="navigation-tab"><nav class="toolbar" aria-label="Navigation history"><Button morph={false} aria-label="Back in tab" disabled={busy||index===0} onClick={()=>setIndex(i=>i-1)}><ArrowLeft /></Button><Button morph={false} aria-label="Forward in tab" disabled={busy||index===steps.length-1} onClick={()=>setIndex(i=>i+1)}><ArrowRight /></Button>{steps.map((s,i)=><Button morph={false} key={i} disabled={busy} aria-current={i===index?'page':undefined} onClick={()=>setIndex(i)}>{s.title}{s.kind==='browse'&&s.filter?.length?' · filtered':''}</Button>)}</nav><div class="navigation-content">
+    {step.kind==='schema' ? schema && SchemaView ? <SchemaView schema={schema} sessionId={props.sessionId} active={props.active} onBrowse={browse} onError={props.onError}/> : <Button morph={false} onClick={()=>setRetry(n=>n+1)}>Load / retry schema graph</Button> : step.kind==='query' ? <QueryTab {...props} onRun={run} onResults={received=>{if(received.some(r=>r.graph))setNeedsSchema(true);props.onResults(received);}} initialText={draft.current} sourceText={props.initialText} onReady={editorReady} entityId={props.nodeId} onBrowse={browse} schema={schema ?? undefined}/> : <BrowseTab key={index} active={props.active} sessionId={props.sessionId} nodeId={step.nodeId} filter={step.filter} manifest={props.manifest} graphLimit={props.graphLimit} schema={schema ?? undefined} onBrowse={browse} onRun={run} onError={props.onError} onResults={props.onResults}/>}
   </div></div>;
 }

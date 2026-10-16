@@ -13,11 +13,11 @@ export function Editor(props: Props) {
     let disposed = false;
     const language = new Compartment();
     const view = new EditorView({ parent: parent.current, state: EditorState.create({ doc: latest.current.text, extensions: [
-      lineNumbers(), history(), drawSelection(), highlightActiveLine(), syntaxHighlighting(HighlightStyle.define(defaultHighlightStyle.specs.map(spec => spec.color ? { ...spec, color: `var(--syntax-${String(spec.color).slice(1)}, ${spec.color})` } : spec))), language.of([]),
+      lineNumbers(), history(), drawSelection({ cursorBlinkRate: 0 }), highlightActiveLine(), syntaxHighlighting(HighlightStyle.define(defaultHighlightStyle.specs.map(spec => spec.color ? { ...spec, color: `var(--syntax-${String(spec.color).slice(1)}, ${spec.color})` } : spec))), language.of([]),
       EditorView.contentAttributes.of({ 'aria-label': 'Query editor', spellcheck: 'false' }),
       keymap.of([{ key: 'Mod-Enter', run: () => { latest.current.onRun(); return true; } }, ...defaultKeymap, ...historyKeymap]),
       EditorView.updateListener.of(update => { if (update.docChanged) latest.current.onChange(update.state.doc.toString()); }),
-      EditorView.theme({ '&': { height: '100%', fontSize: '13px', background: 'var(--surface)', color: 'var(--text)' }, '.cm-scroller': { overflow: 'auto', fontFamily: 'var(--mono)' }, '.cm-content': { caretColor: 'var(--text)' }, '.cm-gutters': { background: 'var(--panel)', color: 'var(--muted)', borderRight: '1px solid var(--border)' }, '.cm-activeLine': { background: 'var(--highlight)' }, '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': { background: 'var(--selection)' } })
+      EditorView.theme({ '&': { height: '100%', fontSize: '12.5px', background: 'var(--surface)', color: 'var(--text)' }, '.cm-scroller': { overflow: 'auto', fontFamily: 'var(--mono)' }, '.cm-content': { caretColor: 'var(--text)' }, '.cm-gutters': { background: 'var(--panel)', color: 'var(--muted)', borderRight: '1px solid var(--border)' }, '.cm-activeLine': { background: 'var(--highlight)' }, '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': { background: 'var(--selection)' } })
     ] }) });
     latest.current.onReady({ text: () => view.state.doc.toString(), selection: () => { const range = view.state.selection.main; return view.state.sliceDoc(range.from, range.to); }, insert: text => { view.dispatch(view.state.replaceSelection(text)); view.focus(); }, replace: text => { view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } }); view.focus(); } });
     const loadLanguage = async (): Promise<Extension> => {

@@ -20,17 +20,17 @@ export async function nativeWorkspace(manifests: DriverManifest[], config: Bench
     (app.querySelector('[aria-label="Add connection"]') as HTMLButtonElement).click();
     await waitFor(() => !!document.querySelector('.profile-form form'));
     const form = document.querySelector<HTMLFormElement>('.profile-form form')!;
-    const field = (label: string) => [...form.querySelectorAll('label')].find(l => l.firstChild?.textContent?.trim() === label)?.querySelector<HTMLInputElement | HTMLSelectElement>('input,select');
+    const field = (label: string) => [...form.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input,select')].find(input => input.getAttribute('aria-label') === label) ?? [...form.querySelectorAll('label')].find(l => l.firstChild?.textContent?.trim() === label)?.querySelector<HTMLInputElement | HTMLSelectElement>('input,select');
     input(field('Name')!, name); input(field('Driver')!, manifest.id); await frame(); await frame();
     for (const f of manifest.connection_fields) if (values[f.key] !== undefined) input(field(f.label)!, values[f.key]);
-    await frame(); const added = performance.now(); (form.querySelector('[type=submit]') as HTMLButtonElement).click();
+    await frame(); const added = performance.now(); form.requestSubmit();
     await waitFor(() => [...app.querySelectorAll('.connection')].some(c => c.querySelector('strong')?.textContent === name));
     connection = [...app.querySelectorAll<HTMLElement>('.connection')].find(c => c.querySelector('strong')?.textContent === name)!;
     async function connect() {
       const since = performance.now(); (connection!.querySelector('.connection-actions button') as HTMLButtonElement).click();
       await waitFor(() => !!document.querySelector('input[type=password][autocomplete=off]'));
       const credential = document.querySelector<HTMLInputElement>('input[type=password][autocomplete=off]')!; input(credential, config.table.secret); await frame();
-      (credential.closest('form')!.querySelector('[type=submit]') as HTMLButtonElement).click();
+      credential.closest('form')!.requestSubmit();
       await waitFor(() => !!connection!.querySelector('.tree-node')); output.connect.push(await painted('native-connection-tree', since));
     }
     await connect(); output.addConnection.push(await painted('native-add-connection', added));

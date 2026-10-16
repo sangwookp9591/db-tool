@@ -6,7 +6,7 @@ use crate::{
 };
 use dbcore::{DbError, ExecRequest, PreviewSupport};
 use serde_json::{json, Value};
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 fn encoded<T: serde::Serialize>(value: Result<T, DbError>) -> Value {
     match value {
@@ -109,7 +109,33 @@ fn visible_connections(host: &Host, client: &AgentClient) -> Value {
     };
     json!(list.into_iter().filter(|p|client.permission(&p.id)!=Permission::None).map(|p|json!({"id":p.id,"name":p.name,"driver_id":p.driver_id,"access_mode":p.access_mode,"session_id":sessions.iter().find(|(_,r)|r.profile.id==p.id&&!r.dead.load(std::sync::atomic::Ordering::Acquire)).map(|(id,_)|id)})).collect::<Vec<_>>())
 }
+fn activity_summary(tool: &str, requested_write: bool, result: &Value) -> Value {
+    let error = result.get("error").filter(|error| !error.is_null() && result.as_object().is_some_and(|value| value.keys().all(|key| matches!(key.as_str(), "error" | "run"))));
+    let denied = error.and_then(|value| value["kind"].as_str()) == Some("Forbidden");
+    let rows = result["results"].as_array().map(|results| results.iter().filter_map(|result| result["row_count"].as_u64()).fold(0_u64, u64::saturating_add));
+    json!({"status":if error.is_some() {"error"} else {"success"}, "decision":if denied {Some("denied")} else if error.is_some() {None} else if tool == "run_query" && requested_write {Some("approved")} else {Some("allowed")}, "row_count":rows})
+}
+
 pub async fn dispatch(shared: &Shared, client: &AgentClient, method: &str, params: Value) -> Value {
+    let Some(app) = shared.app.as_ref() else { return dispatch_inner(shared, client, method, params).await; };
+    let requested = if method == "tools/list" { "tools/list" } else { params["name"].as_str().unwrap_or("") };
+    let tool = if requested == "tools/list" || permissions::TOOLS.contains(&requested) { requested } else { "unknown" }.to_owned();
+    let host = app.state::<Host>();
+    let connection = connection_id(&host, &tool, &params["arguments"]).filter(|id| profiles(&host).is_ok_and(|profiles| profiles.iter().any(|profile| profile.id == *id)));
+    let id = uuid::Uuid::new_v4().to_string();
+    let started = std::time::Instant::now();
+    let requested_write = params["arguments"]["read_only"] == false;
+    let mut event = json!({"id":id,"name":tool,"client_id":client.id,"connection_id":connection,"status":"running"});
+    let _ = app.emit("agent-call", &event);
+    let result = dispatch_inner(shared, client, method, params).await;
+    let summary = activity_summary(&tool, requested_write, &result);
+    for key in ["status", "decision", "row_count"] { event[key] = summary[key].clone(); }
+    event["duration_ms"] = json!(started.elapsed().as_millis());
+    let _ = app.emit("agent-call", &event);
+    result
+}
+
+async fn dispatch_inner(shared: &Shared, client: &AgentClient, method: &str, params: Value) -> Value {
     let Some(app) = shared.app.as_ref() else {
         return forward(shared, method, params).await;
     };
@@ -555,6 +581,22 @@ pub fn bound(value: &mut Value, limit: usize) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn activity_is_metadata_only_and_never_assumes_approval_on_failure() {
+        let result = json!({"results":[{"row_count":3,"table":{"rows":[["private-password"]]}}],"arguments":{"token":"private-token"}});
+        let summary = activity_summary("run_query", true, &result);
+        assert_eq!(summary["row_count"], 3);
+        assert_eq!(activity_summary("get_work_context", false, &json!({"schema":"users","error":{"message":"private-token"}}))["status"], "success");
+        assert_eq!(activity_summary("get_work_context", false, &json!({"error":null}))["status"], "success");
+        assert_eq!(summary["decision"], "approved");
+        assert!(!summary.to_string().contains("private-"));
+        let failed = activity_summary("run_query", true, &json!({"error":{"kind":"UserDenied","message":"private-token"}}));
+        assert_eq!(failed["status"], "error");
+        assert!(failed["decision"].is_null());
+        assert!(!failed.to_string().contains("private-"));
+        assert_eq!(activity_summary("run_query", false, &json!({"error":{"kind":"Forbidden"}}))["decision"], "denied");
+    }
+
     #[test]
     fn caps_rows_documents_preview_samples_and_graph_without_dangling_edges() {
         let mut value = json!({"results":[{"table":{"rows":[[1],[2],[3]]},"documents":[1,2,3],"graph":{"nodes":[{"id":"a"},{"id":"b"},{"id":"c"}],"rels":[{"start":"a","end":"b"},{"start":"a","end":"c"}]}},{"table":{"rows":[[4]]},"documents":[4]}],"statements":[{"before":{"rows":[[1],[2]]},"after":{"rows":[[3]]}}]});

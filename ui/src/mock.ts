@@ -4,14 +4,17 @@ const fields: DriverManifest['connection_fields'] = [
   { key: 'host', label: 'Host', kind: 'Text', required: true, default: 'localhost', secret: false, placeholder: 'localhost' },
   { key: 'port', label: 'Port', kind: 'Number', required: true, default: '5432', secret: false, placeholder: '' },
   { key: 'user', label: 'User', kind: 'Text', required: true, default: 'demo', secret: false, placeholder: '' },
-  { key: 'password', label: 'Password', kind: 'Password', required: false, default: null, secret: true, placeholder: '' }
+  { key: 'password', label: 'Password', kind: 'Password', required: false, default: null, secret: true, placeholder: '' },
+  { key: 'tls', label: 'TLS', kind: {Select:{options:['disable','prefer','require','verify-full']}}, required:false, default:'prefer', secret:false, placeholder:null },
+  { key: 'tls_ca_file', label:'TLS CA file', kind:'FilePath',required:false,default:null,secret:false,placeholder:null }
 ];
-const capabilities: DriverManifest['capabilities'] = { preview_changes: 'DryRun', read_only_exec: true, cancel: 'Server', timeout: true, params: true, transactions: true, paged_browse: true, graph_expand: false, multi_statement: true, edit_rows: false };
+const capabilities: DriverManifest['capabilities'] = { schema_graph: true, preview_changes: 'DryRun', read_only_exec: true, cancel: 'Server', timeout: true, params: true, transactions: true, paged_browse: true, graph_expand: false, multi_statement: true, edit_rows: false };
 export const drivers: DriverManifest[] = [
   { id: 'postgres', display_name: 'PostgreSQL · demo', paradigm: 'Relational', query_language: { id: 'sql', display: 'SQL', editor_mode: 'sql', supports_params: true }, connection_fields: fields, capabilities, default_query: 'SELECT * FROM people;' },
-  { id: 'neo4j', display_name: 'Graph · demo', paradigm: 'Graph', query_language: { id: 'cypher', display: 'Cypher', editor_mode: 'cypher', supports_params: true }, connection_fields: fields.map(f => f.key === 'port' ? { ...f, default: '7687' } : f), capabilities: { ...capabilities, cancel: 'Abort', graph_expand: true, multi_statement: false }, default_query: 'MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 100;' }
+  { id: 'neo4j', display_name: 'Graph · demo', paradigm: 'Graph', query_language: { id: 'cypher', display: 'Cypher', editor_mode: 'cypher', supports_params: true }, connection_fields: fields.map(f => f.key === 'port' ? { ...f, default: '7687' } : f), capabilities: { ...capabilities, cancel: 'Abort', graph_expand: true, multi_statement: false }, default_query: 'MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 100;' },
+  { id: 'mongodb', display_name: 'MongoDB · demo', paradigm: 'Document', query_language: { id: 'json', display: 'JSON', editor_mode: 'json', supports_params: false }, connection_fields: [{key:'uri',label:'URI',kind:'Text',required:true,default:'mongodb://127.0.0.1:57017',secret:false,placeholder:null},{key:'database',label:'Database',kind:'Text',required:true,default:'axdb_test',secret:false,placeholder:null},...fields.filter(f=>['user','password','tls','tls_ca_file'].includes(f.key)),{key:'auth_source',label:'Authentication database',kind:'Text',required:false,default:'admin',secret:false,placeholder:null}], capabilities: { ...capabilities, params: false, preview_changes: 'None' }, default_query: '{"find":"people","filter":{}}' }
 ];
-let profiles: Profile[] = drivers.map((d, i) => ({ id: `demo-${i}`, name: i ? 'Graph playground' : 'Analytics sandbox', driver_id: d.id, fields: Object.fromEntries(d.connection_fields.filter(f => !f.secret).map(f => [f.key, f.default ?? ''])), save_secret: false }));
+let profiles: Profile[] = drivers.map((d, i) => ({ id: `demo-${i}`, name: ['Analytics sandbox', 'Graph playground', 'Document studio'][i], driver_id: d.id, fields: Object.fromEntries(d.connection_fields.filter(f => !f.secret).map(f => [f.key, f.default ?? ''])), save_secret: false }));
 const sessions = new Map<string, Profile>();
 const runs = new Map<string, () => void>();
 const history: HistoryEntry[] = [];
@@ -41,7 +44,7 @@ async function execute(sessionId: string, runId: string, req: ExecRequest, sourc
     });
     if (/^\s*SELECT\s+disconnect\b/i.test(req.text)) { sessions.delete(sessionId); throw failure('Connection', 'Mock connection interrupted.'); }
     if (/^\s*SELECT\s+error\b/i.test(req.text)) throw failure('Query', 'Syntax error near "error"', 'Mock failure: use another query to continue.', 8);
-    if (/^\s*SELECT\s+documents\b/i.test(req.text)) result = [{ ...base('Documents'), documents: [{ t: 'Json', v: '{"id":900719925474099312345,"name":"Original JSON"}' }], row_count: 1 }];
+    if (drivers.find(d => d.id === profile.driver_id)?.paradigm === 'Document' || /^\s*SELECT\s+documents\b/i.test(req.text)) result = [{ ...base('Documents'), documents: [{t:'Map',v:[['_id',{t:'Other',v:{type_name:'ObjectId',text:'507f1f77bcf86cd799439011'}}],['name',text('Avery Chen')],['team',text('Platform')],['active',{t:'Bool',v:true}],['profile',{t:'Map',v:[['location',text('Seoul')],['skills',{t:'List',v:[text('SQL'),text('TypeScript')]}]]}],['sequence',int('900719925474099312345')]]}], row_count: 1 }];
     else if (/^\s*(update|create|delete|insert)\b/i.test(req.text)) result = [{ ...base('Statement complete'), message: 'Affected 3 records', affected: 3 }];
     else if (drivers.find(d => d.id === profile.driver_id)?.capabilities.graph_expand) {
       const graph = graphFor();
@@ -61,9 +64,14 @@ export async function mockInvoke<K extends keyof Commands>(command: K, args: Com
   const a = args as Record<string, unknown>;
   let result: unknown;
   switch (command) {
+    case 'agent_clients_list': result = [{id:'local',name:'Local MCP',connections:Object.fromEntries(profiles.map(p=>[p.id,'read'])),allowed_tools:['list_connections','run_query'],max_rows:200,expires_at:null,revoked:false}]; break;
+    case 'agent_audit_list': result = []; break;
+    case 'agent_client_save': case 'agent_client_rotate': case 'agent_client_revoke': throw failure('Unsupported','Client credentials are managed in the desktop app.');
     case 'agent_bridge_status': result = false; break;
     case 'agent_bridge_set': if (a.enabled) throw failure('Unsupported', 'The MCP bridge requires the desktop app'); break;
     case 'agent_bridge_reply': break;
+    case 'ai_settings': result = { settings: { enabled: false, model: 'claude-opus-5-5', effort: 'medium', auth: 'api_key' }, has_key: false, has_ant_cli: false }; break;
+    case 'ai_configure': throw failure('Unsupported', 'AI settings can be saved in the desktop app.');
     case 'drivers_list': result = drivers; break;
     case 'profiles_list': result = profiles; break;
     case 'profile_save': {
@@ -74,13 +82,14 @@ export async function mockInvoke<K extends keyof Commands>(command: K, args: Com
     }
     case 'profile_delete': profiles = profiles.filter(p => p.id !== a.profileId); break;
     case 'connection_test': if ((a.profile as Profile).fields.host === 'bad') throw failure('Connection', 'Cannot reach host'); result = 'Mock server · connected'; break;
+    case 'session_info': result = drivers.find(driver => driver.id === session(a.sessionId as string).driver_id)?.display_name ?? 'Mock server'; break;
     case 'session_open': { const p = profiles.find(p => p.id === a.profileId); if (!p) throw failure('Connection', 'Profile not found'); const id = crypto.randomUUID(); sessions.set(id, p); result = id; break; }
     case 'session_close': sessions.delete(a.sessionId as string); break;
     case 'explorer_children': {
       const profile = session(a.sessionId as string);
       const graph = drivers.find(d => d.id === profile.driver_id)!.capabilities.graph_expand;
       const query = graph ? 'MATCH (n)-[r]->(m) RETURN n, r, m' : 'SELECT * FROM people';
-      const node: ExplorerNode = { id: a.parent ? 'people' : 'public', label: a.parent ? (graph ? 'Person' : 'people') : (graph ? 'Labels' : 'public'), detail: a.parent ? '100,000 records' : null, kind: a.parent ? 'table' : 'schema', icon: a.parent ? 'Table' : 'Folder', has_children: !a.parent, actions: a.parent ? [{ id: 'browse', label: 'Browse', kind: 'Browse' }, { id: 'query', label: 'Open query', kind: { OpenQuery: { text: query } } }, { id: 'insert', label: 'Insert name', kind: { Insert: { text: graph ? ':Person' : 'people' } } }] : [] };
+      const node: ExplorerNode = { id: a.parent ? 'people' : 'public', label: a.parent ? (graph ? 'Person' : 'people') : (graph ? 'Labels' : 'public'), detail: a.parent ? '100,000 records' : null, kind: a.parent ? 'table' : 'schema', icon: a.parent ? 'Table' : 'Folder', has_children: !a.parent, actions: a.parent ? [{ id: 'browse', label: 'Browse', kind: 'Browse' }, { id: 'query', label: 'Open query', kind: { OpenQuery: { text: query } } }, { id: 'insert', label: 'Insert name', kind: { Insert: { text: graph ? ':Person' : 'people' } } }] : [{id:'diagram',label:'Open schema diagram',kind:{OpenSchemaGraph:{scope:null}}}] };
       result = [node]; break;
     }
     case 'browse': { session(a.sessionId as string); const count = Math.max(0, Math.min(a.limit as number, 100000 - (a.offset as number))); result = { ...base('Browse people'), table: tableRows(count, a.offset as number), row_count: count, page: { offset: a.offset, limit: a.limit, has_more: (a.offset as number) + count < 100000 } }; break; }
@@ -96,6 +105,8 @@ export async function mockInvoke<K extends keyof Commands>(command: K, args: Com
     case 'cancel': runs.get(a.runId as string)?.(); break;
     case 'expand': { session(a.sessionId as string); const id = a.elementId as string;
       const graph: Graph = id.startsWith('bench:') ? { nodes: Array.from({ length: 50 }, (_, i) => ({ id: `bench:extra${i}`, labels: ['Neighbor'], props: [['name', text(`Neighbor ${i}`)]] })), rels: Array.from({ length: 50 }, (_, i) => ({ id: `bench:edge${i}`, start: id, end: `bench:extra${i}`, rel_type: 'NEIGHBOR', props: [] })) } : graphFor(id); const nodes = graph.nodes.slice(0, a.limit as number); result = { ...base('Neighbors'), graph: { nodes, rels: graph.rels.filter(r => nodes.some(n => n.id === r.end)) }, row_count: nodes.length }; break; }
+    case 'schema_graph': { session(a.sessionId as string); result = { entities: [{id:'people',name:'people',kind:'table',fields:[{name:'id',type_name:'int8',pk:true,nullable:false},{name:'name',type_name:'text',pk:false,nullable:false},{name:'team_id',type_name:'int8',pk:false,nullable:true}]},{id:'teams',name:'teams',kind:'table',fields:[{name:'id',type_name:'int8',pk:true,nullable:false},{name:'name',type_name:'text',pk:false,nullable:false}]}],relations:[{id:'people_team',name:'people_team_id_fkey',from:'people',from_fields:['team_id'],to:'teams',to_fields:['id'],kind:'ForeignKey'}] }; break; }
+    case 'history_delete': { const index = history.findIndex(entry => String(entry.timestamp) === a.timestamp && entry.profile_name === a.profileName && entry.text === a.text); if (index >= 0) history.splice(index, 1); break; }
     case 'history_list': result = history.slice(0, a.limit as number); break;
   }
   return result as Commands[K]['result'];

@@ -1,0 +1,22 @@
+{
+  "scope": "Native visual smoke of D1 embedded debug app, no D2 DB connections or queries",
+  "pid": 36270,
+  "binary": "/tmp/axdb-d1-target/debug/axdb",
+  "sha256": "a0fcf27a3766d1b87b132ed51ca004b9a9503fa03b52eeed23373b000ebb979f",
+  "environment": {
+    "AXDB_CONFIG_DIR": "/private/tmp/claude-501/-Users-iron-Project-psw-db-tool/1fe252ea-91ad-4737-8951-7e8f929f6ea0/scratchpad/e2e-cfg",
+    "AXDB_DEV_SECRET_STORE": "/private/tmp/claude-501/-Users-iron-Project-psw-db-tool/1fe252ea-91ad-4737-8951-7e8f929f6ea0/scratchpad/dev-secrets.json",
+    "AXDB_AGENT_BRIDGE": "1"
+  },
+  "checks": [
+    "Command palette opened through visible rail button",
+    "Search e2e-neo4j filtered connection and recent-query options",
+    "Escape dismissed palette",
+    "Graph node limit slider and number fields synchronized after pointer interaction"
+  ],
+  "limits": [
+    "Concurrent external GUI activity observed; detailed native keyboard step assertions not claimed",
+    "Graph node limit originally 300; pointer set 2501, later snapshot 2224; original restoration requested from D1 when GUI returned",
+    "Gallery remains development/mock-only; all 15 interactions tested in Chromium, native smoke covers integrated subset"
+  ]
+}

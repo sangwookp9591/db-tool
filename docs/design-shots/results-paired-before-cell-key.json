@@ -1,0 +1,80 @@
+{
+  "environment": {
+    "os": "darwin 27.0.0",
+    "cpu": "Apple M5",
+    "arch": "arm64",
+    "browser": "156.0.8078.4",
+    "viewport": "1440x1000",
+    "mode": "Vite dev / headless Chromium / alternating paired runs"
+  },
+  "complete": true,
+  "at": "2026-10-16T03:57:55.217Z",
+  "results": {
+    "table-100000-10": [
+      {
+        "first": 74.5,
+        "loaded": 188,
+        "frames": {
+          "p50": 16.699999999999818,
+          "p95": 16.700000000000273,
+          "max": 16.800000000000182,
+          "samples": 60
+        },
+        "domCells": 288,
+        "heap": 69912697,
+        "cls": 0,
+        "allLayoutShifts": 0,
+        "pair": 0,
+        "uptime": "12:57  up 4 days,  3:40, 30 users, load averages: 6.34 4.50 5.13",
+        "load": [
+          6.3427734375,
+          4.49658203125,
+          5.1259765625
+        ]
+      },
+      {
+        "first": 29.80000001192093,
+        "loaded": 185.5999999642372,
+        "frames": {
+          "p50": 16.699999999999818,
+          "p95": 16.700000000000728,
+          "max": 16.800000000000182,
+          "samples": 60
+        },
+        "domCells": 288,
+        "heap": 62854630,
+        "cls": 0,
+        "allLayoutShifts": 0,
+        "pair": 1,
+        "uptime": "12:58  up 4 days,  3:40, 30 users, load averages: 7.92 4.85 5.25",
+        "load": [
+          7.91650390625,
+          4.853515625,
+          5.248046875
+        ]
+      },
+      {
+        "first": 33.69999998807907,
+        "loaded": 171.30000001192093,
+        "frames": {
+          "p50": 16.699999999999818,
+          "p95": 16.700000000000728,
+          "max": 16.800000000000182,
+          "samples": 60
+        },
+        "domCells": 288,
+        "heap": 147584132,
+        "cls": 0,
+        "allLayoutShifts": 0,
+        "pair": 2,
+        "uptime": "12:58  up 4 days,  3:40, 30 users, load averages: 7.92 4.85 5.25",
+        "load": [
+          7.91650390625,
+          4.853515625,
+          5.248046875
+        ]
+      }
+    ]
+  },
+  "errors": []
+}
