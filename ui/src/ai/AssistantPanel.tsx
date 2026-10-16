@@ -6,7 +6,7 @@ import type { Table } from '../contract';
 import { selectRows, suggestedQuery, type AiReply, type AiSettings, type WorkInput } from './types';
 export function AssistantPanel({ work, table, insert, close }: { work: () => WorkInput | null; table: () => Table | undefined; insert: (session: string, text: string) => void; close: () => void }) {
   const [settings, setSettings] = useState<AiSettings>({ enabled: false, model: 'claude-opus-5-5', effort: 'medium', auth: 'api_key' });
-  const [hasAnt, setHasAnt] = useState(false);
+  const [hasAnt, setHasAnt] = useState(false), [loggedIn, setLoggedIn] = useState(false), [loginUrl, setLoginUrl] = useState<string | null>(null), [code, setCode] = useState(''), [account, setAccount] = useState('');
   const [hasKey, setHasKey] = useState(false), [key, setKey] = useState(''), [ready, setReady] = useState(false);
   const [question, setQuestion] = useState('이 스키마에서 필요한 쿼리를 작성해 주세요.');
   const [includeRows, setIncludeRows] = useState(false), [selection, setSelection] = useState(''), [masked, setMasked] = useState('');
@@ -17,6 +17,18 @@ export function AssistantPanel({ work, table, insert, close }: { work: () => Wor
     setBusy(true); setError('');
     try { await api('ai_configure', { settings, apiKey: remove ? '' : key || null }); const s = await api('ai_settings', {}); setSettings(s.settings); setHasKey(s.has_key); setHasAnt(s.has_ant_cli); setKey(''); }
     catch (e) { setError(String((e as Error).message ?? e)); }
+    finally { setBusy(false); }
+  }
+  async function refreshLogin() { try { const s = await api('ai_login_status', {}); setHasAnt(s.installed); setLoggedIn(s.logged_in); } catch (e) { setError(String((e as Error).message ?? e)); } }
+  useEffect(() => { if (settings.auth === 'claude_login') void refreshLogin(); }, [settings.auth]);
+  async function login(step: 'start' | 'submit' | 'cancel' | 'logout') {
+    setBusy(true); setError('');
+    try {
+      if (step === 'start') { const r = await api('ai_login_start', {}); setLoginUrl(r.url ?? ''); setCode(''); }
+      else if (step === 'submit') { const r = await api('ai_login_submit', { code }); setAccount(r.account ?? ''); setLoginUrl(null); setCode(''); await refreshLogin(); }
+      else if (step === 'cancel') { await api('ai_login_cancel', {}); setLoginUrl(null); setCode(''); }
+      else { await api('ai_logout', {}); setAccount(''); await refreshLogin(); }
+    } catch (e) { setError(String((e as Error).message ?? e)); if (step === 'submit') setLoginUrl(null); }
     finally { setBusy(false); }
   }
   async function ask() {
@@ -44,10 +56,20 @@ export function AssistantPanel({ work, table, insert, close }: { work: () => Wor
       <label>추론 수준<select value={settings.effort} onChange={e => setSettings({ ...settings, effort: e.currentTarget.value })}>{['low', 'medium', 'high', 'max'].map(v => <option key={v}>{v}</option>)}</select></label>
       <label>인증 방식<select value={settings.auth} onChange={e => setSettings({ ...settings, auth: e.currentTarget.value as AiSettings['auth'] })}><option value="api_key">API 키 (OS 키체인)</option><option value="claude_login">Claude 로그인 (ant CLI)</option></select></label>
       {settings.auth === 'api_key' ? <label>Anthropic API 키<input type="password" autoComplete="off" value={key} placeholder={hasKey ? 'OS 키체인에 저장됨 · 변경 시 입력' : 'API 키 입력'} onInput={e => setKey(e.currentTarget.value)} /></label>
-        : <small>{hasAnt ? '요청마다 ant CLI의 로그인 토큰을 사용합니다(만료 시 자동 갱신). 로그인이 없으면 터미널에서 ant auth login을 실행하세요.' : 'ant CLI를 찾지 못했습니다. 설치 후 ant auth login을 실행하세요.'}</small>}
+        : !hasAnt ? <small>ant CLI를 찾지 못했습니다. 설치 후 다시 여세요 (brew install anthropic/tap/ant).</small>
+        : <div class="toolbar" aria-label="Claude login">
+            <span role="status">{loggedIn ? `Claude 로그인됨${account ? ` · ${account}` : ''}` : 'Claude 로그인 필요'}</span>
+            {loginUrl === null && <button onClick={() => void login('start')}>{loggedIn ? '다시 로그인' : 'Claude 로그인'}</button>}
+            {loggedIn && loginUrl === null && <button onClick={() => void login('logout')}>로그아웃</button>}
+          </div>}
+      {settings.auth === 'claude_login' && loginUrl !== null && <div>
+        <small>브라우저에서 승인한 뒤 표시된 코드를 붙여넣으세요.{loginUrl && <> 브라우저가 열리지 않으면 이 주소를 여세요: <input readOnly aria-label="Login URL" value={loginUrl} onFocus={e => e.currentTarget.select()} /></>}</small>
+        <label>로그인 코드<input type="password" autoComplete="off" aria-label="Login code" value={code} onInput={e => setCode(e.currentTarget.value)} /></label>
+        <div class="toolbar"><button disabled={!code.trim()} onClick={() => void login('submit')}>로그인 완료</button><button onClick={() => void login('cancel')}>취소</button></div>
+      </div>}
       <div class="toolbar"><button onClick={() => void save()}>설정 저장</button>{hasKey && <button onClick={() => void save(true)}>저장된 키 삭제</button>}</div>
     </fieldset>
-    {(settings.auth === 'api_key' ? !hasKey : !hasAnt) ? <p>{settings.auth === 'api_key' ? '본인의 Anthropic API 키를 입력해 저장하세요. 키는 OS 키체인에 저장되며 요청 이력에는 남지 않습니다.' : 'Claude 로그인 방식을 쓰려면 ant CLI를 설치하고 ant auth login으로 로그인하세요.'}</p> : <fieldset disabled={busy || !settings.enabled}><legend>질문</legend>
+    {(settings.auth === 'api_key' ? !hasKey : !hasAnt || !loggedIn) ? <p>{settings.auth === 'api_key' ? '본인의 Anthropic API 키를 입력해 저장하세요. 키는 OS 키체인에 저장되며 요청 이력에는 남지 않습니다.' : 'Claude 로그인 방식을 쓰려면 위의 Claude 로그인 버튼으로 로그인하세요. 설정을 저장해야 적용됩니다.'}</p> : <fieldset disabled={busy || !settings.enabled}><legend>질문</legend>
       <div class="toolbar"><button onClick={() => setQuestion('이 스키마에서 다음 조건의 쿼리를 작성해 주세요: ')}>쿼리 작성</button><button onClick={() => setQuestion('최근 오류를 설명하고 수정 쿼리를 제안해 주세요.')}>오류 설명</button><button onClick={() => setQuestion('마지막 결과를 요약해 주세요. 행이 없으면 컬럼과 행 수에 근거해 설명하세요.')}>결과 요약</button></div>
       <textarea aria-label="AI question" value={question} onInput={e => setQuestion(e.currentTarget.value)} />
       <label><input type="checkbox" checked={includeRows} onChange={e => setIncludeRows(e.currentTarget.checked)} />선택한 행 포함 · 최대 20행</label>

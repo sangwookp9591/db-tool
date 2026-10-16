@@ -57,6 +57,10 @@ impl Credential {
 }
 // GUI apps on macOS do not inherit the shell PATH, so check the usual install locations first.
 fn ant_cli() -> Option<std::path::PathBuf> {
+    #[cfg(debug_assertions)]
+    if let Some(path) = std::env::var_os("AXDB_ANT_CLI") {
+        return Some(path.into()); // debug-only test seam for a fake ant
+    }
     let home = std::env::var_os("HOME").map(std::path::PathBuf::from);
     ["/opt/homebrew/bin/ant", "/usr/local/bin/ant"]
         .into_iter()
@@ -88,6 +92,105 @@ fn parse_login(ok: bool, stdout: &[u8], stderr: &[u8]) -> Result<String, DbError
         return Err(DbError::query("Claude 로그인이 만료되었거나 없습니다. 터미널에서 `ant auth login`을 실행하세요"));
     }
     Ok(token)
+}
+// GUI login: runs `ant auth login`, which opens the browser and then waits for the pasted OAuth code.
+struct Login {
+    child: tokio::process::Child,
+    stdin: tokio::process::ChildStdin,
+    output: std::sync::Arc<std::sync::Mutex<String>>,
+}
+fn login_slot() -> &'static tokio::sync::Mutex<Option<Login>> {
+    static SLOT: std::sync::OnceLock<tokio::sync::Mutex<Option<Login>>> = std::sync::OnceLock::new();
+    SLOT.get_or_init(|| tokio::sync::Mutex::new(None))
+}
+fn collect(stream: impl tokio::io::AsyncRead + Unpin + Send + 'static, output: std::sync::Arc<std::sync::Mutex<String>>) {
+    tokio::spawn(async move {
+        use tokio::io::AsyncReadExt;
+        let mut stream = stream;
+        let mut buf = [0u8; 4096];
+        while let Ok(n) = stream.read(&mut buf).await {
+            if n == 0 { break; }
+            if let Ok(mut out) = output.lock() {
+                if out.len() < 64_000 { out.push_str(&String::from_utf8_lossy(&buf[..n])); }
+            }
+        }
+    });
+}
+fn authorize_url(output: &str) -> Option<String> {
+    output.split_whitespace().find(|w| w.starts_with("https://") && w.contains("/oauth/authorize")).map(str::to_owned)
+}
+#[tauri::command]
+pub async fn ai_login_start() -> Result<Value, DbError> {
+    let ant = ant_cli().ok_or_else(|| DbError::query("ant CLI를 찾지 못했습니다 (brew install anthropic/tap/ant)"))?;
+    let mut slot = login_slot().lock().await;
+    if let Some(mut old) = slot.take() { let _ = old.child.kill().await; }
+    let mut child = tokio::process::Command::new(ant)
+        .args(["auth", "login"])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .kill_on_drop(true)
+        .spawn()
+        .map_err(|_| DbError::query("Cannot run ant CLI"))?;
+    let output = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
+    collect(child.stdout.take().expect("piped stdout"), output.clone());
+    collect(child.stderr.take().expect("piped stderr"), output.clone());
+    let stdin = child.stdin.take().expect("piped stdin");
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(20);
+    loop {
+        let text = output.lock().map(|o| o.clone()).unwrap_or_default();
+        if text.contains("Code:") {
+            let url = authorize_url(&text);
+            *slot = Some(Login { child, stdin, output });
+            return Ok(json!({"waiting_for_code": true, "url": url}));
+        }
+        if let Ok(Some(status)) = child.try_wait() {
+            return Err(DbError::query(if status.success() { "ant login finished without asking for a code" } else { "ant login failed to start" }));
+        }
+        if tokio::time::Instant::now() >= deadline {
+            let _ = child.kill().await;
+            return Err(DbError::query("ant login did not respond"));
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+}
+#[tauri::command]
+pub async fn ai_login_submit(code: String) -> Result<Value, DbError> {
+    use tokio::io::AsyncWriteExt;
+    let code = code.trim().to_owned();
+    if code.is_empty() || code.len() > 2048 || code.chars().any(|c| c.is_whitespace() || c.is_control()) {
+        return Err(DbError::query("Invalid login code"));
+    }
+    let mut login = login_slot().lock().await.take().ok_or_else(|| DbError::query("Start Claude login first"))?;
+    login.stdin.write_all(format!("{code}\n").as_bytes()).await.map_err(|_| DbError::query("ant login closed"))?;
+    login.stdin.flush().await.map_err(|_| DbError::query("ant login closed"))?;
+    drop(login.stdin);
+    let status = tokio::time::timeout(Duration::from_secs(90), login.child.wait()).await;
+    let text = login.output.lock().map(|o| o.clone()).unwrap_or_default();
+    match status {
+        Ok(Ok(s)) if s.success() && text.contains("Logged in") => {
+            let account = text.lines().find(|l| l.contains("Logged in")).map(|l| l.trim().trim_start_matches('✓').trim().to_owned());
+            Ok(json!({"logged_in": true, "account": account}))
+        }
+        Ok(_) => Err(DbError::query("Claude 로그인에 실패했습니다. 코드를 다시 받아 시도하세요")),
+        Err(_) => { let _ = login.child.kill().await; Err(DbError::query("ant login timed out")) }
+    }
+}
+#[tauri::command]
+pub async fn ai_login_cancel() -> Result<(), DbError> {
+    if let Some(mut login) = login_slot().lock().await.take() { let _ = login.child.kill().await; }
+    Ok(())
+}
+#[tauri::command]
+pub async fn ai_login_status() -> Result<Value, DbError> {
+    let installed = ant_cli().is_some();
+    Ok(json!({"installed": installed, "logged_in": installed && login_token().await.is_ok()}))
+}
+#[tauri::command]
+pub async fn ai_logout() -> Result<(), DbError> {
+    let ant = ant_cli().ok_or_else(|| DbError::query("ant CLI를 찾지 못했습니다"))?;
+    let status = tokio::process::Command::new(ant).args(["auth", "logout"]).kill_on_drop(true).status().await.map_err(|_| DbError::query("Cannot run ant CLI"))?;
+    if status.success() { Ok(()) } else { Err(DbError::query("ant logout failed")) }
 }
 async fn credential(settings: &Settings) -> Result<Credential, DbError> {
     if settings.auth == "claude_login" {
@@ -436,6 +539,32 @@ mod tests {
         assert!(error.message.contains("401"));
         assert!(!format!("{error:?}").contains("private-key"));
         server.abort();
+    }
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn gui_login_drives_ant_prompt_and_submits_code() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = std::env::temp_dir().join(format!("axdb-ant-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let fake = dir.join("ant");
+        // Mimics ant: prints the authorize URL, prompts "Code:" without newline, validates the pasted code.
+        std::fs::write(&fake, "#!/bin/sh\necho 'Opening your browser to authenticate...'\necho '  https://platform.claude.com/oauth/authorize?client_id=x&state=y'\nprintf 'Code: '\nread code\n[ \"$code\" = good-code ] && echo '  ✓ Logged in to Test Org as t@example.com (profile \"default\").' && exit 0\necho 'invalid code' >&2; exit 1\n").unwrap();
+        std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
+        std::env::set_var("AXDB_ANT_CLI", &fake);
+        let started = ai_login_start().await.unwrap();
+        assert_eq!(started["waiting_for_code"], true);
+        assert!(started["url"].as_str().unwrap().contains("/oauth/authorize"));
+        assert!(ai_login_submit("bad code".into()).await.is_err()); // whitespace rejected before reaching ant
+        let done = ai_login_submit("good-code".into()).await.unwrap();
+        assert_eq!(done["logged_in"], true);
+        assert!(done["account"].as_str().unwrap().contains("Test Org"));
+        ai_login_start().await.unwrap();
+        assert!(ai_login_submit("wrong".into()).await.is_err());
+        assert!(ai_login_submit("good-code".into()).await.is_err()); // session consumed
+        ai_login_start().await.unwrap();
+        ai_login_cancel().await.unwrap();
+        std::env::remove_var("AXDB_ANT_CLI");
+        std::fs::remove_dir_all(dir).unwrap();
     }
     #[tokio::test]
     async fn claude_login_sends_bearer_without_api_key_header() {

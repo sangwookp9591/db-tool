@@ -116,7 +116,15 @@
     - mock HTTP로 Bearer 헤더 전송과 `x-api-key` 미전송을 검증했다. 실제 ant 출력에서 만료를 감지해 네트워크 호출 없이 안내 오류를 내는 것과, 그 오류에 토큰이 노출되지 않는 것도 확인했다.
   - **실제 호출 검증 완료(2026-10-16).** 사용자가 `ant auth login`으로 다시 로그인한 뒤 `AXDB_TEST_ANTHROPIC=login cargo test -p axdb real_anthropic_once -- --ignored`를 실행했고 통과했다(5.9초, 요청 1회).
     - 앱과 같은 요청 조립과 전송 경로를 썼다: Bearer 토큰, `claude-opus-5-5`, adaptive thinking, effort, fallbacks, 스키마 블록의 `cache_control`, SSE 스트리밍 파싱, `stop_reason` 수신.
-    - 다만 GUI 패널에서 직접 질문을 보낸 것은 아니다.
+  - **GUI 로그인(사용자 요청):** AI 패널에서 "Claude 로그인" 버튼으로 터미널 없이 로그인한다.
+    - 동작: 앱이 `ant auth login`을 실행해 브라우저를 연다. 승인 후 받은 코드를 패널의 마스킹된 입력칸에 붙여넣으면 끝난다. 로그인 상태, 다시 로그인, 로그아웃, 취소를 지원한다.
+    - 가짜 ant 테스트: URL 추출, `Code:` 감지, 성공·실패, 공백 코드 거부, 소진된 세션 거부, 취소
+    - 실제 ant: GUI에서 시작하자 URL과 코드 입력칸이 나타났다. 취소하면 프로세스가 남지 않고 기존 로그인이 유지된다.
+    - OAuth 코드 붙여넣기는 사용자 계정 작업이라 코디네이터가 하지 않았다. 터미널에서 같은 ant 흐름으로 로그인이 성공한 것은 확인했다.
+  - **GUI 실제 질문(end-to-end):** 실제 앱의 AI 패널에서 Claude 로그인 상태로 질문을 보냈다.
+    - 응답은 실제 테스트 DB 스키마(`e2e.typed`/`e2e.big`의 컬럼·타입, FK 없음)를 반영했고 "실행하지 않았다"고 명시했다.
+    - "새 쿼리 탭에 삽입"은 새 탭의 편집기에만 넣었다. 실행 이력은 356 → 356으로 변하지 않았다.
+    - 설정, 이력, 로그에 토큰(`sk-ant`)이 없었다.
   - API 키 방식의 실제 호출은 키가 없어 실행하지 않았다. 같은 `send` 경로에서 헤더만 다르며, mock으로 검증했다.
 - **Windows는 사용자 결정(2026-10-16)으로 검증 범위에서 제외했다.** 그 전까지 진행한 크로스 빌드와 Wine 실행 결과는 참고로 남긴다.
   - 크로스 빌드: Docker에서 mingw로 `x86_64-pc-windows-gnu` release `axdb.exe`(PE32+ GUI)를 빌드했다. 처음에는 `src-tauri/icons/icon.ico`가 없어 **Windows 빌드 자체가 불가능**했다. 이 파일을 추가해 고쳤다. 스크립트는 `bench/windows-cross-build.sh`다.
