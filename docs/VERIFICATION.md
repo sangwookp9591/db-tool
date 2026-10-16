@@ -125,6 +125,7 @@
     - 응답은 실제 테스트 DB 스키마(`e2e.typed`/`e2e.big`의 컬럼·타입, FK 없음)를 반영했고 "실행하지 않았다"고 명시했다.
     - "새 쿼리 탭에 삽입"은 새 탭의 편집기에만 넣었다. 실행 이력은 356 → 356으로 변하지 않았다.
     - 설정, 이력, 로그에 토큰(`sk-ant`)이 없었다.
+    - 질문 칸에 직접 타이핑한 질문("e2e.typed 테이블의 행 수를 세는 SQL 한 줄만")도 보냈다. 응답은 `SELECT count(*) FROM e2e.typed;`였다.
   - API 키 방식의 실제 호출은 키가 없어 실행하지 않았다. 같은 `send` 경로에서 헤더만 다르며, mock으로 검증했다.
 - **Windows는 사용자 결정(2026-10-16)으로 검증 범위에서 제외했다.** 그 전까지 진행한 크로스 빌드와 Wine 실행 결과는 참고로 남긴다.
   - 크로스 빌드: Docker에서 mingw로 `x86_64-pc-windows-gnu` release `axdb.exe`(PE32+ GUI)를 빌드했다. 처음에는 `src-tauri/icons/icon.ico`가 없어 **Windows 빌드 자체가 불가능**했다. 이 파일을 추가해 고쳤다. 스크립트는 `bench/windows-cross-build.sh`다.
