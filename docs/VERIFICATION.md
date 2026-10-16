@@ -109,11 +109,14 @@
 
 ## 6. 남은 한계
 
-- **실제 Anthropic 호출은 검증하지 않았다.**
-  - 이 머신의 `ant` OAuth 토큰은 2026-07-29에 만료됐고 API 키가 없다. 호출하면 사용자 계정에 과금된다.
-  - 요청 조립, SSE, refusal, `cache_control` 위치는 mock HTTP로 검증했다.
-  - 실제 검증 방법(요청 1회):
-    `security add-generic-password -s axdb -a ai:anthropic -w <API_KEY>` 뒤에 `AXDB_TEST_ANTHROPIC=1 cargo test -p axdb real_anthropic_once -- --ignored`
+- **실제 Anthropic 호출**
+  - 사용자 요청으로 인증 방식에 **Claude 로그인(ant CLI)**을 추가했다.
+    - 요청마다 공식 `ant auth print-credentials --access-token`이 갱신한 토큰을 `Authorization: Bearer`로 보낸다.
+    - 기존 API 키(OS 키체인, `x-api-key`) 방식도 유지한다.
+    - mock HTTP로 Bearer 헤더 전송과 `x-api-key` 미전송을 검증했다. 실제 ant 출력에서 만료를 감지해 네트워크 호출 없이 안내 오류를 내는 것과, 그 오류에 토큰이 노출되지 않는 것도 확인했다.
+  - 이 머신의 ant 로그인은 만료됐고(2026-07-29) refresh_token이 없다. 그래서 `ant auth login`(브라우저) 후에 실제 요청 1회 검증이 남는다.
+    - 로그인 방식: `AXDB_TEST_ANTHROPIC=login cargo test -p axdb real_anthropic_once -- --ignored`
+    - 키 방식: `AXDB_TEST_ANTHROPIC=key …`
 - **Windows는 실제 Windows 기기에서 실행하지 않았다.** 크로스 빌드와 Wine 실행까지만 확인했다.
   - 크로스 빌드: Docker에서 mingw로 `x86_64-pc-windows-gnu` release `axdb.exe`(PE32+ GUI)를 빌드했다. 처음에는 `src-tauri/icons/icon.ico`가 없어 **Windows 빌드 자체가 불가능**했다. 이 파일을 추가해 고쳤다. 스크립트는 `bench/windows-cross-build.sh`다.
   - Wine 10(x86_64, Rosetta 에뮬레이션)에서 Windows 테스트 바이너리를 실행했다(`bench/windows-wine-test.sh`).

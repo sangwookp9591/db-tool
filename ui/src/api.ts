@@ -6,7 +6,7 @@ import type { DriverManifest, Profile, ExplorerNode, ResultSet, ExecRequest, His
 export interface Commands {
   context_get: { args: { sessionId: string; scope: Scope }; result: Record<string, unknown> };
   context_error: { args: { runId: string }; result: Record<string, unknown> };
-  ai_settings: { args: Record<string, never>; result: { settings: AiSettings; has_key: boolean } };
+  ai_settings: { args: Record<string, never>; result: { settings: AiSettings; has_key: boolean; has_ant_cli: boolean } };
   ai_configure: { args: { settings: AiSettings; apiKey: string | null }; result: void };
   ai_request: { args: { sessionId: string; scope: Scope; question: string; channel: Channel<string> }; result: AiReply };
 

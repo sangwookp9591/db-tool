@@ -11,6 +11,8 @@ pub struct Settings {
     pub enabled: bool,
     pub model: String,
     pub effort: String,
+    /// "api_key" (OS keychain) or "claude_login" (the user's `ant auth login` session).
+    pub auth: String,
 }
 impl Default for Settings {
     fn default() -> Self {
@@ -18,6 +20,7 @@ impl Default for Settings {
             enabled: false,
             model: "claude-opus-5-5".into(),
             effort: "medium".into(),
+            auth: "api_key".into(),
         }
     }
 }
@@ -41,9 +44,62 @@ fn key() -> Result<Option<String>, DbError> {
         Err(_) => Err(DbError::internal("Cannot read AI keychain")),
     }
 }
+enum Credential {
+    ApiKey(String),
+    Bearer(String),
+}
+impl Credential {
+    fn secret(&self) -> &str {
+        match self {
+            Self::ApiKey(s) | Self::Bearer(s) => s,
+        }
+    }
+}
+// GUI apps on macOS do not inherit the shell PATH, so check the usual install locations first.
+fn ant_cli() -> Option<std::path::PathBuf> {
+    let home = std::env::var_os("HOME").map(std::path::PathBuf::from);
+    ["/opt/homebrew/bin/ant", "/usr/local/bin/ant"]
+        .into_iter()
+        .map(std::path::PathBuf::from)
+        .chain(home.map(|h| h.join(".local/bin/ant")))
+        .chain(std::env::var_os("PATH").into_iter().flat_map(|p| std::env::split_paths(&p).map(|d| d.join("ant")).collect::<Vec<_>>()))
+        .find(|p| p.is_file())
+}
+/// Reads the user's Claude login through the official `ant` CLI, which refreshes the token when it can.
+async fn login_token() -> Result<String, DbError> {
+    let ant = ant_cli().ok_or_else(|| DbError::query("Claude 로그인 방식에는 ant CLI가 필요합니다 (brew install anthropic/tap/ant 후 ant auth login)"))?;
+    let output = tokio::time::timeout(
+        Duration::from_secs(20),
+        tokio::process::Command::new(ant)
+            .args(["auth", "print-credentials", "--access-token"])
+            .kill_on_drop(true)
+            .output(),
+    )
+    .await
+    .map_err(|_| DbError::query("ant CLI did not respond"))?
+    .map_err(|_| DbError::query("Cannot run ant CLI"))?;
+    parse_login(output.status.success(), &output.stdout, &output.stderr)
+}
+fn parse_login(ok: bool, stdout: &[u8], stderr: &[u8]) -> Result<String, DbError> {
+    let token = String::from_utf8_lossy(stdout).trim().to_owned();
+    // ant prints an expired token with a warning when no refresh token is stored; sending it would only 401.
+    let expired = String::from_utf8_lossy(stderr).contains("expired");
+    if !ok || expired || token.is_empty() || token.len() > 4096 || token.chars().any(char::is_whitespace) {
+        return Err(DbError::query("Claude 로그인이 만료되었거나 없습니다. 터미널에서 `ant auth login`을 실행하세요"));
+    }
+    Ok(token)
+}
+async fn credential(settings: &Settings) -> Result<Credential, DbError> {
+    if settings.auth == "claude_login" {
+        return login_token().await.map(Credential::Bearer);
+    }
+    key()?
+        .map(Credential::ApiKey)
+        .ok_or_else(|| DbError::query("Configure an Anthropic API key first"))
+}
 #[tauri::command]
 pub fn ai_settings(host: tauri::State<'_, Host>) -> Result<Value, DbError> {
-    Ok(json!({"settings":read(&host)?,"has_key":key()?.is_some()}))
+    Ok(json!({"settings":read(&host)?,"has_key":key()?.is_some(),"has_ant_cli":ant_cli().is_some()}))
 }
 #[tauri::command]
 pub fn ai_configure(
@@ -81,6 +137,7 @@ fn validate(settings: &Settings) -> Result<(), DbError> {
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '.')
         || !["low", "medium", "high", "max"].contains(&settings.effort.as_str())
+        || !["api_key", "claude_login"].contains(&settings.auth.as_str())
     {
         return Err(DbError::query("Invalid AI model or effort"));
     }
@@ -180,12 +237,16 @@ impl Sse {
 }
 async fn send(
     endpoint: &str,
-    key: &str,
+    credential: &Credential,
     body: Value,
     mut emit: impl FnMut(String) -> Result<(), DbError>,
 ) -> Result<Value, DbError> {
-    let mut header = reqwest::header::HeaderValue::from_str(key)
-        .map_err(|_| DbError::query("Invalid AI key"))?;
+    let (name, value) = match credential {
+        Credential::ApiKey(k) => ("x-api-key", k.clone()),
+        Credential::Bearer(t) => ("authorization", format!("Bearer {t}")),
+    };
+    let mut header = reqwest::header::HeaderValue::from_str(&value)
+        .map_err(|_| DbError::query("Invalid AI credential"))?;
     header.set_sensitive(true);
     let client = reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
@@ -195,7 +256,7 @@ async fn send(
     // Errors intentionally omit provider bodies, request headers and prompts.
     let mut response = client
         .post(endpoint)
-        .header("x-api-key", header)
+        .header(name, header)
         .header("anthropic-version", "2023-06-01")
         .header("anthropic-beta", "server-side-fallback-2026-07-01")
         .json(&body)
@@ -234,10 +295,11 @@ pub async fn ai_request(
     if question.trim().is_empty() || question.len() > 8000 {
         return Err(DbError::query("Question must contain 1–8000 bytes"));
     }
-    let key = key()?.ok_or_else(|| DbError::query("Configure an Anthropic API key first"))?;
+    let credential = credential(&settings).await?;
+    let key = credential.secret();
     let context = context::build(&host, &session_id, scope).await?;
     let secret = host.session(&session_id)?.secret.clone();
-    let question = storage::redact(&storage::redact(&question, secret.as_deref()), Some(&key));
+    let question = storage::redact(&storage::redact(&question, secret.as_deref()), Some(key));
     let mut body = request_body(&settings, context, &question);
     fn redact(value: &mut Value, key: &str) {
         match value {
@@ -247,8 +309,8 @@ pub async fn ai_request(
             _ => {}
         }
     }
-    redact(&mut body, &key);
-    send(ENDPOINT, &key, body, |text| {
+    redact(&mut body, key);
+    send(ENDPOINT, &credential, body, |text| {
         channel
             .send(text)
             .map_err(|_| DbError::query("AI panel closed"))
@@ -352,7 +414,7 @@ mod tests {
         let mut emitted = String::new();
         let reply = send(
             &format!("http://{addr}/v1/messages"),
-            "private-key",
+            &Credential::ApiKey("private-key".into()),
             body(),
             |s| {
                 emitted.push_str(&s);
@@ -365,7 +427,7 @@ mod tests {
         assert!(!emitted.is_empty());
         let error = send(
             &format!("http://{addr}/fail"),
-            "private-key",
+            &Credential::ApiKey("private-key".into()),
             body(),
             |_| Ok(()),
         )
@@ -376,11 +438,48 @@ mod tests {
         server.abort();
     }
     #[tokio::test]
-    #[ignore = "Requires AXDB_TEST_ANTHROPIC=1 and OS keychain ai:anthropic; incurs one API request"]
+    async fn claude_login_sends_bearer_without_api_key_header() {
+        use axum::{extract::Json, http::HeaderMap, routing::post, Router};
+        let app = Router::new().route(
+            "/v1/messages",
+            post(|headers: HeaderMap, Json(_): Json<Value>| async move {
+                assert_eq!(headers["authorization"], "Bearer oat-token");
+                assert!(headers.get("x-api-key").is_none());
+                assert_eq!(headers["anthropic-version"], "2023-06-01");
+                ([("content-type", "text/event-stream")], stream("end_turn"))
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        let reply = send(&format!("http://{addr}/v1/messages"), &Credential::Bearer("oat-token".into()), body(), |_| Ok(())).await.unwrap();
+        assert_eq!(reply["stop_reason"], "end_turn");
+        server.abort();
+    }
+    #[test]
+    fn login_output_rejects_expired_and_malformed_tokens() {
+        assert_eq!(parse_login(true, b"sk-ant-oat01-abc\n", b"").unwrap(), "sk-ant-oat01-abc");
+        let expired = parse_login(true, b"sk-ant-oat01-abc\n", b"warning: token for profile \"default\" expired at 2026-07-29").unwrap_err();
+        assert!(expired.message.contains("ant auth login") && !expired.message.contains("abc"));
+        assert!(parse_login(false, b"x", b"").is_err());
+        assert!(parse_login(true, b"", b"").is_err());
+        assert!(parse_login(true, b"a b", b"").is_err());
+        let mut settings = Settings { auth: "claude_login".into(), ..Default::default() };
+        assert!(validate(&settings).is_ok());
+        settings.auth = "cookie".into();
+        assert!(validate(&settings).is_err());
+    }
+    #[tokio::test]
+    #[ignore = "Requires AXDB_TEST_ANTHROPIC=key|login (OS keychain ai:anthropic or `ant auth login`); incurs one API request"]
     async fn real_anthropic_once() {
-        assert_eq!(std::env::var("AXDB_TEST_ANTHROPIC").as_deref(), Ok("1"));
-        let key = key().unwrap().expect("OS keychain key required");
-        let reply = send(ENDPOINT, &key, body(), |_| Ok(())).await.unwrap();
+        let auth = match std::env::var("AXDB_TEST_ANTHROPIC").as_deref() {
+            Ok("login") => "claude_login",
+            Ok("1" | "key") => "api_key",
+            _ => panic!("set AXDB_TEST_ANTHROPIC=key or login"),
+        };
+        let settings = Settings { auth: auth.into(), ..Default::default() };
+        let credential = credential(&settings).await.unwrap();
+        let reply = send(ENDPOINT, &credential, body(), |_| Ok(())).await.unwrap();
         assert!(reply["stop_reason"].is_string());
     }
 }
