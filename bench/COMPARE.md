@@ -176,3 +176,42 @@ connected AxDB: 창 미감지 2/5, AX 미감지 3/5.
 모든 실행한 앱 PID가 종료됐고 Tabularis 원본 설정 폴더가 복원됐으며 보존용 임시 백업은 남지 않았다. 유휴 측정 후에만 Rust 테스트/빌드를 시작했다.
 
 [원자료](results-compare-idle-p1.json) · [시행 전 ps/load](results-compare-idle-p1.txt) · [게이트 기록](results-compare-gates.json) · [P1 상세/후보 결과](../docs/RESOURCE_OPT.md). 재현 명령은 `compare_idle.py TABULARIS_EXE AXDB_BEFORE_EXE --p1-after AXDB_AFTER_EXE`다. 기존 W8 결과는 수정하거나 덮어쓰지 않았다.
+
+## 생성 쿼리와 동일 한도 비교 (W9, 2026-10-16)
+
+W8에서 측정하지 않은 생성 쿼리와 동일 행 한도 조건을 측정했다. W8 원자료는 덮어쓰지 않았다.
+
+- 대상: Tabularis 0.28.0 공식 `.app`, AxDB main HEAD release `.app`
+- 측정 시점: 10:09~10:20 KST. 측정 도중 Codex 워커가 종료돼, 수집된 원자료를 코디네이터가 집계·검증했다.
+- 쿼리
+  - G1: `SELECT g, md5(g::text), now() FROM generate_series(1,100000) g`
+  - big: `SELECT * FROM e2e.big` (250,000행)
+- 행 한도: 두 앱 모두 같은 값(1,000과 100,000)으로 맞췄다. Tabularis는 `resultPageSize`, AxDB는 Row limit이다.
+- 유효성 확인: 두 앱 모두 한도와 같은 결과 수가 화면에 나온 것을 확인한 뒤에만 계측했다. Tabularis는 `N rows retrieved`, AxDB는 결과 수 N이다.
+- 표본: 조건마다 교대 5쌍. 40개 표본이 모두 유효하고, 모두 부하 게이트(1분 load ≤ 8)를 통과했다. 실측 최대 load는 7.43(직전)과 7.82(직후)다.
+- footprint: 앱 프로세스와 WebKit 프로세스 4개를 합한 값이다.
+- CPU: 쿼리 구간의 프로세스 CPU 합이다.
+
+값은 중앙값이고, 괄호 안은 최소~최대다.
+
+| 조건 | 앱 | 첫 행 (ms) | 결과 수 표시 (ms) | footprint 합 (MiB) | RSS 합 (MiB) | CPU (%) |
+|---|---|---:|---:|---:|---:|---:|
+| G1 · 1,000 | Tabularis | 214 (205–232) | 215 | 432 (405–436) | 520 | 116 |
+| G1 · 1,000 | AxDB | 159 (132–181) | 159 | 178 (174–188) | 242 | 42 |
+| big · 1,000 | Tabularis | 163 (154–165) | 163 | 422 (419–426) | 508 | 126 |
+| big · 1,000 | AxDB | 148 (129–177) | 149 | 174 (173–179) | 238 | 38 |
+| G1 · 100,000 | Tabularis | 549 (521–553) | 549 | 974 (944–995) | 1,010 | 217 |
+| G1 · 100,000 | AxDB | 332 (311–343) | 551 | 255 (246–257) | 362 | 73 |
+| big · 100,000 | Tabularis | 403 (383–449) | 403 | 957 (949–961) | 954 | 205 |
+| big · 100,000 | AxDB | 199 (194–207) | 390 | 243 (242–245) | 358 | 74 |
+
+**해석**
+- 같은 한도에서 AxDB는 첫 행 표시가 더 빨랐다(1,000행에서 15~55ms, 100,000행에서 약 200ms).
+- 메모리는 AxDB가 Tabularis의 약 1/2.4(1,000행) ~ 1/3.9(100,000행)였고, 쿼리 구간 CPU는 약 1/3이었다.
+- 100,000행 "결과 수 표시"는 두 앱이 비슷하다(G1 551 대 549ms, big 390 대 403ms). AxDB는 첫 청크를 먼저 그리고 나머지 행을 스트리밍해 받기 때문에, 전체 수는 마지막 청크 뒤에 나타난다. 그래서 첫 행은 빠르지만 전체 수신 완료 시간은 비슷하다.
+- 이 결과는 이 머신과 설치 상태에서의 관측값이다. Tabularis는 내장 deprecated PG 드라이버를 썼다. 스크롤 끝 도달과 FPS는 측정하지 않았다.
+
+**자료**
+- 원자료: [쌍 측정](results-compare-gen-pairs.json), [게이트](results-compare-gen-gates.json), [환경](results-compare-gen-environment.json)
+- 준비 실패 기록: `results-compare-gen-preflight-*.json`, `results-compare-gen-pairs-input-errors.json`. 계측 전에 걸러낸 것이며 성능 집계에는 쓰지 않았다.
+- 재현: `bench/compare_generated.py`. 계산 자체 점검은 `bench/compare_generated_test.py`이며, bench 디렉터리에서 실행하면 2 tests OK다.

@@ -18,7 +18,7 @@ def build_processes():
    rows.append({'pid':int(pid),'comm':comm})
  return rows
 
-def wait_gate(label,timeout=600):
+def wait_gate(label,timeout=600,output=None):
  start=time.monotonic();samples=[]
  while True:
   load=os.getloadavg()[0];builders=build_processes();elapsed=time.monotonic()-start
@@ -27,7 +27,7 @@ def wait_gate(label,timeout=600):
   if (load<=8 and not builders) or elapsed>=timeout:break
   time.sleep(min(30,timeout-elapsed))
  result={'pair':label,'passed':load<=8 and not builders,'waited_seconds':elapsed,'threshold':8,'timeout_seconds':timeout,'samples':samples}
- path=pathlib.Path(__file__).resolve().parent/'results-compare-gates.json'
+ path=pathlib.Path(output) if output else pathlib.Path(__file__).resolve().parent/'results-compare-gates.json'
  rows=json.loads(path.read_text()) if path.exists() else [];rows.append(result);path.write_text(json.dumps(rows,indent=2))
  return result
 

@@ -4,6 +4,7 @@
 import Foundation
 import CoreGraphics
 import ApplicationServices
+import AppKit
 func command(_ exe: String, _ args: [String]) -> String {
  let p=Process(); p.executableURL=URL(fileURLWithPath:exe); p.arguments=args
  let pipe=Pipe(); p.standardOutput=pipe; p.standardError=FileHandle.nullDevice
@@ -51,6 +52,9 @@ if a[1]=="selfcheck" {
  assert(processes()[ProcessInfo.processInfo.processIdentifier] != nil)
  assert("row 1".range(of:"row \\d+",options:.regularExpression) != nil)
  print("selfcheck passed; AX trusted: \(AXIsProcessTrusted())")
+} else if a[1]=="activate" {
+ guard let app=NSRunningApplication(processIdentifier:Int32(a[2])!) else {exit(1)}
+ if !app.activate(options:[.activateAllWindows]) {exit(1)}
 } else if a[1]=="launch" {
  let before=Set(processes().keys);let p=Process();p.executableURL=URL(fileURLWithPath:a[2]);p.standardOutput=FileHandle.nullDevice;p.standardError=FileHandle.nullDevice
  let t=ProcessInfo.processInfo.systemUptime;try! p.run();let pid=p.processIdentifier;let ax=AXUIElementCreateApplication(pid)
