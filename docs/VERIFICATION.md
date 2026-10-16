@@ -117,7 +117,7 @@
   - 이 머신의 ant 로그인은 만료됐고(2026-07-29) refresh_token이 없다. 그래서 `ant auth login`(브라우저) 후에 실제 요청 1회 검증이 남는다.
     - 로그인 방식: `AXDB_TEST_ANTHROPIC=login cargo test -p axdb real_anthropic_once -- --ignored`
     - 키 방식: `AXDB_TEST_ANTHROPIC=key …`
-- **Windows는 실제 Windows 기기에서 실행하지 않았다.** 크로스 빌드와 Wine 실행까지만 확인했다.
+- **Windows는 사용자 결정(2026-10-16)으로 검증 범위에서 제외했다.** 그 전까지 진행한 크로스 빌드와 Wine 실행 결과는 참고로 남긴다.
   - 크로스 빌드: Docker에서 mingw로 `x86_64-pc-windows-gnu` release `axdb.exe`(PE32+ GUI)를 빌드했다. 처음에는 `src-tauri/icons/icon.ico`가 없어 **Windows 빌드 자체가 불가능**했다. 이 파일을 추가해 고쳤다. 스크립트는 `bench/windows-cross-build.sh`다.
   - Wine 10(x86_64, Rosetta 에뮬레이션)에서 Windows 테스트 바이너리를 실행했다(`bench/windows-wine-test.sh`).
     - 통과: dbcore·계약, SQLite 9/9, **Redis 실제 서버 3/3**, **Neo4j 실제 서버 3/3**(계약·미리보기·스키마 그래프), PG·Neo4j·TLS 단위 테스트
