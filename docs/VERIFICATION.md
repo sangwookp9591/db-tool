@@ -114,9 +114,10 @@
     - 요청마다 공식 `ant auth print-credentials --access-token`이 갱신한 토큰을 `Authorization: Bearer`로 보낸다.
     - 기존 API 키(OS 키체인, `x-api-key`) 방식도 유지한다.
     - mock HTTP로 Bearer 헤더 전송과 `x-api-key` 미전송을 검증했다. 실제 ant 출력에서 만료를 감지해 네트워크 호출 없이 안내 오류를 내는 것과, 그 오류에 토큰이 노출되지 않는 것도 확인했다.
-  - 이 머신의 ant 로그인은 만료됐고(2026-07-29) refresh_token이 없다. 그래서 `ant auth login`(브라우저) 후에 실제 요청 1회 검증이 남는다.
-    - 로그인 방식: `AXDB_TEST_ANTHROPIC=login cargo test -p axdb real_anthropic_once -- --ignored`
-    - 키 방식: `AXDB_TEST_ANTHROPIC=key …`
+  - **실제 호출 검증 완료(2026-10-16).** 사용자가 `ant auth login`으로 다시 로그인한 뒤 `AXDB_TEST_ANTHROPIC=login cargo test -p axdb real_anthropic_once -- --ignored`를 실행했고 통과했다(5.9초, 요청 1회).
+    - 앱과 같은 요청 조립과 전송 경로를 썼다: Bearer 토큰, `claude-opus-5-5`, adaptive thinking, effort, fallbacks, 스키마 블록의 `cache_control`, SSE 스트리밍 파싱, `stop_reason` 수신.
+    - 다만 GUI 패널에서 직접 질문을 보낸 것은 아니다.
+  - API 키 방식의 실제 호출은 키가 없어 실행하지 않았다. 같은 `send` 경로에서 헤더만 다르며, mock으로 검증했다.
 - **Windows는 사용자 결정(2026-10-16)으로 검증 범위에서 제외했다.** 그 전까지 진행한 크로스 빌드와 Wine 실행 결과는 참고로 남긴다.
   - 크로스 빌드: Docker에서 mingw로 `x86_64-pc-windows-gnu` release `axdb.exe`(PE32+ GUI)를 빌드했다. 처음에는 `src-tauri/icons/icon.ico`가 없어 **Windows 빌드 자체가 불가능**했다. 이 파일을 추가해 고쳤다. 스크립트는 `bench/windows-cross-build.sh`다.
   - Wine 10(x86_64, Rosetta 에뮬레이션)에서 Windows 테스트 바이너리를 실행했다(`bench/windows-wine-test.sh`).
