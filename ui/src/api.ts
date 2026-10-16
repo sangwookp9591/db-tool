@@ -9,6 +9,7 @@ export interface Commands {
   ai_settings: { args: Record<string, never>; result: { settings: AiSettings; has_key: boolean; has_ant_cli: boolean } };
   ai_login_start: { args: Record<string, never>; result: { waiting_for_code: boolean; url: string | null } };
   ai_login_submit: { args: { code: string }; result: { logged_in: boolean; account: string | null } };
+  ai_login_poll: { args: Record<string, never>; result: { state: 'idle' | 'waiting' | 'done' | 'failed'; account?: string | null } };
   ai_login_cancel: { args: Record<string, never>; result: void };
   ai_login_status: { args: Record<string, never>; result: { installed: boolean; logged_in: boolean } };
   ai_logout: { args: Record<string, never>; result: void };

@@ -125,7 +125,7 @@ pub async fn ai_login_start() -> Result<Value, DbError> {
     let mut slot = login_slot().lock().await;
     if let Some(mut old) = slot.take() { let _ = old.child.kill().await; }
     let mut child = tokio::process::Command::new(ant)
-        .args(["auth", "login"])
+        .args(["auth", "login", "--timeout", "15m"])
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
@@ -168,12 +168,35 @@ pub async fn ai_login_submit(code: String) -> Result<Value, DbError> {
     let status = tokio::time::timeout(Duration::from_secs(90), login.child.wait()).await;
     let text = login.output.lock().map(|o| o.clone()).unwrap_or_default();
     match status {
-        Ok(Ok(s)) if s.success() && text.contains("Logged in") => {
-            let account = text.lines().find(|l| l.contains("Logged in")).map(|l| l.trim().trim_start_matches('✓').trim().to_owned());
-            Ok(json!({"logged_in": true, "account": account}))
+        Ok(Ok(s)) if login_result(s.success(), &text)["state"] == "done" => {
+            Ok(json!({"logged_in": true, "account": login_result(true, &text)["account"]}))
         }
         Ok(_) => Err(DbError::query("Claude 로그인에 실패했습니다. 코드를 다시 받아 시도하세요")),
         Err(_) => { let _ = login.child.kill().await; Err(DbError::query("ant login timed out")) }
+    }
+}
+fn login_result(ok: bool, text: &str) -> Value {
+    if ok && text.contains("Logged in") {
+        // The success line can share a line with the "Code:" prompt, so start at "Logged in".
+        let account = text.lines().find_map(|l| l.find("Logged in").map(|i| l[i..].trim().to_owned()));
+        json!({"state": "done", "account": account})
+    } else {
+        json!({"state": "failed"})
+    }
+}
+/// Lets the UI notice when ant finishes on its own (browser callback) or gives up (timeout).
+#[tauri::command]
+pub async fn ai_login_poll() -> Result<Value, DbError> {
+    let mut slot = login_slot().lock().await;
+    let Some(login) = slot.as_mut() else { return Ok(json!({"state": "idle"})) };
+    match login.child.try_wait() {
+        Ok(None) => Ok(json!({"state": "waiting"})),
+        Ok(Some(status)) => {
+            let text = login.output.lock().map(|o| o.clone()).unwrap_or_default();
+            *slot = None;
+            Ok(login_result(status.success(), &text))
+        }
+        Err(_) => { *slot = None; Ok(json!({"state": "failed"})) }
     }
 }
 #[tauri::command]
@@ -563,6 +586,19 @@ mod tests {
         assert!(ai_login_submit("good-code".into()).await.is_err()); // session consumed
         ai_login_start().await.unwrap();
         ai_login_cancel().await.unwrap();
+        assert_eq!(ai_login_poll().await.unwrap()["state"], "idle");
+        // ant finishing by itself (browser callback or its --timeout) must reach the UI via poll.
+        std::fs::write(&fake, "#!/bin/sh\necho '  https://platform.claude.com/oauth/authorize?x=1'\nprintf 'Code: '\nsleep 1\necho '  ✓ Logged in to Cb Org as c@example.com'\n").unwrap();
+        ai_login_start().await.unwrap();
+        assert_eq!(ai_login_poll().await.unwrap()["state"], "waiting");
+        tokio::time::sleep(Duration::from_millis(1500)).await;
+        let done = ai_login_poll().await.unwrap();
+        assert_eq!(done["state"], "done");
+        assert!(done["account"].as_str().unwrap().starts_with("Logged in to Cb Org"));
+        std::fs::write(&fake, "#!/bin/sh\necho '  https://platform.claude.com/oauth/authorize?x=1'\nprintf 'Code: '\nsleep 1\necho 'timed out waiting for callback' >&2\nexit 1\n").unwrap();
+        ai_login_start().await.unwrap();
+        tokio::time::sleep(Duration::from_millis(1500)).await;
+        assert_eq!(ai_login_poll().await.unwrap()["state"], "failed");
         std::env::remove_var("AXDB_ANT_CLI");
         std::fs::remove_dir_all(dir).unwrap();
     }

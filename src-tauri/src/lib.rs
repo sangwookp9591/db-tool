@@ -590,6 +590,7 @@ pub fn run() {
             assistant::ai_login_start,
             assistant::ai_login_submit,
             assistant::ai_login_cancel,
+            assistant::ai_login_poll,
             assistant::ai_login_status,
             assistant::ai_logout,
             drivers_list,

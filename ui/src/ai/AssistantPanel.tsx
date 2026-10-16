@@ -21,6 +21,14 @@ export function AssistantPanel({ work, table, insert, close }: { work: () => Wor
   }
   async function refreshLogin() { try { const s = await api('ai_login_status', {}); setHasAnt(s.installed); setLoggedIn(s.logged_in); } catch (e) { setError(String((e as Error).message ?? e)); } }
   useEffect(() => { if (settings.auth === 'claude_login') void refreshLogin(); }, [settings.auth]);
+  useEffect(() => {
+    if (loginUrl === null) return;
+    const timer = setInterval(() => { void api('ai_login_poll', {}).then(async r => {
+      if (r.state === 'done') { setLoginUrl(null); setCode(''); setAccount(r.account ?? ''); await refreshLogin(); }
+      else if (r.state === 'failed') { setLoginUrl(null); setCode(''); setError('Claude 로그인이 시간 초과(15분)되었거나 실패했습니다. 다시 시도하세요.'); }
+    }).catch(() => undefined); }, 2000);
+    return () => clearInterval(timer);
+  }, [loginUrl]);
   async function login(step: 'start' | 'submit' | 'cancel' | 'logout') {
     setBusy(true); setError('');
     try {
