@@ -468,5 +468,88 @@
     "valid_observations": 5,
     "valid_complete_pairs": 0,
     "excluded": true
-  }
+  },
+  "final_verification": {
+    "formal_runner_exit_code": 0,
+    "checks_passed": [
+      "40 valid formal trials; twenty complete pairs, five per condition",
+      "Exact observed count, first MD5 value and matching GUI/probe PID for all trials",
+      "Odd/even app-order reversal and fixed equal limits for all pairs",
+      "Load <=8 and no builders at recorded pre/post query checkpoints",
+      "Four attributed processes per trial: one app and three WebKit processes",
+      "Measured binary hashes stable through formal runner final guard",
+      "Tabularis original directory file hashes restored exactly; backup absent",
+      "Temporary e2e-pg test keychain entry deleted; original missing state restored",
+      "Current product sources match c83148e build head; later coordinator commit contains benchmark/docs only"
+    ],
+    "test_scope": {
+      "compare_generated_test.py": "Two fault-injection tests passed: settings recovery after preparation failure, and no launch after gate refusal; these do not test statistics",
+      "probe_selfcheck": "Passed with AX trusted true",
+      "raw_data_checks": "Independent statistics recalculation and exact-count/order/PID/gate assertions passed",
+      "product_test_suite": "Not run; no product code changes"
+    }
+  },
+  "documentation_review_notes": [
+    {
+      "topic": "footprint_units",
+      "finding": "W9 COMPARE table says MiB, while the summary in this file uses the raw rounded Summary Footprint MB string, preserving the OS unit",
+      "raw_summary_medians": {
+        "G1/1000": {
+          "Tabularis": 432.0,
+          "AxDB": 177.0
+        },
+        "big/1000": {
+          "Tabularis": 421.0,
+          "AxDB": 173.0
+        },
+        "G1/100000": {
+          "Tabularis": 974.0,
+          "AxDB": 255.0
+        },
+        "big/100000": {
+          "Tabularis": 957.0,
+          "AxDB": 242.0
+        }
+      }
+    },
+    {
+      "topic": "process_attribution",
+      "finding": "Formal trials have four total processes: one main app plus three WebKit, rather than four WebKit plus main app"
+    },
+    {
+      "topic": "cpu_window",
+      "finding": "CPU percentages cover two ps CPU snapshots around the external Swift observation, including probe startup and initial AX read, with ps time granularity; this is not an isolated database CPU metric"
+    },
+    {
+      "topic": "excluded_initial_series",
+      "finding": "The discontinued five-pair input series contains five individually timed valid observations, but zero complete valid pairs; all ten rows remain preserved and excluded"
+    },
+    {
+      "topic": "test_description",
+      "finding": "compare_generated_test.py validates failure recovery and gate refusal, not statistical calculations"
+    }
+  ],
+  "limits": [
+    "AX observation includes accessibility traversal latency and is not a first-pixel measurement",
+    "Shared machine, caches and display placement/scaling are not fully controlled",
+    "RSS can double-count shared pages; newly created WebKit PID attribution is weaker than dedicated ownership tracing",
+    "The AxDB target-w9 app was absent at late validation; formal runner passed its final hash guard before cleanup, and no rebuild or new measurement was performed",
+    "Scroll end, FPS and full product test suite were not measured"
+  ],
+  "artifact_bytes": {
+    "results-compare-gen-preflight-session.json": 64072,
+    "results-compare-gen-preflight.json": 66226,
+    "results-compare-gen-summary.json": 12898,
+    "results-compare-gen-gates.json": 13567,
+    "results-compare-gen-preflight-instance-errors.json": 38792,
+    "results-compare-gen-environment.json": 22661,
+    "results-compare-gen-preflight-keychain-errors.json": 25631,
+    "results-compare-gen-preflight-limit-errors.json": 54264,
+    "results-compare-gen-preflight-credential-errors.json": 39320,
+    "results-compare-gen-pairs-input-errors.json": 93717,
+    "results-compare-gen-preflight-setup-errors.json": 36085,
+    "results-compare-gen-pairs.json": 609917
+  },
+  "all_raw_artifacts_below_2_mib": true,
+  "coordinator_followup": "4cb3213 committed W9 COMPARE/VERIFICATION and raw files; subsequent worker verification is limited to this summary, no further doc/product changes or commits"
 }
