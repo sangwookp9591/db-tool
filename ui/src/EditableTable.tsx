@@ -4,6 +4,7 @@ import type { PendingEdits } from './edits';
 import { emptyEdits } from './edits';
 import { inputValue, valueClass, valueText } from './values';
 import { Button } from './ui/Button';
+import { isMock } from './api';
 
 export function EditableTable({ table, target, edits, onChange }: { table: Table; target: EditTarget; edits: PendingEdits; onChange: (next: PendingEdits) => void }) {
   const [active, setActive] = useState<{ row: number | string; column: string; value: string } | null>(null);
@@ -37,5 +38,5 @@ export function EditableTable({ table, target, edits, onChange }: { table: Table
       <td class="edit-row-action">{isAdded ? <Button bare aria-label="Remove added row" onClick={() => onChange({ ...edits, added: edits.added.filter(item => item.id !== rowKey) })}>×</Button> : <Button bare aria-label={deleted ? 'Restore row' : 'Mark row for deletion'} onClick={() => onChange({ ...edits, deleted: deleted ? edits.deleted.filter(i => i !== rowKey) : [...edits.deleted, rowKey as number], updates: deleted ? edits.updates : Object.fromEntries(Object.entries(edits.updates).filter(([i]) => Number(i) !== rowKey)) })}>{deleted ? '↶' : '×'}</Button>}</td>
     </tr>;
   }
-  return <div class="table-area edit-table-area"><div class="edit-demo-note">Mock mode: edits are illustrative and apply only to this browser mock.</div><div class="edit-table-scroll"><table class="edit-table"><thead><tr>{columns.map(column => <th key={column.name}>{column.name}<small>{column.type_name}</small></th>)}<th>Action</th></tr></thead><tbody>{table.rows.map((row, index) => rowView(row, index))}{edits.added.map(item => rowView(item.values, item.id, true))}</tbody></table></div></div>;
+  return <div class="table-area edit-table-area">{isMock && <div class="edit-demo-note">Mock mode: edits are illustrative and apply only to this browser mock.</div>}<div class="edit-table-scroll"><table class="edit-table"><thead><tr>{columns.map(column => <th key={column.name}>{column.name}<small>{column.type_name}</small></th>)}<th>Action</th></tr></thead><tbody>{table.rows.map((row, index) => rowView(row, index))}{edits.added.map(item => rowView(item.values, item.id, true))}</tbody></table></div></div>;
 }
