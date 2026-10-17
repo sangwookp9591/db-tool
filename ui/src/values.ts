@@ -45,6 +45,16 @@ export function valueTitle(v: Value): string { return v.t === 'Other' ? v.v.type
 export function inputValue(input: string, column: Column, original: Value): Value {
   const type = column.type_name.toLowerCase();
   if (original.t === 'Null' && input.trim().toUpperCase() === 'NULL') return { t: 'Null' };
+  if (original.t === 'Bytes' || /^(bytea|blob|binary|varbinary)(?:\b|\s|\(|$)/.test(type)) {
+    const raw = input.trim();
+    if (raw.toUpperCase() === 'NULL') return { t: 'Null' };
+    const hex = raw.startsWith('0x') || raw.startsWith('0X') ? raw.slice(2)
+      : raw.startsWith('\\x') || raw.startsWith('\\X') ? raw.slice(2) : null;
+    if (hex === null || hex.length % 2 !== 0 || !/^[0-9a-f]*$/i.test(hex)) {
+      throw new Error(`Enter hexadecimal bytes (0x… or \\x…) or NULL for ${column.name}.`);
+    }
+    return { t: 'Bytes', v: { len: hex.length / 2, hex: hex.toLowerCase() } };
+  }
   if (original.t === 'Bool' || /^(bool|boolean)$/.test(type)) {
     if (/^(true|t|1|yes)$/i.test(input.trim())) return { t: 'Bool', v: true };
     if (/^(false|f|0|no)$/i.test(input.trim())) return { t: 'Bool', v: false };

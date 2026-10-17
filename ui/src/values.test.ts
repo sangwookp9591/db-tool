@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatJson, valueText } from './values';
+import { formatJson, inputValue, valueText } from './values';
 import { mergeGraph, nodeCaption } from './graph';
 import { visibleRange } from './virtual';
 import type { Graph } from './contract';
@@ -56,6 +56,15 @@ describe('virtual table range', () => {
 });
 
 describe('inputValue', () => {
+  it('parses binary hex input and NULL', () => {
+    const bytes = { t: 'Bytes' as const, v: { len: 2, hex: 'a1b2' } };
+    expect(inputValue('0xA1B2', { name: 'data', type_name: 'BLOB' }, bytes)).toEqual(bytes);
+    expect(inputValue('\\xA1B2', { name: 'data', type_name: 'bytea' }, bytes)).toEqual(bytes);
+    expect(inputValue('0x', { name: 'data', type_name: 'binary' }, bytes)).toEqual({ t: 'Bytes', v: { len: 0, hex: '' } });
+    expect(inputValue('NULL', { name: 'data', type_name: 'bytea' }, bytes)).toEqual({ t: 'Null' });
+    expect(() => inputValue('0xabc', { name: 'data', type_name: 'bytea' }, bytes)).toThrow(/hexadecimal bytes/);
+    expect(() => inputValue('0xzz', { name: 'data', type_name: 'varbinary' }, bytes)).toThrow(/hexadecimal bytes/);
+  });
   it('keeps exact integer and decimal strings', async () => {
     const { inputValue } = await import('./values');
     expect(inputValue('900719925474099312345', { name: 'id', type_name: 'int8' }, { t: 'Int', v: '1' })).toEqual({ t: 'Int', v: '900719925474099312345' });

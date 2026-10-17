@@ -114,7 +114,7 @@ pub(super) fn run(
         &columns,
         &keys,
         quote,
-        |i, _| format!("?{i}"),
+        |i, _, _| format!("?{i}"),
     )?;
     let statement_text = plans
         .iter()

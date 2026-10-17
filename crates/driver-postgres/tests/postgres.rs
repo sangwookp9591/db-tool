@@ -774,4 +774,21 @@ async fn c2_nested_multirow_conflict_and_interruption(){
     c2_run(s.as_ref(),&format!("DROP TABLE {table}; DROP FUNCTION {function}()")).await;
 }
 
+#[tokio::test]
+async fn c2_binary_edit_binds_and_reads_bytea() {
+    let Some(cfg) = config() else { eprintln!("AXDB_TEST_PG unset; skipping C2 binary integration"); return; };
+    let s = PostgresDriver::new().connect(&cfg).await.unwrap();
+    let table = format!("c2_binary_{}_{}", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos());
+    c2_run(s.as_ref(), &format!("CREATE TABLE {table}(id INTEGER PRIMARY KEY, payload bytea); INSERT INTO {table} VALUES(1, decode('00','hex'))")).await;
+    let node = serde_json::to_string(&["table", "public", "tables", &table]).unwrap();
+    let request = edit_request(&node, vec![RowEdit::Update {
+        key: edit_key(1),
+        set: vec![("payload".into(), Value::Bytes { len: 4, hex: "00a1b2ff".into() })],
+    }]);
+    assert_eq!(s.apply_edits(&request, CancelToken::new()).await.unwrap().affected, vec![1]);
+    let result = c2_run(s.as_ref(), &format!("SELECT payload FROM {table} WHERE id=1")).await;
+    assert_eq!(result.table.unwrap().rows[0][0], Value::Bytes { len: 4, hex: "00a1b2ff".into() });
+    c2_run(s.as_ref(), &format!("DROP TABLE {table}")).await;
+}
+
 async fn c2_run(s:&dyn Session,sql:&str)->ResultSet{run(s,sql).await.remove(0)}

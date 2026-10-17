@@ -13,7 +13,7 @@ pub fn plan(
     columns: &[String],
     keys: &[String],
     quote: impl Fn(&str) -> String,
-    placeholder: impl Fn(usize, &str) -> String,
+    placeholder: impl Fn(usize, &str, &Value) -> String,
 ) -> Result<Vec<Plan>, DbError> {
     if req.edits.len() > 1000 {
         return Err(DbError::unsupported("At most 1000 edits are supported"));
@@ -61,7 +61,7 @@ pub fn plan(
                 let mut values = Vec::new();
                 let mut bind = |name: &str, value: &Value| {
                     values.push(value.clone());
-                    placeholder(values.len(), name)
+                    placeholder(values.len(), name, value)
                 };
                 let assignments = fields
                     .iter()
@@ -89,7 +89,7 @@ pub fn plan(
                         fields
                             .iter()
                             .enumerate()
-                            .map(|(i, (n, _))| placeholder(i + 1, n))
+                            .map(|(i, (n, v))| placeholder(i + 1, n, v))
                             .collect::<Vec<_>>()
                             .join(", ")
                     ),

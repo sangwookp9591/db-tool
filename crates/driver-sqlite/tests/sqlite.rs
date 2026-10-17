@@ -577,3 +577,18 @@ async fn c2_quotes_catalog_identifiers_and_avoids_temp_shadowing(){
     assert_eq!(result.table.unwrap().rows[0][1],Value::Text("edited".into()));
     assert_eq!(run(s.as_ref(),"SELECT \"x\"\"column\" FROM temp.\"c2 quote; --\"").await.table.unwrap().rows[0][0],Value::Text("temp".into()));
 }
+
+#[tokio::test]
+async fn c2_binary_edit_keeps_blob_storage_and_exact_bytes() {
+    let (_dir, s) = fixture().await;
+    run(s.as_ref(), "CREATE TABLE c2_binary(id INTEGER PRIMARY KEY, payload BLOB); INSERT INTO c2_binary VALUES(1, X'00')").await;
+    let request = edit_request("table:c2_binary", vec![RowEdit::Update {
+        key: edit_key(1),
+        set: vec![("payload".into(), Value::Bytes { len: 4, hex: "00a1b2ff".into() })],
+    }]);
+    assert_eq!(s.apply_edits(&request, CancelToken::new()).await.unwrap().affected, vec![1]);
+    let result = run(s.as_ref(), "SELECT payload, typeof(payload) FROM c2_binary WHERE id=1").await;
+    let table = result.table.unwrap();
+    assert_eq!(table.rows[0][0], Value::Bytes { len: 4, hex: "00a1b2ff".into() });
+    assert_eq!(table.rows[0][1], Value::Text("blob".into()));
+}

@@ -31,7 +31,8 @@ impl PgSession {
             if rows.is_empty(){return Err(DbError::query("Unknown table"));}
             let columns=rows.iter().map(|r|r.get::<_,String>(0)).collect::<Vec<_>>();
             let keys=rows.iter().filter(|r|r.get::<_,bool>(4)).map(|r|r.get::<_,String>(0)).collect::<Vec<_>>();
-            let plans=dbcore::edits::plan(req,&name,&columns,&keys,quote_ident,|i,n|{
+            let plans=dbcore::edits::plan(req,&name,&columns,&keys,quote_ident,|i,n,v|{
+                if matches!(v, Value::Bytes { .. }) { return format!("${i}"); }
                 let r=&rows[columns.iter().position(|c|c==n).unwrap()];format!("(${i}::text)::{}.{}",quote_ident(r.get(1)),quote_ident(r.get(2)))
             })?;
             let statement_text=plans.iter().map(|p|p.sql.clone()).collect::<Vec<_>>().join(";\n");
@@ -41,19 +42,27 @@ impl PgSession {
             for (index,plan) in plans.into_iter().enumerate(){
                 let result=async {
                     if cancel.is_cancelled(){return Err(DbError::new(ErrorKind::Cancelled,"Editing cancelled"));}
-                    let values=plan.values.iter().map(dbcore::edits::text).collect::<Result<Vec<_>,_>>()?;
-                    let params=values.iter().map(|v|v as &(dyn tokio_postgres::types::ToSql+Sync)).collect::<Vec<_>>();
+                    let values=plan.values.iter().map(|value| match value {
+                        Value::Bytes { len, hex } if len.checked_mul(2) == Some(hex.len() as u64) && hex.bytes().all(|b| b.is_ascii_hexdigit()) => {
+                            let decoded = (0..hex.len()).step_by(2).map(|i| u8::from_str_radix(&hex[i..i + 2], 16).map_err(|_| DbError::query("Invalid bytes"))).collect::<Result<Vec<_>, _>>()?;
+                            Ok(Box::new(decoded) as Box<dyn tokio_postgres::types::ToSql + Sync + Send>)
+                        }
+                        _ => Ok(Box::new(dbcore::edits::text(value)?) as Box<dyn tokio_postgres::types::ToSql + Sync + Send>),
+                    }).collect::<Result<Vec<_>, DbError>>()?;
+                    let params=values.iter().map(|v|&**v as &(dyn tokio_postgres::types::ToSql+Sync)).collect::<Vec<_>>();
                     let mut statement=StatementPreview::new(plan.sql.clone(),plan.kind.clone());
                     let convert=|output:Vec<tokio_postgres::Row>|->Result<Table,DbError>{
                         Ok(Table{columns:rows.iter().map(|r|Column{name:r.get(0),type_name:r.get(2)}).collect(),rows:output.into_iter().take(req.preview_sample_limit.min(1000) as usize).map(|r|rows.iter().enumerate().map(|(i,c)|map_value(&Type::from_oid(c.get(3)).unwrap_or(Type::TEXT),r.get(i))).collect()).collect::<Result<_,_>>()?})
                     };
                     if preview {if let Some(before)=plan.before {
                         let before=before.replacen("SELECT *",&format!("SELECT {select}"),1);
-                        let stmt=self.client.prepare_typed(&before,&vec![Type::TEXT;params.len()]).await.map_err(|e|self.error(e))?;
+                        let types=plan.values.iter().map(|v|if matches!(v,Value::Bytes{..}){Type::BYTEA}else{Type::TEXT}).collect::<Vec<_>>();
+                        let stmt=self.client.prepare_typed(&before,&types).await.map_err(|e|self.error(e))?;
                         statement.before=Some(convert(self.client.query(&stmt,&params).await.map_err(|e|self.error(e))?)?);
                     }}
                     let sql=format!("{} RETURNING {returning}",plan.sql);
-                    let stmt=self.client.prepare_typed(&sql,&vec![Type::TEXT;params.len()]).await.map_err(|e|self.error(e))?;
+                    let types=plan.values.iter().map(|v|if matches!(v,Value::Bytes{..}){Type::BYTEA}else{Type::TEXT}).collect::<Vec<_>>();
+                    let stmt=self.client.prepare_typed(&sql,&types).await.map_err(|e|self.error(e))?;
                     // Drain every row so affected reflects the complete mutation.
                     let stream=self.client.query_raw(&stmt,params.iter().copied()).await.map_err(|e|self.error(e))?;
                     pin_mut!(stream);let mut output=vec![];let mut count=0;
