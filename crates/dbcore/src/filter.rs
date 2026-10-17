@@ -34,7 +34,7 @@ pub fn sql_literal(value: &Value) -> Result<String, DbError> {
         }
         _ => {
             return Err(DbError::unsupported(
-                "This value cannot be used as a browse key",
+                "이 값은 데이터 보기 키로 사용할 수 없습니다",
             ))
         }
     })

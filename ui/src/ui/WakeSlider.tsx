@@ -4,7 +4,7 @@ import { spring, reducedMotion } from './spring';
 import { clampValue, sliderKey, type SliderProps } from './slider';
 import './micro.css';
 
-export function WakeSlider({ value, onChange, min = 100, max = 100000, step = 100, disabled, unit = '', ...accessibility }: SliderProps) {
+export function WakeSlider({ value, onChange, min = 100, max = 100000, step = 100, disabled, unit = '', label, ...accessibility }: SliderProps) {
   const ariaLabel = accessibility['aria-label'] ?? accessibility.ariaLabel ?? 'Row limit';
   const track = useRef<HTMLDivElement>(null);
   const bars = useRef<(HTMLSpanElement | null)[]>([]);
@@ -37,7 +37,7 @@ export function WakeSlider({ value, onChange, min = 100, max = 100000, step = 10
       onPointerMove={e => { if (!disabled && pointer.current === e.pointerId) fromX(e.clientX); }} onPointerUp={end} onPointerCancel={end} onLostPointerCapture={end}>
       {Array.from({ length: 32 }, (_, i) => <span key={i} ref={el => { bars.current[i] = el; }} aria-hidden="true" data-filled={i <= ratio * 31} />)}
     </div>
-    <label className="wake-slider__number"><span>{ariaLabel}</span><input type="number" aria-label={`${ariaLabel} value`} min={min} max={max} step={step} value={clean} disabled={disabled}
+    <label className="wake-slider__number"><span>{label ?? ariaLabel}</span><input type="number" aria-label={`${ariaLabel} value`} min={min} max={max} step={step} value={clean} disabled={disabled}
       onChange={e => { onChange(clampValue(e.currentTarget.valueAsNumber, min, max, step)); e.currentTarget.value = String(clean); }} />{unit}</label>
   </div>;
 }

@@ -16,7 +16,7 @@ try {
  await page.evaluate(()=>{window.__copiedPath='';Object.defineProperty(navigator,'clipboard',{value:{writeText:async p=>{window.__copiedPath=p;}},configurable:true});});await page.getByLabel('Copy path a.b[1]',{exact:true}).click();assert.equal(await page.evaluate(()=>window.__copiedPath),'a.b[1]');
  output.checks.push('typed precision, expansion, nested field-path copying');await page.screenshot({path:new URL('./v1-screenshots/documents-5000.png',import.meta.url).pathname});
  await page.evaluate(()=>window.axdb.perf.run('linked-viewers'));
- await page.getByText('Nodes & relationships (keyboard access)',{exact:true}).click();await page.getByRole('button',{name:'Node 0',exact:true}).click();await page.getByLabel('Show Table results',{exact:true}).click();
+ await page.getByLabel('Nodes & relationships (keyboard access)',{exact:true}).click();await page.getByRole('button',{name:'Node 0',exact:true}).click();await page.getByLabel('Show Table results',{exact:true}).click();
  assert.match(await page.locator('.table-row.selected').innerText(),/Node 0/);
  await page.getByRole('gridcell').nth(1).click();await page.getByLabel('Show Graph results',{exact:true}).click();await page.getByLabel('Graph properties',{exact:true}).waitFor();assert.match(await page.getByLabel('Graph properties',{exact:true}).innerText(),/bench:n1/);
  await page.getByLabel('Show JSON results',{exact:true}).click();await page.locator('.documents').getByLabel('Expand Document 1',{exact:true}).click();await page.locator('.documents').getByRole('button',{name:'node',exact:true}).click();await page.getByLabel('Show Table results',{exact:true}).click();assert.equal(await page.locator('.column-header.selected').count(),1);

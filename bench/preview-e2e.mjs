@@ -31,7 +31,7 @@ await check('pg DDL preview shows schema diff, does not commit', async () => {
 });
 await check('pg non-rollbackable statement refused', async () => {
   const p = await tool('preview_changes', { session_id: pg, text: 'VACUUM e2e.typed' });
-  assert(p.error || JSON.stringify(p).match(/refus|reject|not.*roll/i), JSON.stringify(p).slice(0, 300)); return (p.error?.message ?? 'refused in notes').slice(0, 80);
+  assert(p.error || JSON.stringify(p).match(/refus|reject|not.*roll|미리보기를 거부했습니다/i), JSON.stringify(p).slice(0, 300)); return (p.error?.message ?? 'refused in notes').slice(0, 80);
 });
 const neo = (await tool('open_connection', { profile_id: 'e2e-neo-0001' })).session_id;
 await check('neo4j CREATE preview shows counters, does not commit', async () => {

@@ -3,7 +3,7 @@ use dbcore::edits::Plan;
 pub(super) fn target(conn: &Connection, node: &str) -> Result<(Vec<String>, Vec<String>), DbError> {
     let name = node
         .strip_prefix("table:")
-        .ok_or_else(|| DbError::query("Invalid table node"))?;
+        .ok_or_else(|| DbError::query("올바르지 않은 테이블 노드입니다"))?;
     let kind: String = conn
         .query_row(
             "SELECT type FROM sqlite_master WHERE name=?1 AND type IN ('table','view')",
@@ -97,11 +97,11 @@ pub(super) fn run(
     preview: bool,
 ) -> Result<RunOutput, DbError> {
     if req.edits.len() > 1000 {
-        return Err(DbError::unsupported("At most 1000 edits are supported"));
+        return Err(DbError::unsupported("편집은 최대 1,000건까지 지원합니다"));
     }
     if !conn.is_autocommit() {
         return Err(DbError::unsupported(
-            "Finish the user transaction before editing",
+            "편집하기 전에 사용자 트랜잭션을 마치세요",
         ));
     }
     let (columns, keys) = target(conn, &req.node_id)?;
@@ -147,10 +147,10 @@ pub(super) fn run(
         {
             let result = (|| {
                 if cancel.is_cancelled() {
-                    return Err(DbError::new(ErrorKind::Cancelled, "Editing cancelled"));
+                    return Err(DbError::new(ErrorKind::Cancelled, "편집이 취소되었습니다"));
                 }
                 if Instant::now() >= deadline {
-                    return Err(DbError::new(ErrorKind::Timeout, "Editing timed out"));
+                    return Err(DbError::new(ErrorKind::Timeout, "편집 시간이 초과되었습니다"));
                 }
                 let values = values.iter().map(value).collect::<Result<Vec<_>, _>>()?;
                 let mut statement = StatementPreview::new(sql.clone(), kind.clone());
@@ -181,7 +181,7 @@ pub(super) fn run(
                 if kind != StatementKind::Insert && count != 1 {
                     return Err(DbError::new(
                         ErrorKind::Conflict,
-                        format!("Expected exactly 1 row, affected {count}"),
+                        format!("정확히 1개 행이 영향을 받아야 하지만 {count}개 행이 영향을 받았습니다"),
                     ));
                 }
                 statement.affected = Some(count);
@@ -200,15 +200,15 @@ pub(super) fn run(
             })?;
         }
         if cancel.is_cancelled() {
-            return Err(DbError::new(ErrorKind::Cancelled, "Editing cancelled"));
+            return Err(DbError::new(ErrorKind::Cancelled, "편집이 취소되었습니다"));
         }
         if Instant::now() >= deadline {
-            return Err(DbError::new(ErrorKind::Timeout, "Editing timed out"));
+            return Err(DbError::new(ErrorKind::Timeout, "편집 시간이 초과되었습니다"));
         }
         if preview {
             sample
                 .notes
-                .push("All edits rolled back; triggers may have external side effects".into());
+                .push("모든 편집을 롤백했습니다. 트리거가 외부에 영향을 줄 수 있습니다.".into());
             Ok(RunOutput::Preview(sample))
         } else {
             Ok(RunOutput::Edit(changed))
@@ -223,9 +223,9 @@ pub(super) fn run(
     if !conn.is_autocommit() && conn.execute_batch(cleanup).is_err() {
         return Err(DbError::new(
             ErrorKind::Connection,
-            "Edit cleanup failed; session discarded",
+            "편집 정리에 실패해 세션을 폐기했습니다",
         ));
     }
-    hooks.map_err(|_| DbError::new(ErrorKind::Connection, "Edit hooks cleanup failed"))?;
+    hooks.map_err(|_| DbError::new(ErrorKind::Connection, "편집 훅 정리에 실패했습니다"))?;
     result
 }

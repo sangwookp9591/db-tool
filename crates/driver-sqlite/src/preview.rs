@@ -56,7 +56,7 @@ pub(super) fn run(
     deadline: Instant,
 ) -> Result<ChangePreview, DbError> {
     if !conn.is_autocommit() {
-        return Ok(ChangePreview { notes: vec!["Preview refused inside a user transaction: SQLite interruption/conflict handling can roll back the outer transaction; finish it first".into()], ..Default::default() });
+        return Ok(ChangePreview { notes: vec!["사용자 트랜잭션 안에서는 미리보기를 거부했습니다: SQLite의 중단·충돌 처리로 바깥 트랜잭션이 롤백될 수 있으니 먼저 트랜잭션을 마치세요.".into()], ..Default::default() });
     }
     // Split with quote/comment awareness before opening the savepoint; SQLite prepares later DDL lazily.
     let ts = tokens(&req.text)?;
@@ -109,10 +109,10 @@ pub(super) fn run(
         let limit = req.preview_sample_limit.min(1000) as usize;
         for sql in statements {
             if cancel.is_cancelled() {
-                return Err(DbError::new(ErrorKind::Cancelled, "Preview cancelled"));
+                return Err(DbError::new(ErrorKind::Cancelled, "미리보기가 취소되었습니다"));
             }
             if Instant::now() >= deadline {
-                return Err(DbError::new(ErrorKind::Timeout, "Preview timed out"));
+                return Err(DbError::new(ErrorKind::Timeout, "미리보기 시간이 초과되었습니다"));
             }
             let ts = tokens(&sql)?;
             if ts.is_empty() {
@@ -133,7 +133,7 @@ pub(super) fn run(
                 } else {
                     statement
                         .warnings
-                        .push("Before sample unavailable for this SQL shape".into());
+                        .push("이 SQL 형태에서는 변경 전 샘플을 만들 수 없습니다.".into());
                 }
             }
             let dml = matches!(
@@ -154,7 +154,7 @@ pub(super) fn run(
             if has_returning {
                 statement
                     .warnings
-                    .push("After sample uses the query's existing RETURNING projection".into());
+                    .push("변경 후 샘플은 쿼리의 기존 RETURNING 결과를 사용합니다.".into());
             }
             if let Some(before) = before_schema {
                 statement.schema_diff = Some(schema_diff(before, schema(conn)?));
@@ -175,13 +175,13 @@ pub(super) fn run(
             .map_err(|_| {
                 DbError::new(
                     ErrorKind::Connection,
-                    "Preview rollback failed; session discarded",
+                    "미리보기 롤백에 실패해 세션을 폐기했습니다",
                 )
             })?;
     }
     progress?;
     auth?;
     result?;
-    preview.notes.push("All data and DDL changes were rolled back; sqlite_master definitions identify schema changes. Triggers may invoke external functions; locks remain until rollback".into());
+    preview.notes.push("모든 데이터·DDL 변경을 롤백했습니다. 스키마 변경은 sqlite_master 정의로 확인하세요. 트리거가 외부 함수를 호출할 수 있고, 롤백 전까지 잠금이 유지됩니다.".into());
     Ok(preview)
 }

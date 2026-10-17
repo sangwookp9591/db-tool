@@ -8,6 +8,8 @@ export interface SliderProps extends MicroAccessibility {
   step?: number;
   disabled?: boolean;
   unit?: string;
+  /** Visible text; the accessible name stays `aria-label`. */
+  label?: string;
 }
 
 export function clampValue(value: number, min: number, max: number, step = 1) {

@@ -55,19 +55,19 @@ impl MongoDriver {
                 },
                 connection_fields: vec![
                     field("uri", "URI", true, Some("mongodb://localhost:27017"), false),
-                    field("database", "Database", true, None, false),
-                    field("user", "User", false, None, false),
-                    field("password", "Password", false, None, true),
+                    field("database", "데이터베이스", true, None, false),
+                    field("user", "사용자", false, None, false),
+                    field("password", "비밀번호", false, None, true),
                     field(
                         "authSource",
-                        "Authentication database",
+                        "인증 데이터베이스",
                         false,
                         Some("admin"),
                         false,
                     ),
                     FieldSpec {
                         key: "tls".into(),
-                        label: "TLS".into(),
+                        label: "TLS 모드".into(),
                         kind: FieldKind::Select {
                             options: vec!["uri".into(), "true".into(), "false".into()],
                         },
@@ -78,7 +78,7 @@ impl MongoDriver {
                     },
                     FieldSpec {
                         key: "tlsCAFile".into(),
-                        label: "TLS CA file".into(),
+                        label: "TLS CA 파일".into(),
                         kind: FieldKind::FilePath,
                         required: false,
                         default: None,
@@ -565,7 +565,7 @@ impl Session for MongoSession {
                     );
                     database_node.actions.push(NodeAction {
                         id: "diagram".into(),
-                        label: "Schema graph".into(),
+                        label: "스키마 그래프".into(),
                         kind: NodeActionKind::OpenSchemaGraph {
                             scope: Some(database_node.id.clone()),
                         },
@@ -606,12 +606,12 @@ impl Session for MongoSession {
                     n.actions = vec![
                         NodeAction {
                             id: "browse".into(),
-                            label: "Browse".into(),
+                            label: "데이터 보기".into(),
                             kind: NodeActionKind::Browse,
                         },
                         NodeAction {
                             id: "query".into(),
-                            label: "Open query".into(),
+                            label: "쿼리 열기".into(),
                             kind: NodeActionKind::OpenQuery {
                                 text: serde_json::json!({"find":spec.name,"filter":{},"limit":50})
                                     .to_string(),

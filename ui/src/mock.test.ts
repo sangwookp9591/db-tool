@@ -23,7 +23,7 @@ it('cancels and times out asynchronous runs, and records history', async () => {
   await expect(mockInvoke('execute', { sessionId, runId: 'timeout-test', req: { ...req('SELECT slow;'), timeout_ms: 5 } })).rejects.toMatchObject({ kind: 'Timeout' });
   await expect(mockInvoke('execute', { sessionId, runId: 'error-test', req: req('SELECT error;') })).rejects.toMatchObject({ kind: 'Query', position: 8 });
   const history = await mockInvoke('history_list', { limit: 100 });
-  expect(history.some(h => h.text === 'SELECT slow;' && h.error?.includes('cancelled'))).toBe(true);
+  expect(history.some(h => h.text === 'SELECT slow;' && h.error?.includes('취소'))).toBe(true);
 });
 it('returns graph plus table, and expands with duplicate seed for merge checks', async () => {
   const profiles = await mockInvoke('profiles_list', {});

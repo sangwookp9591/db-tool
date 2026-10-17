@@ -16,13 +16,13 @@ for (let i = 0; i < 3; i++) {
   results.connect.push(await measured(() => page.locator('.connection-actions button').first().click(), '.tree-node'));
   if (i < 2) { await page.locator('.connection-actions button').first().click(); await page.locator('.tree-node').waitFor({ state: 'detached' }); }
 }
-for (let i = 0; i < 10; i++) results.newTab.push(await measured(() => page.getByRole('button', { name: '＋ Query · SQL', exact: true }).click(), '.workspace-tab'));
+for (let i = 0; i < 10; i++) results.newTab.push(await measured(() => page.getByRole('button', { name: '쿼리 · SQL', exact: true }).click(), '.workspace-tab'));
 for (let i = 0; i < 10; i++) results.tab.push(await measured(() => page.locator('.workspace-tabs [role=tab]').nth(i % 2).click()));
 for (let i = 0; i < 3; i++) {
   await page.getByRole('button', { name: 'Add connection', exact: true }).click();
   await page.getByLabel('Name', { exact: true }).fill(`Bench ${i}`);
   await page.evaluate(() => window.__benchStart = performance.now());
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.getByRole('button', { name: '저장', exact: true }).click();
   const connection = page.locator('.connection').filter({ hasText: `Bench ${i}` });
   await connection.locator('.connection-actions button').first().click(); await connection.locator('.tree-node').first().waitFor();
   results.addConnection.push(await page.evaluate(async () => { await new Promise(requestAnimationFrame); await new Promise(requestAnimationFrame); return performance.now() - window.__benchStart; }));

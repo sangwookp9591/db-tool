@@ -15,6 +15,6 @@ describe('pending row edits', () => {
   });
   it('starts empty and rejects an invalid key target', () => {
     expect(pendingCount(emptyEdits())).toBe(0);
-    expect(() => buildEditRequest({ node_id: 'people', key_columns: ['missing'] }, table, { ...emptyEdits(), deleted: [0] })).toThrow(/Key column/);
+    expect(() => buildEditRequest({ node_id: 'people', key_columns: ['missing'] }, table, { ...emptyEdits(), deleted: [0] })).toThrow(/키 컬럼/);
   });
 });

@@ -49,7 +49,7 @@ impl Session for KvSession {
         let data = self.data.lock().map_err(|_| DbError::internal("KV lock poisoned"))?;
         Ok(data.keys().map(|key| ExplorerNode {
             id: key.clone(), label: key.clone(), detail: None, kind: "key".into(), icon: Icon::Key,
-            has_children: false, actions: vec![NodeAction { id: "get".into(), label: "Get value".into(), kind: NodeActionKind::OpenQuery { text: format!("GET {key}") } }],
+            has_children: false, actions: vec![NodeAction { id: "get".into(), label: "값 가져오기".into(), kind: NodeActionKind::OpenQuery { text: format!("GET {key}") } }],
         }).collect())
     }
     async fn browse(&self, _: &str, _: PageRequest) -> Result<ResultSet, DbError> { Err(DbError::unsupported("No paged browse")) }

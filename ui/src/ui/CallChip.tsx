@@ -13,7 +13,7 @@ export interface CallChipProps extends MicroAccessibility {
   className?: string; children?: ComponentChildren;
 }
 const icons = { terminal: Terminal, file: File, search: Search, edit: Pencil };
-const words = { idle: 'queued', running: 'running', done: 'done', error: 'failed' } as const;
+const words = { idle: '대기 중', running: '실행 중', done: '완료', error: '실패' } as const;
 const shakeFrames = [0, -1, 1, -.66, .66, -.33, 0];
 
 export function formatCallChipTime(ms: number) { return ms < 10000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(1)} s`; }
@@ -44,7 +44,7 @@ export function CallChip({ icon = 'terminal', name = 'tool', argument = '', stat
   }, [status, expectedMs, shake]);
   const Icon = icons[icon];
   const elapsedMs = status === 'running' ? elapsed : durationMs ?? lastTime.current;
-  const announce = `${name} ${argument}, ${words[status]}${status === 'done' ? ` in ${Math.round(elapsedMs)} ms` : status === 'error' ? ` after ${Math.round(elapsedMs)} ms` : ''}`;
+  const announce = `${name} ${argument}, ${words[status]}${status === 'done' || status === 'error' ? ` (${Math.round(elapsedMs)} ms)` : ''}`;
   return <span ref={root} className={`call-chip${className ? ` ${className}` : ''}`} data-status={status} role="status" aria-busy={status === 'running' || undefined} aria-label={label} data-testid={accessibility['data-testid'] ?? accessibility.testId} title={argument || undefined} style={{ '--cc-size': `${size}px`, '--cc-radius': `${radius}px`, '--cc-expected': `${Math.max(1, expectedMs)}ms` } as any}>
     <span ref={fill} className="call-chip__fill" aria-hidden="true" />
     <span className="call-chip__icon" aria-hidden="true">{status === 'done' ? <Check size={15} /> : status === 'error' ? <RotateCw size={15} /> : <Icon size={15} />}</span>

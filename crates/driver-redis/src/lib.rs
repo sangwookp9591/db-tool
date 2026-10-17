@@ -20,7 +20,15 @@ impl RedisDriver {
     pub fn new() -> Self {
         let field = |key: &str, kind, default: Option<&str>, secret| FieldSpec {
             key: key.into(),
-            label: key.into(),
+            label: match key {
+                "host" => "Host",
+                "port" => "Port",
+                "password" => "비밀번호",
+                "db" => "데이터베이스 번호",
+                "username" => "사용자",
+                other => other,
+            }
+            .into(),
             kind,
             required: key == "host",
             default: default.map(str::to_owned),
@@ -34,7 +42,7 @@ impl RedisDriver {
                 paradigm: Paradigm::KeyValue,
                 query_language: QueryLanguage {
                     id: "redis".into(),
-                    display: "Redis command".into(),
+                    display: "Redis 명령".into(),
                     editor_mode: "text".into(),
                     supports_params: true,
                 },
@@ -407,7 +415,7 @@ impl Session for RedisSession {
                         Icon::Key,
                         vec![NodeAction {
                             id: "browse".into(),
-                            label: "Browse value (TYPE / TTL)".into(),
+                            label: "값 보기 (TYPE / TTL)".into(),
                             kind: NodeActionKind::Browse,
                         }],
                     ));

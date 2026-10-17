@@ -16,10 +16,10 @@ pub fn plan(
     placeholder: impl Fn(usize, &str, &Value) -> String,
 ) -> Result<Vec<Plan>, DbError> {
     if req.edits.len() > 1000 {
-        return Err(DbError::unsupported("At most 1000 edits are supported"));
+        return Err(DbError::unsupported("편집은 최대 1,000건까지 지원합니다"));
     }
     if keys.is_empty() {
-        return Err(DbError::unsupported("Editing requires a table primary key"));
+        return Err(DbError::unsupported("편집하려면 테이블에 기본 키가 있어야 합니다"));
     }
     req.edits
         .iter()
@@ -40,7 +40,7 @@ pub fn plan(
                     for (name, _) in pairs {
                         if !columns.contains(name) || !seen.insert(name) {
                             return Err(DbError::query(format!(
-                                "Unknown or duplicate column: {name}"
+                                "알 수 없거나 중복된 컬럼입니다: {name}"
                             )));
                         }
                     }
@@ -50,13 +50,13 @@ pub fn plan(
                         || keys.iter().any(|k| !key.iter().any(|(n, _)| n == k)))
                 {
                     return Err(DbError::query(
-                        "Exactly the complete primary key is required",
+                        "기본 키 전체가 정확히 필요합니다",
                     ));
                 }
                 if kind == StatementKind::Update
                     && (fields.is_empty() || fields.iter().any(|(n, _)| keys.contains(n)))
                 {
-                    return Err(DbError::query("Update requires non-key columns"));
+                    return Err(DbError::query("수정에는 키가 아닌 컬럼이 필요합니다"));
                 }
                 let mut values = Vec::new();
                 let mut bind = |name: &str, value: &Value| {
@@ -139,7 +139,7 @@ pub fn text(value: &Value) -> Result<Option<String>, DbError> {
         }
         _ => {
             return Err(DbError::query(
-                "Value cannot be converted to a scalar column",
+                "값을 스칼라 컬럼 형식으로 변환할 수 없습니다",
             ))
         }
     }))

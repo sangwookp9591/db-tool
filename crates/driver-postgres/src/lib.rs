@@ -33,16 +33,16 @@ impl PostgresDriver {
             ("port", "Port", FieldKind::Number, Some("5432"), false),
             (
                 "database",
-                "Database",
+                "데이터베이스",
                 FieldKind::Text,
                 Some("postgres"),
                 false,
             ),
-            ("user", "User", FieldKind::Text, Some("postgres"), false),
-            ("password", "Password", FieldKind::Password, None, true),
+            ("user", "사용자", FieldKind::Text, Some("postgres"), false),
+            ("password", "비밀번호", FieldKind::Password, None, true),
             (
                 "sslmode",
-                "TLS mode",
+                "TLS 모드",
                 FieldKind::Select {
                     options: ["disable", "prefer", "require", "verify-ca", "verify-full"]
                         .into_iter()
@@ -54,7 +54,7 @@ impl PostgresDriver {
             ),
             (
                 "sslrootcert",
-                "TLS CA file",
+                "TLS CA 파일",
                 FieldKind::FilePath,
                 None,
                 false,
@@ -262,13 +262,13 @@ impl PgSession {
     ) -> Result<Vec<ResultSet>, DbError> {
         if !req.params.is_empty() {
             return Err(DbError::unsupported(
-                "PostgreSQL parameters are not enabled",
+                "PostgreSQL 파라미터는 아직 지원하지 않습니다",
             ));
         }
         let mut results = Vec::new();
         for sql in split_statements(&req.text)? {
             if cancel.is_cancelled() {
-                return Err(DbError::new(ErrorKind::Cancelled, "Execution cancelled"));
+                return Err(DbError::new(ErrorKind::Cancelled, "실행이 취소되었습니다"));
             }
             let start = Instant::now();
             let words = split::keywords(&sql);
@@ -279,7 +279,7 @@ impl PgSession {
             }
             let statement = self.client.prepare(&sql).await.map_err(|e| self.error(e))?;
             if cancel.is_cancelled() {
-                return Err(DbError::new(ErrorKind::Cancelled, "Execution cancelled"));
+                return Err(DbError::new(ErrorKind::Cancelled, "실행이 취소되었습니다"));
             }
             let mut result = if statement.columns().is_empty() {
                 let messages = self
@@ -371,7 +371,7 @@ impl PgSession {
             if !explicit {
                 let _ = self.client.batch_execute("ROLLBACK").await;
             }
-            return Err(DbError::new(ErrorKind::Cancelled, "Execution cancelled"));
+            return Err(DbError::new(ErrorKind::Cancelled, "실행이 취소되었습니다"));
         }
         let cursor = format!("axdb_{}", uuid_free_id());
         let query = format!(
@@ -507,9 +507,9 @@ impl PgSession {
     ) -> Result<RunOutput, DbError> {
         let deadline = tokio::time::sleep(Duration::from_millis(req.timeout_ms.max(1)));
         tokio::pin!(deadline);
-        let mut state = tokio::select! { biased; _=cancel.cancelled()=>return Err(DbError::new(ErrorKind::Cancelled,"Execution cancelled")), _=&mut deadline=>return Err(DbError::new(ErrorKind::Timeout,"Execution timed out while waiting for session")), state=self.state.lock()=>state };
+        let mut state = tokio::select! { biased; _=cancel.cancelled()=>return Err(DbError::new(ErrorKind::Cancelled,"실행이 취소되었습니다")), _=&mut deadline=>return Err(DbError::new(ErrorKind::Timeout,"Execution timed out while waiting for session")), state=self.state.lock()=>state };
         if cancel.is_cancelled() {
-            return Err(DbError::new(ErrorKind::Cancelled, "Execution cancelled"));
+            return Err(DbError::new(ErrorKind::Cancelled, "실행이 취소되었습니다"));
         }
         let mut sent_cancel = false;
         let kind = {
@@ -712,7 +712,7 @@ impl Session for PgSession {
                 for row in self.client.query("SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=$1 AND c.relkind::text=ANY($2) ORDER BY c.relname",&[schema,&relkinds]).await.map_err(|e|self.error(e))? {
                     let name:String=row.get(0);
                     let mut table=node(path_id(&["table",schema,kind,&name]),&name,if *kind=="views"{"view"}else{"table"},if *kind=="views"{Icon::View}else{Icon::Table},true,None);
-                    table.actions=vec![NodeAction { id:"browse".into(),label:"Browse".into(),kind:NodeActionKind::Browse },NodeAction { id:"query".into(),label:"Open query".into(),kind:NodeActionKind::OpenQuery { text:format!("SELECT * FROM {}.{} LIMIT 100",quote_ident(schema),quote_ident(&name)) } }];
+                    table.actions=vec![NodeAction { id:"browse".into(),label:"데이터 보기".into(),kind:NodeActionKind::Browse },NodeAction { id:"query".into(),label:"쿼리 열기".into(),kind:NodeActionKind::OpenQuery { text:format!("SELECT * FROM {}.{} LIMIT 100",quote_ident(schema),quote_ident(&name)) } }];
                     nodes.push(table);
                 }
             }

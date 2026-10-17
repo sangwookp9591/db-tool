@@ -66,7 +66,7 @@ pub fn tokens(sql: &str) -> Result<Vec<Token<'_>>, DbError> {
                 }
             }
             if comments != 0 {
-                return Err(DbError::query("Unterminated preview comment"));
+                return Err(DbError::query("미리보기 SQL의 주석이 닫히지 않았습니다"));
             }
             continue;
         }
@@ -92,7 +92,7 @@ pub fn tokens(sql: &str) -> Result<Vec<Token<'_>>, DbError> {
                 }
             }
             if !closed {
-                return Err(DbError::query("Unterminated preview quote"));
+                return Err(DbError::query("미리보기 SQL의 따옴표가 닫히지 않았습니다"));
             }
         } else if b[i] == b'$' {
             let mut end = i + 1;
@@ -103,7 +103,7 @@ pub fn tokens(sql: &str) -> Result<Vec<Token<'_>>, DbError> {
                 let tag = &sql[i..=end];
                 let close = sql[end + 1..]
                     .find(tag)
-                    .ok_or_else(|| DbError::query("Unterminated dollar quote"))?;
+                    .ok_or_else(|| DbError::query("미리보기 SQL의 달러 인용(dollar quote)이 닫히지 않았습니다"))?;
                 i = end + 1 + close + tag.len();
             } else {
                 i += 1;
@@ -163,12 +163,12 @@ pub fn rejection(tokens: &[Token<'_>]) -> Option<String> {
             .iter()
             .any(|w| t.is(w))
         }) {
-            return Some("Preview refused: concurrent, database, tablespace, subscription and virtual-table operations cannot be safely rolled back".into());
+            return Some("미리보기를 거부했습니다: 동시 실행, 데이터베이스, 테이블스페이스, 구독, 가상 테이블 작업은 안전하게 롤백할 수 없습니다.".into());
         }
         None
     } else {
         Some(format!(
-            "Preview refused: {} is transaction/session control or unsupported for rollback",
+            "미리보기를 거부했습니다: {}은(는) 트랜잭션·세션 제어이거나 롤백을 지원하지 않습니다.",
             first.text
         ))
     }

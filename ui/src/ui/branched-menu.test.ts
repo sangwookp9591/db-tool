@@ -146,7 +146,7 @@ describe('sidebar explorer (mock app)', () => {
     expect(await page.evaluate(() => document.activeElement?.getAttribute('aria-label'))).toBe('id');
     // Browse and Query stay reachable from the tree.
     await page.getByLabel('Actions for people').click();
-    expect(await page.getByRole('menuitem').allInnerTexts()).toEqual(expect.arrayContaining(['Browse', 'Open query']));
+    expect(await page.getByRole('menuitem').allInnerTexts()).toEqual(expect.arrayContaining(['데이터 보기', '쿼리 열기']));
     await page.keyboard.press('Escape');
   });
 

@@ -4,6 +4,7 @@ import { useId, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { Check, ChevronDown, Copy, LoaderCircle, Wrench } from 'lucide-preact';
 import type { MicroAccessibility } from './accessibility';
 import { Button } from './Button';
+import { decisionLabel } from '../previewCopy';
 import './micro-extra.css';
 
 export interface ToolCallProps extends MicroAccessibility {
@@ -95,10 +96,10 @@ export function ToolCall({ name, summary, status, icon, arguments: args, result,
     </Button>
     <div id={id} hidden={!open}>
       {open && <div className="tool-call__body ax-reveal">
-        {decision && <p>권한: {decision}</p>}
+        {decision && <p>권한: {decisionLabel(decision)}</p>}
         {args !== undefined && <JsonBlock label="인자" value={args} />}
         {result !== undefined && <JsonBlock label="결과" value={result} />}
-        {failed && <div className="tool-call__error" role="alert"><p>{(error ?? (decision === 'denied' ? '권한 거부' : 'Tool call failed')).slice(0, 2000)}</p>{retrySafe && decision !== 'denied' && onRetry && <Button onClick={onRetry}>재시도</Button>}</div>}
+        {failed && <div className="tool-call__error" role="alert"><p>{(error ?? (decision === 'denied' ? '권한 거부' : '도구 호출에 실패했습니다.')).slice(0, 2000)}</p>{retrySafe && decision !== 'denied' && onRetry && <Button onClick={onRetry}>재시도</Button>}</div>}
       </div>}
     </div>
   </article>;

@@ -80,8 +80,8 @@ async fn login_token() -> Result<String, DbError> {
             .output(),
     )
     .await
-    .map_err(|_| DbError::query("ant CLI did not respond"))?
-    .map_err(|_| DbError::query("Cannot run ant CLI"))?;
+    .map_err(|_| DbError::query("ant CLI가 응답하지 않습니다"))?
+    .map_err(|_| DbError::query("ant CLI를 실행할 수 없습니다"))?;
     parse_login(output.status.success(), &output.stdout, &output.stderr)
 }
 fn parse_login(ok: bool, stdout: &[u8], stderr: &[u8]) -> Result<String, DbError> {
@@ -131,7 +131,7 @@ pub async fn ai_login_start() -> Result<Value, DbError> {
         .stderr(std::process::Stdio::piped())
         .kill_on_drop(true)
         .spawn()
-        .map_err(|_| DbError::query("Cannot run ant CLI"))?;
+        .map_err(|_| DbError::query("ant CLI를 실행할 수 없습니다"))?;
     let output = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
     collect(child.stdout.take().expect("piped stdout"), output.clone());
     collect(child.stderr.take().expect("piped stderr"), output.clone());
@@ -145,11 +145,11 @@ pub async fn ai_login_start() -> Result<Value, DbError> {
             return Ok(json!({"waiting_for_code": true, "url": url}));
         }
         if let Ok(Some(status)) = child.try_wait() {
-            return Err(DbError::query(if status.success() { "ant login finished without asking for a code" } else { "ant login failed to start" }));
+            return Err(DbError::query(if status.success() { "ant 로그인이 코드를 요청하지 않고 끝났습니다" } else { "ant 로그인을 시작하지 못했습니다" }));
         }
         if tokio::time::Instant::now() >= deadline {
             let _ = child.kill().await;
-            return Err(DbError::query("ant login did not respond"));
+            return Err(DbError::query("ant 로그인이 응답하지 않습니다"));
         }
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
@@ -159,11 +159,11 @@ pub async fn ai_login_submit(code: String) -> Result<Value, DbError> {
     use tokio::io::AsyncWriteExt;
     let code = code.trim().to_owned();
     if code.is_empty() || code.len() > 2048 || code.chars().any(|c| c.is_whitespace() || c.is_control()) {
-        return Err(DbError::query("Invalid login code"));
+        return Err(DbError::query("로그인 코드가 올바르지 않습니다"));
     }
-    let mut login = login_slot().lock().await.take().ok_or_else(|| DbError::query("Start Claude login first"))?;
-    login.stdin.write_all(format!("{code}\n").as_bytes()).await.map_err(|_| DbError::query("ant login closed"))?;
-    login.stdin.flush().await.map_err(|_| DbError::query("ant login closed"))?;
+    let mut login = login_slot().lock().await.take().ok_or_else(|| DbError::query("먼저 Claude 로그인을 시작하세요"))?;
+    login.stdin.write_all(format!("{code}\n").as_bytes()).await.map_err(|_| DbError::query("ant 로그인이 닫혔습니다"))?;
+    login.stdin.flush().await.map_err(|_| DbError::query("ant 로그인이 닫혔습니다"))?;
     drop(login.stdin);
     let status = tokio::time::timeout(Duration::from_secs(90), login.child.wait()).await;
     let text = login.output.lock().map(|o| o.clone()).unwrap_or_default();
@@ -172,7 +172,7 @@ pub async fn ai_login_submit(code: String) -> Result<Value, DbError> {
             Ok(json!({"logged_in": true, "account": login_result(true, &text)["account"]}))
         }
         Ok(_) => Err(DbError::query("Claude 로그인에 실패했습니다. 코드를 다시 받아 시도하세요")),
-        Err(_) => { let _ = login.child.kill().await; Err(DbError::query("ant login timed out")) }
+        Err(_) => { let _ = login.child.kill().await; Err(DbError::query("ant 로그인 시간이 초과되었습니다")) }
     }
 }
 fn login_result(ok: bool, text: &str) -> Value {
@@ -212,8 +212,8 @@ pub async fn ai_login_status() -> Result<Value, DbError> {
 #[tauri::command]
 pub async fn ai_logout() -> Result<(), DbError> {
     let ant = ant_cli().ok_or_else(|| DbError::query("ant CLI를 찾지 못했습니다"))?;
-    let status = tokio::process::Command::new(ant).args(["auth", "logout"]).kill_on_drop(true).status().await.map_err(|_| DbError::query("Cannot run ant CLI"))?;
-    if status.success() { Ok(()) } else { Err(DbError::query("ant logout failed")) }
+    let status = tokio::process::Command::new(ant).args(["auth", "logout"]).kill_on_drop(true).status().await.map_err(|_| DbError::query("ant CLI를 실행할 수 없습니다"))?;
+    if status.success() { Ok(()) } else { Err(DbError::query("ant 로그아웃에 실패했습니다")) }
 }
 async fn credential(settings: &Settings) -> Result<Credential, DbError> {
     if settings.auth == "claude_login" {
@@ -221,7 +221,7 @@ async fn credential(settings: &Settings) -> Result<Credential, DbError> {
     }
     key()?
         .map(Credential::ApiKey)
-        .ok_or_else(|| DbError::query("Configure an Anthropic API key first"))
+        .ok_or_else(|| DbError::query("먼저 Anthropic API 키를 설정하세요"))
 }
 #[tauri::command]
 pub fn ai_settings(host: tauri::State<'_, Host>) -> Result<Value, DbError> {
@@ -242,7 +242,7 @@ pub fn ai_configure(
             }
         } else {
             if k.len() > 4096 || k.chars().any(char::is_whitespace) {
-                return Err(DbError::query("Invalid API key"));
+                return Err(DbError::query("API 키가 올바르지 않습니다"));
             }
             key_entry()?
                 .set_password(&k)
@@ -265,7 +265,7 @@ fn validate(settings: &Settings) -> Result<(), DbError> {
         || !["low", "medium", "high", "max"].contains(&settings.effort.as_str())
         || !["api_key", "claude_login"].contains(&settings.auth.as_str())
     {
-        return Err(DbError::query("Invalid AI model or effort"));
+        return Err(DbError::query("AI 모델 또는 추론 수준이 올바르지 않습니다"));
     }
     Ok(())
 }
@@ -295,7 +295,7 @@ impl Sse {
     ) -> Result<(), DbError> {
         self.bytes += bytes.len();
         if self.bytes > 2_000_000 {
-            return Err(DbError::query("AI response exceeds limit"));
+            return Err(DbError::query("AI 응답이 한도를 넘었습니다"));
         }
         self.pending.extend_from_slice(bytes);
         loop {
@@ -342,7 +342,7 @@ impl Sse {
                 }
                 Some("message_stop") => self.done = true,
                 Some("error") => {
-                    return Err(DbError::query("AI provider returned a streaming error"))
+                    return Err(DbError::query("AI 공급자가 스트리밍 오류를 반환했습니다"))
                 }
                 _ => {}
             }
@@ -352,7 +352,7 @@ impl Sse {
     fn finish(self) -> Result<Value, DbError> {
         if !self.done || self.stop.is_none() {
             return Err(DbError::query(
-                "AI stream ended before completion; retry the request",
+                "AI 스트림이 끝나기 전에 종료되었습니다. 다시 요청하세요",
             ));
         }
         let refused = self.stop.as_deref() == Some("refusal");
@@ -388,10 +388,10 @@ async fn send(
         .json(&body)
         .send()
         .await
-        .map_err(|_| DbError::query("AI network request failed"))?;
+        .map_err(|_| DbError::query("AI 네트워크 요청에 실패했습니다"))?;
     if !response.status().is_success() {
         return Err(DbError::query(format!(
-            "AI request failed (HTTP {})",
+            "AI 요청에 실패했습니다 (HTTP {})",
             response.status().as_u16()
         )));
     }
@@ -399,7 +399,7 @@ async fn send(
     while let Some(chunk) = response
         .chunk()
         .await
-        .map_err(|_| DbError::query("AI stream interrupted"))?
+        .map_err(|_| DbError::query("AI 스트림이 중단되었습니다"))?
     {
         parser.push(&chunk, &mut emit)?;
     }
@@ -423,11 +423,11 @@ pub async fn ai_request(
 ) -> Result<Value, DbError> {
     let settings = read(&host)?;
     if !settings.enabled {
-        return Err(DbError::query("AI assistant is disabled"));
+        return Err(DbError::query("AI 도우미가 꺼져 있습니다"));
     }
     validate(&settings)?;
     if question.trim().is_empty() || question.len() > 8000 {
-        return Err(DbError::query("Question must contain 1–8000 bytes"));
+        return Err(DbError::query("질문은 1~8,000바이트여야 합니다"));
     }
     let credential = credential(&settings).await?;
     let key = credential.secret();

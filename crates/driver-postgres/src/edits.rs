@@ -8,11 +8,11 @@ impl PgSession {
         preview: bool,
     ) -> Result<RunOutput, DbError> {
         if req.edits.len() > 1000 {
-            return Err(DbError::unsupported("At most 1000 edits are supported"));
+            return Err(DbError::unsupported("편집은 최대 1,000건까지 지원합니다"));
         }
         let path = parse_path(&req.node_id)?;
         if path.len() != 4 || path[0] != "table" || path[2] != "tables" {
-            return Err(DbError::query("Invalid table node"));
+            return Err(DbError::query("올바르지 않은 테이블 노드입니다"));
         }
         let name = format!("{}.{}", quote_ident(&path[1]), quote_ident(&path[3]));
         let nested = state.explicit;
@@ -28,7 +28,7 @@ impl PgSession {
             .map_err(|e| self.error(e))?;
             // Resolve only real ordinary/partitioned tables and their real, non-dropped columns.
             let rows=self.client.query("SELECT a.attname, tn.nspname, t.typname, a.atttypid, EXISTS(SELECT 1 FROM pg_index i WHERE i.indrelid=c.oid AND i.indisprimary AND a.attnum IN (SELECT k.attnum FROM unnest(i.indkey) WITH ORDINALITY AS k(attnum,ord) WHERE k.ord<=i.indnkeyatts)) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_attribute a ON a.attrelid=c.oid JOIN pg_type t ON t.oid=a.atttypid JOIN pg_namespace tn ON tn.oid=t.typnamespace WHERE n.nspname=$1 AND c.relname=$2 AND c.relkind IN ('r','p') AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum",&[&path[1],&path[3]]).await.map_err(|e|self.error(e))?;
-            if rows.is_empty(){return Err(DbError::query("Unknown table"));}
+            if rows.is_empty(){return Err(DbError::query("알 수 없는 테이블입니다"));}
             let columns=rows.iter().map(|r|r.get::<_,String>(0)).collect::<Vec<_>>();
             let keys=rows.iter().filter(|r|r.get::<_,bool>(4)).map(|r|r.get::<_,String>(0)).collect::<Vec<_>>();
             let plans=dbcore::edits::plan(req,&name,&columns,&keys,quote_ident,|i,n,v|{
@@ -41,7 +41,7 @@ impl PgSession {
             let mut changed=EditResult{affected:vec![],statements:vec![]};let mut sample=ChangePreview::default();
             for (index,plan) in plans.into_iter().enumerate(){
                 let result=async {
-                    if cancel.is_cancelled(){return Err(DbError::new(ErrorKind::Cancelled,"Editing cancelled"));}
+                    if cancel.is_cancelled(){return Err(DbError::new(ErrorKind::Cancelled,"편집이 취소되었습니다"));}
                     let values=plan.values.iter().map(|value| match value {
                         Value::Bytes { len, hex } if len.checked_mul(2) == Some(hex.len() as u64) && hex.bytes().all(|b| b.is_ascii_hexdigit()) => {
                             let decoded = (0..hex.len()).step_by(2).map(|i| u8::from_str_radix(&hex[i..i + 2], 16).map_err(|_| DbError::query("Invalid bytes"))).collect::<Result<Vec<_>, _>>()?;
@@ -67,14 +67,14 @@ impl PgSession {
                     let stream=self.client.query_raw(&stmt,params.iter().copied()).await.map_err(|e|self.error(e))?;
                     pin_mut!(stream);let mut output=vec![];let mut count=0;
                     while let Some(row)=stream.next().await{let row=row.map_err(|e|self.error(e))?;count+=1;if preview&&output.len()<req.preview_sample_limit.min(1000) as usize{output.push(row);}}
-                    if plan.kind!=StatementKind::Insert&&count!=1{return Err(DbError::new(ErrorKind::Conflict,format!("Expected exactly 1 row, affected {count}")));}
+                    if plan.kind!=StatementKind::Insert&&count!=1{return Err(DbError::new(ErrorKind::Conflict,format!("정확히 1개 행이 영향을 받아야 하지만 {count}개 행이 영향을 받았습니다")));}
                     statement.affected=Some(count);if preview&&plan.kind!=StatementKind::Delete{statement.after=Some(convert(output)?);}
                     changed.affected.push(count);changed.statements.push(plan.sql);sample.statements.push(statement);Ok(())
                 }.await;
                 result.map_err(|mut e:DbError|{e.message=format!("Edit {index}: {}",e.message);e.detail=Some(statement_text.clone());e})?;
             }
-            if cancel.is_cancelled(){return Err(DbError::new(ErrorKind::Cancelled,"Editing cancelled"));}
-            if preview {sample.notes.push("All edits rolled back; sequences and external trigger effects are not reversible".into());Ok(RunOutput::Preview(sample))}else{Ok(RunOutput::Edit(changed))}
+            if cancel.is_cancelled(){return Err(DbError::new(ErrorKind::Cancelled,"편집이 취소되었습니다"));}
+            if preview {sample.notes.push("모든 편집을 롤백했습니다. 시퀀스와 트리거의 외부 영향은 되돌릴 수 없습니다.".into());Ok(RunOutput::Preview(sample))}else{Ok(RunOutput::Edit(changed))}
         }.await;
         let rollback = preview || result.is_err() || cancel.is_cancelled();
         let cleanup = if nested {
@@ -94,7 +94,7 @@ impl PgSession {
             return Err(DbError::new(
                 ErrorKind::Connection,
                 format!(
-                    "Edit cleanup failed; session discarded: {}",
+                    "편집 정리에 실패해 세션을 폐기했습니다: {}",
                     self.error(e).message
                 ),
             ));

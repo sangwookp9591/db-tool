@@ -34,10 +34,10 @@ impl Neo4jDriver {
                 },
                 connection_fields: [
                     ("uri", "URI", Some("bolt://localhost:7687"), false),
-                    ("database", "Database", None, false),
-                    ("tlsCAFile", "TLS CA file", None, false),
-                    ("user", "User", Some("neo4j"), false),
-                    ("password", "Password", None, true),
+                    ("database", "데이터베이스", None, false),
+                    ("tlsCAFile", "TLS CA 파일", None, false),
+                    ("user", "사용자", Some("neo4j"), false),
+                    ("password", "비밀번호", None, true),
                 ]
                 .into_iter()
                 .map(|(key, label, default, secret)| FieldSpec {
@@ -316,8 +316,8 @@ impl NeoSession {
             clamp_row_limit(req.row_limit)
         };
         tokio::select! { biased;
-            _=cancel.cancelled()=>Err(DbError::new(ErrorKind::Cancelled,"Execution cancelled; connection discarded")),
-            _=tokio::time::sleep(Duration::from_millis(req.timeout_ms.max(1)))=>Err(DbError::new(ErrorKind::Timeout,"Execution timed out; connection discarded")),
+            _=cancel.cancelled()=>Err(DbError::new(ErrorKind::Cancelled,"실행이 취소되어 연결을 폐기했습니다")),
+            _=tokio::time::sleep(Duration::from_millis(req.timeout_ms.max(1)))=>Err(DbError::new(ErrorKind::Timeout,"실행 시간이 초과되어 연결을 폐기했습니다")),
             result=self.run(req,row_limit as usize,detect_more)=>result,
         }
     }

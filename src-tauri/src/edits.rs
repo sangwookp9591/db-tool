@@ -39,7 +39,7 @@ async fn run(
     if host.access_mode(&record)? == permissions::AccessMode::ReadOnly {
         return Err(DbError::new(
             ErrorKind::Auth,
-            "Row editing forbidden on a read-only connection",
+            "읽기 전용 연결에서는 행 편집을 할 수 없습니다",
         ));
     }
     if !host
@@ -48,7 +48,7 @@ async fn run(
         .capabilities
         .edit_rows
     {
-        return Err(DbError::unsupported("Row editing is not supported"));
+        return Err(DbError::unsupported("이 드라이버는 행 편집을 지원하지 않습니다"));
     }
     let fingerprint = permissions::fingerprint(&format!("edit:{session_id}"), &req)?;
     let run = host.run(&session_id, &run_id)?;
@@ -64,7 +64,7 @@ async fn run(
                 p.created.elapsed() < Duration::from_secs(60) && p.fingerprint == fingerprint
             })
         {
-            return Err(DbError::new(ErrorKind::Auth, "Preview required"));
+            return Err(DbError::new(ErrorKind::Auth, "미리보기가 필요합니다"));
         }
     }
     let started = Instant::now();
@@ -91,7 +91,7 @@ async fn run(
             Err(_) => {
                 run.token.cancel();
                 let _ = future.await;
-                Err(DbError::new(ErrorKind::Timeout, "Editing timed out"))
+                Err(DbError::new(ErrorKind::Timeout, "편집 시간이 초과되었습니다"))
             }
         };
     let result = host.observe(&record, result);
@@ -212,7 +212,7 @@ mod tests {
         let (host, dir) = fixture().await;
         let req = request();
         assert!(
-            matches!(run(&host,"s".into(),"no-preview".into(),req.clone(),false).await,Err(DbError{kind:ErrorKind::Auth,message,..}) if message=="Preview required")
+            matches!(run(&host,"s".into(),"no-preview".into(),req.clone(),false).await,Err(DbError{kind:ErrorKind::Auth,message,..}) if message=="미리보기가 필요합니다")
         );
         assert!(matches!(
             run(&host, "s".into(), "preview".into(), req.clone(), true).await,

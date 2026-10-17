@@ -110,7 +110,7 @@ pub async fn send_results(
             let mut offset = 0;
             loop {
                 if cancel.is_cancelled() {
-                    return Err(DbError::new(ErrorKind::Cancelled, "Execution cancelled"));
+                    return Err(DbError::new(ErrorKind::Cancelled, "실행이 취소되었습니다"));
                 }
                 let batch: Vec<Vec<Value>> = rows
                     .by_ref()

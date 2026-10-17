@@ -95,7 +95,7 @@ impl PgSession {
     ) -> Result<ChangePreview, DbError> {
         if !req.params.is_empty() {
             return Err(DbError::unsupported(
-                "PostgreSQL parameters are not enabled",
+                "PostgreSQL 파라미터는 아직 지원하지 않습니다",
             ));
         }
         let statements = split_statements(&req.text)?;
@@ -132,7 +132,7 @@ impl PgSession {
             let limit = req.preview_sample_limit.min(1000) as usize;
             for sql in statements {
                 if cancel.is_cancelled() {
-                    return Err(DbError::new(ErrorKind::Cancelled, "Preview cancelled"));
+                    return Err(DbError::new(ErrorKind::Cancelled, "미리보기가 취소되었습니다"));
                 }
                 let ts = tokens(&sql)?;
                 let mut statement = StatementPreview::new(sql.clone(), kind(&ts));
@@ -149,7 +149,7 @@ impl PgSession {
                         statement.before = self.preview_table(&before, limit).await?.0;
                     } else {
                         statement.warnings.push(
-                            "Before sample unavailable for this SQL shape (joins, aliases or CTEs)"
+                            "이 SQL 형태(조인·별칭·CTE)에서는 변경 전 샘플을 만들 수 없습니다."
                                 .into(),
                         );
                     }
@@ -172,7 +172,7 @@ impl PgSession {
                 if has_returning {
                     statement
                         .warnings
-                        .push("After sample uses the query's existing RETURNING projection".into());
+                        .push("변경 후 샘플은 쿼리의 기존 RETURNING 결과를 사용합니다.".into());
                 }
                 if let Some(before) = schema {
                     statement.schema_diff = Some(schema_diff(before, self.preview_schema().await?));
@@ -194,7 +194,7 @@ impl PgSession {
         }
         rolled_back?;
         result?;
-        preview.notes = vec!["All data and DDL changes were rolled back".into(), "Sequence values are not rolled back; triggers/functions may have external side effects. Preview holds locks until rollback and samples are not an apply guarantee".into()];
+        preview.notes = vec!["모든 데이터·DDL 변경을 롤백했습니다.".into(), "시퀀스 값은 롤백되지 않으며 트리거·함수는 외부에 영향을 줄 수 있습니다. 미리보기는 롤백 전까지 잠금을 유지하고, 샘플은 실제 적용 결과를 보장하지 않습니다.".into()];
         Ok(preview)
     }
 }

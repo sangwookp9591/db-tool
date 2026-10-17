@@ -157,24 +157,24 @@ pub trait Session: Send + Sync {
         _req: &EditRequest,
         _cancel: CancelToken,
     ) -> Result<ChangePreview, DbError> {
-        Err(DbError::unsupported("Row editing is not supported"))
+        Err(DbError::unsupported("이 드라이버는 행 편집을 지원하지 않습니다"))
     }
     async fn apply_edits(
         &self,
         _req: &EditRequest,
         _cancel: CancelToken,
     ) -> Result<EditResult, DbError> {
-        Err(DbError::unsupported("Row editing is not supported"))
+        Err(DbError::unsupported("이 드라이버는 행 편집을 지원하지 않습니다"))
     }
     async fn schema_graph(&self, _scope: Option<&str>) -> Result<SchemaGraph, DbError> {
-        Err(DbError::unsupported("Schema graph is not supported"))
+        Err(DbError::unsupported("이 드라이버는 스키마 그래프를 지원하지 않습니다"))
     }
     async fn preview(
         &self,
         _req: &ExecRequest,
         _cancel: CancelToken,
     ) -> Result<ChangePreview, DbError> {
-        Err(DbError::unsupported("Change preview is not supported"))
+        Err(DbError::unsupported("이 드라이버는 변경 미리보기를 지원하지 않습니다"))
     }
     async fn ping(&self) -> Result<(), DbError>;
     async fn server_info(&self) -> Result<String, DbError>;

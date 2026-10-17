@@ -62,8 +62,8 @@ describe('inputValue', () => {
     expect(inputValue('\\xA1B2', { name: 'data', type_name: 'bytea' }, bytes)).toEqual(bytes);
     expect(inputValue('0x', { name: 'data', type_name: 'binary' }, bytes)).toEqual({ t: 'Bytes', v: { len: 0, hex: '' } });
     expect(inputValue('NULL', { name: 'data', type_name: 'bytea' }, bytes)).toEqual({ t: 'Null' });
-    expect(() => inputValue('0xabc', { name: 'data', type_name: 'bytea' }, bytes)).toThrow(/hexadecimal bytes/);
-    expect(() => inputValue('0xzz', { name: 'data', type_name: 'varbinary' }, bytes)).toThrow(/hexadecimal bytes/);
+    expect(() => inputValue('0xabc', { name: 'data', type_name: 'bytea' }, bytes)).toThrow(/16진수 바이트/);
+    expect(() => inputValue('0xzz', { name: 'data', type_name: 'varbinary' }, bytes)).toThrow(/16진수 바이트/);
   });
   it('keeps exact integer and decimal strings', async () => {
     const { inputValue } = await import('./values');

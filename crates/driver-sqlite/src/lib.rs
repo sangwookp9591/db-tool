@@ -41,7 +41,7 @@ impl SqliteDriver {
                 connection_fields: vec![
                     FieldSpec {
                         key: "path".into(),
-                        label: "Database file".into(),
+                        label: "데이터베이스 파일".into(),
                         kind: FieldKind::FilePath,
                         required: true,
                         default: None,
@@ -50,7 +50,7 @@ impl SqliteDriver {
                     },
                     FieldSpec {
                         key: "read_only_open".into(),
-                        label: "Open read-only".into(),
+                        label: "읽기 전용으로 열기".into(),
                         kind: FieldKind::Bool,
                         required: false,
                         default: Some("false".into()),
@@ -175,8 +175,8 @@ impl SqliteSession {
             .checked_add(Duration::from_millis(req.timeout_ms.max(1)))
             .ok_or_else(|| DbError::query("Timeout exceeds supported range"))?;
         let mut guard = tokio::select! {
-            _ = tokio::time::sleep_until(deadline.into()) => return Err(DbError::new(ErrorKind::Timeout, "Execution timed out waiting for session")),
-            _ = cancel.cancelled() => return Err(DbError::new(ErrorKind::Cancelled, "Execution cancelled")),
+            _ = tokio::time::sleep_until(deadline.into()) => return Err(DbError::new(ErrorKind::Timeout, "세션을 기다리다 실행 시간이 초과되었습니다")),
+            _ = cancel.cancelled() => return Err(DbError::new(ErrorKind::Cancelled, "실행이 취소되었습니다")),
             guard = self.connection.clone().lock_owned() => guard,
         };
         let conn = guard
@@ -227,10 +227,10 @@ impl SqliteSession {
             }
             watcher.abort();
             if cancel.is_cancelled() {
-                return Err(DbError::new(ErrorKind::Cancelled, "Execution cancelled"));
+                return Err(DbError::new(ErrorKind::Cancelled, "실행이 취소되었습니다"));
             }
             if Instant::now() >= deadline {
-                return Err(DbError::new(ErrorKind::Timeout, "Execution timed out"));
+                return Err(DbError::new(ErrorKind::Timeout, "실행 시간이 초과되었습니다"));
             }
             result
         })
@@ -309,7 +309,7 @@ impl Session for SqliteSession {
     async fn browse(&self, node_id: &str, page: PageRequest) -> Result<ResultSet, DbError> {
         let name = node_id
             .strip_prefix("table:")
-            .ok_or_else(|| DbError::query("Invalid table node"))?;
+            .ok_or_else(|| DbError::query("올바르지 않은 테이블 노드입니다"))?;
         let limit = clamp_row_limit(page.limit);
         let offset = i64::try_from(page.offset)
             .map_err(|_| DbError::query("Page offset exceeds SQLite range"))?;
@@ -342,7 +342,7 @@ impl Session for SqliteSession {
                     let name = name.map_err(sql_error)?;
                     let text = format!("SELECT * FROM {} LIMIT 100;", quote(&name));
                     let mut n = node(format!("table:{name}"), name, if parent == "tables" { Icon::Table } else { Icon::View }, true);
-                    n.actions = vec![NodeAction { id: "browse".into(), label: "Browse".into(), kind: NodeActionKind::Browse }, NodeAction { id: "query".into(), label: "Open query".into(), kind: NodeActionKind::OpenQuery { text } }];
+                    n.actions = vec![NodeAction { id: "browse".into(), label: "데이터 보기".into(), kind: NodeActionKind::Browse }, NodeAction { id: "query".into(), label: "쿼리 열기".into(), kind: NodeActionKind::OpenQuery { text } }];
                     Ok(n)
                 }).collect();
             }
@@ -405,10 +405,10 @@ fn run(
         let mut batch = Batch::new(conn, &req.text);
         loop {
             if cancel.is_cancelled() {
-                return Err(DbError::new(ErrorKind::Cancelled, "Execution cancelled"));
+                return Err(DbError::new(ErrorKind::Cancelled, "실행이 취소되었습니다"));
             }
             if Instant::now() >= deadline {
-                return Err(DbError::new(ErrorKind::Timeout, "Execution timed out"));
+                return Err(DbError::new(ErrorKind::Timeout, "실행 시간이 초과되었습니다"));
             }
             let Some(mut stmt) = batch.next().map_err(sql_error)? else {
                 break;

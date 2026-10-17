@@ -68,7 +68,7 @@ function ReadOnlyVirtualTable({ table, onRow, selectedNodeId, highlightedColumn,
         {visibleRows}
       </div>
     </div>
-    {selected && <section class="cell-detail" aria-label="Cell detail"><div class="section-title"><span>{selected.column} · row {selected.row + 1} · {valueTitle(selected.value)}</span><Button bare onClick={() => setSelected(null)} aria-label="Close cell detail"><X /></Button></div><pre>{valueText(selected.value,true)}</pre></section>}
+    {selected && <section class="cell-detail" aria-label="Cell detail"><div class="section-title"><span>{selected.column} · 행 {(selected.row + 1).toLocaleString()} · {valueTitle(selected.value)}</span><Button bare onClick={() => setSelected(null)} aria-label="Close cell detail"><X /></Button></div><pre>{valueText(selected.value,true)}</pre></section>}
   </div>;
 }
 

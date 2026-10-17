@@ -116,12 +116,12 @@ impl NeoSession {
                             n.actions = vec![
                                 NodeAction {
                                     id: "browse".into(),
-                                    label: "Browse".into(),
+                                    label: "데이터 보기".into(),
                                     kind: NodeActionKind::Browse,
                                 },
                                 NodeAction {
                                     id: "query".into(),
-                                    label: "Open query".into(),
+                                    label: "쿼리 열기".into(),
                                     kind: NodeActionKind::OpenQuery {
                                         text: format!("{} LIMIT 25", browse_query(kind, name)?),
                                     },

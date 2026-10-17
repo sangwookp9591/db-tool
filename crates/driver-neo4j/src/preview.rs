@@ -14,14 +14,14 @@ impl NeoSession {
                 .iter()
                 .any(|w| t.is(w))
         }) {
-            return Ok(ChangePreview { notes: vec!["Preview refused: procedures, external loading, database administration and subtransactions cannot be guaranteed to roll back".into()], ..Default::default() });
+            return Ok(ChangePreview { notes: vec!["미리보기를 거부했습니다: 프로시저, 외부 로딩, 데이터베이스 관리, 하위 트랜잭션은 롤백을 보장할 수 없습니다.".into()], ..Default::default() });
         }
         let graph = neo4rs::Graph::connect(self.config.clone()).map_err(|e| self.error(e))?;
         let deadline = tokio::time::sleep(Duration::from_millis(req.timeout_ms.max(1)));
         tokio::pin!(deadline);
         let mut txn = tokio::select! { biased;
-            _=cancel.cancelled()=>return Err(DbError::new(ErrorKind::Cancelled,"Preview cancelled")),
-            _=&mut deadline=>return Err(DbError::new(ErrorKind::Timeout,"Preview timed out")),
+            _=cancel.cancelled()=>return Err(DbError::new(ErrorKind::Cancelled,"미리보기가 취소되었습니다")),
+            _=&mut deadline=>return Err(DbError::new(ErrorKind::Timeout,"미리보기 시간이 초과되었습니다")),
             tx=graph.start_txn()=>tx.map_err(|e| self.error(e))?,
         };
         let result = {
@@ -92,13 +92,13 @@ impl NeoSession {
                 } else {
                     Some(Table { columns, rows })
                 };
-                statement.warnings.push("After samples contain only explicitly RETURNed values; counters count graph operations, not distinct records".into());
-                Ok(ChangePreview { statements: vec![statement], notes: vec!["Explicit transaction rolled back; returned entities are samples from the uncommitted transaction".into()], ..Default::default() })
+                statement.warnings.push("변경 후 샘플에는 RETURN으로 명시한 값만 들어 있으며, 카운터는 고유 레코드가 아니라 그래프 작업 수를 셉니다.".into());
+                Ok(ChangePreview { statements: vec![statement], notes: vec!["명시적 트랜잭션을 롤백했습니다. 반환된 엔티티는 커밋하지 않은 트랜잭션의 샘플입니다.".into()], ..Default::default() })
             };
             tokio::pin!(work);
             tokio::select! { biased;
-                _=cancel.cancelled()=>Err(DbError::new(ErrorKind::Cancelled,"Preview cancelled")),
-                _=&mut deadline=>Err(DbError::new(ErrorKind::Timeout,"Preview timed out")),
+                _=cancel.cancelled()=>Err(DbError::new(ErrorKind::Cancelled,"미리보기가 취소되었습니다")),
+                _=&mut deadline=>Err(DbError::new(ErrorKind::Timeout,"미리보기 시간이 초과되었습니다")),
                 result=&mut work=>result,
             }
         };
@@ -109,7 +109,7 @@ impl NeoSession {
             (Err(e), _) => Err(e),
             _ => Err(DbError::new(
                 ErrorKind::Connection,
-                "Preview rollback failed; connection discarded",
+                "미리보기 롤백에 실패해 연결을 폐기했습니다",
             )),
         }
     }

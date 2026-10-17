@@ -144,7 +144,7 @@ pub fn current(config: &Path, client: &AgentClient) -> Result<AgentClient, DbErr
         .ok_or_else(|| {
             DbError::new(
                 dbcore::ErrorKind::Auth,
-                "Agent client is expired or revoked",
+                "에이전트 클라이언트가 만료되었거나 폐기되었습니다",
             )
         })
 }
@@ -241,11 +241,11 @@ pub fn agent_client_save(
             .iter()
             .any(|t| !TOOLS.contains(&t.as_str()))
     {
-        return Err(DbError::query("Invalid agent client settings"));
+        return Err(DbError::query("에이전트 클라이언트 설정이 올바르지 않습니다"));
     }
     if let Some(at) = &input.expires_at {
         time::OffsetDateTime::parse(at, &time::format_description::well_known::Rfc3339)
-            .map_err(|_| DbError::query("expires_at must be RFC3339"))?;
+            .map_err(|_| DbError::query("expires_at은 RFC3339 형식이어야 합니다"))?;
     }
     let _guard = host
         .agent_storage
@@ -258,7 +258,7 @@ pub fn agent_client_save(
             .iter()
             .find(|c| c.id == id)
             .cloned()
-            .ok_or_else(|| DbError::query("Client not found"))?,
+            .ok_or_else(|| DbError::query("클라이언트를 찾을 수 없습니다"))?,
         None => AgentClient {
             id: uuid::Uuid::new_v4().to_string(),
             name: String::new(),
@@ -285,7 +285,7 @@ pub fn agent_client_save(
                 .read_only_exec
         {
             return Err(DbError::unsupported(
-                "Driver cannot enforce read-only execution",
+                "이 드라이버는 읽기 전용 실행을 강제할 수 없습니다",
             ));
         }
     }
@@ -313,7 +313,7 @@ pub fn agent_client_revoke(host: tauri::State<'_, Host>, client_id: String) -> R
     let client = clients
         .iter_mut()
         .find(|c| c.id == client_id)
-        .ok_or_else(|| DbError::query("Client not found"))?;
+        .ok_or_else(|| DbError::query("클라이언트를 찾을 수 없습니다"))?;
     client.revoked = true;
     save(&host.paths.config, &clients)
 }
@@ -333,7 +333,7 @@ pub async fn agent_client_rotate(
         let client = clients
             .iter_mut()
             .find(|c| c.id == client_id)
-            .ok_or_else(|| DbError::query("Client not found"))?;
+            .ok_or_else(|| DbError::query("클라이언트를 찾을 수 없습니다"))?;
         set_token(client, &raw);
         client.revoked = false;
         save(&host.paths.config, &clients)?;
@@ -364,7 +364,7 @@ pub struct Approval {
 pub fn fingerprint(session: &str, req: &impl Serialize) -> Result<String, DbError> {
     Ok(hash(&format!(
         "{session}:{}",
-        serde_json::to_string(req).map_err(|_| DbError::query("Invalid approval request"))?
+        serde_json::to_string(req).map_err(|_| DbError::query("승인 요청이 올바르지 않습니다"))?
     )))
 }
 #[tauri::command]
@@ -376,7 +376,7 @@ pub fn agent_approve_write(
 ) -> Result<(), DbError> {
     let record = host.session(&session_id)?;
     if host.access_mode(&record)? == AccessMode::ReadOnly {
-        return Err(DbError::query("Connection is read-only"));
+        return Err(DbError::query("읽기 전용 연결입니다"));
     }
     let fingerprint = fingerprint(&session_id, &req)?;
     let preview = host
@@ -387,7 +387,7 @@ pub fn agent_approve_write(
     if preview.is_none_or(|p| p.created.elapsed().as_secs() >= 60) {
         return Err(DbError::new(
             dbcore::ErrorKind::Auth,
-            "A current matching preview is required",
+            "일치하는 최신 미리보기가 필요합니다",
         ));
     }
     let mut approvals = host
@@ -396,7 +396,7 @@ pub fn agent_approve_write(
         .map_err(|_| DbError::internal("Approval lock unavailable"))?;
     approvals.retain(|_, a| a.created.elapsed().as_secs() < 60);
     if approvals.len() >= 64 {
-        return Err(DbError::query("Too many approvals"));
+        return Err(DbError::query("승인 대기 요청이 너무 많습니다"));
     }
     approvals.insert(
         run_id,

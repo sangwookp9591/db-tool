@@ -11,7 +11,7 @@ export function filterCommands(items: readonly CommandItem[], query: string) {
   const words = query.normalize('NFC').toLocaleLowerCase().trim().split(/\s+/);
   const recentLabels = new Set<string>();
   return items.filter(item => {
-    if (item.group?.startsWith('Recent ·')) {
+    if (item.kind === 'query' || item.group?.startsWith('Recent ·')) {
       if (recentLabels.has(item.label)) return false;
       recentLabels.add(item.label);
     }
@@ -55,7 +55,7 @@ export function CommandPalette({ open, onOpenChange, items, ...accessibility }: 
       <div ref={list} id={listId} role="listbox" aria-label="Commands" className="command-palette__list">
         {visible.map((item, i) => <div key={item.id} id={`${listId}-${i}`} role="option" aria-selected={current?.id === item.id} aria-disabled={item.disabled || undefined}
           onPointerMove={() => { if (!item.disabled) setSelected(item.id); }} onMouseDown={e => e.preventDefault()} onClick={() => select(item)}>
-          {(() => { const Icon = item.kind === 'connection' || item.group === 'Connections' ? Database : item.kind === 'table' || item.id.startsWith('node:') ? Table2 : item.kind === 'history' || item.id === 'history' ? Clock3 : item.group?.startsWith('Recent ·') ? FileCode2 : null; return Icon ? <Icon aria-hidden="true" /> : null; })()}<span>{item.label}</span>{item.group && <small>{item.group}</small>}
+          {(() => { const Icon = item.kind === 'connection' || item.group === 'Connections' ? Database : item.kind === 'table' || item.id.startsWith('node:') ? Table2 : item.kind === 'history' || item.id === 'history' ? Clock3 : item.kind === 'query' || item.group?.startsWith('Recent ·') ? FileCode2 : null; return Icon ? <Icon aria-hidden="true" /> : null; })()}<span>{item.label}</span>{item.group && <small>{item.group}</small>}
         </div>)}
       </div>
       {!visible.length && <p role="status">일치하는 항목이 없습니다</p>}

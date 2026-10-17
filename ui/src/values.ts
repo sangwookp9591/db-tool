@@ -51,30 +51,30 @@ export function inputValue(input: string, column: Column, original: Value): Valu
     const hex = raw.startsWith('0x') || raw.startsWith('0X') ? raw.slice(2)
       : raw.startsWith('\\x') || raw.startsWith('\\X') ? raw.slice(2) : null;
     if (hex === null || hex.length % 2 !== 0 || !/^[0-9a-f]*$/i.test(hex)) {
-      throw new Error(`Enter hexadecimal bytes (0x… or \\x…) or NULL for ${column.name}.`);
+      throw new Error(`${column.name}: 16진수 바이트(0x… 또는 \\x…)나 NULL을 입력하세요.`);
     }
     return { t: 'Bytes', v: { len: hex.length / 2, hex: hex.toLowerCase() } };
   }
   if (original.t === 'Bool' || /^(bool|boolean)$/.test(type)) {
     if (/^(true|t|1|yes)$/i.test(input.trim())) return { t: 'Bool', v: true };
     if (/^(false|f|0|no)$/i.test(input.trim())) return { t: 'Bool', v: false };
-    throw new Error(`Enter true or false for ${column.name}.`);
+    throw new Error(`${column.name}: true 또는 false를 입력하세요.`);
   }
   if (original.t === 'Int' || /\b(int|int2|int4|int8|integer|serial|bigint|smallint|smallserial|bigserial)\b/.test(type)) {
-    if (!/^[+-]?\d+$/.test(input.trim())) throw new Error(`Enter an integer for ${column.name}.`);
+    if (!/^[+-]?\d+$/.test(input.trim())) throw new Error(`${column.name}: 정수를 입력하세요.`);
     return { t: 'Int', v: input.trim() };
   }
   if (original.t === 'Decimal' || /numeric|decimal|money/.test(type)) {
-    if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(input.trim())) throw new Error(`Enter a number for ${column.name}.`);
+    if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(input.trim())) throw new Error(`${column.name}: 숫자를 입력하세요.`);
     return { t: 'Decimal', v: input.trim() };
   }
   if (original.t === 'Float' || /float|double|real/.test(type)) {
     const parsed = Number(input.trim());
-    if (!Number.isFinite(parsed)) throw new Error(`Enter a finite number for ${column.name}.`);
+    if (!Number.isFinite(parsed)) throw new Error(`${column.name}: 유한한 숫자를 입력하세요.`);
     return { t: 'Float', v: parsed };
   }
   if (original.t === 'Json' || /json/.test(type)) {
-    try { JSON.parse(input); } catch { throw new Error(`Enter valid JSON for ${column.name}.`); }
+    try { JSON.parse(input); } catch { throw new Error(`${column.name}: 올바른 JSON을 입력하세요.`); }
     return { t: 'Json', v: input };
   }
   if (original.t === 'Date' || /^date$/.test(type)) return { t: 'Date', v: input };

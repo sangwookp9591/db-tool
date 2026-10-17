@@ -7,7 +7,7 @@ import { reducedMotion } from './spring';
 import './micro.css';
 
 export type BeamTone = 'primary' | 'success' | 'warning';
-export interface BeamNode { id: string; label: string; side: 'source' | 'target'; state: 'connected' | 'disconnected' | 'pending' | 'denied'; icon?: ComponentChildren }
+export interface BeamNode { id: string; label: string; /** Accessible-name base when it must stay stable while `label` is localized. */ name?: string; side: 'source' | 'target'; state: 'connected' | 'disconnected' | 'pending' | 'denied'; icon?: ComponentChildren }
 export interface IntegrationBeamHandle { pulse: (fromId: string, toId: string, tone?: BeamTone) => boolean }
 export interface IntegrationBeamProps extends MicroAccessibility { nodes: readonly BeamNode[]; controllerRef: Ref<IntegrationBeamHandle>; onSelect: (id: string) => void; hubId?: string; hubLabel?: string; status?: string }
 type Point = { x: number; y: number };
@@ -81,7 +81,7 @@ export function IntegrationBeam({ nodes, controllerRef, onSelect, hubId = 'axdb'
     return true;
   } }), [keys, hubId]);
   const tileRef = (id: string) => (element: HTMLSpanElement | null) => { if (element) tiles.current.set(id, element); else tiles.current.delete(id); };
-  const column = (side: BeamNode['side']) => <div className="integration-beam__column">{nodes.filter(node => node.side === side).map(node => <Button bare type="button" key={node.id} className="integration-beam__node" data-state={node.state} aria-label={`${node.label}: ${node.state}. Open details`} onClick={() => onSelect(node.id)}
+  const column = (side: BeamNode['side']) => <div className="integration-beam__column">{nodes.filter(node => node.side === side).map(node => <Button bare type="button" key={node.id} className="integration-beam__node" data-state={node.state} aria-label={`${node.name ?? node.label}: ${node.state}. Open details`} onClick={() => onSelect(node.id)}
     onPointerEnter={() => setHighlight(node.id)} onPointerLeave={() => setHighlight(null)} onFocus={() => setHighlight(node.id)} onBlur={() => setHighlight(null)}>
     <span ref={tileRef(node.id)} className="integration-beam__tile" aria-hidden="true">{node.icon ?? node.label.slice(0, 1)}</span><span className="integration-beam__label">{node.label}</span>
   </Button>)}</div>;
@@ -90,7 +90,7 @@ export function IntegrationBeam({ nodes, controllerRef, onSelect, hubId = 'axdb'
       <svg className="integration-beam__paths" aria-hidden="true">{nodes.map(node => <path key={node.id} d={paths[node.id]} data-state={node.state} data-highlight={highlight === node.id} style={{ opacity: highlight && highlight !== node.id ? .35 : 1 }} />)}</svg>
       <div ref={layer} className="integration-beam__pulses" aria-hidden="true" />
       {column('source')}
-      <div className="integration-beam__hub"><span ref={tileRef(hubId)} className="integration-beam__tile">{hubLabel === "AxDB" ? <><span className="axdb-mark" aria-hidden="true" /><span className="axdb-wordmark">AxDB</span></> : hubLabel}</span><span className="integration-beam__status" role="status">{status ?? `${nodes.filter(node => node.state === 'connected').length} of ${nodes.length} connected`}</span></div>
+      <div className="integration-beam__hub"><span ref={tileRef(hubId)} className="integration-beam__tile">{hubLabel === "AxDB" ? <><span className="axdb-mark" aria-hidden="true" /><span className="axdb-wordmark">AxDB</span></> : hubLabel}</span><span className="integration-beam__status" role="status">{status ?? `${nodes.length}개 중 ${nodes.filter(node => node.state === 'connected').length}개 연결됨`}</span></div>
       {column('target')}
     </div>
   </div>;

@@ -63,11 +63,11 @@ impl Host {
             .map_err(|_| DbError::internal("Session lock unavailable"))?
             .get(id)
             .cloned()
-            .ok_or_else(|| DbError::new(ErrorKind::Connection, "Session not found"))?;
+            .ok_or_else(|| DbError::new(ErrorKind::Connection, "세션을 찾을 수 없습니다"))?;
         if record.dead.load(Ordering::Acquire) {
             return Err(DbError::new(
                 ErrorKind::Connection,
-                "Session disconnected; reconnect required",
+                "연결이 끊겼습니다. 다시 연결하세요",
             ));
         }
         Ok(record)
@@ -197,13 +197,13 @@ async fn profile_save(
 ) -> CommandResult<Profile> {
     let _bench = viewer_bench::span("profile_save");
     let driver = host.driver(&profile.driver_id)?;
-    if profile.access_mode == permissions::AccessMode::ReadOnly && !driver.manifest().capabilities.read_only_exec { return Err(DbError::unsupported("Driver cannot enforce read-only execution")); }
+    if profile.access_mode == permissions::AccessMode::ReadOnly && !driver.manifest().capabilities.read_only_exec { return Err(DbError::unsupported("이 드라이버는 읽기 전용 실행을 강제할 수 없습니다")); }
     let secret = secret.or(storage::strip_secrets(&mut profile, driver.manifest()));
     if profile.id.is_empty() {
         profile.id = uuid::Uuid::new_v4().to_string();
     }
     if profile.name.trim().is_empty() {
-        return Err(DbError::query("Profile name is required"));
+        return Err(DbError::query("연결 이름을 입력하세요"));
     }
     let _guard = host.storage.lock().await;
     let path = host.paths.config.join("profiles.json");
@@ -273,7 +273,7 @@ async fn session_open(
         storage::read_profiles(&host.paths.config.join("profiles.json"))?
             .into_iter()
             .find(|p| p.id == profile_id)
-            .ok_or_else(|| DbError::query("Profile not found"))?
+            .ok_or_else(|| DbError::query("연결 프로필을 찾을 수 없습니다"))?
     };
     let (session, secret) = host.connect(&profile, secret).await?;
     let id = uuid::Uuid::new_v4().to_string();
@@ -358,7 +358,7 @@ async fn browse(
         _=run.token.cancelled()=>{
             // Session::browse has no cancel argument; closing the transport stops server work.
             record.dead.store(true,Ordering::Release);record.session.close().await;
-            let _=future.await;Err(DbError::new(ErrorKind::Cancelled,"Browse cancelled; reconnect required"))
+            let _=future.await;Err(DbError::new(ErrorKind::Cancelled,"데이터 보기가 취소되었습니다. 다시 연결하세요"))
         }
     };
     let result = host.observe(&record, result);
@@ -401,7 +401,7 @@ async fn execute_agent(
 ) -> CommandResult<Vec<ResultSet>> {
     if !req.read_only {
         let approval=host.approvals.lock().map_err(|_|DbError::internal("Approval lock unavailable"))?.remove(&run_id);
-        if !approval.is_some_and(|a|a.created.elapsed().as_secs()<60 && permissions::fingerprint(&session_id,&req).is_ok_and(|f|f==a.fingerprint)) { return Err(DbError::new(ErrorKind::Auth,"In-app approval required")); }
+        if !approval.is_some_and(|a|a.created.elapsed().as_secs()<60 && permissions::fingerprint(&session_id,&req).is_ok_and(|f|f==a.fingerprint)) { return Err(DbError::new(ErrorKind::Auth,"앱에서 승인해야 합니다")); }
     }
     execute_impl(&host, session_id, run_id, req, None, HistorySource::Agent).await
 }
@@ -416,10 +416,10 @@ async fn execute_impl(
     let record = host.session(&session_id)?;
     let run = host.run(&session_id, &run_id)?;
     if host.access_mode(&record)? == permissions::AccessMode::ReadOnly {
-        if !host.driver(&record.profile.driver_id)?.manifest().capabilities.read_only_exec { return Err(DbError::unsupported("Driver cannot enforce read-only execution")); }
+        if !host.driver(&record.profile.driver_id)?.manifest().capabilities.read_only_exec { return Err(DbError::unsupported("이 드라이버는 읽기 전용 실행을 강제할 수 없습니다")); }
         req.read_only = true;
     }
-    if req.read_only && !host.driver(&record.profile.driver_id)?.manifest().capabilities.read_only_exec { return Err(DbError::unsupported("Driver cannot enforce read-only execution")); }
+    if req.read_only && !host.driver(&record.profile.driver_id)?.manifest().capabilities.read_only_exec { return Err(DbError::unsupported("이 드라이버는 읽기 전용 실행을 강제할 수 없습니다")); }
     req.row_limit = clamp_row_limit(req.row_limit);
     let started = Instant::now();
     let future = record.session.execute(&req, run.token.clone());
@@ -431,7 +431,7 @@ async fn execute_impl(
             Err(_) => {
                 run.token.cancel();
                 let _ = future.await;
-                Err(DbError::new(ErrorKind::Timeout, "Execution timed out"))
+                Err(DbError::new(ErrorKind::Timeout, "실행 시간이 초과되었습니다"))
             }
         };
     let result = host.observe(&record, result);
@@ -474,7 +474,7 @@ async fn execute_impl(
 #[tauri::command]
 async fn preview(host: tauri::State<'_, Host>, session_id: String, run_id: String, mut req: ExecRequest, source: Option<HistorySource>) -> CommandResult<ChangePreview> {
     let record = host.session(&session_id)?;
-    if host.access_mode(&record)? == permissions::AccessMode::ReadOnly { return Err(DbError::new(ErrorKind::Auth,"Preview forbidden on a read-only connection")); }
+    if host.access_mode(&record)? == permissions::AccessMode::ReadOnly { return Err(DbError::new(ErrorKind::Auth,"읽기 전용 연결에서는 미리보기를 할 수 없습니다")); }
     let run = host.run(&session_id, &run_id)?;
     req.preview_sample_limit = req.preview_sample_limit.min(1000);
     let started = Instant::now();
@@ -482,7 +482,7 @@ async fn preview(host: tauri::State<'_, Host>, session_id: String, run_id: Strin
     tokio::pin!(future);
     let result = match tokio::time::timeout(Duration::from_millis(req.timeout_ms.max(1)), &mut future).await {
         Ok(r) => r,
-        Err(_) => { run.token.cancel(); let _ = future.await; Err(DbError::new(ErrorKind::Timeout, "Preview timed out")) }
+        Err(_) => { run.token.cancel(); let _ = future.await; Err(DbError::new(ErrorKind::Timeout, "미리보기 시간이 초과되었습니다")) }
     };
     let result = host.observe(&record, result);
     let entry = HistoryEntry {

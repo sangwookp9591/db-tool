@@ -431,7 +431,7 @@ async fn change_preview_rolls_back_rows_schema_and_interruptions() {
         .preview(&req("DELETE FROM items"), CancelToken::new())
         .await
         .unwrap();
-    assert!(refused.notes.iter().any(|n| n.contains("user transaction")));
+    assert!(refused.notes.iter().any(|n| n.contains("사용자 트랜잭션")));
     assert_eq!(run(&*s, "SELECT * FROM items").await.row_count, 3);
     run(&*s, "ROLLBACK").await;
     for timeout in [true, false] {

@@ -3,29 +3,29 @@ import type { AgentClient, DriverManifest, Profile, ExplorerNode, ResultSet, Tab
 const fields: DriverManifest['connection_fields'] = [
   { key: 'host', label: 'Host', kind: 'Text', required: true, default: 'localhost', secret: false, placeholder: 'localhost' },
   { key: 'port', label: 'Port', kind: 'Number', required: true, default: '5432', secret: false, placeholder: '' },
-  { key: 'user', label: 'User', kind: 'Text', required: true, default: 'demo', secret: false, placeholder: '' },
-  { key: 'password', label: 'Password', kind: 'Password', required: false, default: null, secret: true, placeholder: '' },
-  { key: 'tls', label: 'TLS', kind: {Select:{options:['disable','prefer','require','verify-full']}}, required:false, default:'prefer', secret:false, placeholder:null },
-  { key: 'tls_ca_file', label:'TLS CA file', kind:'FilePath',required:false,default:null,secret:false,placeholder:null }
+  { key: 'user', label: '사용자', kind: 'Text', required: true, default: 'demo', secret: false, placeholder: '' },
+  { key: 'password', label: '비밀번호', kind: 'Password', required: false, default: null, secret: true, placeholder: '' },
+  { key: 'tls', label: 'TLS 모드', kind: {Select:{options:['disable','prefer','require','verify-full']}}, required:false, default:'prefer', secret:false, placeholder:null },
+  { key: 'tls_ca_file', label:'TLS CA 파일', kind:'FilePath',required:false,default:null,secret:false,placeholder:null }
 ];
 const capabilities: DriverManifest['capabilities'] = { schema_graph: true, preview_changes: 'DryRun', read_only_exec: true, cancel: 'Server', timeout: true, params: true, transactions: true, paged_browse: true, graph_expand: false, multi_statement: true, edit_rows: true };
 export const drivers: DriverManifest[] = [
-  { id: 'postgres', display_name: 'PostgreSQL · demo', paradigm: 'Relational', query_language: { id: 'sql', display: 'SQL', editor_mode: 'sql', supports_params: true }, connection_fields: fields, capabilities, default_query: 'SELECT * FROM people;' },
-  { id: 'neo4j', display_name: 'Graph · demo', paradigm: 'Graph', query_language: { id: 'cypher', display: 'Cypher', editor_mode: 'cypher', supports_params: true }, connection_fields: fields.map(f => f.key === 'port' ? { ...f, default: '7687' } : f), capabilities: { ...capabilities, edit_rows: false, cancel: 'Abort', graph_expand: true, multi_statement: false }, default_query: 'MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 100;' },
-  { id: 'mongodb', display_name: 'MongoDB · demo', paradigm: 'Document', query_language: { id: 'json', display: 'JSON', editor_mode: 'json', supports_params: false }, connection_fields: [{key:'uri',label:'URI',kind:'Text',required:true,default:'mongodb://127.0.0.1:57017',secret:false,placeholder:null},{key:'database',label:'Database',kind:'Text',required:true,default:'axdb_test',secret:false,placeholder:null},...fields.filter(f=>['user','password','tls','tls_ca_file'].includes(f.key)),{key:'auth_source',label:'Authentication database',kind:'Text',required:false,default:'admin',secret:false,placeholder:null}], capabilities: { ...capabilities, edit_rows: false, params: false, preview_changes: 'None' }, default_query: '{"find":"people","filter":{}}' }
+  { id: 'postgres', display_name: 'PostgreSQL · 데모', paradigm: 'Relational', query_language: { id: 'sql', display: 'SQL', editor_mode: 'sql', supports_params: true }, connection_fields: fields, capabilities, default_query: 'SELECT * FROM people;' },
+  { id: 'neo4j', display_name: '그래프 · 데모', paradigm: 'Graph', query_language: { id: 'cypher', display: 'Cypher', editor_mode: 'cypher', supports_params: true }, connection_fields: fields.map(f => f.key === 'port' ? { ...f, default: '7687' } : f), capabilities: { ...capabilities, edit_rows: false, cancel: 'Abort', graph_expand: true, multi_statement: false }, default_query: 'MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 100;' },
+  { id: 'mongodb', display_name: 'MongoDB · 데모', paradigm: 'Document', query_language: { id: 'json', display: 'JSON', editor_mode: 'json', supports_params: false }, connection_fields: [{key:'uri',label:'URI',kind:'Text',required:true,default:'mongodb://127.0.0.1:57017',secret:false,placeholder:null},{key:'database',label:'데이터베이스',kind:'Text',required:true,default:'axdb_test',secret:false,placeholder:null},...fields.filter(f=>['user','password','tls','tls_ca_file'].includes(f.key)),{key:'auth_source',label:'인증 데이터베이스',kind:'Text',required:false,default:'admin',secret:false,placeholder:null}], capabilities: { ...capabilities, edit_rows: false, params: false, preview_changes: 'None' }, default_query: '{"find":"people","filter":{}}' }
 ];
 let profiles: Profile[] = drivers.map((d, i) => ({ id: `demo-${i}`, name: ['Analytics sandbox', 'Graph playground', 'Document studio'][i], driver_id: d.id, fields: Object.fromEntries(d.connection_fields.filter(f => !f.secret).map(f => [f.key, f.default ?? ''])), save_secret: false }));
 const sessions = new Map<string, Profile>();
 const runs = new Map<string, () => void>();
 const history: HistoryEntry[] = [];
-let mockAgentClients: AgentClient[] = [{ id: 'local', name: 'Local MCP', connections: Object.fromEntries(profiles.map(profile => [profile.id, 'read'])), allowed_tools: ['list_connections', 'run_query'], max_rows: 200, expires_at: null, revoked: false }];
+let mockAgentClients: AgentClient[] = [{ id: 'local', name: '로컬 MCP', connections: Object.fromEntries(profiles.map(profile => [profile.id, 'read'])), allowed_tools: ['list_connections', 'run_query'], max_rows: 200, expires_at: null, revoked: false }];
 const mockRowChanges = new Map<string, Record<string, Value>>();
 const mockDeletedRows = new Set<string>();
 const mockInsertedRows: Record<string, Value>[] = [];
 const text = (v: string): Value => ({ t: 'Text', v });
 const int = (v: string): Value => ({ t: 'Int', v });
 function failure(kind: DbError['kind'], message: string, detail: string | null = null, position: number | null = null): DbError { return { kind, message, detail, position }; }
-function session(id: string): Profile { const profile = sessions.get(id); if (!profile) throw failure('Connection', 'Session closed. Reconnect to continue.'); return profile; }
+function session(id: string): Profile { const profile = sessions.get(id); if (!profile) throw failure('Connection', '세션이 닫혔습니다. 다시 연결하세요.'); return profile; }
 function base(title: string): ResultSet { return { title, table: null, graph: null, documents: null, message: null, affected: null, row_count: 0, truncated: false, page: null, elapsed_ms: 12 }; }
 function tableRows(count: number, offset = 0): Table {
   const columns = [{ name: 'id', type_name: 'int8' }, { name: 'name', type_name: 'text' }, { name: 'balance', type_name: 'numeric' }, { name: 'metadata', type_name: 'jsonb' }, { name: 'created_at', type_name: 'timestamptz' }, { name: 'optional', type_name: 'text' }];
@@ -63,23 +63,23 @@ async function execute(sessionId: string, runId: string, req: ExecRequest, sourc
     if (req.read_only && /^\s*(update|create|delete|insert)\b/i.test(req.text)) throw failure('Query', 'Read-only transaction rejects writes.');
     if (/^\s*SELECT\s+(?:slow|(?:pg_)?sleep)\b/i.test(req.text)) await new Promise<void>((resolve, reject) => {
       const delay = req.timeout_ms > 0 ? Math.min(15000, req.timeout_ms) : 15000;
-      const timer = setTimeout(() => req.timeout_ms > 0 && req.timeout_ms < 15000 ? reject(failure('Timeout', 'Execution timeout exceeded.')) : resolve(), delay);
-      runs.set(runId, () => { clearTimeout(timer); reject(failure('Cancelled', 'Execution cancelled.')); });
+      const timer = setTimeout(() => req.timeout_ms > 0 && req.timeout_ms < 15000 ? reject(failure('Timeout', '실행 시간이 초과되었습니다.')) : resolve(), delay);
+      runs.set(runId, () => { clearTimeout(timer); reject(failure('Cancelled', '실행이 취소되었습니다.')); });
     });
-    if (/^\s*SELECT\s+disconnect\b/i.test(req.text)) { sessions.delete(sessionId); throw failure('Connection', 'Mock connection interrupted.'); }
-    if (/^\s*SELECT\s+error\b/i.test(req.text)) throw failure('Query', 'Syntax error near "error"', 'Mock failure: use another query to continue.', 8);
-    if (drivers.find(d => d.id === profile.driver_id)?.paradigm === 'Document' || /^\s*SELECT\s+documents\b/i.test(req.text)) result = [{ ...base('Documents'), documents: [{t:'Map',v:[['_id',{t:'Other',v:{type_name:'ObjectId',text:'507f1f77bcf86cd799439011'}}],['name',text('Avery Chen')],['team',text('Platform')],['active',{t:'Bool',v:true}],['profile',{t:'Map',v:[['location',text('Seoul')],['skills',{t:'List',v:[text('SQL'),text('TypeScript')]}]]}],['sequence',int('900719925474099312345')]]}], row_count: 1 }];
-    else if (/^\s*(update|create|delete|insert)\b/i.test(req.text)) result = [{ ...base('Statement complete'), message: 'Affected 3 records', affected: 3 }];
+    if (/^\s*SELECT\s+disconnect\b/i.test(req.text)) { sessions.delete(sessionId); throw failure('Connection', '모의 연결이 끊겼습니다.'); }
+    if (/^\s*SELECT\s+error\b/i.test(req.text)) throw failure('Query', 'Syntax error near "error"', '모의 오류입니다. 다른 쿼리로 계속하세요.', 8);
+    if (drivers.find(d => d.id === profile.driver_id)?.paradigm === 'Document' || /^\s*SELECT\s+documents\b/i.test(req.text)) result = [{ ...base('문서'), documents: [{t:'Map',v:[['_id',{t:'Other',v:{type_name:'ObjectId',text:'507f1f77bcf86cd799439011'}}],['name',text('Avery Chen')],['team',text('Platform')],['active',{t:'Bool',v:true}],['profile',{t:'Map',v:[['location',text('Seoul')],['skills',{t:'List',v:[text('SQL'),text('TypeScript')]}]]}],['sequence',int('900719925474099312345')]]}], row_count: 1 }];
+    else if (/^\s*(update|create|delete|insert)\b/i.test(req.text)) result = [{ ...base('문장 실행 완료'), message: '3건 영향', affected: 3 }];
     else if (drivers.find(d => d.id === profile.driver_id)?.capabilities.graph_expand) {
       const synthetic = Number(/LIMIT\s+(\d+)/i.exec(req.text)?.[1] ?? 0);
       const graph = synthetic > 3 ? syntheticGraph(synthetic) : graphFor();
       const visible = graph.nodes.slice(0, req.graph_node_limit);
-      result = [{ ...base('Graph result'), graph: { nodes: visible, rels: graph.rels.filter(r => visible.some(n => n.id === r.start) && visible.some(n => n.id === r.end)) }, table: { columns: [{ name: 'n', type_name: 'Node' }], rows: visible.map(v => [{ t: 'Node', v }]) }, row_count: visible.length, truncated: visible.length < graph.nodes.length }];
+      result = [{ ...base('그래프 결과'), graph: { nodes: visible, rels: graph.rels.filter(r => visible.some(n => n.id === r.start) && visible.some(n => n.id === r.end)) }, table: { columns: [{ name: 'n', type_name: 'Node' }], rows: visible.map(v => [{ t: 'Node', v }]) }, row_count: visible.length, truncated: visible.length < graph.nodes.length }];
     } else {
       const total = /^\s*SELECT\s+large\b/i.test(req.text) ? 100000 : 24;
       const count = Math.min(total, req.row_limit);
-      result = [{ ...base(/^\s*SELECT\s+large\b/i.test(req.text) ? '100,000 row fixture' : 'People'), table: tableRows(count), row_count: count, truncated: total > count }];
-      if (/;\s*select/i.test(req.text)) result.push({ ...base('Second statement'), message: 'Second result set', affected: 0 });
+      result = [{ ...base(/^\s*SELECT\s+large\b/i.test(req.text) ? '100,000행 샘플' : 'People'), table: tableRows(count), row_count: count, truncated: total > count }];
+      if (/;\s*select/i.test(req.text)) result.push({ ...base('두 번째 문장'), message: '두 번째 결과', affected: 0 });
     }
     return result;
   } catch (e) { error = e as DbError; throw e; }
@@ -98,12 +98,12 @@ export async function mockInvoke<K extends keyof Commands>(command: K, args: Com
       mockAgentClients = [...mockAgentClients.filter(existing => existing.id !== id), client];
       result = { client, token: null }; break;
     }
-    case 'agent_client_rotate': case 'agent_client_revoke': throw failure('Unsupported','Client credentials are managed in the desktop app.');
+    case 'agent_client_rotate': case 'agent_client_revoke': throw failure('Unsupported','클라이언트 자격 증명은 데스크톱 앱에서 관리합니다.');
     case 'agent_bridge_status': result = false; break;
-    case 'agent_bridge_set': if (a.enabled) throw failure('Unsupported', 'The MCP bridge requires the desktop app'); break;
+    case 'agent_bridge_set': if (a.enabled) throw failure('Unsupported', 'MCP 브리지는 데스크톱 앱에서만 사용할 수 있습니다. (모의 모드)'); break;
     case 'agent_bridge_reply': break;
     case 'ai_settings': result = { settings: { enabled: false, model: 'claude-opus-5-5', effort: 'medium', auth: 'api_key' }, has_key: false, has_ant_cli: false }; break;
-    case 'ai_configure': throw failure('Unsupported', 'AI settings can be saved in the desktop app.');
+    case 'ai_configure': throw failure('Unsupported', 'AI 설정은 데스크톱 앱에서 저장할 수 있습니다. (모의 모드)');
     case 'drivers_list': result = drivers; break;
     case 'profiles_list': result = profiles; break;
     case 'profile_save': {
@@ -113,27 +113,27 @@ export async function mockInvoke<K extends keyof Commands>(command: K, args: Com
       profiles = [...profiles.filter(p => p.id !== clean.id), clean]; result = clean; break;
     }
     case 'profile_delete': profiles = profiles.filter(p => p.id !== a.profileId); break;
-    case 'connection_test': if ((a.profile as Profile).fields.host === 'bad') throw failure('Connection', 'Cannot reach host'); result = 'Mock server · connected'; break;
-    case 'session_info': result = drivers.find(driver => driver.id === session(a.sessionId as string).driver_id)?.display_name ?? 'Mock server'; break;
-    case 'session_open': { const p = profiles.find(p => p.id === a.profileId); if (!p) throw failure('Connection', 'Profile not found'); const id = crypto.randomUUID(); sessions.set(id, p); result = id; break; }
+    case 'connection_test': if ((a.profile as Profile).fields.host === 'bad') throw failure('Connection', 'Cannot reach host'); result = '모의 서버 · 연결됨'; break;
+    case 'session_info': result = drivers.find(driver => driver.id === session(a.sessionId as string).driver_id)?.display_name ?? '모의 서버'; break;
+    case 'session_open': { const p = profiles.find(p => p.id === a.profileId); if (!p) throw failure('Connection', '프로필을 찾을 수 없습니다.'); const id = crypto.randomUUID(); sessions.set(id, p); result = id; break; }
     case 'session_close': sessions.delete(a.sessionId as string); break;
     case 'explorer_children': {
       const profile = session(a.sessionId as string);
       const graph = drivers.find(d => d.id === profile.driver_id)!.capabilities.graph_expand;
       const query = graph ? 'MATCH (n)-[r]->(m) RETURN n, r, m' : 'SELECT * FROM people';
       const parent = a.parent as string | null;
-      const table = (id: string, label: string, detail: string, has_children = false): ExplorerNode => ({ id, label, detail, kind: 'table', icon: 'Table', has_children, actions: [{ id: 'browse', label: 'Browse', kind: 'Browse' }, { id: 'query', label: 'Open query', kind: { OpenQuery: { text: id === 'people' ? query : `SELECT * FROM ${label}` } } }, { id: 'insert', label: 'Insert name', kind: { Insert: { text: graph ? ':Person' : label } } }] });
+      const table = (id: string, label: string, detail: string, has_children = false): ExplorerNode => ({ id, label, detail, kind: 'table', icon: 'Table', has_children, actions: [{ id: 'browse', label: '데이터 보기', kind: 'Browse' }, { id: 'query', label: '쿼리 열기', kind: { OpenQuery: { text: id === 'people' ? query : `SELECT * FROM ${label}` } } }, { id: 'insert', label: '이름 삽입', kind: { Insert: { text: graph ? ':Person' : label } } }] });
       const group = (id: string, label: string, detail: string | null): ExplorerNode => ({ id, label, detail, kind: 'folder', icon: 'Folder', has_children: true, actions: [] });
       const column = (owner: string, name: string, type: string): ExplorerNode => ({ id: `${owner}.${name}`, label: name, detail: type, kind: 'column', icon: 'Column', has_children: false, actions: [] });
-      if (!parent) { result = [{ id: 'public', label: graph ? 'Labels' : 'public', detail: null, kind: 'schema', icon: 'Folder', has_children: true, actions: [{ id: 'diagram', label: 'Open schema diagram', kind: { OpenSchemaGraph: { scope: null } } }] } satisfies ExplorerNode]; break; }
-      if (graph) { result = [table('people', 'Person', '100,000 records')]; break; }
+      if (!parent) { result = [{ id: 'public', label: graph ? 'Labels' : 'public', detail: null, kind: 'schema', icon: 'Folder', has_children: true, actions: [{ id: 'diagram', label: '다이어그램 보기', kind: { OpenSchemaGraph: { scope: null } } }] } satisfies ExplorerNode]; break; }
+      if (graph) { result = [table('people', 'Person', '100,000건')]; break; }
       // Demo fixture: a schema with tables, a view group, an index group and a long archive group (450 tables) exercises depth and list limits.
-      if (parent === 'public') result = [table('people', 'people', '100,000 records', true), table('orders', 'orders', '48,210 records', true), group('public.views', 'Views', '2'), group('public.indexes', 'Indexes', '3'), group('public.archive', 'Archive', '450')];
+      if (parent === 'public') result = [table('people', 'people', '100,000건', true), table('orders', 'orders', '48,210건', true), group('public.views', 'Views', '2'), group('public.indexes', 'Indexes', '3'), group('public.archive', 'Archive', '450')];
       else if (parent === 'people') result = [column('people', 'id', 'int8'), column('people', 'name', 'text'), column('people', 'balance', 'numeric'), column('people', 'metadata', 'jsonb'), column('people', 'created_at', 'timestamptz')];
       else if (parent === 'orders') result = [column('orders', 'id', 'int8'), column('orders', 'person_id', 'int8'), column('orders', 'total', 'numeric'), column('orders', 'placed_at', 'timestamptz')];
       else if (parent === 'public.views') result = [{ ...table('active_people', 'active_people', 'view'), icon: 'View', kind: 'view' }, { ...table('order_totals', 'order_totals', 'view'), icon: 'View', kind: 'view' }];
       else if (parent === 'public.indexes') result = ['people_pkey', 'orders_pkey', 'orders_person_id_idx'].map(name => ({ id: `idx.${name}`, label: name, detail: 'btree', kind: 'index', icon: 'Index', has_children: false, actions: [] }) satisfies ExplorerNode);
-      else if (parent === 'public.archive') result = Array.from({ length: 450 }, (_, i) => table(`archive_${i + 1}`, `archive_${String(i + 1).padStart(3, '0')}`, `${(i + 1) * 12} records`));
+      else if (parent === 'public.archive') result = Array.from({ length: 450 }, (_, i) => table(`archive_${i + 1}`, `archive_${String(i + 1).padStart(3, '0')}`, `${(i + 1) * 12}건`));
       else result = [];
       break;
     }
@@ -141,14 +141,14 @@ export async function mockInvoke<K extends keyof Commands>(command: K, args: Com
     case 'preview': {
       const profile = session(a.sessionId as string), req = a.req as ExecRequest;
       const sample = tableRows(Math.min(req.preview_sample_limit ?? 50, 3));
-      result = { committed: false, notes: ['Demo preview: illustrative samples only; no database was contacted.'], statements: [{ text: req.text, kind: 'Other', affected: null, before: sample, after: sample, schema_diff: null, counters: [], warnings: [] }] };
+      result = { committed: false, notes: ['데모 미리보기: 예시 샘플일 뿐이며 데이터베이스에 접속하지 않았습니다.'], statements: [{ text: req.text, kind: 'Other', affected: null, before: sample, after: sample, schema_diff: null, counters: [], warnings: [] }] };
       history.unshift({ kind: 'preview', source: (a.source as 'ui' | 'agent') ?? 'ui', timestamp: Date.now(), profile_name: profile.name, text: req.text, elapsed_ms: 0, row_count: 0, error: null });
       break;
     }
     case 'edit_preview': {
       session(a.sessionId as string);
       const req = a.req as EditRequest;
-      result = { committed: false, notes: ['MOCK PREVIEW: illustrative only; no database was contacted.'], statements: req.edits.map((edit, i) => ({ text: `MOCK ${edit.op} ${req.node_id} · change ${i + 1}`, kind: edit.op === 'Insert' ? 'Insert' : edit.op, affected: 1, before: null, after: null, schema_diff: null, counters: [], warnings: ['Mock only; this is not a database preview.'] })) };
+      result = { committed: false, notes: ['모의 미리보기: 예시일 뿐이며 데이터베이스에 접속하지 않았습니다.'], statements: req.edits.map((edit, i) => ({ text: `MOCK ${edit.op} ${req.node_id} · 변경 ${i + 1}`, kind: edit.op === 'Insert' ? 'Insert' : edit.op, affected: 1, before: null, after: null, schema_diff: null, counters: [], warnings: ['모의 전용입니다. 실제 데이터베이스 미리보기가 아닙니다.'] })) };
       break;
     }
     case 'edit_apply': {
