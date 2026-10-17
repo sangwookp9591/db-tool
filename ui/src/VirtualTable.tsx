@@ -5,7 +5,7 @@ import type { EditTarget, Table, Value } from './contract';
 import type { PendingEdits } from './edits';
 import { EditableTable } from './EditableTable';
 import { valueClass, valueText, valueTitle } from './values';
-import { ROW_HEIGHT, visibleRange, columnRange } from './virtual';
+import { ROW_HEIGHT, visibleRange, columnRange, columnWidths } from './virtual';
 import { tableIndex } from './perf/tableIndex';
 import { painted } from './perf';
 interface EditProps { target: EditTarget; edits: PendingEdits; onChange: (next: PendingEdits) => void }
@@ -17,7 +17,7 @@ function ReadOnlyVirtualTable({ table, onRow, selectedNodeId, highlightedColumn,
   const callbacks = useRef({ onRow, reference }); callbacks.current = { onRow, reference };
   const scroll = useRef<HTMLDivElement>(null);
   const [viewport, setViewport] = useState({ top: 0, left: 0, height: 350, width: 800 });
-  const defaultWidths = () => table.columns.map((column, index) => index === 0 && /int|float|double|numeric|decimal|real|serial/i.test(column.type_name) ? Math.min(220, Math.max(96, column.name.length * 8 + 24, (/bigint|int8|long/i.test(column.type_name) ? 20 : /smallint|int2/i.test(column.type_name) ? 6 : /int|serial/i.test(column.type_name) ? 11 : 24) * 7.5 + 24, ...table.rows.slice(0, 50).map(row => valueText(row[0]).length * 7.5 + 24))) : 190);
+  const defaultWidths = () => columnWidths(table);
   const [widths, setWidths] = useState<number[]>(defaultWidths);
   const previousColumns = useRef(table.columns);
   const [filter, setFilter] = useState('');

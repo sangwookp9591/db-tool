@@ -1,16 +1,17 @@
-import { useState } from 'preact/hooks';
+import { useMemo, useState } from 'preact/hooks';
 import type { EditTarget, Table, Value } from './contract';
 import type { PendingEdits } from './edits';
 import { emptyEdits } from './edits';
 import { inputValue, valueClass, valueText } from './values';
 import { Button } from './ui/Button';
 import { isMock } from './api';
+import { columnWidths } from './virtual';
 import { Delete } from 'lucide-preact';
 
 export function EditableTable({ table, target, edits, onChange }: { table: Table; target: EditTarget; edits: PendingEdits; onChange: (next: PendingEdits) => void }) {
   const [active, setActive] = useState<{ row: number | string; column: string; value: string } | null>(null);
   const columns = table.columns;
-  const widths = columns.map((column, index) => index === 0 && /int|float|double|numeric|decimal|real|serial/i.test(column.type_name) ? Math.min(220, Math.max(96, column.name.length * 8 + 24, (/bigint|int8|long/i.test(column.type_name) ? 20 : /smallint|int2/i.test(column.type_name) ? 6 : /int|serial/i.test(column.type_name) ? 11 : 24) * 7.5 + 24, ...table.rows.slice(0, 50).map(row => valueText(row[0]).length * 7.5 + 24))) : 190);
+  const widths = useMemo(() => columnWidths(table), [table.columns, table.rows]);
   const keyNames = new Set(target.key_columns);
   function valueAt(row: Value[], index: number, rowKey: number | string) {
     const column = columns[index];
@@ -40,5 +41,5 @@ export function EditableTable({ table, target, edits, onChange }: { table: Table
       <td class="edit-row-action">{isAdded ? <Button bare aria-label="Remove added row" onClick={() => onChange({ ...edits, added: edits.added.filter(item => item.id !== rowKey) })}>×</Button> : <Button bare aria-label={deleted ? 'Restore row' : 'Mark row for deletion'} onClick={() => onChange({ ...edits, deleted: deleted ? edits.deleted.filter(i => i !== rowKey) : [...edits.deleted, rowKey as number], updates: deleted ? edits.updates : Object.fromEntries(Object.entries(edits.updates).filter(([i]) => Number(i) !== rowKey)) })}>{deleted ? '↶' : '×'}</Button>}</td>
     </tr>;
   }
-  return <div class="table-area edit-table-area">{isMock && <div class="edit-demo-note">Mock mode: edits are illustrative and apply only to this browser mock.</div>}<div class="edit-table-scroll"><table class="edit-table" style={{tableLayout:'fixed'}}><colgroup>{widths.map((width,index)=><col key={index} style={{width:`${width}px`}} />)}<col class="edit-action-col" /></colgroup><thead><tr>{columns.map(column => <th class={/int|float|double|numeric|decimal|real|serial/i.test(column.type_name)?'value-number':''} key={column.name} title={column.name}>{column.name}<small>{column.type_name}</small></th>)}<th class="edit-row-action" aria-label="Row actions"><Delete aria-hidden="true" /></th></tr></thead><tbody>{table.rows.map((row, index) => rowView(row, index))}{edits.added.map(item => rowView(item.values, item.id, true))}</tbody></table></div></div>;
+  return <div class="table-area edit-table-area">{isMock && <div class="edit-demo-note">Mock mode: edits are illustrative and apply only to this browser mock.</div>}<div class="edit-table-scroll"><table class="edit-table" style={{tableLayout:'fixed',width:`${widths.reduce((a,b)=>a+b,0)+40}px`}}><colgroup>{widths.map((width,index)=><col key={index} style={{width:`${width}px`}} />)}<col class="edit-action-col" /></colgroup><thead><tr>{columns.map(column => <th class={/int|float|double|numeric|decimal|real|serial/i.test(column.type_name)?'value-number':''} key={column.name} title={column.name}>{column.name}<small>{column.type_name}</small></th>)}<th class="edit-row-action" aria-label="Row actions"><Delete aria-hidden="true" /></th></tr></thead><tbody>{table.rows.map((row, index) => rowView(row, index))}{edits.added.map(item => rowView(item.values, item.id, true))}</tbody></table></div></div>;
 }

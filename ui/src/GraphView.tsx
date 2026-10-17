@@ -3,11 +3,11 @@ import { X, Maximize2, Search, ZoomIn, ZoomOut } from 'lucide-preact';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { Graph, GNode, GRel, SchemaGraph, BrowseTarget, SchemaEntity } from './contract';
 import { api } from './api';
-import { mergeGraph, nodeCaption, nodeMatches, seedPositions, fitGraph, relationOffsets, edgeCurve, curvePoint, curveDistance, bitmapTransform, type GraphPosition } from './graph';
+import { mergeGraph, nodeCaption, nodeMatches, seedPositions, fitGraph, fitAspect, relationOffsets, edgeCurve, curvePoint, curveDistance, bitmapTransform, type GraphPosition } from './graph';
 import { hitIndex } from './perf/spatial';
 import { start, finish, painted, registerGraphProbe } from './perf';
 import { valueText } from './values';
-interface LayoutNode extends GraphPosition { data: GNode; color: string; caption: string; match: boolean; visible: boolean }
+interface LayoutNode extends GraphPosition { data: GNode; color: string; caption: string; short: string; match: boolean; visible: boolean }
 interface LayoutLink { data: GRel; source: LayoutNode; target: LayoutNode; offset: number }
 interface Props { graph: Graph; sessionId: string; canExpand: boolean; limit: number; onError: (error: unknown) => void; active?: boolean; schema?: SchemaGraph; labelEntities?: SchemaEntity[]; selectedNodeId?: string | null; onSelect?: (node: GNode | null) => void; onBrowse?: (target: BrowseTarget) => void }
 const colorTokens = ['--paradigm-relational', '--paradigm-graph', '--paradigm-document', '--paradigm-keyvalue', '--semantic-binary', '--semantic-json'];
@@ -34,7 +34,7 @@ export function GraphView({ graph: initial, sessionId, canExpand, limit, onError
   const activeRef = useRef(active && !document.hidden); activeRef.current = active && !document.hidden;
   const readyRef = useRef(false), frames = useRef(0), fitMode = useRef(true);
   const interact = useRef<() => void>(() => {}), invalidate = useRef<() => void>(() => {});
-  const stopIntro = useRef<() => void>(() => {});
+  const stopIntro = useRef<() => void>(() => {}), labelRects = useRef(new Float32Array(1200)), layoutAspect = useRef(0);
   const request = useRef(0), expandStarted = useRef<number | null>(null);
   const drag = useRef<{ node?: LayoutNode; x: number; y: number; moved: boolean } | null>(null);
   const alive = useRef(true), source = useRef(initial); source.current = initial;
@@ -71,7 +71,7 @@ export function GraphView({ graph: initial, sessionId, canExpand, limit, onError
     const positions = seedPositions({ nodes: visible, rels: graph.rels }, scene.current.nodes), incremental = positions.some(p => p.fixed);
     if (!incremental) { readyRef.current = false; setReady(false); }
     const data = new Map(visible.map(n => [n.id, n]));
-    const nodes: LayoutNode[] = positions.map(p => { const node = data.get(p.id)!; return { ...p, visible: !!p.fixed, data: node, color: colors[Math.max(0, labels.indexOf(node.labels[0] ?? 'Unlabeled')) % colors.length], caption: nodeCaption(node).slice(0, 35), match: nodeMatches(node, search) }; });
+    const nodes: LayoutNode[] = positions.map(p => { const node = data.get(p.id)!; return { ...p, visible: !!p.fixed, data: node, color: colors[Math.max(0, labels.indexOf(node.labels[0] ?? 'Unlabeled')) % colors.length], caption: nodeCaption(node).slice(0, 35), short: nodeCaption(node).length > 18 ? `${nodeCaption(node).slice(0, 17)}…` : nodeCaption(node).slice(0, 35), match: nodeMatches(node, search) }; });
     const byId = new Map(nodes.map(n => [n.id, n])), offsets = relationOffsets(graph.rels);
     const links: LayoutLink[] = graph.rels.filter(r => byId.has(r.start) && byId.has(r.end)).map(data => ({ data, source: byId.get(data.start)!, target: byId.get(data.end)!, offset: offsets.get(data.id) ?? 0 }));
     function curveFor(link: LayoutLink) {
@@ -131,7 +131,21 @@ export function GraphView({ graph: initial, sessionId, canExpand, limit, onError
       } else for (const color of colors) { context.beginPath(); for (const n of shown) if (n.color === color) { context.moveTo(n.x + 17, n.y); context.arc(n.x, n.y, 17, 0, Math.PI * 2); } context.fillStyle = color; context.fill(); }
       context.strokeStyle = palette.selected; context.lineWidth = 4 / scale; context.beginPath(); for (const n of shown) if (!schema && (n.match || callbacks.current.selectedNodeId===n.id)) { context.moveTo(n.x + 17, n.y); context.arc(n.x, n.y, 17, 0, Math.PI * 2); } context.stroke();
       checkpoint('nodes');
-      if (!schema && scale >= .6) { context.fillStyle = palette.text; for (const n of shown) context.fillText(n.caption, n.x, n.y + 32); }
+      // LOD: up to 300 nodes always get labels (screen-constant size, shortened when zoomed out); above that only once zoomed in.
+      if (!schema && (nodes.length <= 300 || scale >= .6)) { const zoomedOut = scale < 1, size = zoomedOut ? 11 / scale : 11; context.font = `${size}px ${palette.font}`; context.fillStyle = palette.text; 
+        // Greedy declutter (<=300 shown): highlighted nodes claim space first, later labels that would overlap are skipped.
+        const crowded = shown.length <= 300, rects = labelRects.current; let placed = 0;
+        const draw1 = (n: LayoutNode) => {
+          const text = zoomedOut ? n.short : n.caption, y = n.y + 17 + (zoomedOut ? 14 / scale : 14);
+          if (crowded) {
+            const w = text.length * size * .58, x0 = n.x - w / 2, y0 = y - size, h = size * 1.15;
+            for (let i = 0; i < placed; i += 4) if (x0 < rects[i] + rects[i + 2] && x0 + w > rects[i] && y0 < rects[i + 1] + rects[i + 3] && y0 + h > rects[i + 1]) return;
+            rects[placed] = x0; rects[placed + 1] = y0; rects[placed + 2] = w; rects[placed + 3] = h; placed += 4;
+          }
+          context.fillText(text, n.x, y);
+        };
+        if (crowded) { for (const n of shown) if (n.match || callbacks.current.selectedNodeId === n.id) draw1(n); for (const n of shown) if (!(n.match || callbacks.current.selectedNodeId === n.id)) draw1(n); } else for (const n of shown) draw1(n);
+      }
       checkpoint('node-text');
       if (interacting) presentBitmap();
       if (first) { first = false; finish('graph-first-frame', since); }
@@ -139,7 +153,13 @@ export function GraphView({ graph: initial, sessionId, canExpand, limit, onError
       finish('graph-render', renderStart, { nodes: nodes.length });
     };
     draw.current = paint;
-    const resize = () => { const wrapper = container.current; if (!wrapper) return; const rect = wrapper.getBoundingClientRect(); if (!rect.width || !rect.height) return; dimensions.current = { width: rect.width, height: rect.height }; const width = Math.max(1, rect.width * devicePixelRatio), height = Math.max(1, rect.height * devicePixelRatio); if (element.width !== width || element.height !== height) { invalidate.current(); element.width = width; element.height = height; } if (fitMode.current && readyRef.current) camera.current = fitGraph(extent(nodes), rect.width, rect.height); schedule(); };
+    // The layout is widened to the canvas aspect inside the worker; if the canvas aspect changed since (hidden pane, window resize), ask for a re-stretch.
+    const reaspect = () => {
+      if (schema || !layoutAspect.current) return;
+      const next = fitAspect(dimensions.current.width, dimensions.current.height);
+      if (Math.abs(next - layoutAspect.current) / layoutAspect.current > .1) { layoutAspect.current = next; worker.current?.postMessage({ kind: 'aspect', aspect: next }); }
+    };
+    const resize = () => { const wrapper = container.current; if (!wrapper) return; const rect = wrapper.getBoundingClientRect(); if (!rect.width || !rect.height) return; dimensions.current = { width: rect.width, height: rect.height }; const width = Math.max(1, rect.width * devicePixelRatio), height = Math.max(1, rect.height * devicePixelRatio); if (element.width !== width || element.height !== height) { invalidate.current(); element.width = width; element.height = height; } if (fitMode.current && readyRef.current) { camera.current = fitGraph(extent(nodes), rect.width, rect.height); reaspect(); } schedule(); };
     resize(); const observer = new ResizeObserver(resize); observer.observe(container.current!);
     if (!worker.current) worker.current = new Worker(new URL('./workers/graph.worker.ts', import.meta.url), { type: 'module' });
     worker.current.onerror = event => { if (alive.current) onError(new Error(`Graph layout: ${event.message}`)); };
@@ -148,6 +168,7 @@ export function GraphView({ graph: initial, sessionId, canExpand, limit, onError
       const target = payload.positions;
       const apply = () => { invalidate.current(); nodes.forEach((n, i) => { if (drag.current?.node !== n) { n.x = target[i * 2]; n.y = target[i * 2 + 1]; } n.visible = true; }); hit.current = hitIndex(nodes); };
       const firstReply = !settled; settled = true; readyRef.current = true; setReady(true);
+      if (firstReply) { const element = container.current; if (element) { const rect = element.getBoundingClientRect(); if (rect.width && rect.height) dimensions.current = { width: rect.width, height: rect.height }; } reaspect(); }
       if (firstReply) finish('graph-stable', since, { nodes: nodes.length, ticks: payload.ticks, workMs: payload.workMs, cached: !!payload.cached });
       if (firstReply && incremental && positions.some(n => !n.fixed) && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
         fitMode.current = false; for (const n of nodes) n.visible = true;
@@ -156,11 +177,11 @@ export function GraphView({ graph: initial, sessionId, canExpand, limit, onError
         stopIntro.current = complete;
         const tween = (now: number) => { invalidate.current(); if (!activeRef.current) { complete(); return; } const t = Math.min(1, (now - begun) / 200), ease = 1 - (1 - t) ** 3; nodes.forEach((n, i) => { if (!n.fixed) { n.x = seeds[i].x + (target[i * 2] - seeds[i].x) * ease; n.y = seeds[i].y + (target[i * 2 + 1] - seeds[i].y) * ease; } }); hit.current = hitIndex(nodes); paint(); if (t < 1) animation = requestAnimationFrame(tween); else { complete(); stopIntro.current = () => {}; } };
         animation = requestAnimationFrame(tween);
-      } else { apply(); if (firstReply && !incremental) { camera.current = fitGraph(extent(nodes), dimensions.current.width, dimensions.current.height); fitMode.current = true; } schedule(); }
+      } else { apply(); if ((firstReply && !incremental) || (!firstReply && fitMode.current)) { camera.current = fitGraph(extent(nodes), dimensions.current.width, dimensions.current.height); fitMode.current = true; } schedule(); }
     };
     worker.current.onmessage = event => receivePositions(event.data);
     if (incremental && positions.every(n => n.fixed)) receivePositions({ revision: currentRevision, positions: Float32Array.from(positions.flatMap(n => [n.x, n.y])), ticks: 0, workMs: 0, cached: true });
-    else worker.current.postMessage({ revision: currentRevision, nodes: positions, links: links.map(l => ({ source: l.source.id, target: l.target.id })), incremental, radius: schema ? Math.max(150,...nodes.map(n=>Math.hypot(120,boxHeight(n.id)/2))) : 40 });
+    else worker.current.postMessage({ revision: currentRevision, nodes: positions, links: links.map(l => ({ source: l.source.id, target: l.target.id })), incremental, aspect: schema ? 0 : (layoutAspect.current = fitAspect(dimensions.current.width, dimensions.current.height)), radius: schema ? Math.max(150,...nodes.map(n=>Math.hypot(120,boxHeight(n.id)/2))) : 40 });
     if (!activeRef.current) worker.current.postMessage({ kind: 'pause' });
     const wheel = (e: WheelEvent) => { e.preventDefault(); interact.current(); fitMode.current = false; const rect = element.getBoundingClientRect(), c = camera.current, px = e.clientX - rect.left - dimensions.current.width / 2, py = e.clientY - rect.top - dimensions.current.height / 2; const next = Math.max(.001, Math.min(6, c.scale * Math.exp(-e.deltaY * .001))); c.x = px - (px - c.x) * next / c.scale; c.y = py - (py - c.y) * next / c.scale; c.scale = next; schedule(); };
     const theme = () => { const next = graphTheme(); colors.splice(0, colors.length, ...next.colors); Object.assign(palette, { ...next, colors }); for (const n of nodes) n.color = colors[Math.max(0, labels.indexOf(n.data.labels[0] ?? 'Unlabeled')) % colors.length]; invalidate.current(); schedule(); };

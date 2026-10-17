@@ -32,6 +32,11 @@ export function fitGraph(nodes: Pick<GraphPosition, 'x' | 'y'>[], width: number,
   const scale = Math.max(.001, Math.min(4, Math.max(1, width - padding * 2) / (right - left), Math.max(1, height - padding * 2) / (bottom - top)));
   return { x: -(left + right) / 2 * scale, y: -(top + bottom) / 2 * scale, scale };
 }
+// Aspect of the area fitGraph really fills (canvas minus its padding), so a layout stretched to it uses both axes.
+export function fitAspect(width: number, height: number, padding = 48) {
+  const pad = Math.min(padding, Math.max(0, width / 6), Math.max(0, height / 6));
+  return Math.max(1, width - pad * 2) / Math.max(1, height - pad * 2);
+}
 export function relationOffsets(rels: Graph['rels']) {
   const groups = new Map<string, Graph['rels']>();
   for (const r of rels) { const key = JSON.stringify([r.start, r.end].sort()); const group = groups.get(key) ?? []; group.push(r); groups.set(key, group); }
