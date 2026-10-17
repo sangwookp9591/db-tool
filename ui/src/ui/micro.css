@@ -60,9 +60,9 @@
 .swipe-row__surface { position: relative; display: flex; align-items: center; min-height: 44px; padding: 4px 8px; gap: 8px; background: var(--surface-primary); touch-action: pan-y; }
 .swipe-row__body { flex: 1; min-width: 0; padding-right: 104px; }
 .swipe-row__toggle { display: grid; place-items: center; }
-.swipe-row__quick { position: absolute; right: 48px; top: 8px; display: flex; gap: 4px; opacity: 0; pointer-events: none; }
+.swipe-row__quick { position: absolute; right: 48px; top: 8px; display: flex; gap: 4px; opacity: 0; visibility: hidden; pointer-events: none; }
 .swipe-row__quick button { padding: 4px; display: grid; place-items: center; }
-.swipe-row[data-open=false]:is(:hover,:focus-within) > .swipe-row__quick { opacity: 1; pointer-events: auto; }
+.swipe-row[data-open=false]:is(:hover,:focus-within) > .swipe-row__quick { opacity: 1; visibility: visible; pointer-events: auto; }
 .micro-gallery { display: block; min-height: 100dvh; padding: 24px; background: var(--bg-base); color: var(--text-primary); }
 .micro-gallery > header { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; }
 .micro-gallery h1 { font-size: 15px; }
@@ -138,3 +138,5 @@
   .border-glow__mesh { transform: none; }
   .spotlight-card__spot { display: none; }
 }
+/* the action rail sits behind the surface; hide it (and its hit-testing/occlusion) until the row is opened */
+.swipe-row[data-open=false] > .swipe-row__actions { visibility: hidden; transition: visibility 0s linear .35s; }

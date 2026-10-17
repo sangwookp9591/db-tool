@@ -13,7 +13,9 @@ export function SlidingIndicator({ value, children, ...accessibility }: MicroAcc
   const measured = useRef(false);
   const measure = (animate = true) => {
       stop.current();
-      const active = root.current?.querySelector<HTMLElement>('[aria-selected=true],[aria-checked=true]');
+      const selected = root.current?.querySelector<HTMLElement>('[aria-selected=true],[aria-checked=true]');
+      // A tab made of several controls (title + close) marks the whole unit with data-indicator-scope so the line spans all of it.
+      const active = selected?.closest<HTMLElement>('[data-indicator-scope]') ?? selected;
       if (!active || !line.current || !root.current) { if (line.current) line.current.style.opacity = '0'; position.current = null; return; }
       const next = { x: 0, y: active.offsetHeight, width: active.offsetWidth };
       for (let node: HTMLElement | null = active; node && node !== root.current; node = node.offsetParent as HTMLElement | null) { next.x += node.offsetLeft; next.y += node.offsetTop; }
@@ -35,7 +37,7 @@ export function SlidingIndicator({ value, children, ...accessibility }: MicroAcc
     const reposition = () => { measured.current = true; measure(false); };
     const observer = new ResizeObserver(reposition);
     observer.observe(root.current!);
-    for (const child of root.current!.querySelectorAll('[role=tab],[role=radio]')) observer.observe(child);
+    for (const child of root.current!.querySelectorAll('[role=tab],[role=radio],[data-indicator-scope]')) observer.observe(child);
     root.current!.addEventListener('scroll', reposition, true);
     const element = root.current!;
     return () => { stop.current(); observer.disconnect(); element.removeEventListener('scroll', reposition, true); };
