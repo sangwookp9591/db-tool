@@ -92,7 +92,7 @@ AxDB는 "가볍고 빠른 다중 DB 작업대"다. 화면은 개발자 도구답
 - **사이드바(리사이즈 220~420px)**
   - 연결 카드는 패러다임 색 타일 아이콘(lucide `Database`/`Share2`/`FileJson`/`KeyRound`), 이름, 드라이버 이름, 상태 점으로 구성한다. 연결되면 상태 점이 success 색에 글로우를 띤다.
   - 행동 버튼(Connect, Edit, Test, Delete)은 hover나 focus 때만 나타나는 아이콘 버튼과 `…` 메뉴로 바꾼다. 지금처럼 버튼 4개를 늘어놓지 않는다.
-  - 연결 카드 아래에 탐색 트리가 펼쳐진다.
+  - 사이드바는 고정 머리(제목·검색·연결 헤더), 스크롤되는 연결 목록, 활성 연결의 탐색 트리(자체 스크롤) 세 영역이다. 탐색 트리는 활성 연결 하나만 펼치고 나머지 연결은 카드로 접힌다. 스크롤바는 gutter를 예약해 내용을 덮지 않는다.
 - **탭:** 32px 높이에 왼쪽에 패러다임 색 점을 두고, 닫기 버튼은 hover나 활성 상태일 때만 보인다. 수정됨, 실행 중, 읽기 전용 표시를 붙인다.
 - **편집기 툴바**
   - Run은 브랜드 그라디언트 채움 버튼에 `⌘↵` kbd 칩을 단다.
@@ -109,6 +109,7 @@ AxDB는 "가볍고 빠른 다중 DB 작업대"다. 화면은 개발자 도구답
 | React Bits | AxDB 위치 | 동작 규칙 |
 |---|---|---|
 | JellyRadio | 결과 뷰 전환(Table/Graph/JSON/ERD), AI effort와 인증 방식 | 선택한 칩이 부풀고 이웃이 밀려난다. 220ms spring이며 transform만 쓴다 |
+| GlideSelect · React Bits 참고 | 연결·권한·설정·페이지 크기 선택 | 포털 메뉴가 트리거 기준으로 열리고 뷰포트 가장자리를 피해 뒤집힌다. 방향키·Home/End·typeahead·드래그 선택을 지원한다 |
 | SwipeRow | 이력 행 | 트랙패드 가로 스와이프나 드래그로 "새 탭에서 열기, 복사, 삭제"가 드러난다. 같은 동작은 hover 아이콘과 키보드(`→`)로도 할 수 있다 |
 | CometDial | 실행 옵션의 Timeout(1s~600s, 로그 눈금) | 드래그·휠·화살표 키로 조작한다. 혜성 꼬리는 조작 중에만 보인다 |
 | WakeSlider | Row limit(100~100,000), Graph node limit | 막대형 슬라이더. 드래그 속도만큼 물결이 생기고 멈추면 사라진다. 숫자 입력 칸도 함께 둔다 |
@@ -134,6 +135,8 @@ AxDB는 "가볍고 빠른 다중 DB 작업대"다. 화면은 개발자 도구답
 | Button | 모든 버튼 | 기존 aria/testid/ref 유지. 그리드·트리는 bare 경로로 단일 native DOM과 무동작을 유지한다. Run은 brand, 실행·테스트·AI·저장 대기에만 loading을 켠다 |
 | SuggestionCard | AI 응답의 코드 블록과 대안 | 수락은 새 탭 삽입만 한다. 삽입 취소는 탭을 닫고 수정·실행 이력이 있으면 확인한다. 검사 수준은 실제 로컬 파서·조회 스키마·사용자 요청 READ ONLY EXPLAIN 근거로만 표시한다 |
 | ToolCall / Group | MCP 활동과 AI 응답 맥락 | 실제 호출 메타데이터·수집 시간·기존 redaction을 거친 맥락만 표시한다. 미기록 시간은 생략하고 쓰기·미리보기·권한 거부에 Retry를 연결하지 않는다 |
+| CallChip · React Bits | 에이전트 MCP activity feed와 AI context 요약 | 실행 중에는 예상 시간에 맞춰 90%까지 채우고 실제 ms를 rAF로 표시한다. 완료는 성공 색과 Check로, 오류는 오류 색·짧은 흔들림과 선택적 재시도로 표시한다. idle/done/error에는 반복 프레임이 없고 reduced-motion을 따른다 |
+| BranchedMenu · React Bits | 사이드바 탐색 트리(스키마·Tables·Views·Indexes·컬럼 등 드라이버가 주는 ExplorerNode 전부) | 그룹이 grid-rows로 접히고, 자식 행이 줄기(trunk)에 곡선 가지로 매달린다. 활성 노드까지 accent "reach" 선이 줄기를 따라 그려지고 최상위 섹션 옆 rail에 marker가 선다. 선은 행마다 CSS 상자 둘(줄기·가지)이라 SVG path가 없고, 한 그룹은 300행씩 "더 보기"로 나눠 그린다. 지연 로딩·필터·컨텍스트 메뉴·더블클릭 기본 동작과 기존 aria-label은 그대로이며 방향키·Home/End·←/→(접기·펼치기·부모로)를 더한다. reduced-motion이면 접기·선 애니메이션이 없다 |
 
 출처는 [사용자 제공 2차 명세](design-shots/ref-components-batch2.md)와 [D3 보고서](D3_COMPONENTS_REPORT.md)다.
 

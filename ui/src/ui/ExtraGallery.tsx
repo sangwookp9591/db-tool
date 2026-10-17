@@ -1,9 +1,11 @@
 // 사용자 제공 레퍼런스 재구현 · interactive mock fixtures, no database calls.
 import { useRef, useState } from 'preact/hooks';
-import { Check, Copy, Play } from 'lucide-preact';
+import { Check, Copy, Play, Table2, Columns3, ListFilter } from 'lucide-preact';
 import { Button } from './Button';
 import { SuggestionCard, type Suggestion } from './SuggestionCard';
 import { ToolCall, ToolCallGroup, type ToolCallProps } from './ToolCall';
+import { CallChip } from './CallChip';
+import { BranchedMenu } from './BranchedMenu';
 
 const suggestions: Suggestion[] = [
   { id: 'recent', title: 'Recent orders', query: 'SELECT id, created_at FROM orders\nORDER BY created_at DESC LIMIT 20;', reason: 'Inspect a small set of recent orders before narrowing the query.', signal: 2, evidence: 'Demo fixture: orders.id and orders.created_at exist in the supplied schema; not executed.' },
@@ -19,7 +21,17 @@ export function ExtraGallery() {
   const [status, setStatus] = useState<ToolCallProps['status']>('success');
   const [mounted, setMounted] = useState(true);
   const [startedAt, setStartedAt] = useState(0);
+  const [branchValue, setBranchValue] = useState('orders');
+  const [chipStatus, setChipStatus] = useState<'idle'|'running'|'done'|'error'>('idle');
   return <>
+    <section id="u2-branched-menu"><h2>21 · BranchedMenu</h2><div data-testid="bm-demo"><BranchedMenu label="Gallery branched menu" defaultOpen={['tables']} defaultActive="orders" onSelect={value => setBranchValue(value)} items={[
+      { value: 'tables', label: 'Tables', children: [{ value: 'people', label: 'people', icon: <Table2 /> }, { value: 'orders', label: 'orders', icon: <Table2 /> }, { value: 'items', label: 'order_items', icon: <Table2 /> }] },
+      { value: 'columns', label: 'Columns', children: [{ value: 'id', label: 'id', icon: <Columns3 /> }, { value: 'name', label: 'name', icon: <Columns3 /> }] },
+      { value: 'indexes', label: 'Indexes', children: [{ value: 'pk', label: 'people_pkey', icon: <ListFilter /> }] },
+      { value: 'settings', label: 'Settings' }]} /></div><output data-testid="bm-selected">{branchValue}</output><p>Sections fold with a grid-rows animation. The accent line reaches the active row and a marker sits on the rail beside its section.</p></section>
+    <section id="d3-call-chip"><h2>20 · CallChip</h2><div className="micro-gallery__controls">
+      <Button onClick={() => setChipStatus('idle')}>Idle</Button><Button onClick={() => setChipStatus('running')}>Start</Button><Button onClick={() => setChipStatus('done')}>Complete</Button><Button onClick={() => setChipStatus('error')}>Fail</Button>
+    </div><div className="micro-gallery__controls"><CallChip name="run_query" argument="connection · long query preview that truncates" status={chipStatus} onRetry={chipStatus === 'error' ? () => setChipStatus('running') : undefined} expectedMs={2400} /><CallChip icon="search" name="get_schema_context" argument="Analytics" status="done" /></div><p>Running progress parks at 90%; completion and failure settle the status. Retry appears only after failure.</p></section>
     <section id="d3-button"><h2>17 · Button</h2><div className="micro-gallery__controls">
       <Button variant="brand" size="md" loading={loading} icon={<Play size={16} />} aria-label="D3 run" data-testid="d3-run" type="submit" name="run" value="query" onClick={() => setClicks(value => value + 1)}>{loading ? 'Running…' : 'Run query'}</Button>
       <Button variant="primary" icon={copied ? <Check size={16} /> : <Copy size={16} />} onClick={() => setCopied(!copied)}>{copied ? 'Copied' : 'Copy'}</Button>

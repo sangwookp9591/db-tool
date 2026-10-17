@@ -7,6 +7,8 @@ import { useEffect, useId, useRef, useState } from 'preact/hooks';
 import type { DriverManifest, Profile, ExplorerNode, NodeAction } from './contract';
 import { api, isMock } from './api';
 import { Dialog } from './Dialog';
+import { GlideSelect } from './ui/GlideSelect';
+import { BranchGroup, BranchItem, reachIndex, reachState, toggleOpen, treeKey } from './ui/BranchedMenu';
 interface Props { editRequest?: {id:string;sequence:number} | null; onNodes?: (profileId: string, nodes: ExplorerNode[]) => void; addRequest?: number; drivers: DriverManifest[]; profiles: Profile[]; sessions: Record<string, string>; dead: Set<string>; onProfiles: () => Promise<void>; onConnect: (profile: Profile, secret?: string | null) => Promise<void>; onDisconnect: (profile: Profile) => Promise<void>; onQuery: (profile: Profile, text?: string) => void; onAction: (profile: Profile, node: ExplorerNode, action: NodeAction) => void; onError: (error: unknown, profileId?: string) => void }
 export function Connections(props: Props) {
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
@@ -14,19 +16,38 @@ export function Connections(props: Props) {
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
   const [search, setSearch] = useState('');
+  const [focusId, setFocusId] = useState<string | null>(null);
+  const isLive = (id: string) => !!props.sessions[id] && !props.dead.has(id);
+  // Only one connection's explorer is shown at a time; the rest collapse to their card.
+  const activeId = focusId && isLive(focusId) ? focusId : props.profiles.find(profile => isLive(profile.id))?.id;
+  const list = useRef<HTMLDivElement>(null);
+  // The connection list scrolls, so its action menu is fixed to the viewport next to the trigger instead of clipped by the list.
+  function placeMenu(e: Event) {
+    const details = e.currentTarget as HTMLDetailsElement, menu = details.querySelector<HTMLElement>('.connection-menu');
+    if (!details.open || !menu) return;
+    const rect = details.querySelector('summary')!.getBoundingClientRect();
+    menu.style.right = `${Math.max(8, innerWidth - rect.right)}px`;
+    menu.style.top = `${rect.bottom + 3 + menu.offsetHeight > innerHeight - 8 ? Math.max(8, rect.top - 3 - menu.offsetHeight) : rect.bottom + 3}px`;
+  }
+  const closeMenus = () => list.current?.querySelectorAll('details[open]').forEach(d => d.removeAttribute('open'));
+  useEffect(() => { list.current?.querySelector('.connection[data-active]')?.scrollIntoView({ block: 'nearest' }); }, [activeId]);
   useEffect(() => { if (props.addRequest) setEditing('new'); }, [props.addRequest]);
   useEffect(() => { if (props.editRequest) setEditing(props.profiles.find(profile => profile.id === props.editRequest?.id) ?? null); }, [props.editRequest]);
   async function task(id: string, callback: () => Promise<void>) { setBusy(id); try { await callback(); } catch (e) { props.onError(e, id); } finally { setBusy(null); } }
   return <aside class="connections" aria-label="Connections"><div class="sidebar-heading">작업공간<small>연결된 데이터베이스를 탐색하세요.</small></div><div class="connection-search"><Search /><input aria-label="Search connections" placeholder="연결 검색…" value={search} onInput={e => setSearch(e.currentTarget.value)} /><kbd>⌘ K</kbd></div><div class="section-title"><strong>연결</strong><Button morph={false} onClick={() => setEditing('new')} aria-label="Add connection" data-testid="add-connection"><Plus /></Button></div>
-    {props.profiles.filter(profile => `${profile.name} ${props.drivers.find(d => d.id === profile.driver_id)?.display_name ?? ''}`.toLocaleLowerCase().includes(search.toLocaleLowerCase())).map(profile => {
+    <div class="connection-list" ref={list} onScroll={closeMenus}>{props.profiles.filter(profile => `${profile.name} ${props.drivers.find(d => d.id === profile.driver_id)?.display_name ?? ''}`.toLocaleLowerCase().includes(search.toLocaleLowerCase())).map(profile => {
       const manifest = props.drivers.find(d => d.id === profile.driver_id);
       const Tile = manifest?.paradigm === 'Graph' ? Share2 : manifest?.paradigm === 'Document' ? FileJson : manifest?.paradigm === 'KeyValue' ? KeyRound : Database;
       const connected = !!props.sessions[profile.id] && !props.dead.has(profile.id);
-      return <section class="connection" data-paradigm={manifest?.paradigm} key={profile.id}><SpotlightCard><div class="connection-heading"><div class="connection-tile"><Tile /></div><div class="connection-info"><div class="connection-name"><strong title={profile.name}>{profile.name}</strong><span class={`status-dot ${connected ? 'connected' : ''}`} title={connected ? 'Connected' : 'Disconnected'} /></div><small>{manifest?.display_name ?? profile.driver_id}{profile.access_mode === 'read_only' && ' · 읽기 전용'}</small></div>
-        <div class="connection-actions"><Button morph={false} class="connect-button" title={busy === profile.id ? 'Working…' : connected ? 'Disconnect' : 'Connect'} aria-label={`Connect or disconnect ${profile.name}`} data-testid="connect-connection" disabled={!!busy || !manifest} onClick={() => void task(profile.id, () => connected ? props.onDisconnect(profile) : props.onConnect(profile))}>{connected ? <Unplug /> : <PlugZap />}</Button><details><summary aria-label={`Connection actions for ${profile.name}`} title="Connection actions"><MoreHorizontal /></summary><div class="connection-menu"><Button morph={false} onClick={e => { e.currentTarget.closest('details')?.removeAttribute('open'); setEditing(profile); }}><Pencil />편집</Button><Button morph={false} aria-label={`Test ${profile.name}`} data-testid="test-connection" disabled={!!busy} onClick={e => { e.currentTarget.closest('details')?.removeAttribute('open'); if (!isMock && !profile.save_secret && manifest?.connection_fields.some(f => f.secret)) setEditing(profile); else void task(profile.id, async () => setNotice(await api('connection_test', { profile, secret: null }))); }}><FlaskConical />테스트</Button><FuseButton pending={pendingDelete === profile.id} onPendingChange={pending => setPendingDelete(pending ? profile.id : null)} onUndo={() => {}} unmountAction="cancel" disabled={!!busy} aria-label={`Delete ${profile.name}`} label="삭제" doneLabel="삭제 예약" undoLabel="실행 취소" onCommit={() => void task(profile.id, async () => { if (props.sessions[profile.id]) await props.onDisconnect(profile); await api("profile_delete", { profileId: profile.id }); await props.onProfiles(); })} /></div></details></div></div></SpotlightCard>
+      return <section class="connection" data-paradigm={manifest?.paradigm} data-active={connected && activeId === profile.id ? '' : undefined} key={profile.id} onClick={() => { if (connected) setFocusId(profile.id); }} onFocusIn={() => { if (connected) setFocusId(profile.id); }}><SpotlightCard><div class="connection-heading"><div class="connection-tile"><Tile /></div><div class="connection-info"><div class="connection-name"><strong title={profile.name}>{profile.name}</strong><span class={`status-dot ${connected ? 'connected' : ''}`} title={connected ? 'Connected' : 'Disconnected'} /></div><small>{manifest?.display_name ?? profile.driver_id}{profile.access_mode === 'read_only' && ' · 읽기 전용'}</small></div>
+        <div class="connection-actions"><Button morph={false} class="connect-button" title={busy === profile.id ? 'Working…' : connected ? 'Disconnect' : 'Connect'} aria-label={`Connect or disconnect ${profile.name}`} data-testid="connect-connection" disabled={!!busy || !manifest} onClick={() => void task(profile.id, () => connected ? props.onDisconnect(profile) : props.onConnect(profile).then(() => setFocusId(profile.id)))}>{connected ? <Unplug /> : <PlugZap />}</Button><details onToggle={placeMenu}><summary aria-label={`Connection actions for ${profile.name}`} title="Connection actions"><MoreHorizontal /></summary><div class="connection-menu"><Button morph={false} onClick={e => { e.currentTarget.closest('details')?.removeAttribute('open'); setEditing(profile); }}><Pencil />편집</Button><Button morph={false} aria-label={`Test ${profile.name}`} data-testid="test-connection" disabled={!!busy} onClick={e => { e.currentTarget.closest('details')?.removeAttribute('open'); if (!isMock && !profile.save_secret && manifest?.connection_fields.some(f => f.secret)) setEditing(profile); else void task(profile.id, async () => setNotice(await api('connection_test', { profile, secret: null }))); }}><FlaskConical />테스트</Button><FuseButton pending={pendingDelete === profile.id} onPendingChange={pending => setPendingDelete(pending ? profile.id : null)} onUndo={() => {}} unmountAction="cancel" disabled={!!busy} aria-label={`Delete ${profile.name}`} label="삭제" doneLabel="삭제 예약" undoLabel="실행 취소" onCommit={() => void task(profile.id, async () => { if (props.sessions[profile.id]) await props.onDisconnect(profile); await api("profile_delete", { profileId: profile.id }); await props.onProfiles(); })} /></div></details></div></div></SpotlightCard>
 
-        {manifest && props.sessions[profile.id] && !props.dead.has(profile.id) && <><Button morph={false} class="new-query" onClick={() => props.onQuery(profile)}><Plus />쿼리 · {manifest.query_language.display}</Button><Explorer onNodes={nodes => props.onNodes?.(profile.id, nodes)} sessionId={props.sessions[profile.id]} manifest={manifest} onAction={(node, action) => props.onAction(profile, node, action)} onError={e => props.onError(e, profile.id)} /></>}
       </section>;
+    })}</div>
+    {props.profiles.map(profile => {
+      const manifest = props.drivers.find(d => d.id === profile.driver_id);
+      if (!manifest || !isLive(profile.id)) return null;
+      return <div class="explorer-region" key={profile.id} hidden={profile.id !== activeId}><Button morph={false} class="new-query" onClick={() => props.onQuery(profile)}><Plus />쿼리 · {manifest.query_language.display}</Button><Explorer onNodes={nodes => props.onNodes?.(profile.id, nodes)} sessionId={props.sessions[profile.id]} manifest={manifest} onAction={(node, action) => props.onAction(profile, node, action)} onError={e => props.onError(e, profile.id)} /></div>;
     })}
     {!props.profiles.length && <div class="sidebar-empty"><Database /><p>연결을 추가해 시작하세요.</p><Button morph={false} onClick={() => setEditing('new')}><Plus />연결 추가</Button></div>}
     {notice && <div class="notice" role="status">{notice}<Button morph={false} aria-label="Dismiss connection test" onClick={() => setNotice('')}><X /></Button></div>}
@@ -68,37 +89,42 @@ function ProfileForm({ profile, drivers, onClose, onSaved, onError }: { profile?
   function fieldControl(field: import('./contract').FieldSpec) {
     const title = <span class="field-label">{field.label}{field.required && <span class="required-dot" aria-label="Required" />}</span>;
     if (field.kind === 'Bool' && !field.secret) return <SpringCheck key={field.key} checked={fields[field.key] === 'true'} onChange={checked => setFields(f => ({...f,[field.key]:String(checked)}))} label={field.label} />;
-    return <label key={field.key} class={/^(host|port)$/.test(field.key) ? 'field-half' : ''}>{title}{typeof field.kind === 'object' && !field.secret ? <span class="select-control"><select value={fields[field.key] ?? ''} required={field.required} onChange={e => setFields(f => ({ ...f, [field.key]: e.currentTarget.value }))}>{!field.default && <option value="">Choose…</option>}{field.kind.Select.options.map(option => <option key={option}>{option}</option>)}</select><ChevronDown /></span> : <FieldInput field={field} existing={!!profile} value={field.secret ? secrets[field.key] ?? '' : fields[field.key] ?? ''} onInput={e => { const value = e.currentTarget.value; if (field.secret) setSecrets(s => ({ ...s, [field.key]: value })); else setFields(f => ({ ...f, [field.key]: value })); }} />}</label>;
+    return <label key={field.key} class={/^(host|port)$/.test(field.key) ? 'field-half' : ''}>{title}{typeof field.kind === 'object' && !field.secret ? <GlideSelect ariaLabel={field.label} name={field.key} required={field.required} value={fields[field.key] ?? ''} options={[...(!field.default ? [{ value: '', label: 'Choose…' }] : []), ...field.kind.Select.options]} onChange={value => setFields(f => ({ ...f, [field.key]: value }))} /> : <FieldInput field={field} existing={!!profile} value={field.secret ? secrets[field.key] ?? '' : fields[field.key] ?? ''} onInput={e => { const value = e.currentTarget.value; if (field.secret) setSecrets(s => ({ ...s, [field.key]: value })); else setFields(f => ({ ...f, [field.key]: value })); }} />}</label>;
   }
-  return <Dialog className="connection-dialog" title={profile ? "연결 편집" : "연결 추가"} label={profile ? 'Edit connection' : 'Add connection'} closeLabel="Close connection form" onClose={close} footer={<><Button morph loading={pendingAction==='test'} aria-label="Test connection" data-testid="test-connection-form" type="button" disabled={busy || !manifest} onClick={() => { if (form.current?.reportValidity()) void submit(true); }}><FlaskConical />{testStatus==='success'?'연결됨':testStatus==='error'?'연결 실패':'연결 테스트'}</Button><span class="toolbar-spacer" /><Button morph={false} type="button" onClick={close}>취소</Button><Button morph loading={pendingAction==='save'} form={formId} type="submit" disabled={busy || !manifest}>저장</Button></>}>
+  return <Dialog className="connection-dialog" title={profile ? "연결 편집" : "연결 추가"} label={profile ? 'Edit connection' : 'Add connection'} closeLabel="Close connection form" onClose={close} footer={<><Button morph loading={pendingAction==='test'} aria-label="Test connection" data-testid="test-connection-form" type="button" disabled={busy || !manifest} onClick={() => { if (form.current?.reportValidity()) void submit(true); }}><FlaskConical />{testStatus==='success'?'연결됨':testStatus==='error'?'연결 실패':'연결 테스트'}</Button><span class="toolbar-spacer" /><Button morph={false} type="button" onClick={close}>취소</Button><Button morph variant="brand" loading={pendingAction==='save'} form={formId} type="submit" disabled={busy || !manifest}>저장</Button></>}>
     <section class="profile-form connection-form"><form onInput={()=>setTestStatus('idle')} id={formId} ref={form} autoComplete="off" onSubmit={e => { e.preventDefault(); void submit(false); }}>
       <details class="field-group" open><summary><ChevronRight />연결</summary><div class="field-grid">
         <label><span class="field-label">이름<span class="required-dot" aria-label="Required" /></span><input aria-label="Name" required autoFocus value={name} onInput={e => setName(e.currentTarget.value)} /></label>
-        <label><span class="field-label">드라이버</span><span class="select-control"><select aria-label="Driver" disabled={!!profile} value={driverId} onChange={e => { const id = e.currentTarget.value; setDriverId(id); setAccessMode('read_write'); setFields(defaults(drivers.find(d => d.id === id))); setSecrets({}); }}>{drivers.map(d => <option key={d.id} value={d.id}>{d.display_name}</option>)}</select><ChevronDown /></span></label>
+        <label><span class="field-label">드라이버</span><GlideSelect ariaLabel="Driver" disabled={!!profile} value={driverId} options={drivers.map(d => ({ value: d.id, label: d.display_name }))} onChange={id => { setDriverId(id); setAccessMode('read_write'); setFields(defaults(drivers.find(d => d.id === id))); setSecrets({}); }} /></label>
         {manifest?.connection_fields.filter(field => group(field) === 'Connection').map(fieldControl)}
       </div></details>
       {!!manifest?.connection_fields.some(field => group(field) === 'Authentication') && <details class="field-group" open><summary><ChevronRight />인증</summary><div class="field-grid">{manifest.connection_fields.filter(field => group(field) === 'Authentication').map(fieldControl)}{manifest.connection_fields.some(f => f.secret) && <SpringCheck checked={saveSecret} onChange={setSaveSecret} label="키체인에 저장" />}</div></details>}
-      <details class="field-group"><summary><ChevronRight />고급 설정</summary><div class="field-grid">{manifest?.connection_fields.filter(field => group(field) === 'Advanced').map(fieldControl)}{manifest?.capabilities.read_only_exec && <label><span class="field-label">접근 모드</span><span class="select-control"><select aria-label="Connection access mode" value={accessMode} onChange={e => setAccessMode(e.currentTarget.value as Profile['access_mode'])}><option value="read_write">읽기 / 쓰기</option><option value="read_only">읽기 전용</option></select><ChevronDown /></span></label>}</div></details>
+      <details class="field-group"><summary><ChevronRight />고급 설정</summary><div class="field-grid">{manifest?.connection_fields.filter(field => group(field) === 'Advanced').map(fieldControl)}{manifest?.capabilities.read_only_exec && <label><span class="field-label">접근 모드</span><GlideSelect ariaLabel="Connection access mode" name="access_mode" value={accessMode} options={[{ value: 'read_write', label: '읽기 / 쓰기' }, { value: 'read_only', label: '읽기 전용' }]} onChange={value => setAccessMode(value as Profile['access_mode'])} /></label>}</div></details>
       {notice && <p role="status">{notice}</p>}
     </form></section>
   </Dialog>;
 }
+const GROUP_PAGE = 300;
 function Explorer({ sessionId, manifest, onAction, onError, onNodes }: { onNodes?: (nodes: ExplorerNode[]) => void; sessionId: string; manifest: DriverManifest; onAction: (node: ExplorerNode, action: NodeAction) => void; onError: (error: unknown) => void }) {
   const [children, setChildren] = useState<Record<string, ExplorerNode[]>>({});
   useEffect(() => { onNodes?.(Object.values(children).flat()); }, [children]);
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState('');
+  const [active, setActive] = useState('');
+  // Long groups render one page of rows at a time so a schema with hundreds of tables stays light.
+  const [limits, setLimits] = useState<Record<string, number>>({});
   const [menu, setMenu] = useState<{ node: ExplorerNode; x: number; y: number } | null>(null);
   const [version, setVersion] = useState(0);
+  const tree = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    let current = true; setChildren({}); setOpen(new Set()); setLoading(new Set(['$root']));
+    let current = true; setChildren({}); setOpen(new Set()); setActive(''); setLimits({}); setLoading(new Set(['$root']));
     void api('explorer_children', { sessionId, parent: null }).then(nodes => { if (current) setChildren({ $root: nodes }); }).catch(error => { if (current) onError(error); }).finally(() => { if (current) setLoading(new Set()); });
     return () => { current = false; };
   }, [sessionId, version]);
   useEffect(() => { if (!menu) return; const close = () => setMenu(null); window.addEventListener('click', close); window.addEventListener('keydown', close); return () => { window.removeEventListener('click', close); window.removeEventListener('keydown', close); }; }, [menu]);
   async function toggle(node: ExplorerNode) {
-    if (open.has(node.id)) { setOpen(s => { const next = new Set(s); next.delete(node.id); return next; }); return; }
+    if (open.has(node.id)) { setOpen(s => toggleOpen(s, node.id)); return; }
     setOpen(s => new Set([...s, node.id]));
     if (children[node.id] || loading.has(node.id)) return;
     setLoading(s => new Set([...s, node.id]));
@@ -108,12 +134,36 @@ function Explorer({ sessionId, manifest, onAction, onError, onNodes }: { onNodes
   }
   const actions = (node: ExplorerNode) => node.actions.filter(a => a.kind !== 'Browse' || manifest.capabilities.paged_browse);
   const matches = (node: ExplorerNode): boolean => !filter || `${node.label} ${node.detail ?? ''}`.toLocaleLowerCase().includes(filter.toLocaleLowerCase()) || (children[node.id] ?? []).some(matches);
-  function render(nodes: ExplorerNode[], depth: number): preact.ComponentChildren {
-    return nodes.filter(matches).map(node => <div key={node.id}><div class="tree-node" style={{ paddingLeft: `${depth * 12}px` }} onContextMenu={e => { e.preventDefault(); setMenu({ node, x: Math.min(e.clientX, innerWidth - 180), y: Math.min(e.clientY, innerHeight - 140) }); }} onDblClick={() => { const action = actions(node)[0]; if (action) onAction(node, action); }}>
-      <Button bare class="tree-toggle" disabled={!node.has_children} onClick={() => void toggle(node)} aria-label={`${open.has(node.id) ? 'Collapse' : 'Expand'} ${node.label}`} aria-expanded={node.has_children ? open.has(node.id) : undefined}>{node.has_children ? open.has(node.id) ? <ChevronDown /> : <ChevronRight /> : <Minus />}</Button><Button bare class="tree-label" data-testid="tree-item" aria-label={node.label} title={node.detail ?? node.label} onClick={() => { if (node.has_children) void toggle(node); }} onKeyDown={e => { if (e.key === 'Enter') { const action = actions(node)[0]; if (action) onAction(node, action); } }}><ExplorerIcon icon={node.icon} /><span>{node.label}</span><small>{node.detail}</small></Button>{!!actions(node).length && <Button morph={false} aria-label={`Actions for ${node.label}`} onClick={e => { e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); setMenu({ node, x: rect.right, y: rect.bottom }); }}><MoreHorizontal /></Button>}
-    </div>{(open.has(node.id) || !!filter) && render(children[node.id] ?? [], depth + 1)}</div>);
+  const byId = new Map<string, ExplorerNode>(), parentOf = new Map<string, string>();
+  for (const [parent, nodes] of Object.entries(children)) for (const node of nodes) { byId.set(node.id, node); parentOf.set(node.id, parent); }
+  const path = new Set<string>();
+  for (let id: string | undefined = active; id && id !== '$root' && !path.has(id); id = parentOf.get(id)) path.add(id);
+  const run = (node: ExplorerNode, action: NodeAction) => { setActive(node.id); onAction(node, action); };
+  function onKeyDown(e: KeyboardEvent) {
+    const target = e.target as HTMLElement;
+    const label = target.closest('.tree-node')?.querySelector<HTMLElement>('.tree-label');
+    if (!label || !target.matches('.tree-label,.tree-toggle')) return;
+    const labels = [...tree.current!.querySelectorAll<HTMLElement>('.tree-label')].filter(el => !el.closest('[inert]'));
+    const node = byId.get(label.dataset.nodeId ?? '');
+    const move = treeKey(e.key, { index: labels.indexOf(label), count: labels.length, hasChildren: !!node?.has_children, open: label.dataset.open === 'true', parentIndex: labels.findIndex(el => el.dataset.nodeId === label.dataset.parent) });
+    if (!move) return;
+    e.preventDefault();
+    if (move.type === 'focus') labels[move.index]?.focus();
+    else if (node) void toggle(node);
   }
-  return <div class="explorer"><div class="toolbar"><input value={filter} onInput={e => setFilter(e.currentTarget.value)} placeholder="탐색 항목 필터" aria-label="Filter explorer" /><Button morph={false} onClick={() => setVersion(v => v + 1)} aria-label="Refresh explorer"><RefreshCw /></Button></div>{loading.has('$root') ? <p>Loading…</p> : render(children.$root ?? [], 0)}{menu && <div class="context-menu" role="menu" style={{ left: `${menu.x}px`, top: `${menu.y}px` }}>{actions(menu.node).map(action => <Button morph={false} role="menuitem" key={action.id} onClick={() => { onAction(menu.node, action); setMenu(null); }}>{action.label}</Button>)}</div>}</div>;
+  function render(nodes: ExplorerNode[], depth: number, parentId: string): preact.ComponentChildren {
+    const shown = nodes.filter(matches), limit = limits[parentId] ?? GROUP_PAGE, part = shown.slice(0, limit);
+    const reached = reachIndex(part.map(node => node.id), path), more = shown.length - part.length;
+    return <>{part.map((node, index) => {
+      const isOpen = open.has(node.id) || !!filter;
+      return <BranchItem key={node.id} last={index === part.length - 1 && !more} reach={depth ? reachState(index, reached) : undefined} section={!depth && path.has(node.id) && isOpen}
+        row={<div class="tree-node" onContextMenu={e => { e.preventDefault(); setActive(node.id); setMenu({ node, x: Math.min(e.clientX, innerWidth - 180), y: Math.min(e.clientY, innerHeight - 140) }); }} onDblClick={() => { const action = actions(node)[0]; if (action) run(node, action); }}>
+          <Button bare class="tree-toggle" disabled={!node.has_children} onClick={() => void toggle(node)} aria-label={`${open.has(node.id) ? 'Collapse' : 'Expand'} ${node.label}`} aria-expanded={node.has_children ? open.has(node.id) : undefined}>{node.has_children ? open.has(node.id) ? <ChevronDown /> : <ChevronRight /> : <Minus />}</Button><Button bare class="tree-label" data-testid="tree-item" data-node-id={node.id} data-parent={parentId} data-open={node.has_children ? String(open.has(node.id)) : undefined} data-active={active === node.id ? '' : undefined} aria-current={active === node.id ? 'true' : undefined} aria-label={node.label} title={node.detail ?? node.label} onClick={() => { setActive(node.id); if (node.has_children) void toggle(node); }} onKeyDown={e => { if (e.key === 'Enter') { const action = actions(node)[0]; if (action) run(node, action); } }}><ExplorerIcon icon={node.icon} /><span>{node.label}</span><small>{node.detail}</small></Button>{!!actions(node).length && <Button morph={false} aria-label={`Actions for ${node.label}`} onClick={e => { e.stopPropagation(); setActive(node.id); const rect = e.currentTarget.getBoundingClientRect(); setMenu({ node, x: rect.right, y: rect.bottom }); }}><MoreHorizontal /></Button>}
+        </div>}
+        nested={node.has_children ? <BranchGroup open={isOpen}>{render(children[node.id] ?? [], depth + 1, node.id)}</BranchGroup> : undefined} />;
+    })}{more > 0 && <BranchItem last row={<Button bare class="tree-more" aria-label={`Show more in ${byId.get(parentId)?.label ?? 'explorer'}`} onClick={() => setLimits(l => ({ ...l, [parentId]: limit + GROUP_PAGE }))}>+{more} 더 보기</Button>} />}</>;
+  }
+  return <div class="explorer"><div class="toolbar"><input value={filter} onInput={e => setFilter(e.currentTarget.value)} placeholder="탐색 항목 필터" aria-label="Filter explorer" /><Button morph={false} onClick={() => setVersion(v => v + 1)} aria-label="Refresh explorer"><RefreshCw /></Button></div><div class="explorer-scroll" ref={tree} onKeyDown={onKeyDown}>{loading.has('$root') ? <p>Loading…</p> : <div class="bm-root">{render(children.$root ?? [], 0, '$root')}</div>}</div>{menu && <div class="context-menu" role="menu" style={{ left: `${menu.x}px`, top: `${menu.y}px` }}>{actions(menu.node).map(action => <Button morph={false} role="menuitem" key={action.id} onClick={() => { run(menu.node, action); setMenu(null); }}>{action.label}</Button>)}</div>}</div>;
 }
 
 function FieldInput({ field, existing, value, onInput }: { field: import('./contract').FieldSpec; existing: boolean; value: string; onInput: (e: InputEvent & { currentTarget: HTMLInputElement }) => void }) {

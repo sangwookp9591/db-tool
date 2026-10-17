@@ -6,8 +6,22 @@ import { clampValue, sliderKey } from './slider';
 import { radioKey } from './JellyRadio';
 import { filterCommands } from './CommandPalette';
 import { beamPoint } from './IntegrationBeam';
+import { glideFormValue, glideNavigation, glideTypeahead, glideValue } from './GlideSelect';
 
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
+
+it('GlideSelect navigates with arrows and Home/End, wraps typeahead, and preserves controlled values', () => {
+  const options = [{ value: 'alpha', label: 'Alpha' }, { value: 'beta', label: 'Beta' }, { value: 'gamma', label: 'Gamma' }];
+  expect(glideNavigation('ArrowDown', 0, 0, 3)).toBe(1);
+  expect(glideNavigation('ArrowUp', 0, 0, 3)).toBe(0);
+  expect(glideNavigation('Home', 2, 0, 3)).toBe(0);
+  expect(glideNavigation('End', 0, 0, 3)).toBe(2);
+  expect(glideTypeahead(options, 2, 'a')).toBe(0);
+  expect(glideTypeahead(options, 0, 'g')).toBe(2);
+  expect(glideValue('beta', 'alpha')).toBe('beta');
+  expect(glideValue(undefined, 'alpha')).toBe('alpha');
+  expect(glideFormValue('beta')).toBe('beta');
+});
 
 it('command search matches every word across label, group and keywords with Unicode normalization', () => {
   const items = [{ id: 'orders', label: '주문', group: 'Tables', keywords: 'public.orders', onSelect: () => {} }, { id: 'history', label: 'Recent query', group: 'History', onSelect: () => {} }];

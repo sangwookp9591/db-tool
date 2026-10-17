@@ -1,5 +1,5 @@
 import type { Commands } from './api';
-import type { DriverManifest, Profile, ExplorerNode, ResultSet, Table, Value, Graph, DbError, HistoryEntry, ExecRequest, EditRequest } from './contract';
+import type { AgentClient, DriverManifest, Profile, ExplorerNode, ResultSet, Table, Value, Graph, DbError, HistoryEntry, ExecRequest, EditRequest } from './contract';
 const fields: DriverManifest['connection_fields'] = [
   { key: 'host', label: 'Host', kind: 'Text', required: true, default: 'localhost', secret: false, placeholder: 'localhost' },
   { key: 'port', label: 'Port', kind: 'Number', required: true, default: '5432', secret: false, placeholder: '' },
@@ -18,6 +18,7 @@ let profiles: Profile[] = drivers.map((d, i) => ({ id: `demo-${i}`, name: ['Anal
 const sessions = new Map<string, Profile>();
 const runs = new Map<string, () => void>();
 const history: HistoryEntry[] = [];
+let mockAgentClients: AgentClient[] = [{ id: 'local', name: 'Local MCP', connections: Object.fromEntries(profiles.map(profile => [profile.id, 'read'])), allowed_tools: ['list_connections', 'run_query'], max_rows: 200, expires_at: null, revoked: false }];
 const mockRowChanges = new Map<string, Record<string, Value>>();
 const mockDeletedRows = new Set<string>();
 const mockInsertedRows: Record<string, Value>[] = [];
@@ -46,6 +47,13 @@ function graphFor(seed = ''): Graph {
   const ids = seed ? [seed, `${seed}-a`, `${seed}-b`] : ['alice', 'bob', 'project'];
   return { nodes: ids.map((id, i) => ({ id, labels: [i === 2 ? 'Project' : 'Person'], props: [['name', text(seed ? `Neighbor ${id}` : ['Alice', 'Bob', 'Database tool'][i])], ['score', int(String(i + 1))]] })), rels: ids.slice(1).map((id, i) => ({ id: `${ids[0]}-${id}`, rel_type: i ? 'WORKS_ON' : 'KNOWS', start: ids[0], end: id, props: [['since', int('2024')]] })) };
 }
+// Mock-only: `LIMIT n` (n > 3) returns an n-node graph so large-graph rendering can be checked in the browser.
+function syntheticGraph(count: number): Graph {
+  const kinds = ['Person', 'Project', 'Team'];
+  const nodes = Array.from({ length: count }, (_, i) => ({ id: `n${i}`, labels: [kinds[i % kinds.length]], props: [['name', text(`${kinds[i % kinds.length]} ${i}`)]] as [string, Value][] }));
+  const rels = nodes.slice(1).map((n, i) => ({ id: `r${i}`, rel_type: ['KNOWS', 'WORKS_ON', 'MEMBER_OF'][i % 3], start: nodes[Math.floor(i / 2)].id, end: n.id, props: [] as [string, Value][] }));
+  return { nodes, rels };
+}
 async function execute(sessionId: string, runId: string, req: ExecRequest, source: "ui" | "agent" = "ui"): Promise<ResultSet[]> {
   const profile = session(sessionId);
   const start = performance.now();
@@ -63,7 +71,8 @@ async function execute(sessionId: string, runId: string, req: ExecRequest, sourc
     if (drivers.find(d => d.id === profile.driver_id)?.paradigm === 'Document' || /^\s*SELECT\s+documents\b/i.test(req.text)) result = [{ ...base('Documents'), documents: [{t:'Map',v:[['_id',{t:'Other',v:{type_name:'ObjectId',text:'507f1f77bcf86cd799439011'}}],['name',text('Avery Chen')],['team',text('Platform')],['active',{t:'Bool',v:true}],['profile',{t:'Map',v:[['location',text('Seoul')],['skills',{t:'List',v:[text('SQL'),text('TypeScript')]}]]}],['sequence',int('900719925474099312345')]]}], row_count: 1 }];
     else if (/^\s*(update|create|delete|insert)\b/i.test(req.text)) result = [{ ...base('Statement complete'), message: 'Affected 3 records', affected: 3 }];
     else if (drivers.find(d => d.id === profile.driver_id)?.capabilities.graph_expand) {
-      const graph = graphFor();
+      const synthetic = Number(/LIMIT\s+(\d+)/i.exec(req.text)?.[1] ?? 0);
+      const graph = synthetic > 3 ? syntheticGraph(synthetic) : graphFor();
       const visible = graph.nodes.slice(0, req.graph_node_limit);
       result = [{ ...base('Graph result'), graph: { nodes: visible, rels: graph.rels.filter(r => visible.some(n => n.id === r.start) && visible.some(n => n.id === r.end)) }, table: { columns: [{ name: 'n', type_name: 'Node' }], rows: visible.map(v => [{ t: 'Node', v }]) }, row_count: visible.length, truncated: visible.length < graph.nodes.length }];
     } else {
@@ -80,9 +89,16 @@ export async function mockInvoke<K extends keyof Commands>(command: K, args: Com
   const a = args as Record<string, unknown>;
   let result: unknown;
   switch (command) {
-    case 'agent_clients_list': result = [{id:'local',name:'Local MCP',connections:Object.fromEntries(profiles.map(p=>[p.id,'read'])),allowed_tools:['list_connections','run_query'],max_rows:200,expires_at:null,revoked:false}]; break;
+    case 'agent_clients_list': result = mockAgentClients.map(client => ({ ...client, connections: { ...client.connections }, allowed_tools: [...client.allowed_tools] })); break;
     case 'agent_audit_list': result = []; break;
-    case 'agent_client_save': case 'agent_client_rotate': case 'agent_client_revoke': throw failure('Unsupported','Client credentials are managed in the desktop app.');
+    case 'agent_client_save': {
+      const input = a.input as Omit<AgentClient, 'id' | 'revoked'> & { id?: string };
+      const id = input.id ?? crypto.randomUUID();
+      const client: AgentClient = { ...input, id, revoked: mockAgentClients.find(existing => existing.id === id)?.revoked ?? false, connections: { ...input.connections }, allowed_tools: [...input.allowed_tools] };
+      mockAgentClients = [...mockAgentClients.filter(existing => existing.id !== id), client];
+      result = { client, token: null }; break;
+    }
+    case 'agent_client_rotate': case 'agent_client_revoke': throw failure('Unsupported','Client credentials are managed in the desktop app.');
     case 'agent_bridge_status': result = false; break;
     case 'agent_bridge_set': if (a.enabled) throw failure('Unsupported', 'The MCP bridge requires the desktop app'); break;
     case 'agent_bridge_reply': break;
@@ -105,8 +121,21 @@ export async function mockInvoke<K extends keyof Commands>(command: K, args: Com
       const profile = session(a.sessionId as string);
       const graph = drivers.find(d => d.id === profile.driver_id)!.capabilities.graph_expand;
       const query = graph ? 'MATCH (n)-[r]->(m) RETURN n, r, m' : 'SELECT * FROM people';
-      const node: ExplorerNode = { id: a.parent ? 'people' : 'public', label: a.parent ? (graph ? 'Person' : 'people') : (graph ? 'Labels' : 'public'), detail: a.parent ? '100,000 records' : null, kind: a.parent ? 'table' : 'schema', icon: a.parent ? 'Table' : 'Folder', has_children: !a.parent, actions: a.parent ? [{ id: 'browse', label: 'Browse', kind: 'Browse' }, { id: 'query', label: 'Open query', kind: { OpenQuery: { text: query } } }, { id: 'insert', label: 'Insert name', kind: { Insert: { text: graph ? ':Person' : 'people' } } }] : [{id:'diagram',label:'Open schema diagram',kind:{OpenSchemaGraph:{scope:null}}}] };
-      result = [node]; break;
+      const parent = a.parent as string | null;
+      const table = (id: string, label: string, detail: string, has_children = false): ExplorerNode => ({ id, label, detail, kind: 'table', icon: 'Table', has_children, actions: [{ id: 'browse', label: 'Browse', kind: 'Browse' }, { id: 'query', label: 'Open query', kind: { OpenQuery: { text: id === 'people' ? query : `SELECT * FROM ${label}` } } }, { id: 'insert', label: 'Insert name', kind: { Insert: { text: graph ? ':Person' : label } } }] });
+      const group = (id: string, label: string, detail: string | null): ExplorerNode => ({ id, label, detail, kind: 'folder', icon: 'Folder', has_children: true, actions: [] });
+      const column = (owner: string, name: string, type: string): ExplorerNode => ({ id: `${owner}.${name}`, label: name, detail: type, kind: 'column', icon: 'Column', has_children: false, actions: [] });
+      if (!parent) { result = [{ id: 'public', label: graph ? 'Labels' : 'public', detail: null, kind: 'schema', icon: 'Folder', has_children: true, actions: [{ id: 'diagram', label: 'Open schema diagram', kind: { OpenSchemaGraph: { scope: null } } }] } satisfies ExplorerNode]; break; }
+      if (graph) { result = [table('people', 'Person', '100,000 records')]; break; }
+      // Demo fixture: a schema with tables, a view group, an index group and a long archive group (450 tables) exercises depth and list limits.
+      if (parent === 'public') result = [table('people', 'people', '100,000 records', true), table('orders', 'orders', '48,210 records', true), group('public.views', 'Views', '2'), group('public.indexes', 'Indexes', '3'), group('public.archive', 'Archive', '450')];
+      else if (parent === 'people') result = [column('people', 'id', 'int8'), column('people', 'name', 'text'), column('people', 'balance', 'numeric'), column('people', 'metadata', 'jsonb'), column('people', 'created_at', 'timestamptz')];
+      else if (parent === 'orders') result = [column('orders', 'id', 'int8'), column('orders', 'person_id', 'int8'), column('orders', 'total', 'numeric'), column('orders', 'placed_at', 'timestamptz')];
+      else if (parent === 'public.views') result = [{ ...table('active_people', 'active_people', 'view'), icon: 'View', kind: 'view' }, { ...table('order_totals', 'order_totals', 'view'), icon: 'View', kind: 'view' }];
+      else if (parent === 'public.indexes') result = ['people_pkey', 'orders_pkey', 'orders_person_id_idx'].map(name => ({ id: `idx.${name}`, label: name, detail: 'btree', kind: 'index', icon: 'Index', has_children: false, actions: [] }) satisfies ExplorerNode);
+      else if (parent === 'public.archive') result = Array.from({ length: 450 }, (_, i) => table(`archive_${i + 1}`, `archive_${String(i + 1).padStart(3, '0')}`, `${(i + 1) * 12} records`));
+      else result = [];
+      break;
     }
     case 'browse': { session(a.sessionId as string); const count = Math.max(0, Math.min(a.limit as number, 100000 - (a.offset as number))); result = { ...base('Browse people'), table: tableRows(count, a.offset as number), edit_target: { node_id: a.nodeId as string, key_columns: ['id'] }, row_count: count, page: { offset: a.offset, limit: a.limit, has_more: (a.offset as number) + count < 100000 } }; break; }
     case 'preview': {

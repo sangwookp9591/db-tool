@@ -16,6 +16,7 @@ import { CommandPalette } from './CommandPalette';
 import { ToastStack, type ToastItem } from './ToastStack';
 import { Tooltip } from './Tooltip';
 import { SlidingIndicator } from './SlidingIndicator';
+import { GlideSelect } from './GlideSelect';
 import { SpotlightCard } from './SpotlightCard';
 import { Skeleton } from './Skeleton';
 import { IntegrationBeam, type IntegrationBeamHandle } from './IntegrationBeam';
@@ -35,6 +36,7 @@ function Gallery() {
   const [palette, setPalette] = useState(false);
   const [tooltip, setTooltip] = useState(false);
   const [segment, setSegment] = useState('Connections');
+  const [glide, setGlide] = useState('Two');
   const [loading, setLoading] = useState(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const beam = useRef<IntegrationBeamHandle>(null);
@@ -59,7 +61,8 @@ function Gallery() {
       <section><h2>11 · Toast stack</h2><Button bare type="button" onClick={() => setToasts(items => [...items, { id: String(Date.now()), message: 'Query completed · 128 rows', tone: 'success' }])}>Show notification</Button><p>Dismiss explicitly; messages remain available to keyboard and screen readers.</p></section>
       <section><h2>12 · Tooltip</h2><Tooltip open={tooltip} onOpenChange={setTooltip} content="Execute the current query · ⌘Enter"><Button bare type="button" aria-label="Gallery run query">Run query</Button></Tooltip><p>Hover or focus for help. Escape dismisses.</p></section>
       <section><h2>13 · Sliding indicator</h2><SlidingIndicator value={segment}><JellyRadio items={['Connections', 'History']} value={segment} onChange={setSegment} ariaLabel="Gallery workspace section" /></SlidingIndicator><p>The active section stays visible while selection moves.</p></section>
-      <section><h2>14 · Spotlight card</h2><SpotlightCard ariaLabel="Gallery connection card"><strong>Analytics workspace</strong><p>Read-only connection</p><Button bare type="button" onClick={() => setMessage('Connection selected')}>Select connection</Button></SpotlightCard></section>
+      <section><h2>14 · GlideSelect</h2><GlideSelect ariaLabel="Gallery glide select" value={glide} options={[{ value: 'One', label: 'One', tag: 'First' }, { value: 'Two', label: 'Two', tag: 'Selected' }, { value: 'Three', label: 'Three' }]} onChange={setGlide} /><p>Keyboard, typeahead, pointer scrubbing, and viewport flip.</p></section>
+      <section><h2>15 · Spotlight card</h2><SpotlightCard ariaLabel="Gallery connection card"><strong>Analytics workspace</strong><p>Read-only connection</p><Button bare type="button" onClick={() => setMessage('Connection selected')}>Select connection</Button></SpotlightCard></section>
       <section><h2>15 · Loading skeleton</h2><SpringCheck checked={loading} onChange={setLoading} label="Show loading skeleton" /><Skeleton running={loading} /><p>One entrance, then still. Outside result grids and canvases.</p></section>
       <section className="micro-gallery__beam"><h2>16 · Integration Beam</h2><IntegrationBeam controllerRef={beam} nodes={[
         { id: 'analytics', label: 'Analytics', side: 'source', state: 'connected' },

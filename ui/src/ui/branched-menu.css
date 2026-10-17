@@ -1,0 +1,40 @@
+/* BranchedMenu: independent re-implementation of a React Bits behavior. Colors follow AxDB tokens; lines are CSS boxes, not SVG paths. */
+.branched-menu, .explorer {
+  --bm-row: 28px; --bm-indent: 20px; --bm-trunk: 9px; --bm-r: 6px; --bm-draw: 400ms; --bm-fold: 300ms;
+  --bm-line: var(--border-default); --bm-accent: var(--accent-primary); --bm-ease: cubic-bezier(0.23, 1, 0.32, 1);
+}
+.bm-root { position: relative; display: flex; flex-direction: column; padding-left: 12px; min-width: 0; }
+.bm-root::before { content: ''; position: absolute; top: 4px; bottom: 0; left: 0; width: 2px; border-radius: 1px; background: linear-gradient(to bottom, var(--bm-line) 0%, var(--bm-line) 70%, transparent 100%); pointer-events: none; }
+.bm-fold { display: grid; grid-template-rows: 0fr; transition: grid-template-rows var(--bm-fold) var(--bm-ease); }
+.bm-fold[data-open] { grid-template-rows: 1fr; }
+.bm-fold__inner { min-height: 0; min-width: 0; overflow: hidden; }
+.bm-item { position: relative; min-width: 0; }
+.bm-fold .bm-item { padding-left: var(--bm-indent); }
+.bm-root > .bm-item > :is(.bm-trunk, .bm-elbow) { display: none; }
+.bm-trunk { position: absolute; top: 0; bottom: 0; left: calc(var(--bm-trunk) - 0.5px); width: 1px; background: var(--bm-line); pointer-events: none; }
+.bm-item[data-last] > .bm-trunk { bottom: auto; height: calc(var(--bm-row) / 2 - var(--bm-r)); }
+.bm-elbow { position: absolute; top: calc(var(--bm-row) / 2 - var(--bm-r)); left: calc(var(--bm-trunk) - 0.5px); width: calc(var(--bm-indent) - var(--bm-trunk) - 3px); height: var(--bm-r); border-left: 1px solid var(--bm-line); border-bottom: 1px solid var(--bm-line); border-bottom-left-radius: var(--bm-r); pointer-events: none; }
+/* Accent "reach": the trunk fills down to the active row, then the branch turns toward it. */
+.bm-trunk::after { content: ''; position: absolute; inset: 0; background: var(--bm-accent); transform: scaleY(0); transform-origin: top; transition: transform calc(var(--bm-draw) * 0.6) var(--bm-ease); }
+.bm-elbow::after { content: ''; position: absolute; inset: -1px 0 -1px -1px; border-left: 1px solid var(--bm-accent); border-bottom: 1px solid var(--bm-accent); border-bottom-left-radius: var(--bm-r); clip-path: inset(0 100% 0 0); transition: clip-path calc(var(--bm-draw) * 0.5) var(--bm-ease); }
+.bm-item[data-reach] > .bm-trunk::after { transform: scaleY(1); }
+.bm-item[data-reach=to] > .bm-trunk::after { bottom: auto; height: calc(var(--bm-row) / 2 - var(--bm-r)); }
+.bm-item[data-reach=to] > .bm-elbow::after { clip-path: inset(0 0 0 0); transition-delay: calc(var(--bm-draw) * 0.5); }
+.bm-row { position: relative; display: flex; align-items: center; min-width: 0; min-height: var(--bm-row); }
+/* Rail marker beside the section that holds the active row. */
+.bm-root > .bm-item[data-section-active] > .bm-row::before { content: ''; position: absolute; left: -12px; top: calc(50% - 8px); width: 2px; height: 16px; border-radius: 1px; background: var(--bm-accent); animation: bm-marker 160ms ease-out; pointer-events: none; }
+@keyframes bm-marker { from { opacity: 0; } }
+.bm-button { display: flex; align-items: center; gap: 8px; width: 100%; min-height: var(--bm-row); margin: 0; padding: 0 8px 0 4px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text-secondary); font: inherit; text-align: left; cursor: pointer; transition: color 160ms ease; }
+:root .branched-menu .bm-button { justify-content: flex-start; border: 0; background: none; box-shadow: none; min-height: var(--bm-row); padding: 0 8px 0 4px; font-weight: 400; }
+:root .branched-menu .bm-button[data-active] { font-weight: 500; }
+.bm-button:hover { color: var(--text-primary); }
+.bm-button:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: -2px; }
+.bm-button[aria-expanded=true], .bm-root > .bm-item[data-section-active] > .bm-row > .bm-button { color: var(--text-primary); }
+.bm-button[data-active] { color: var(--bm-accent); font-weight: 500; }
+.bm-icon { display: inline-flex; flex: none; }
+.bm-icon svg { width: 14px; height: 14px; }
+.bm-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) {
+  .bm-fold, .bm-trunk::after, .bm-elbow::after { transition: none; }
+  .bm-root > .bm-item[data-section-active] > .bm-row::before { animation: none; }
+}
