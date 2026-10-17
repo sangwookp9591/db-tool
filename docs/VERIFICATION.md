@@ -163,6 +163,7 @@
 | 1 플러그인 구조 | 관계형 2개 + SQLite | **MongoDB**(M1, 문서)와 **Redis**(R1, 키-값: SCAN 계층, 자료형별 표, TYPE·TTL, 허용 목록 읽기 전용)를 추가했다. 두 경우 모두 ui/dbcore 변경은 0이다 | 실제 Mongo·Redis 계약 테스트, 실제 앱 MCP로 Redis 탐색·HGETALL/ZRANGE·SET 거부 확인, UI driver-id grep 0 |
 | 2 뷰어·연결 탐색 | 표, 그래프, 결과 내 전환 (재사용) | **ERD/스키마 그래프**(PG FK, SQLite, Neo4j, **Mongo 샘플 추론 참조**(M2)), **가상화 JSON 트리**, **FK 셀 → 참조 행**, **그래프↔표 선택 동기화**, **탐색 이력**(V1) | 실제 DB, 팬·줌 p95 16.8ms |
 | 3 변경 미리보기 | 없음 | **실행 후 반드시 롤백**하는 데이터·스키마 diff. 롤백할 수 없는 문장은 거부(C1, PG·Neo4j·SQLite) | preview-e2e 5/5 |
+| 3 표 편집(C2) | 없음 | browse 표에서 셀 수정·행 추가·삭제 → **미리보기 필수** → 단일 트랜잭션 적용(PG·SQLite, 기본 키 필요, 값은 바인딩, Update/Delete 정확히 1행 아니면 전체 롤백). 읽기 전용 연결과 기본 키 없는 표는 편집 불가([C2 보고서](C2_EDIT_REPORT.md), [UI](C2_EDIT_REPORT_UI.md)) | 실제 앱 네이티브 흐름 + psql 전후 확인([C2_NATIVE_E2E](C2_NATIVE_E2E.md)), Rust 94/0, vitest 69 |
 | 4 권한·읽기 전용 | 에이전트 읽기 전용 + 승인 (재사용) | **연결별 read_only**(host 강제), **클라이언트별 권한 프로필**(A1) | permissions-e2e 13/13 |
 | 5 MCP 권한 | 단일 토큰 브리지 (재사용) | **범위 토큰**(해시 저장), 연결별 none/read/preview/write_with_approval, 허용 도구, 감사 로그, 회전·폐기 | 13/13 + 외부 에이전트 시나리오 |
 | 6 AI 지원 | 없음 | **맥락 MCP 도구 3종**, 선택 기능 Anthropic 도우미(기본 꺼짐, 생성 쿼리는 실행하지 않음)(AI1/AI1b) | [시나리오](../bench/results-ai-agent-scenario.md). 실제 API 호출은 미검증 |
