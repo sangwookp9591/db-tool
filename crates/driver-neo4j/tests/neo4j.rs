@@ -64,7 +64,9 @@ async fn real_neo4j_contract() {
         assert_eq!(table.rows.len(), count);
     }
 
-    assert!(s.server_info().await.unwrap().contains("Neo4j"));
+    let server_info = s.server_info().await.unwrap();
+    assert!(server_info.starts_with("Neo4j 5.26.30"), "{server_info}");
+    assert!(!server_info.contains("[[Text("), "{server_info}");
     let mut parameter = req("RETURN $n AS n, $map AS m, $list AS l");
     parameter.params=serde_json::json!({"n":{"t":"Int","v":"9007199254740993"},"map":{"a":true},"list":[1,null,"x"]}).as_object().unwrap().clone();
     let result = s

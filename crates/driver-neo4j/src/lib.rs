@@ -366,15 +366,20 @@ impl Session for NeoSession {
     async fn server_info(&self) -> Result<String, DbError> {
         let result = self
             .internal(
-                "CALL dbms.components() YIELD name, versions RETURN name, versions".into(),
+                "CALL dbms.components() YIELD name, versions, edition RETURN name, versions, edition".into(),
                 Default::default(),
             )
             .await?;
-        let cells = &result
+        let table = result
             .table
-            .ok_or_else(|| DbError::query("Missing server information"))?
-            .rows;
-        Ok(format!("Neo4j {cells:?}"))
+            .ok_or_else(|| DbError::query("Missing server information"))?;
+        let row = table.rows.first().ok_or_else(|| DbError::query("Missing server version"))?;
+        let version = first_text(row.get(1)).ok_or_else(|| DbError::query("Missing server version"))?;
+        let edition = row.get(2).and_then(|value| first_text(Some(value))).filter(|value| !value.is_empty());
+        Ok(match edition {
+            Some(edition) => format!("Neo4j {version} ({edition})"),
+            None => format!("Neo4j {version}"),
+        })
     }
     async fn execute(
         &self,
@@ -415,5 +420,24 @@ impl Session for NeoSession {
     }
     async fn close(&self) {
         self.closed.store(true, Ordering::Release);
+    }
+}
+
+fn first_text(value: Option<&Value>) -> Option<&str> {
+    match value? {
+        Value::Text(text) => Some(text),
+        Value::List(values) => values.iter().find_map(|value| first_text(Some(value))),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod server_info_tests {
+    use super::*;
+
+    #[test]
+    fn extracts_version_from_nested_component_values() {
+        let value = Value::List(vec![Value::List(vec![Value::Text("5.26.30".into())])]);
+        assert_eq!(first_text(Some(&value)), Some("5.26.30"));
     }
 }
