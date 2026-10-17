@@ -31,12 +31,15 @@ export function Connections(props: Props) {
     menu.style.top = `${rect.bottom + 3 + menu.offsetHeight > innerHeight - 8 ? Math.max(8, rect.top - 3 - menu.offsetHeight) : rect.bottom + 3}px`;
   }
   const closeMenus = () => list.current?.querySelectorAll('details[open]').forEach(d => d.removeAttribute('open'));
-  useEffect(() => { list.current?.querySelector('.connection[data-active]')?.scrollIntoView({ block: 'nearest' }); }, [activeId, props.profiles.length]);
+  // Fade the clipped edges of the scrolling list so a neighbouring card never reads as a text fragment overlapping its sibling.
+  const listEdges = () => { const el = list.current; if (el) el.dataset.edge = [el.scrollTop > 1 && 'start', el.scrollTop < el.scrollHeight - el.clientHeight - 1 && 'end'].filter(Boolean).join(' '); };
+  useEffect(() => { const el = list.current; if (!el) return; const observer = new ResizeObserver(listEdges); observer.observe(el); listEdges(); return () => observer.disconnect(); }, [props.profiles.length, search]);
+  useEffect(() => { list.current?.querySelector('.connection[data-active]')?.scrollIntoView({ block: 'nearest' }); listEdges(); }, [activeId, props.profiles.length]);
   useEffect(() => { if (props.addRequest) setEditing('new'); }, [props.addRequest]);
   useEffect(() => { if (props.editRequest) setEditing(props.profiles.find(profile => profile.id === props.editRequest?.id) ?? null); }, [props.editRequest]);
   async function task(id: string, callback: () => Promise<void>) { setBusy(id); try { await callback(); } catch (e) { props.onError(e, id); } finally { setBusy(null); } }
   return <aside class="connections" aria-label="Connections"><div class="sidebar-heading">작업공간<small>연결된 데이터베이스를 탐색하세요.</small></div><div class="connection-search"><Search /><input aria-label="Search connections" placeholder="연결 검색…" value={search} onInput={e => setSearch(e.currentTarget.value)} /><kbd>⌘ K</kbd></div><div class="section-title"><strong>연결</strong><Button morph={false} onClick={() => setEditing('new')} aria-label="Add connection" data-testid="add-connection"><Plus /></Button></div>
-    <div class="connection-list" ref={list} onScroll={closeMenus}>{props.profiles.filter(profile => `${profile.name} ${props.drivers.find(d => d.id === profile.driver_id)?.display_name ?? ''}`.toLocaleLowerCase().includes(search.toLocaleLowerCase())).map(profile => {
+    <div class="connection-list" ref={list} onScroll={() => { closeMenus(); listEdges(); }}>{props.profiles.filter(profile => `${profile.name} ${props.drivers.find(d => d.id === profile.driver_id)?.display_name ?? ''}`.toLocaleLowerCase().includes(search.toLocaleLowerCase())).map(profile => {
       const manifest = props.drivers.find(d => d.id === profile.driver_id);
       const Tile = manifest?.paradigm === 'Graph' ? Share2 : manifest?.paradigm === 'Document' ? FileJson : manifest?.paradigm === 'KeyValue' ? KeyRound : Database;
       const connected = !!props.sessions[profile.id] && !props.dead.has(profile.id);
