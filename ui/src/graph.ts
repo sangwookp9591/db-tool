@@ -29,7 +29,7 @@ export function fitGraph(nodes: Pick<GraphPosition, 'x' | 'y'>[], width: number,
   let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity;
   for (const n of nodes) { left = Math.min(left, n.x - 20); right = Math.max(right, n.x + 20); top = Math.min(top, n.y - 20); bottom = Math.max(bottom, n.y + 20); }
   padding = Math.min(padding, Math.max(0, width / 6), Math.max(0, height / 6));
-  const scale = Math.max(.001, Math.min(2, Math.max(1, width - padding * 2) / (right - left), Math.max(1, height - padding * 2) / (bottom - top)));
+  const scale = Math.max(.001, Math.min(4, Math.max(1, width - padding * 2) / (right - left), Math.max(1, height - padding * 2) / (bottom - top)));
   return { x: -(left + right) / 2 * scale, y: -(top + bottom) / 2 * scale, scale };
 }
 export function relationOffsets(rels: Graph['rels']) {
