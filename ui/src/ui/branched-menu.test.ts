@@ -109,7 +109,7 @@ describe('sidebar explorer (mock app)', () => {
     const sidebar = await page.locator('.app').getAttribute('data-sidebar-open');
     if (sidebar !== 'true') await page.getByLabel('Connections panel').click();
     await live('Graph playground');
-    await page.getByLabel('Expand Labels').waitFor();
+    await page.getByLabel('Expand 레이블').waitFor();
     await live('Analytics sandbox');
     await page.getByLabel('Expand public').waitFor({ state: 'attached' });
   }, 30000);
@@ -121,7 +121,7 @@ describe('sidebar explorer (mock app)', () => {
     expect(overflow).toEqual(['hidden', 'auto', 'auto']);
     // Selecting the other connection's card swaps which explorer is shown.
     await page.locator('.connection', { hasText: 'Graph playground' }).click();
-    expect(await page.locator('.explorer-region:not([hidden]) [aria-label="Expand Labels"]').count()).toBe(1);
+    expect(await page.locator('.explorer-region:not([hidden]) [aria-label="Expand 레이블"]').count()).toBe(1);
     await page.locator('.connection', { hasText: 'Analytics sandbox' }).click();
     expect(await page.locator('.explorer-region:not([hidden]) [aria-label="Expand public"]').count()).toBe(1);
   });
@@ -134,6 +134,9 @@ describe('sidebar explorer (mock app)', () => {
     await page.getByRole('button', { name: 'created_at', exact: true }).click();
     expect(await page.locator('.bm-item[data-reach=to] [aria-current=true]').count()).toBe(1);
     expect(await page.locator('.explorer .bm-root > .bm-item[data-section-active]').count()).toBe(1);
+    // U4: the active card is pinned inside its list, and a column name wins over its type text.
+    expect(await page.locator('.connection[data-active]').evaluate(el => getComputedStyle(el).position)).toBe('sticky');
+    expect(await page.locator('.explorer-region:not([hidden]) .tree-label', { hasText: 'created_at' }).evaluate(el => { const name = el.querySelector('span')!; return name.scrollWidth <= name.clientWidth; })).toBe(true);
     // Keyboard: Left on a leaf goes to its parent, Left again closes it, Right reopens, Down moves on.
     await page.getByRole('button', { name: 'id', exact: true }).focus();
     await page.keyboard.press('ArrowLeft');

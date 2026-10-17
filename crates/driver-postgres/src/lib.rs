@@ -705,7 +705,7 @@ impl Session for PgSession {
         let path = parse_path(parent)?;
         match path.iter().map(String::as_str).collect::<Vec<_>>().as_slice() {
             ["schema",schema]=>{
-                for (kind,label) in [("tables","Tables"),("views","Views")] { nodes.push(node(path_id(&["folder",schema,kind]),label,"folder",Icon::Folder,true,None)); }
+                for (kind,label) in [("tables","테이블"),("views","뷰")] { nodes.push(node(path_id(&["folder",schema,kind]),label,"folder",Icon::Folder,true,None)); }
             }
             ["folder",schema,kind] if matches!(*kind,"tables"|"views")=>{
                 let relkinds=if *kind=="tables" { vec!["r","p","f"] } else { vec!["v","m"] };
@@ -717,7 +717,7 @@ impl Session for PgSession {
                 }
             }
             ["table",schema,kind,table]=>{
-                for (folder,label,icon) in [("columns","Columns",Icon::Column),("indexes","Indexes",Icon::Index)] { nodes.push(node(path_id(&[folder,schema,kind,table]),label,"folder",icon,true,None)); }
+                for (folder,label,icon) in [("columns","컬럼",Icon::Column),("indexes","인덱스",Icon::Index)] { nodes.push(node(path_id(&[folder,schema,kind,table]),label,"folder",icon,true,None)); }
             }
             ["columns",schema,_,table]=>{
                 for row in self.client.query("SELECT a.attname, format_type(a.atttypid,a.atttypmod), NOT a.attnotnull, EXISTS(SELECT 1 FROM pg_index i WHERE i.indrelid=c.oid AND i.indisprimary AND a.attnum=ANY(i.indkey)) FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=$1 AND c.relname=$2 AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum",&[schema,table]).await.map_err(|e|self.error(e))? {

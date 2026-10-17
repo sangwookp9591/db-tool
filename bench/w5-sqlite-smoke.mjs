@@ -36,7 +36,7 @@ const opened = await tool('open_connection', { profile_id: profile.id });
 assert(opened.session_id, JSON.stringify(opened));
 const session_id = opened.session_id;
 const roots = await tool('explore', { session_id });
-assert.deepEqual(roots.map(n => n.label), ['Tables', 'Views']);
+assert.deepEqual(roots.map(n => n.id), ['tables', 'views']); // ids are stable; display labels are localized
 const tables = await tool('explore', { session_id, parent: roots[0].id });
 const table = tables.find(n => n.label === 'w5_samples'); assert(table);
 const folders = await tool('explore', { session_id, parent: table.id });

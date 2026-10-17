@@ -85,10 +85,10 @@ impl NeoSession {
     pub(crate) async fn explore(&self, parent: Option<&str>) -> Result<Vec<ExplorerNode>, DbError> {
         let Some(parent) = parent else {
             return Ok([
-                ("labels", "Labels"),
-                ("relationships", "Relationship Types"),
-                ("properties", "Property Keys"),
-                ("schema", "Indexes & Constraints"),
+                ("labels", "레이블"),
+                ("relationships", "관계 유형"),
+                ("properties", "속성 키"),
+                ("schema", "인덱스·제약 조건"),
             ]
             .into_iter()
             .map(|(kind, name)| node(kind, name, Icon::Folder, true))

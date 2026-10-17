@@ -625,7 +625,7 @@ impl Session for MongoSession {
             ["collection", database, collection] => Ok(vec![
                 node(
                     &["fields", database, collection],
-                    "Fields",
+                    "필드",
                     "folder",
                     Icon::Folder,
                     true,
@@ -633,7 +633,7 @@ impl Session for MongoSession {
                 ),
                 node(
                     &["indexes", database, collection],
-                    "Indexes",
+                    "인덱스",
                     "folder",
                     Icon::Folder,
                     true,

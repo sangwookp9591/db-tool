@@ -184,7 +184,7 @@ async fn schema(host: &Host, id: &str, focus: &str) -> Result<(String, bool), Db
         }
         let mut roots = record.session.list_children(None).await?;
         let focus_lower = focus.to_lowercase();
-        roots.sort_by_key(|n| !focus_lower.contains(&n.label.to_lowercase()));
+        roots.sort_by_key(|n| !(focus_lower.contains(&n.label.to_lowercase()) || focus_lower.contains(&n.id.to_lowercase())));
         let limited = roots.len() > 100;
         let mut chunks = Vec::new();
         let mut scopes = HashSet::new();
@@ -213,6 +213,7 @@ async fn schema(host: &Host, id: &str, focus: &str) -> Result<(String, bool), Db
                 continue;
             }
             let matches = focus_lower.contains(&root.label.to_lowercase())
+                || focus_lower.contains(&root.id.to_lowercase())
                 || graph.entities.iter().any(|e| {
                     focus_lower.contains(&e.name.to_lowercase())
                         || e.id.to_lowercase().contains(&focus_lower)

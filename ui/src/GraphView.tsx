@@ -135,11 +135,20 @@ export function GraphView({ graph: initial, sessionId, canExpand, limit, onError
       if (!schema && (nodes.length <= 300 || scale >= .6)) { const zoomedOut = scale < 1, size = zoomedOut ? 11 / scale : 11; context.font = `${size}px ${palette.font}`; context.fillStyle = palette.text; 
         // Greedy declutter (<=300 shown): highlighted nodes claim space first, later labels that would overlap are skipped.
         const crowded = shown.length <= 300, rects = labelRects.current; let placed = 0;
+        const gap = zoomedOut ? 14 / scale : 14;
         const draw1 = (n: LayoutNode) => {
-          const text = zoomedOut ? n.short : n.caption, y = n.y + 17 + (zoomedOut ? 14 / scale : 14);
+          const text = zoomedOut ? n.short : n.caption;
+          let y = n.y + 17 + gap;
           if (crowded) {
-            const w = text.length * size * .58, x0 = n.x - w / 2, y0 = y - size, h = size * 1.15;
-            for (let i = 0; i < placed; i += 4) if (x0 < rects[i] + rects[i + 2] && x0 + w > rects[i] && y0 < rects[i + 1] + rects[i + 3] && y0 + h > rects[i + 1]) return;
+            const w = text.length * size * .58, x0 = n.x - w / 2, h = size * 1.15;
+            // Below the node first, then above it; a spot is rejected when it hits an earlier label or a neighbouring node dot.
+            const fits = (y0: number) => {
+              for (let i = 0; i < placed; i += 4) if (x0 < rects[i] + rects[i + 2] && x0 + w > rects[i] && y0 < rects[i + 1] + rects[i + 3] && y0 + h > rects[i + 1]) return false;
+              for (const m of shown) if (m !== n && x0 < m.x + 17 && x0 + w > m.x - 17 && y0 < m.y + 17 && y0 + h > m.y - 17) return false;
+              return true;
+            };
+            let y0 = y - size;
+            if (!fits(y0)) { y = n.y - 17 - 5; y0 = y - size; if (!fits(y0)) return; }
             rects[placed] = x0; rects[placed + 1] = y0; rects[placed + 2] = w; rects[placed + 3] = h; placed += 4;
           }
           context.fillText(text, n.x, y);

@@ -8,6 +8,7 @@ import type { DriverManifest, Profile, ExplorerNode, NodeAction } from './contra
 import { api, isMock } from './api';
 import { Dialog } from './Dialog';
 import { GlideSelect } from './ui/GlideSelect';
+import { Skeleton } from './ui/Skeleton';
 import { BranchGroup, BranchItem, reachIndex, reachState, toggleOpen, treeKey } from './ui/BranchedMenu';
 interface Props { editRequest?: {id:string;sequence:number} | null; onNodes?: (profileId: string, nodes: ExplorerNode[]) => void; addRequest?: number; drivers: DriverManifest[]; profiles: Profile[]; sessions: Record<string, string>; dead: Set<string>; onProfiles: () => Promise<void>; onConnect: (profile: Profile, secret?: string | null) => Promise<void>; onDisconnect: (profile: Profile) => Promise<void>; onQuery: (profile: Profile, text?: string) => void; onAction: (profile: Profile, node: ExplorerNode, action: NodeAction) => void; onError: (error: unknown, profileId?: string) => void }
 export function Connections(props: Props) {
@@ -30,7 +31,7 @@ export function Connections(props: Props) {
     menu.style.top = `${rect.bottom + 3 + menu.offsetHeight > innerHeight - 8 ? Math.max(8, rect.top - 3 - menu.offsetHeight) : rect.bottom + 3}px`;
   }
   const closeMenus = () => list.current?.querySelectorAll('details[open]').forEach(d => d.removeAttribute('open'));
-  useEffect(() => { list.current?.querySelector('.connection[data-active]')?.scrollIntoView({ block: 'nearest' }); }, [activeId]);
+  useEffect(() => { list.current?.querySelector('.connection[data-active]')?.scrollIntoView({ block: 'nearest' }); }, [activeId, props.profiles.length]);
   useEffect(() => { if (props.addRequest) setEditing('new'); }, [props.addRequest]);
   useEffect(() => { if (props.editRequest) setEditing(props.profiles.find(profile => profile.id === props.editRequest?.id) ?? null); }, [props.editRequest]);
   async function task(id: string, callback: () => Promise<void>) { setBusy(id); try { await callback(); } catch (e) { props.onError(e, id); } finally { setBusy(null); } }
@@ -161,7 +162,7 @@ function Explorer({ sessionId, manifest, onAction, onError, onNodes }: { onNodes
         row={<div class="tree-node" onContextMenu={e => { e.preventDefault(); setActive(node.id); setMenu({ node, x: Math.min(e.clientX, innerWidth - 180), y: Math.min(e.clientY, innerHeight - 140) }); }} onDblClick={() => { const action = actions(node)[0]; if (action) run(node, action); }}>
           <Button bare class="tree-toggle" disabled={!node.has_children} onClick={() => void toggle(node)} aria-label={`${open.has(node.id) ? 'Collapse' : 'Expand'} ${node.label}`} aria-expanded={node.has_children ? open.has(node.id) : undefined}>{node.has_children ? open.has(node.id) ? <ChevronDown /> : <ChevronRight /> : <Minus />}</Button><Button bare class="tree-label" data-testid="tree-item" data-node-id={node.id} data-parent={parentId} data-open={node.has_children ? String(open.has(node.id)) : undefined} data-active={active === node.id ? '' : undefined} aria-current={active === node.id ? 'true' : undefined} aria-label={node.label} title={node.detail ?? node.label} onClick={() => { setActive(node.id); if (node.has_children) void toggle(node); }} onKeyDown={e => { if (e.key === 'Enter') { const action = actions(node)[0]; if (action) run(node, action); } }}><ExplorerIcon icon={node.icon} /><span>{node.label}</span><small>{node.detail}</small></Button>{!!actions(node).length && <Button morph={false} aria-label={`Actions for ${node.label}`} onClick={e => { e.stopPropagation(); setActive(node.id); const rect = e.currentTarget.getBoundingClientRect(); setMenu({ node, x: rect.right, y: rect.bottom }); }}><MoreHorizontal /></Button>}
         </div>}
-        nested={node.has_children ? <BranchGroup open={isOpen}>{render(children[node.id] ?? [], depth + 1, node.id)}</BranchGroup> : undefined} />;
+        nested={node.has_children ? <BranchGroup open={isOpen}>{!children[node.id] && loading.has(node.id) ? <div class="tree-loading"><Skeleton running rows={2} aria-label="Loading children" /></div> : render(children[node.id] ?? [], depth + 1, node.id)}</BranchGroup> : undefined} />;
     })}{more > 0 && <BranchItem last row={<Button bare class="tree-more" aria-label={`Show more in ${byId.get(parentId)?.label ?? 'explorer'}`} onClick={() => setLimits(l => ({ ...l, [parentId]: limit + GROUP_PAGE }))}>+{more} 더 보기</Button>} />}</>;
   }
   return <div class="explorer"><div class="toolbar"><input value={filter} onInput={e => setFilter(e.currentTarget.value)} placeholder="탐색 항목 필터" aria-label="Filter explorer" /><Button morph={false} onClick={() => setVersion(v => v + 1)} aria-label="Refresh explorer"><RefreshCw /></Button></div><div class="explorer-scroll" ref={tree} onKeyDown={onKeyDown}>{loading.has('$root') ? <p>불러오는 중…</p> : <div class="bm-root">{render(children.$root ?? [], 0, '$root')}</div>}</div>{menu && <div class="context-menu" role="menu" style={{ left: `${menu.x}px`, top: `${menu.y}px` }}>{actions(menu.node).map(action => <Button morph={false} role="menuitem" key={action.id} onClick={() => { run(menu.node, action); setMenu(null); }}>{action.label}</Button>)}</div>}</div>;

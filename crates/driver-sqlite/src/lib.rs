@@ -334,7 +334,7 @@ impl Session for SqliteSession {
     async fn list_children(&self, parent: Option<&str>) -> Result<Vec<ExplorerNode>, DbError> {
         let parent = parent.map(str::to_owned);
         self.with_connection(move |c| {
-            let Some(parent) = parent else { let mut tables=node("tables".into(), "Tables", Icon::Folder, true); tables.actions.push(NodeAction {id:"diagram".into(),label:"다이어그램 보기".into(),kind:NodeActionKind::OpenSchemaGraph {scope:None}}); return Ok(vec![tables,node("views".into(), "Views", Icon::Folder, true)]); };
+            let Some(parent) = parent else { let mut tables=node("tables".into(), "테이블", Icon::Folder, true); tables.actions.push(NodeAction {id:"diagram".into(),label:"다이어그램 보기".into(),kind:NodeActionKind::OpenSchemaGraph {scope:None}}); return Ok(vec![tables,node("views".into(), "뷰", Icon::Folder, true)]); };
             if parent == "tables" || parent == "views" {
                 let mut stmt = c.prepare("SELECT name FROM sqlite_master WHERE type=?1 AND name NOT LIKE 'sqlite_%' ORDER BY name").map_err(sql_error)?;
                 let names = stmt.query_map([if parent == "tables" { "table" } else { "view" }], |r| r.get::<_, String>(0)).map_err(sql_error)?;
@@ -347,7 +347,7 @@ impl Session for SqliteSession {
                 }).collect();
             }
             if let Some(name) = parent.strip_prefix("table:") {
-                return Ok(vec![node(format!("columns:{name}"), "Columns", Icon::Folder, true), node(format!("indexes:{name}"), "Indexes", Icon::Folder, true)]);
+                return Ok(vec![node(format!("columns:{name}"), "컬럼", Icon::Folder, true), node(format!("indexes:{name}"), "인덱스", Icon::Folder, true)]);
             }
             if let Some(name) = parent.strip_prefix("columns:") {
                 let mut stmt = c.prepare("SELECT name, type, pk FROM pragma_table_info(?1) ORDER BY cid").map_err(sql_error)?;
