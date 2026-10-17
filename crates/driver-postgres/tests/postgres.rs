@@ -169,7 +169,7 @@ async fn real_postgres_contract() {
     let folders = s.list_children(Some(&schema.id)).await.unwrap();
     let tables = s
         .list_children(Some(
-            &folders.iter().find(|n| n.label == "Tables").unwrap().id,
+            &folders.iter().find(|n| n.label == "테이블").unwrap().id,
         ))
         .await
         .unwrap();
@@ -178,14 +178,14 @@ async fn real_postgres_contract() {
     let children = s.list_children(Some(&table.id)).await.unwrap();
     let cols = s
         .list_children(Some(
-            &children.iter().find(|n| n.label == "Columns").unwrap().id,
+            &children.iter().find(|n| n.label == "컬럼").unwrap().id,
         ))
         .await
         .unwrap();
     assert!(cols[0].detail.as_ref().unwrap().contains("PK"));
     let indexes = s
         .list_children(Some(
-            &children.iter().find(|n| n.label == "Indexes").unwrap().id,
+            &children.iter().find(|n| n.label == "인덱스").unwrap().id,
         ))
         .await
         .unwrap();

@@ -236,7 +236,7 @@ async fn real_neo4j_contract() {
     assert_eq!(roots.len(), 4);
     let labels = s
         .list_children(Some(
-            &roots.iter().find(|n| n.label == "Labels").unwrap().id,
+            &roots.iter().find(|n| n.label == "레이블").unwrap().id,
         ))
         .await
         .unwrap();
@@ -247,9 +247,9 @@ async fn real_neo4j_contract() {
         && n.detail
             .as_ref()
             .is_some_and(|v| v.contains("Integer") || v.contains("Long"))));
-    for root in roots.iter().filter(|n| n.label != "Labels") {
+    for root in roots.iter().filter(|n| n.label != "레이블") {
         let children = s.list_children(Some(&root.id)).await.unwrap();
-        if root.label == "Relationship Types" {
+        if root.label == "관계 유형" {
             let rel = children.iter().find(|n| n.label == "DbtT_LINK").unwrap();
             let result = s
                 .browse(
@@ -263,7 +263,7 @@ async fn real_neo4j_contract() {
                 .unwrap();
             assert!(result.graph.is_some());
         }
-        if root.label == "Property Keys" {
+        if root.label == "속성 키" {
             assert!(children.iter().any(|n| n.label == "i"));
         }
     }

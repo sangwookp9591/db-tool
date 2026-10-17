@@ -252,7 +252,7 @@ async fn real_contract() {
     let folders = s.list_children(Some(&collection.id)).await.unwrap();
     let fields = s
         .list_children(Some(
-            &folders.iter().find(|n| n.label == "Fields").unwrap().id,
+            &folders.iter().find(|n| n.label == "필드").unwrap().id,
         ))
         .await
         .unwrap();
@@ -261,7 +261,7 @@ async fn real_contract() {
         .any(|n| n.label == "n" && n.detail.as_deref() == Some("Int32")));
     let indexes = s
         .list_children(Some(
-            &folders.iter().find(|n| n.label == "Indexes").unwrap().id,
+            &folders.iter().find(|n| n.label == "인덱스").unwrap().id,
         ))
         .await
         .unwrap();

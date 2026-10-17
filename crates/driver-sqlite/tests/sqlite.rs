@@ -83,7 +83,7 @@ async fn values_limits_errors_and_explorer() {
             .kind,
         ErrorKind::Query
     );
-    assert_eq!(s.list_children(None).await.unwrap()[0].label, "Tables");
+    assert_eq!(s.list_children(None).await.unwrap()[0].label, "테이블");
     let tables = s.list_children(Some("tables")).await.unwrap();
     assert_eq!(tables.len(), 1);
     assert_eq!(tables[0].actions.len(), 2);
@@ -93,7 +93,7 @@ async fn values_limits_errors_and_explorer() {
     );
     assert_eq!(
         s.list_children(Some("table:sample")).await.unwrap()[0].label,
-        "Columns"
+        "컬럼"
     );
     let cols = s.list_children(Some("columns:sample")).await.unwrap();
     assert_eq!(cols[0].icon, Icon::Key);
