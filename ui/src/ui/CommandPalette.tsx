@@ -2,13 +2,21 @@ import { Button } from './Button';
 // Interaction reference: shadcn/ui Command (MIT), https://21st.dev/@shadcn/components/command; independent Preact implementation.
 import { useId, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { Dialog } from '../Dialog';
+import { Clock3, Database, FileCode2, Table2 } from 'lucide-preact';
 import type { MicroAccessibility } from './accessibility';
 import './micro.css';
 
-export interface CommandItem { id: string; label: string; group?: string; keywords?: string; disabled?: boolean; onSelect: () => void }
+export interface CommandItem { id: string; label: string; group?: string; kind?: 'connection' | 'table' | 'query' | 'history'; keywords?: string; disabled?: boolean; onSelect: () => void }
 export function filterCommands(items: readonly CommandItem[], query: string) {
   const words = query.normalize('NFC').toLocaleLowerCase().trim().split(/\s+/);
-  return items.filter(item => words.every(word => `${item.label} ${item.group ?? ''} ${item.keywords ?? ''}`.normalize('NFC').toLocaleLowerCase().includes(word)));
+  const recentLabels = new Set<string>();
+  return items.filter(item => {
+    if (item.group?.startsWith('Recent ·')) {
+      if (recentLabels.has(item.label)) return false;
+      recentLabels.add(item.label);
+    }
+    return words.every(word => `${item.label} ${item.group ?? ''} ${item.keywords ?? ''}`.normalize('NFC').toLocaleLowerCase().includes(word));
+  });
 }
 export interface CommandPaletteProps extends MicroAccessibility { open: boolean; onOpenChange: (open: boolean) => void; items: readonly CommandItem[] }
 export function CommandPalette({ open, onOpenChange, items, ...accessibility }: CommandPaletteProps) {
@@ -34,7 +42,7 @@ export function CommandPalette({ open, onOpenChange, items, ...accessibility }: 
   if (!open) return null;
   return <Dialog title="작업공간 검색" label={accessibility['aria-label'] ?? accessibility.ariaLabel ?? 'Command palette'} onClose={() => onOpenChange(false)}>
     <div className="command-palette micro" data-testid={accessibility['data-testid'] ?? accessibility.testId}>
-      <div className="command-palette__search"><input autoFocus role="combobox" aria-label="Search commands" aria-expanded="true" aria-autocomplete="list" aria-controls={listId}
+      <div className="command-palette__search"><input autoFocus autocorrect="off" autocapitalize="off" spellcheck={false} role="combobox" aria-label="Search commands" aria-expanded="true" aria-autocomplete="list" aria-controls={listId}
         aria-activedescendant={current ? `${listId}-${visible.indexOf(current)}` : undefined} value={query} placeholder="연결, 테이블, 최근 쿼리 검색…"
         onInput={e => { setQuery(e.currentTarget.value); setSelected(''); }} onKeyDown={e => {
           if (e.isComposing) return;
@@ -47,7 +55,7 @@ export function CommandPalette({ open, onOpenChange, items, ...accessibility }: 
       <div ref={list} id={listId} role="listbox" aria-label="Commands" className="command-palette__list">
         {visible.map((item, i) => <div key={item.id} id={`${listId}-${i}`} role="option" aria-selected={current?.id === item.id} aria-disabled={item.disabled || undefined}
           onPointerMove={() => { if (!item.disabled) setSelected(item.id); }} onMouseDown={e => e.preventDefault()} onClick={() => select(item)}>
-          <span>{item.label}</span>{item.group && <small>{item.group}</small>}
+          {(() => { const Icon = item.kind === 'connection' || item.group === 'Connections' ? Database : item.kind === 'table' || item.id.startsWith('node:') ? Table2 : item.kind === 'history' || item.id === 'history' ? Clock3 : item.group?.startsWith('Recent ·') ? FileCode2 : null; return Icon ? <Icon aria-hidden="true" /> : null; })()}<span>{item.label}</span>{item.group && <small>{item.group}</small>}
         </div>)}
       </div>
       {!visible.length && <p role="status">일치하는 항목이 없습니다</p>}

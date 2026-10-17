@@ -16,6 +16,13 @@ it('command search matches every word across label, group and keywords with Unic
   expect(filterCommands(items, '  ')).toEqual(items);
 });
 
+it('command search keeps only the newest matching recent entry with identical query text', () => {
+  const newest = { id: 'history:0', label: 'SELECT 1', group: 'Recent · Local', onSelect: () => {} };
+  const older = { id: 'history:1', label: 'SELECT 1', group: 'Recent · Archive', onSelect: () => {} };
+  const other = { id: 'history:2', label: 'SELECT 2', group: 'Recent · Local', onSelect: () => {} };
+  expect(filterCommands([newest, older, other], '')).toEqual([newest, other]);
+});
+
 it('beam curve preserves endpoints and reverses consistently in horizontal and vertical layouts', () => {
   for (const end of [{ x: 100, y: 30 }, { x: 30, y: 100 }]) {
     const start = { x: 0, y: 0 };
