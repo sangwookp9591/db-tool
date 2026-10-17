@@ -8,4 +8,9 @@
 .call-chip .call-chip__retry{position:absolute;inset:-1px;z-index:2;min-height:0;margin:0;padding:0;border:0;border-radius:inherit;background:transparent;color:transparent;cursor:pointer;box-shadow:none}.call-chip .call-chip__retry:hover:enabled{border:0;background:transparent;color:transparent}.call-chip__retry:focus-visible{outline:2px solid var(--border-focus);outline-offset:-3px}
 .call-chip__sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 @media(prefers-reduced-motion:reduce){.call-chip__fill{transition:none!important}.call-chip__icon{animation:none!important}}
-.agent-call-feed{display:flex;flex-wrap:wrap;gap:5px;max-width:100%;min-width:0;overflow:hidden}.agent-call-feed .call-chip{max-width:100%;min-width:0}.agent-call-feed .call-chip__arg{max-width:14ch}
+.agent-call-feed{display:flex;align-items:center;flex:0 1 auto;min-width:0;max-width:260px;overflow:hidden}.agent-call-feed:empty{display:none}
+:root .agent-call-feed .agent-call-feed__open{display:inline-flex;min-width:0;max-width:100%;padding:0;border:0;border-radius:6px;background:transparent;cursor:pointer}
+.agent-call-feed .call-chip{max-width:100%;min-width:0;font-size:10px}.agent-call-feed .call-chip__arg{max-width:12ch}.agent-call-feed .call-chip__name{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.agent-call-feed__open[data-finished]{animation:call-feed-fade 400ms ease-in 3600ms forwards}@keyframes call-feed-fade{to{opacity:0}}
+@media(prefers-reduced-motion:reduce){.agent-call-feed__open[data-finished]{animation:none}}
+@media(max-width:1040px){.agent-call-feed{display:none}}

@@ -117,7 +117,7 @@ export function AssistantPanel({ work, table, insert, undo, driver, close, open 
         <label>로그인 코드<input type="password" autoComplete="off" aria-label="Login code" value={code} onInput={e => setCode(e.currentTarget.value)} /></label>
         <div class="toolbar"><Button morph={false} disabled={!code.trim()} onClick={() => void login('submit')}>로그인 완료</Button><Button morph={false} onClick={() => void login('cancel')}>취소</Button></div>
       </div>}
-      <div class="toolbar"><Button morph loading={busy && busyAction === "save"} onClick={() => void save()}>설정 저장</Button>{hasKey && <Button morph={false} onClick={() => void save(true)}>저장된 키 삭제</Button>}</div>
+      <div class="toolbar"><Button morph variant="brand" loading={busy && busyAction === "save"} onClick={() => void save()}>설정 저장</Button>{hasKey && <Button morph={false} onClick={() => void save(true)}>저장된 키 삭제</Button>}</div>
     </fieldset>
     {(settings.auth === 'api_key' ? !hasKey : !hasAnt || !loggedIn) ? <p>{settings.auth === 'api_key' ? '본인의 Anthropic API 키를 입력해 저장하세요. 키는 OS 키체인에 저장되며 요청 이력에는 남지 않습니다.' : 'Claude 로그인 방식을 쓰려면 위의 Claude 로그인 버튼으로 로그인하세요. 설정을 저장해야 적용됩니다.'}</p> : <fieldset disabled={busy || validating || !settings.enabled}><legend>질문</legend>
       <div class="toolbar"><Button morph={false} onClick={() => setQuestion('이 스키마에서 다음 조건의 쿼리를 작성해 주세요: ')}>쿼리 작성</Button><Button morph={false} onClick={() => setQuestion('최근 오류를 설명하고 수정 쿼리를 제안해 주세요.')}>오류 설명</Button><Button morph={false} onClick={() => setQuestion('마지막 결과를 요약해 주세요. 행이 없으면 컬럼과 행 수에 근거해 설명하세요.')}>결과 요약</Button></div>

@@ -122,13 +122,15 @@ export async function mockInvoke<K extends keyof Commands>(command: K, args: Com
       const graph = drivers.find(d => d.id === profile.driver_id)!.capabilities.graph_expand;
       const query = graph ? 'MATCH (n)-[r]->(m) RETURN n, r, m' : 'SELECT * FROM people';
       const parent = a.parent as string | null;
+      // Test hook: widen the lazy-load window so the loading row can be inspected.
+      const slow = (globalThis as { __mockExplorerDelay?: number }).__mockExplorerDelay; if (slow) await new Promise(resolve => setTimeout(resolve, slow));
       const table = (id: string, label: string, detail: string, has_children = false): ExplorerNode => ({ id, label, detail, kind: 'table', icon: 'Table', has_children, actions: [{ id: 'browse', label: '데이터 보기', kind: 'Browse' }, { id: 'query', label: '쿼리 열기', kind: { OpenQuery: { text: id === 'people' ? query : `SELECT * FROM ${label}` } } }, { id: 'insert', label: '이름 삽입', kind: { Insert: { text: graph ? ':Person' : label } } }] });
       const group = (id: string, label: string, detail: string | null): ExplorerNode => ({ id, label, detail, kind: 'folder', icon: 'Folder', has_children: true, actions: [] });
       const column = (owner: string, name: string, type: string): ExplorerNode => ({ id: `${owner}.${name}`, label: name, detail: type, kind: 'column', icon: 'Column', has_children: false, actions: [] });
-      if (!parent) { result = [{ id: 'public', label: graph ? 'Labels' : 'public', detail: null, kind: 'schema', icon: 'Folder', has_children: true, actions: [{ id: 'diagram', label: '다이어그램 보기', kind: { OpenSchemaGraph: { scope: null } } }] } satisfies ExplorerNode]; break; }
+      if (!parent) { result = [{ id: 'public', label: graph ? '레이블' : 'public', detail: null, kind: 'schema', icon: 'Folder', has_children: true, actions: [{ id: 'diagram', label: '다이어그램 보기', kind: { OpenSchemaGraph: { scope: null } } }] } satisfies ExplorerNode]; break; }
       if (graph) { result = [table('people', 'Person', '100,000건')]; break; }
       // Demo fixture: a schema with tables, a view group, an index group and a long archive group (450 tables) exercises depth and list limits.
-      if (parent === 'public') result = [table('people', 'people', '100,000건', true), table('orders', 'orders', '48,210건', true), group('public.views', 'Views', '2'), group('public.indexes', 'Indexes', '3'), group('public.archive', 'Archive', '450')];
+      if (parent === 'public') result = [table('people', 'people', '100,000건', true), table('orders', 'orders', '48,210건', true), group('public.views', '뷰', '2'), group('public.indexes', '인덱스', '3'), group('public.archive', 'Archive', '450')];
       else if (parent === 'people') result = [column('people', 'id', 'int8'), column('people', 'name', 'text'), column('people', 'balance', 'numeric'), column('people', 'metadata', 'jsonb'), column('people', 'created_at', 'timestamptz')];
       else if (parent === 'orders') result = [column('orders', 'id', 'int8'), column('orders', 'person_id', 'int8'), column('orders', 'total', 'numeric'), column('orders', 'placed_at', 'timestamptz')];
       else if (parent === 'public.views') result = [{ ...table('active_people', 'active_people', 'view'), icon: 'View', kind: 'view' }, { ...table('order_totals', 'order_totals', 'view'), icon: 'View', kind: 'view' }];
@@ -176,4 +178,14 @@ export async function mockInvoke<K extends keyof Commands>(command: K, args: Com
     case 'history_list': result = history.slice(0, a.limit as number); break;
   }
   return result as Commands[K]['result'];
+}
+
+/** 모의 전용: 브라우저 모의 모드에서 에이전트 MCP 호출 이벤트를 흉내 낸다. 네이티브 경로에서는 쓰이지 않는다. */
+export function simulateAgentCalls(count: number, emit: (call: import('./contract').AgentCall) => void) {
+  const names = ['run_query', 'get_schema_context', 'explore', 'list_connections', 'browse', 'preview_changes'];
+  for (let i = 0; i < count; i++) {
+    const id = `mock-call-${Date.now()}-${i}`, base = { id, name: names[i % names.length], client_id: 'local', connection_id: profiles[i % profiles.length].id };
+    setTimeout(() => emit({ ...base, status: 'running' }), i * 40);
+    setTimeout(() => emit({ ...base, status: i % 7 === 6 ? 'error' : 'success', duration_ms: 120 + (i * 37) % 900, row_count: i % 2 ? 40 + i : null }), i * 40 + 300);
+  }
 }

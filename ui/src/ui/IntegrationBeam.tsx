@@ -83,7 +83,7 @@ export function IntegrationBeam({ nodes, controllerRef, onSelect, hubId = 'axdb'
   const tileRef = (id: string) => (element: HTMLSpanElement | null) => { if (element) tiles.current.set(id, element); else tiles.current.delete(id); };
   const column = (side: BeamNode['side']) => <div className="integration-beam__column">{nodes.filter(node => node.side === side).map(node => <Button bare type="button" key={node.id} className="integration-beam__node" data-state={node.state} aria-label={`${node.name ?? node.label}: ${node.state}. Open details`} onClick={() => onSelect(node.id)}
     onPointerEnter={() => setHighlight(node.id)} onPointerLeave={() => setHighlight(null)} onFocus={() => setHighlight(node.id)} onBlur={() => setHighlight(null)}>
-    <span ref={tileRef(node.id)} className="integration-beam__tile" aria-hidden="true">{node.icon ?? node.label.slice(0, 1)}</span><span className="integration-beam__label">{node.label}</span>
+    <span ref={tileRef(node.id)} className="integration-beam__tile" aria-hidden="true">{node.icon ?? node.label.slice(0, 1)}</span><span className="integration-beam__label" title={node.label}>{node.label}</span>
   </Button>)}</div>;
   return <div className="integration-beam micro" role="group" aria-label={accessibility['aria-label'] ?? accessibility.ariaLabel ?? 'Connection activity'} data-testid={accessibility['data-testid'] ?? accessibility.testId}>
     <div ref={root} className="integration-beam__layout">

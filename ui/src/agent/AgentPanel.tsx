@@ -9,11 +9,15 @@ import { Dialog } from '../Dialog';
 import { createRegistry, type AgentHost } from './registry';
 import type { ChangePreview, ResultSet, AgentCall } from '../contract';
 import { ClientsPanel } from './ClientsPanel';
+import { callChipProps } from './callChip';
 import { expose, register } from './webmcp';
+const CHIP_VISIBLE_MS = 4000;
 export function AgentPanel({ host, registrationKey, ready, queryPulse, openRequest, onProfileSelect }: { queryPulse: {profileId:string;running:boolean;sequence:number} | null; openRequest:number; onProfileSelect:(id:string)=>void; ready: boolean; host: Omit<AgentHost, 'approve' | 'activity'>; registrationKey: string }) {
   const current = useRef(host); current.current = host;
   const [activity, setActivity] = useState({ running: 0, total: 0 });
   const [calls, setCalls] = useState<AgentCall[]>([]);
+  const [chipShown, setChipShown] = useState(false);
+  const ingest = (call: AgentCall) => setCalls(previous => { const existing = previous.find(item => item.id === call.id); const next = { ...call, startedAt: existing?.startedAt ?? Date.now() }; return [...previous.filter(item => item.id !== next.id), next].slice(-50); });
   const [bridgeReply, setBridgeReply] = useState(0);
   const [clientsOpen, setClientsOpen] = useState(false);
   useEffect(() => { if (openRequest) setClientsOpen(true); }, [openRequest]);
@@ -37,6 +41,22 @@ export function AgentPanel({ host, registrationKey, ready, queryPulse, openReque
   const agent = useRef<ReturnType<typeof expose> | null>(null);
   useEffect(() => { agent.current = expose(registry.current!); return () => { pending.current?.(false); }; }, []);
   useEffect(() => register(agent.current!), [registrationKey]);
+  // 모의 전용: 브라우저 모의 모드에서 MCP 호출을 흉내 낸다(콘솔 `__axdbSimulateAgentCalls(30)`). 네이티브에서는 등록되지 않는다.
+  useEffect(() => {
+    if (!isMock) return;
+    const w = window as unknown as { __axdbSimulateAgentCalls?: (count: number) => void };
+    w.__axdbSimulateAgentCalls = count => { void import('../mock').then(mock => mock.simulateAgentCalls(count, ingest)); };
+    return () => { delete w.__axdbSimulateAgentCalls; };
+  }, []);
+  const latest = calls.at(-1);
+  // 상태바에는 최근 호출 칩 하나만 보이고, 끝난 칩은 몇 초 뒤 사라진다. 대기 중에는 타이머가 없다.
+  useEffect(() => {
+    if (!latest) return;
+    setChipShown(true);
+    if (latest.status === 'running') return;
+    const timer = setTimeout(() => setChipShown(false), CHIP_VISIBLE_MS);
+    return () => clearTimeout(timer);
+  }, [latest?.id, latest?.status]);
   useEffect(() => {
     if (isMock || !ready) return;
     let alive = true;
@@ -60,14 +80,14 @@ export function AgentPanel({ host, registrationKey, ready, queryPulse, openReque
         await api('agent_bridge_reply', { requestId: request_id, result });
       })().catch(e => { if (alive) setError(String(e)); }).finally(() => { clearTimeout(timer); requests.delete(request_id); });
     });
-    const activityEvents = listen<AgentCall>('agent-call', event => { if (alive) setCalls(previous => { const existing = previous.find(call => call.id === event.payload.id); const next = { ...event.payload, startedAt: existing?.startedAt ?? Date.now() }; return [...previous.filter(call => call.id !== next.id), next].slice(-50); }); });
+    const activityEvents = listen<AgentCall>('agent-call', event => { if (alive) ingest(event.payload); });
     const cancellation = listen<{ request_id: string }>('agent-bridge-cancel', event => requests.get(event.payload.request_id)?.abort());
     void Promise.all([subscription, cancellation, activityEvents]).then(async () => { if (alive) await api('agent_bridge_ready', {}); }).catch(e => { if (alive) setError(String(e)); });
     return () => { alive = false; requests.forEach(c => c.abort()); void subscription.then(off => off()); void cancellation.then(off => off()); void activityEvents.then(off => off()); };
   }, [ready]);
   return <><span class={`agent-activity ${activity.running ? 'running' : ''}`} role="status" aria-label="에이전트 활동" data-testid="agent-activity">에이전트 활동 · {activity.total.toLocaleString()}{activity.running > 0 && ` · ${activity.running.toLocaleString()} 실행 중`}</span>
     <SpringCheck aria-label="Localhost MCP bridge" data-testid="agent-bridge-toggle" checked={enabled} onChange={value => { void api('agent_bridge_set', { enabled: value }).then(() => { setEnabled(value); setError(''); }).catch(e => setError(String(e))); }} label="MCP 브리지" />{error && <span role="alert">{error}</span>}
-    {calls.length > 0 && <div className="agent-call-feed" aria-label="MCP activity"><small>MCP 활동</small>{calls.slice(-8).map(call => <CallChip key={call.id} icon={call.name.includes('query') ? 'terminal' : call.name.includes('schema') ? 'search' : 'file'} name={call.name} argument={[host.snapshot().profiles.find(profile => profile.id === call.connection_id)?.name ?? call.connection_id, call.row_count != null ? `${call.row_count.toLocaleString()}행` : ''].filter(Boolean).join(' · ')} status={call.status === 'running' ? 'running' : call.status === 'error' ? 'error' : 'done'} durationMs={call.duration_ms} expectedMs={Math.max(900, call.duration_ms ?? 2400)} />)}</div>}
+    <div className="agent-call-feed" role="group" aria-label="MCP activity">{latest && chipShown && <Button bare key={`${latest.id}:${latest.status}`} class="agent-call-feed__open" data-finished={latest.status !== 'running' || undefined} aria-label="Open agent activity" title="에이전트 활동 열기" onClick={() => setClientsOpen(true)}><CallChip size={18} radius={6} shake={0} {...callChipProps(latest, host.snapshot().profiles)} /></Button>}</div>
     <Button morph={false} class="agent-rail-button" aria-label="에이전트 클라이언트" onClick={() => setClientsOpen(true)}><Bot /><span>에이전트 클라이언트</span></Button>{clientsOpen && <ClientsPanel calls={calls} bridgeReply={bridgeReply} activity={activity} queryPulse={queryPulse} approvalConnection={approval?.connection} sessions={host.snapshot().sessions} onProfileSelect={id => { setClientsOpen(false); onProfileSelect(id); }} profiles={host.snapshot().profiles} drivers={host.snapshot().drivers} onClose={() => setClientsOpen(false)} />}
     {approval && <Dialog label="에이전트 요청 승인" onClose={() => approval.finish(false)} footer={<><Button morph={false} aria-label="Approve agent query" data-testid="agent-approve" onClick={() => approval.finish(true)}>승인</Button><Button morph={false} autoFocus aria-label="Deny agent query" data-testid="agent-deny" onClick={() => approval.finish(false)}>거부</Button></>}><section class="profile-form" data-testid="agent-approval"><p>연결: {approval.connection}</p><pre>{approval.text}</pre>{approval.preview && <><p>변경 미리보기 · 아직 커밋하지 않았습니다</p><pre>{JSON.stringify(approval.preview, null, 2)}</pre></>}</section></Dialog>}
   </>;

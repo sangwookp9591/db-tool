@@ -11,6 +11,8 @@ export interface GlideSelectProps {
   onChange?: (value: string, option: GlideSelectOption) => void; placeholder?: string; showTags?: boolean;
   size?: 'sm' | 'md' | 'lg'; disabled?: boolean; ariaLabel: string; name?: string; required?: boolean;
   class?: string; className?: string;
+  /** 메뉴 폭을 트리거 폭에 맞춘다(기본은 최소 176px). 좁은 팝오버 안에서 사용. */
+  fitTrigger?: boolean;
 }
 const normalize = (items: GlideSelectProps['options']) => items.map(item => typeof item === 'string' ? { value: item, label: item } : item);
 const labelOf = (item: GlideSelectOption) => typeof item.label === 'string' ? item.label : item.value;
@@ -29,7 +31,7 @@ export function glideTypeahead(items: readonly GlideSelectOption[], from: number
 export const glideValue = (controlled: string | undefined, internal: string) => controlled ?? internal;
 export const glideFormValue = (current: string) => current;
 
-export function GlideSelect({ options, value, defaultValue = '', onChange, placeholder = '선택…', showTags = true, size = 'md', disabled, ariaLabel, name, required, class: className, className: legacyClass }: GlideSelectProps) {
+export function GlideSelect({ options, value, defaultValue = '', onChange, placeholder = '선택…', showTags = true, size = 'md', disabled, ariaLabel, name, required, class: className, className: legacyClass, fitTrigger }: GlideSelectProps) {
   const items = normalize(options), id = useId();
   const [inner, setInner] = useState(defaultValue);
   const current = glideValue(value, inner), selected = items.findIndex(item => item.value === current);
@@ -68,7 +70,8 @@ export function GlideSelect({ options, value, defaultValue = '', onChange, place
       setActive(glideTypeahead(items, Math.max(active, selected, -1), event.key));
     }
   };
-  const menuStyle = rect ? { position: 'fixed' as const, left: Math.max(8, Math.min(rect.left, innerWidth - Math.max(rect.width, 176) - 8)), width: Math.max(rect.width, 176), '--gs-row': `${rowHeight(size)}px`, ...(side === 'bottom' ? { top: rect.bottom + 6 } : { bottom: innerHeight - rect.top + 6 }) } : {};
+  const menuWidth = rect ? (fitTrigger ? rect.width : Math.max(rect.width, 176)) : 0;
+  const menuStyle = rect ? { position: 'fixed' as const, left: Math.max(8, Math.min(rect.left, innerWidth - menuWidth - 8)), width: menuWidth, '--gs-row': `${rowHeight(size)}px`, ...(side === 'bottom' ? { top: rect.bottom + 6 } : { bottom: innerHeight - rect.top + 6 }) } : {};
   const portalHost = trigger.current?.closest('dialog[open]') ?? (typeof document !== 'undefined' ? document.body : null);
   const menuNode = open && rect && portalHost ? createPortal(<div ref={menu} class="glide-select__menu" style={menuStyle} data-side={side}>
     <div class="glide-select__list" role="listbox" aria-label={ariaLabel} id={`${id}-list`} onPointerDown={e => { if (e.button === 0) { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); setActive(Math.floor((e.clientY - r.top - 4) / (rowHeight(size) + 1))); } }} onPointerMove={e => { if ((e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) { const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); const i = Math.floor((e.clientY - r.top - 4) / (rowHeight(size) + 1)); setActive(i >= 0 && i < items.length ? i : -1); } }} onPointerUp={e => { const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); const i = Math.floor((e.clientY - r.top - 4) / (rowHeight(size) + 1)); if (i >= 0 && i < items.length) choose(i); }} onPointerOver={e => { const row = (e.target as HTMLElement).closest<HTMLElement>('[data-index]'); if (row) setActive(Number(row.dataset.index)); }}>
