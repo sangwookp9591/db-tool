@@ -17,12 +17,38 @@ beforeAll(async () => {
     const start = window.setInterval, stop = window.clearInterval;
     window.setInterval = ((...args: Parameters<typeof start>) => { const id = start(...args); active.add(id); return id; }) as typeof start;
     window.clearInterval = id => { if (id !== undefined) active.delete(id); stop(id); };
-    Object.assign(window, { d3Intervals: active });
+    const frames = new Set<number>(), raf = window.requestAnimationFrame, cancel = window.cancelAnimationFrame;
+    window.requestAnimationFrame = callback => { let id = 0; id = raf.call(window, time => { frames.delete(id); callback(time); }); frames.add(id); return id; };
+    window.cancelAnimationFrame = id => { frames.delete(id); cancel.call(window, id); };
+    Object.assign(window, { d3Intervals: active, d3Frames: frames });
   });
   await page.goto(`${server.resolvedUrls!.local[0]}?gallery`);
   await page.getByTestId('d3-run').waitFor();
 }, 30000);
 afterAll(async () => { await browser?.close(); await server?.close(); }, 30000);
+
+it('CallChip animates running only, settles when idle/done, and exposes retry only for error', async () => {
+  const chips = page.locator('#d3-call-chip .call-chip');
+  const first = chips.first();
+  expect(await first.getAttribute('data-status')).toBe('idle');
+  expect(await first.locator('.call-chip__retry').count()).toBe(0);
+  const frames = () => page.evaluate(() => (window as unknown as { d3Frames: Set<number> }).d3Frames.size);
+  const settled = await frames();
+  await page.getByRole('button', { name: 'Start', exact: true }).click();
+  await page.waitForFunction(() => document.querySelector('#d3-call-chip .call-chip')?.getAttribute('data-status') === 'running');
+  await page.waitForFunction(base => (window as unknown as { d3Frames: Set<number> }).d3Frames.size > base, settled);
+  await page.getByRole('button', { name: 'Complete', exact: true }).click();
+  await page.waitForTimeout(80);
+  const doneFrames = await frames();
+  await page.waitForTimeout(80);
+  expect(await frames()).toBe(doneFrames);
+  await page.getByRole('button', { name: 'Fail', exact: true }).click();
+  expect(await first.locator('.call-chip__retry').count()).toBe(1);
+  await first.locator('.call-chip__retry').click();
+  expect(await first.getAttribute('data-status')).toBe('running');
+  await page.getByRole('button', { name: 'Idle', exact: true }).click();
+  expect(await first.locator('.call-chip__retry').count()).toBe(0);
+});
 
 it('Button preserves native props and blocks loading/disabled clicks', async () => {
   const button = page.getByTestId('d3-run');

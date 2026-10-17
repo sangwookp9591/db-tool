@@ -1,5 +1,6 @@
 import { SuggestionCard, type Suggestion } from '../ui/SuggestionCard';
 import { ToolCallGroup } from '../ui/ToolCall';
+import { CallChip } from '../ui/CallChip';
 import { suggestedQueries, parsedQuery, knownSimpleReferences, explainText } from './suggestions';
 import { Button } from '../ui/Button';
 import { SpringCheck } from '../ui/SpringCheck';
@@ -126,7 +127,7 @@ export function AssistantPanel({ work, table, insert, undo, driver, close, open 
       <Button morph loading={busy && busyAction === "request"} onClick={() => void ask()} disabled={!question.trim() || validating}>질문 보내기</Button>
     </fieldset>}
     <LatticeLoader running={busy} label="처리 중…" />{error && <p role="alert">{error}</p>}
-    {reply?.context && <ToolCallGroup calls={[{id:'ai-context',name:'get_work_context',summary:'응답 요청에 실제 사용한 스키마·작업 맥락',status:'success',durationMs:reply.context_elapsed_ms,result:reply.context}]} />}
+    {reply?.context && <><CallChip icon="search" name="get_work_context" argument="schema · query context" status="done" durationMs={reply.context_elapsed_ms} showTimer={reply.context_elapsed_ms !== undefined} expectedMs={reply.context_elapsed_ms ?? 2400} /><ToolCallGroup calls={[{id:'ai-context',name:'get_work_context',summary:'응답 요청에 실제 사용한 스키마·작업 맥락',status:'success',durationMs:reply.context_elapsed_ms,result:reply.context}]} /></>}
     {suggestions.length > 0 && <SuggestionCard suggestions={suggestions} acceptedId={inserted?.suggestionId} disabled={busy||validating} validating={validating} onValidate={driver(session)?.capabilities.read_only_exec && ['sql','cypher'].includes(driver(session)?.query_language.editor_mode??'') ? suggestion=>void validate(suggestion) : undefined} onAccept={suggestion=>{const tabId=insert(session,suggestion.query);if(tabId)setInserted({suggestionId:suggestion.id,tabId});else setError('원래 연결이 닫혔습니다. 연결 후 다시 삽입하세요.');}} onUndo={()=>{if(inserted)void undo(inserted.tabId).then(closed=>{if(closed)setInserted(null);}).catch(e=>setError(String(e)));}} />}
     {text && <pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{text}</pre>}
   </section></Dialog>;

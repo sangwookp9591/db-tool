@@ -1,4 +1,5 @@
 import { Button } from '../ui/Button';
+import { CallChip } from '../ui/CallChip';
 import { SpringCheck } from '../ui/SpringCheck';
 import { Bot, X } from 'lucide-preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
@@ -66,6 +67,7 @@ export function AgentPanel({ host, registrationKey, ready, queryPulse, openReque
   }, [ready]);
   return <><span class={`agent-activity ${activity.running ? 'running' : ''}`} role="status" aria-label="에이전트 활동" data-testid="agent-activity">에이전트 활동 · {activity.total}{activity.running > 0 && ` · ${activity.running} 실행 중`}</span>
     <SpringCheck aria-label="Localhost MCP bridge" data-testid="agent-bridge-toggle" checked={enabled} onChange={value => { void api('agent_bridge_set', { enabled: value }).then(() => { setEnabled(value); setError(''); }).catch(e => setError(String(e))); }} label="MCP bridge" />{error && <span role="alert">{error}</span>}
+    {calls.length > 0 && <div className="agent-call-feed" aria-label="MCP activity">{calls.slice(-8).map(call => <CallChip key={call.id} icon={call.name.includes('query') ? 'terminal' : call.name.includes('schema') ? 'search' : 'file'} name={call.name} argument={[host.snapshot().profiles.find(profile => profile.id === call.connection_id)?.name ?? call.connection_id, call.row_count != null ? `${call.row_count} rows` : ''].filter(Boolean).join(' · ')} status={call.status === 'running' ? 'running' : call.status === 'error' ? 'error' : 'done'} durationMs={call.duration_ms} expectedMs={Math.max(900, call.duration_ms ?? 2400)} />)}</div>}
     <Button morph={false} class="agent-rail-button" aria-label="에이전트 클라이언트" onClick={() => setClientsOpen(true)}><Bot /><span>에이전트 클라이언트</span></Button>{clientsOpen && <ClientsPanel calls={calls} bridgeReply={bridgeReply} activity={activity} queryPulse={queryPulse} approvalConnection={approval?.connection} sessions={host.snapshot().sessions} onProfileSelect={id => { setClientsOpen(false); onProfileSelect(id); }} profiles={host.snapshot().profiles} drivers={host.snapshot().drivers} onClose={() => setClientsOpen(false)} />}
     {approval && <Dialog label="에이전트 요청 승인" onClose={() => approval.finish(false)} footer={<><Button morph={false} aria-label="Approve agent query" data-testid="agent-approve" onClick={() => approval.finish(true)}>승인</Button><Button morph={false} autoFocus aria-label="Deny agent query" data-testid="agent-deny" onClick={() => approval.finish(false)}>거부</Button></>}><section class="profile-form" data-testid="agent-approval"><p>연결: {approval.connection}</p><pre>{approval.text}</pre>{approval.preview && <><p>변경 미리보기 · 아직 커밋하지 않았습니다</p><pre>{JSON.stringify(approval.preview, null, 2)}</pre></>}</section></Dialog>}
   </>;
