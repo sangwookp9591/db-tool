@@ -3,6 +3,7 @@ use dbcore::preview::{before_query, kind, rejection, schema_diff, tokens};
 use std::collections::BTreeMap;
 pub(super) enum RunOutput {
     Execute(Vec<ResultSet>),
+    Edit(EditResult),
     Preview(ChangePreview),
 }
 fn schema(conn: &Connection) -> Result<BTreeMap<String, String>, DbError> {

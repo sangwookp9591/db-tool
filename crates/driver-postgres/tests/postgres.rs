@@ -691,3 +691,87 @@ async fn change_preview_ignores_concurrent_ddl_from_other_sessions() {
     churn.await.unwrap();
     s.close().await;
 }
+
+fn edit_request(node: &str, edits: Vec<RowEdit>) -> EditRequest {EditRequest{node_id:node.into(),edits,timeout_ms:5000,preview_sample_limit:2}}
+fn edit_key(id:i64)->Vec<(String,Value)>{vec![("id".into(),Value::Int(id.to_string()))]}
+#[tokio::test]
+async fn c2_bound_edits_preview_apply_conflicts_and_catalog(){
+
+    let Some(cfg)=config() else { eprintln!("AXDB_TEST_PG unset; skipping C2 PostgreSQL integration");return; };
+    let s=PostgresDriver::new().connect(&cfg).await.unwrap();
+    let table=format!("c2_{}_{}",std::process::id(),std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos());
+    let view=format!("{table}_v");let no_key=format!("{table}_n");
+    let node=serde_json::to_string(&["table","public","tables",&table]).unwrap();
+    let view_node=serde_json::to_string(&["table","public","views",&view]).unwrap();
+    let no_key_node=serde_json::to_string(&["table","public","tables",&no_key]).unwrap();
+    let bad_node=serde_json::to_string(&["table","public","tables","missing_c2; DROP TABLE x"]).unwrap();
+
+    c2_run(s.as_ref(),&format!("CREATE TABLE {table}(id INTEGER PRIMARY KEY, t TEXT); INSERT INTO {table} VALUES(1,'old'),(2,'delete'); CREATE VIEW {view} AS SELECT * FROM {table}; CREATE TABLE {no_key}(t TEXT)")).await;
+    c2_run(s.as_ref(),&format!("ALTER TABLE {table} DROP CONSTRAINT {table}_pkey; ALTER TABLE {table} ADD PRIMARY KEY(id) INCLUDE(t)")).await;
+    let browse=s.browse(&node,PageRequest{offset:0,limit:10,filter:vec![]}).await.unwrap();
+    assert_eq!(browse.edit_target.unwrap().key_columns,vec!["id"]);
+    assert!(s.browse(&view_node,PageRequest{offset:0,limit:10,filter:vec![]}).await.unwrap().edit_target.is_none());
+    assert!(s.browse(&no_key_node,PageRequest{offset:0,limit:10,filter:vec![]}).await.unwrap().edit_target.is_none());
+    assert!(c2_run(s.as_ref(),&format!("SELECT * FROM {table}")).await.edit_target.is_none());
+    let injection="'; DROP TABLE x; -- ' \\ 한글 🦀";
+    let request=edit_request(&node,vec![
+        RowEdit::Update{key:edit_key(1),set:vec![("t".into(),Value::Text(injection.into()))]},
+        RowEdit::Insert{values:vec![("id".into(),Value::Int("3".into())),("t".into(),Value::Text("insert".into()))]},
+        RowEdit::Delete{key:edit_key(2)},
+    ]);
+    let preview=s.preview_edits(&request,CancelToken::new()).await.unwrap();
+    assert!(!preview.committed);assert_eq!(preview.statements.len(),3);
+    assert_eq!(preview.statements[0].affected,Some(1));assert!(preview.statements[0].text.contains("$"));
+    assert!(!preview.statements[0].text.contains(injection));
+    assert_eq!(preview.statements[0].before.as_ref().unwrap().rows[0][1],Value::Text("old".into()));
+    assert_eq!(preview.statements[0].after.as_ref().unwrap().rows[0][1],Value::Text(injection.into()));
+    assert_eq!(c2_run(s.as_ref(),&format!("SELECT t FROM {table} WHERE id=1")).await.table.unwrap().rows[0][0],Value::Text("old".into()));
+    let result=s.apply_edits(&request,CancelToken::new()).await.unwrap();assert_eq!(result.affected,vec![1,1,1]);
+    assert_eq!(c2_run(s.as_ref(),&format!("SELECT id,t FROM {table} ORDER BY id")).await.table.unwrap().rows,vec![vec![Value::Int("1".into()),Value::Text(injection.into())],vec![Value::Int("3".into()),Value::Text("insert".into())]]);
+    let conflict=edit_request(&node,vec![RowEdit::Update{key:edit_key(1),set:vec![("t".into(),Value::Text("rollback".into()))]},RowEdit::Delete{key:edit_key(999)}]);
+    for preview in [false,true]{
+        let error=if preview{s.preview_edits(&conflict,CancelToken::new()).await.unwrap_err()}else{s.apply_edits(&conflict,CancelToken::new()).await.unwrap_err()};
+        assert_eq!(error.kind,ErrorKind::Conflict);assert!(error.message.contains("Edit 1"));
+        assert_eq!(c2_run(s.as_ref(),&format!("SELECT t FROM {table} WHERE id=1")).await.table.unwrap().rows[0][0],Value::Text(injection.into()));
+    }
+    for invalid in ["missing", "t\"; DROP TABLE x; --"]{
+        let bad=edit_request(&node,vec![RowEdit::Insert{values:vec![(invalid.into(),Value::Text("x".into()))]}]);
+        assert_eq!(s.apply_edits(&bad,CancelToken::new()).await.unwrap_err().kind,ErrorKind::Query);
+    }
+    let conversion=edit_request(&node,vec![RowEdit::Insert{values:edit_key(4)},RowEdit::Insert{values:vec![("id".into(),Value::Int("invalid integer".into()))]}]);
+    let error=s.apply_edits(&conversion,CancelToken::new()).await.unwrap_err();assert_eq!(error.kind,ErrorKind::Query);assert!(error.message.contains("Edit 1"));
+    assert_eq!(c2_run(s.as_ref(),&format!("SELECT count(*) FROM {table} WHERE id=4")).await.table.unwrap().rows[0][0],Value::Int("0".into()));
+    let bad=edit_request(&bad_node,request.edits.clone());assert!(s.apply_edits(&bad,CancelToken::new()).await.is_err());
+    let bad=edit_request(&node,vec![RowEdit::Delete{key:vec![]}]);assert!(s.apply_edits(&bad,CancelToken::new()).await.is_err());
+    let too_many=edit_request(&node,vec![RowEdit::Delete{key:edit_key(1)};1001]);assert_eq!(s.apply_edits(&too_many,CancelToken::new()).await.unwrap_err().kind,ErrorKind::Unsupported);
+    let token=CancelToken::new();token.cancel();assert_eq!(s.apply_edits(&request,token).await.unwrap_err().kind,ErrorKind::Cancelled);s.ping().await.unwrap();
+    c2_run(s.as_ref(),&format!("DROP VIEW {view}; DROP TABLE {table}; DROP TABLE {no_key}")).await;
+}
+#[tokio::test]
+async fn c2_nested_multirow_conflict_and_interruption(){
+    let Some(cfg)=config() else{return;};let s=PostgresDriver::new().connect(&cfg).await.unwrap();
+    let table=format!("c2_nested_{}_{}",std::process::id(),std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos());let child=format!("{table}_child");let function=format!("{table}_fn");
+    c2_run(s.as_ref(),&format!("CREATE TABLE {table}(id INTEGER PRIMARY KEY,t TEXT); CREATE TABLE {child}() INHERITS({table}); INSERT INTO {table} VALUES(1,'parent'); INSERT INTO {child} VALUES(1,'child')")).await;
+    let node=serde_json::to_string(&["table","public","tables",&table]).unwrap();
+    let request=edit_request(&node,vec![RowEdit::Insert{values:edit_key(7)},RowEdit::Delete{key:edit_key(1)}]);
+    let error=s.apply_edits(&request,CancelToken::new()).await.unwrap_err();assert_eq!(error.kind,ErrorKind::Conflict);assert!(error.message.contains("Edit 1"));
+    assert_eq!(c2_run(s.as_ref(),&format!("SELECT count(*) FROM {table}")).await.table.unwrap().rows[0][0],Value::Int("2".into()));
+    c2_run(s.as_ref(),&format!("DROP TABLE {child}; BEGIN; INSERT INTO {table} VALUES(9,'outer')")).await;
+    let request=edit_request(&node,vec![RowEdit::Update{key:edit_key(1),set:vec![("t".into(),Value::Text("new".into()))]}]);
+    s.preview_edits(&request,CancelToken::new()).await.unwrap();assert_eq!(c2_run(s.as_ref(),&format!("SELECT t FROM {table} WHERE id=1")).await.table.unwrap().rows[0][0],Value::Text("parent".into()));
+    s.apply_edits(&request,CancelToken::new()).await.unwrap();
+    let bad=edit_request(&node,vec![RowEdit::Delete{key:edit_key(999)}]);assert_eq!(s.apply_edits(&bad,CancelToken::new()).await.unwrap_err().kind,ErrorKind::Conflict);
+    c2_run(s.as_ref(),"COMMIT").await;
+    assert_eq!(c2_run(s.as_ref(),&format!("SELECT count(*) FROM {table}")).await.table.unwrap().rows[0][0],Value::Int("2".into()));
+    c2_run(s.as_ref(),&format!("CREATE FUNCTION {function}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(10); RETURN NEW; END $$; CREATE TRIGGER c2_sleep BEFORE INSERT ON {table} FOR EACH ROW EXECUTE FUNCTION {function}()")).await;
+    let mut slow=edit_request(&node,vec![RowEdit::Insert{values:edit_key(5)}]);
+    for preview in [false,true]{
+        slow.timeout_ms=30;let error=if preview{s.preview_edits(&slow,CancelToken::new()).await.unwrap_err()}else{s.apply_edits(&slow,CancelToken::new()).await.unwrap_err()};assert_eq!(error.kind,ErrorKind::Timeout);s.ping().await.unwrap();
+        slow.timeout_ms=5000;let token=CancelToken::new();let cancelling=token.clone();tokio::spawn(async move{tokio::time::sleep(Duration::from_millis(30)).await;cancelling.cancel();});
+        let error=if preview{s.preview_edits(&slow,token).await.unwrap_err()}else{s.apply_edits(&slow,token).await.unwrap_err()};assert_eq!(error.kind,ErrorKind::Cancelled);s.ping().await.unwrap();
+        assert_eq!(c2_run(s.as_ref(),&format!("SELECT count(*) FROM {table} WHERE id=5")).await.table.unwrap().rows[0][0],Value::Int("0".into()));
+    }
+    c2_run(s.as_ref(),&format!("DROP TABLE {table}; DROP FUNCTION {function}()")).await;
+}
+
+async fn c2_run(s:&dyn Session,sql:&str)->ResultSet{run(s,sql).await.remove(0)}

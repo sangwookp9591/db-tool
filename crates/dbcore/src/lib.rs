@@ -152,6 +152,20 @@ pub trait Driver: Send + Sync {
 }
 #[async_trait]
 pub trait Session: Send + Sync {
+    async fn preview_edits(
+        &self,
+        _req: &EditRequest,
+        _cancel: CancelToken,
+    ) -> Result<ChangePreview, DbError> {
+        Err(DbError::unsupported("Row editing is not supported"))
+    }
+    async fn apply_edits(
+        &self,
+        _req: &EditRequest,
+        _cancel: CancelToken,
+    ) -> Result<EditResult, DbError> {
+        Err(DbError::unsupported("Row editing is not supported"))
+    }
     async fn schema_graph(&self, _scope: Option<&str>) -> Result<SchemaGraph, DbError> {
         Err(DbError::unsupported("Schema graph is not supported"))
     }
@@ -281,6 +295,8 @@ pub fn clamp_row_limit(limit: u32) -> u32 {
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct ResultSet {
+    #[serde(default)]
+    pub edit_target: Option<EditTarget>,
     pub title: String,
     pub table: Option<Table>,
     pub graph: Option<Graph>,
@@ -388,6 +404,7 @@ pub enum ErrorKind {
     Cancelled,
     Unsupported,
     Internal,
+    Conflict,
 }
 impl DbError {
     pub fn new(kind: ErrorKind, message: impl Into<String>) -> Self {
@@ -435,3 +452,38 @@ impl Registry {
             .collect()
     }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct EditTarget {
+    pub node_id: String,
+    pub key_columns: Vec<String>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "op")]
+pub enum RowEdit {
+    Update {
+        key: Vec<(String, Value)>,
+        set: Vec<(String, Value)>,
+    },
+    Insert {
+        values: Vec<(String, Value)>,
+    },
+    Delete {
+        key: Vec<(String, Value)>,
+    },
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct EditRequest {
+    pub node_id: String,
+    pub edits: Vec<RowEdit>,
+    #[serde(default = "default_timeout_ms")]
+    pub timeout_ms: u64,
+    #[serde(default = "default_preview_sample_limit")]
+    pub preview_sample_limit: u32,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct EditResult {
+    pub affected: Vec<u64>,
+    pub statements: Vec<String>,
+}
+pub mod edits;

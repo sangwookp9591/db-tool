@@ -50,7 +50,7 @@ pub struct Capabilities {
     pub paged_browse: bool,        // 탐색 노드에서 페이지 조회
     pub graph_expand: bool,        // 그래프 노드 이웃 확장
     pub multi_statement: bool,     // 한 번에 여러 문장 → 여러 ResultSet
-    pub edit_rows: bool,           // (1차 미구현, false)
+    pub edit_rows: bool,           // primary-key row edits; PostgreSQL/SQLite true
 }
 
 #[async_trait] pub trait Driver: Send + Sync {
@@ -61,6 +61,8 @@ pub struct ConnectConfig { pub fields: BTreeMap<String,String>, pub secret: Opti
 // Debug 구현에서 secret은 "***"로 출력한다.
 
 #[async_trait] pub trait Session: Send + Sync {
+    async fn preview_edits(&self, req: &EditRequest, cancel: CancelToken) -> Result<ChangePreview, DbError>; // default Unsupported
+    async fn apply_edits(&self, req: &EditRequest, cancel: CancelToken) -> Result<EditResult, DbError>; // default Unsupported
     async fn ping(&self) -> Result<(), DbError>;
     async fn server_info(&self) -> Result<String, DbError>;
     async fn list_children(&self, parent: Option<&str>) -> Result<Vec<ExplorerNode>, DbError>;
@@ -93,6 +95,7 @@ pub struct StatementPreview {
 pub struct SchemaDiff { pub added: Vec<String>, pub removed: Vec<String>, pub changed: Vec<String> }
 
 pub struct ResultSet {
+    #[serde(default)] pub edit_target: Option<EditTarget>,
     pub title: String,                  // 문장 요약
     pub table: Option<Table>,
     pub graph: Option<Graph>,
@@ -122,8 +125,27 @@ pub enum Value {
     Other { type_name: String, text: String },
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct EditTarget { pub node_id: String, pub key_columns: Vec<String> }
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "op")]
+pub enum RowEdit {
+    Update { key: Vec<(String, Value)>, set: Vec<(String, Value)> },
+    Insert { values: Vec<(String, Value)> },
+    Delete { key: Vec<(String, Value)> },
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct EditRequest {
+    pub node_id: String,
+    pub edits: Vec<RowEdit>,
+    #[serde(default = "default_timeout_ms")] pub timeout_ms: u64,
+    #[serde(default = "default_preview_sample_limit")] pub preview_sample_limit: u32,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct EditResult { pub affected: Vec<u64>, pub statements: Vec<String> }
+
 pub struct DbError { pub kind: ErrorKind, pub message: String, pub detail: Option<String>, pub position: Option<u32> }
-pub enum ErrorKind { Connection, Auth, Query, Timeout, Cancelled, Unsupported, Internal }
+pub enum ErrorKind { Connection, Auth, Query, Timeout, Cancelled, Unsupported, Internal, Conflict }
 ```
 
 `CancelToken`은 `tokio_util::sync::CancellationToken`이다. 드라이버는 `select!`로 토큰을 지켜본다. `CancelSupport::Server` 드라이버(PostgreSQL)는 토큰이 발동하면 서버에 취소 요청을 보낸다.
@@ -141,6 +163,8 @@ pub enum ErrorKind { Connection, Auth, Query, Timeout, Cancelled, Unsupported, I
 | `schema_graph(session_id, scope?)` | 공통 SchemaGraph, 기본 Session 구현은 Unsupported |
 | `execute(session_id, run_id, req)` | 타임아웃(`tokio::time::timeout`)과 취소를 모두 적용한다. 결과를 이력에 기록한다 |
 | `preview(session_id, run_id, req, source?)` | 드라이버 preview 실행, 취소/타임아웃 후 정리 대기, 이력 kind=preview. source 기본 ui, 에이전트는 agent. 거부 배치는 notes만 반환하고 실행하지 않는다 |
+| `edit_preview(session_id, run_id, req)` | 기본 키 기반 편집을 bound parameters로 실행하고 전부 롤백. read-only는 Auth, capability 미지원은 Unsupported |
+| `edit_apply(session_id, run_id, req)` | 같은 세션·요청의 60초 이내 성공 미리보기 필요(일회용). 한 트랜잭션; Update/Delete 영향 수가 1이 아니면 Conflict와 전체 롤백 |
 | `execute_stream(session_id, run_id, req, on_event)` | 같은 실행·취소·이력 경로를 쓴다. 그래프 또는 모든 표가 2,000행 이하이면 기존 ResultSet 배열을 반환한다. 그 외 큰 표는 Channel로 보내고 빈 배열을 반환한다 |
 | `cancel(run_id)` | 탭을 닫거나 사용자가 취소할 때 호출 |
 | `expand(session_id, element_id, limit)` | |

@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 
 pub(super) enum RunOutput {
     Execute(Vec<ResultSet>),
+    Edit(EditResult),
     Preview(ChangePreview),
 }
 impl PgSession {

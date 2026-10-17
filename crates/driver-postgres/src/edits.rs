@@ -1,0 +1,95 @@
+use super::*;
+impl PgSession {
+    pub(super) async fn edit_run(
+        &self,
+        req: &EditRequest,
+        state: &mut TxState,
+        cancel: &CancelToken,
+        preview: bool,
+    ) -> Result<RunOutput, DbError> {
+        if req.edits.len() > 1000 {
+            return Err(DbError::unsupported("At most 1000 edits are supported"));
+        }
+        let path = parse_path(&req.node_id)?;
+        if path.len() != 4 || path[0] != "table" || path[2] != "tables" {
+            return Err(DbError::query("Invalid table node"));
+        }
+        let name = format!("{}.{}", quote_ident(&path[1]), quote_ident(&path[3]));
+        let nested = state.explicit;
+        let sp = format!("axdb_edit_{}", uuid_free_id());
+        let result=async {
+        self.client
+            .batch_execute(&if nested {
+                format!("SAVEPOINT {sp}")
+            } else {
+                "BEGIN".into()
+            })
+            .await
+            .map_err(|e| self.error(e))?;
+            // Resolve only real ordinary/partitioned tables and their real, non-dropped columns.
+            let rows=self.client.query("SELECT a.attname, tn.nspname, t.typname, a.atttypid, EXISTS(SELECT 1 FROM pg_index i WHERE i.indrelid=c.oid AND i.indisprimary AND a.attnum IN (SELECT k.attnum FROM unnest(i.indkey) WITH ORDINALITY AS k(attnum,ord) WHERE k.ord<=i.indnkeyatts)) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_attribute a ON a.attrelid=c.oid JOIN pg_type t ON t.oid=a.atttypid JOIN pg_namespace tn ON tn.oid=t.typnamespace WHERE n.nspname=$1 AND c.relname=$2 AND c.relkind IN ('r','p') AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum",&[&path[1],&path[3]]).await.map_err(|e|self.error(e))?;
+            if rows.is_empty(){return Err(DbError::query("Unknown table"));}
+            let columns=rows.iter().map(|r|r.get::<_,String>(0)).collect::<Vec<_>>();
+            let keys=rows.iter().filter(|r|r.get::<_,bool>(4)).map(|r|r.get::<_,String>(0)).collect::<Vec<_>>();
+            let plans=dbcore::edits::plan(req,&name,&columns,&keys,quote_ident,|i,n|{
+                let r=&rows[columns.iter().position(|c|c==n).unwrap()];format!("(${i}::text)::{}.{}",quote_ident(r.get(1)),quote_ident(r.get(2)))
+            })?;
+            let statement_text=plans.iter().map(|p|p.sql.clone()).collect::<Vec<_>>().join(";\n");
+            let returning=columns.iter().map(|n|format!("{}::text",quote_ident(n))).collect::<Vec<_>>().join(", ");
+            let select=columns.iter().map(|n|format!("{}::text",quote_ident(n))).collect::<Vec<_>>().join(", ");
+            let mut changed=EditResult{affected:vec![],statements:vec![]};let mut sample=ChangePreview::default();
+            for (index,plan) in plans.into_iter().enumerate(){
+                let result=async {
+                    if cancel.is_cancelled(){return Err(DbError::new(ErrorKind::Cancelled,"Editing cancelled"));}
+                    let values=plan.values.iter().map(dbcore::edits::text).collect::<Result<Vec<_>,_>>()?;
+                    let params=values.iter().map(|v|v as &(dyn tokio_postgres::types::ToSql+Sync)).collect::<Vec<_>>();
+                    let mut statement=StatementPreview::new(plan.sql.clone(),plan.kind.clone());
+                    let convert=|output:Vec<tokio_postgres::Row>|->Result<Table,DbError>{
+                        Ok(Table{columns:rows.iter().map(|r|Column{name:r.get(0),type_name:r.get(2)}).collect(),rows:output.into_iter().take(req.preview_sample_limit.min(1000) as usize).map(|r|rows.iter().enumerate().map(|(i,c)|map_value(&Type::from_oid(c.get(3)).unwrap_or(Type::TEXT),r.get(i))).collect()).collect::<Result<_,_>>()?})
+                    };
+                    if preview {if let Some(before)=plan.before {
+                        let before=before.replacen("SELECT *",&format!("SELECT {select}"),1);
+                        let stmt=self.client.prepare_typed(&before,&vec![Type::TEXT;params.len()]).await.map_err(|e|self.error(e))?;
+                        statement.before=Some(convert(self.client.query(&stmt,&params).await.map_err(|e|self.error(e))?)?);
+                    }}
+                    let sql=format!("{} RETURNING {returning}",plan.sql);
+                    let stmt=self.client.prepare_typed(&sql,&vec![Type::TEXT;params.len()]).await.map_err(|e|self.error(e))?;
+                    // Drain every row so affected reflects the complete mutation.
+                    let stream=self.client.query_raw(&stmt,params.iter().copied()).await.map_err(|e|self.error(e))?;
+                    pin_mut!(stream);let mut output=vec![];let mut count=0;
+                    while let Some(row)=stream.next().await{let row=row.map_err(|e|self.error(e))?;count+=1;if preview&&output.len()<req.preview_sample_limit.min(1000) as usize{output.push(row);}}
+                    if plan.kind!=StatementKind::Insert&&count!=1{return Err(DbError::new(ErrorKind::Conflict,format!("Expected exactly 1 row, affected {count}")));}
+                    statement.affected=Some(count);if preview&&plan.kind!=StatementKind::Delete{statement.after=Some(convert(output)?);}
+                    changed.affected.push(count);changed.statements.push(plan.sql);sample.statements.push(statement);Ok(())
+                }.await;
+                result.map_err(|mut e:DbError|{e.message=format!("Edit {index}: {}",e.message);e.detail=Some(statement_text.clone());e})?;
+            }
+            if cancel.is_cancelled(){return Err(DbError::new(ErrorKind::Cancelled,"Editing cancelled"));}
+            if preview {sample.notes.push("All edits rolled back; sequences and external trigger effects are not reversible".into());Ok(RunOutput::Preview(sample))}else{Ok(RunOutput::Edit(changed))}
+        }.await;
+        let rollback = preview || result.is_err() || cancel.is_cancelled();
+        let cleanup = if nested {
+            if rollback {
+                format!("ROLLBACK TO SAVEPOINT {sp}; RELEASE SAVEPOINT {sp}")
+            } else {
+                format!("RELEASE SAVEPOINT {sp}")
+            }
+        } else if rollback {
+            "ROLLBACK".into()
+        } else {
+            "COMMIT".into()
+        };
+        if let Err(e) = self.client.batch_execute(&cleanup).await {
+            self.connection.abort();
+            self.closed.store(true, Ordering::Release);
+            return Err(DbError::new(
+                ErrorKind::Connection,
+                format!(
+                    "Edit cleanup failed; session discarded: {}",
+                    self.error(e).message
+                ),
+            ));
+        }
+        result
+    }
+}

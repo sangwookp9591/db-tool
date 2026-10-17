@@ -3,6 +3,7 @@ mod context;
 mod assistant;
 mod agent_dispatch;
 mod permissions;
+mod edits;
 pub mod drivers;
 pub mod storage;
 pub mod stream;
@@ -629,6 +630,8 @@ pub fn run() {
             viewer_bench::viewer_bench_config,
             viewer_bench::viewer_bench_write,
             viewer_bench::viewer_bench_checkpoint,
+            edits::edit_preview,
+            edits::edit_apply,
             cancel,
             expand,
             history_list,

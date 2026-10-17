@@ -1,5 +1,6 @@
 //! PostgreSQL text-protocol driver; no dependency on the desktop host.
 mod preview;
+mod edits;
 mod schema;
 mod split;
 use async_trait::async_trait;
@@ -94,7 +95,7 @@ impl PostgresDriver {
                     paged_browse: true,
                     graph_expand: false,
                     multi_statement: true,
-                    edit_rows: false,
+                    edit_rows: true,
                 },
                 default_query: "SELECT current_database(), version();".into(),
             },
@@ -502,6 +503,7 @@ impl PgSession {
         req: &ExecRequest,
         cancel: CancelToken,
         preview: bool,
+        edits: Option<&EditRequest>,
     ) -> Result<RunOutput, DbError> {
         let deadline = tokio::time::sleep(Duration::from_millis(req.timeout_ms.max(1)));
         tokio::pin!(deadline);
@@ -512,7 +514,9 @@ impl PgSession {
         let mut sent_cancel = false;
         let kind = {
             let future = async {
-                if preview {
+                if let Some(edit) = edits {
+                    self.edit_run(edit, &mut state, &cancel, preview).await
+                } else if preview {
                     self.preview_run(req, &mut state, &cancel)
                         .await
                         .map(RunOutput::Preview)
@@ -580,13 +584,24 @@ fn uuid_free_id() -> u64 {
 }
 #[async_trait]
 impl Session for PgSession {
+    async fn preview_edits(&self, req: &EditRequest, cancel: CancelToken) -> Result<ChangePreview,DbError> {
+        let mut exec = ExecRequest {text:String::new(),read_only:false,params:Default::default(),row_limit:1000,graph_node_limit:1,timeout_ms:req.timeout_ms,preview_sample_limit:req.preview_sample_limit};
+        exec.timeout_ms=req.timeout_ms;
+        match self.execute_cancelled(&exec,cancel,true,Some(req)).await? {RunOutput::Preview(r)=>Ok(r),_=>unreachable!()}
+    }
+    async fn apply_edits(&self, req: &EditRequest, cancel: CancelToken) -> Result<EditResult,DbError> {
+        let mut exec = ExecRequest {text:String::new(),read_only:false,params:Default::default(),row_limit:1000,graph_node_limit:1,timeout_ms:req.timeout_ms,preview_sample_limit:req.preview_sample_limit};
+        exec.timeout_ms=req.timeout_ms;
+        match self.execute_cancelled(&exec,cancel,false,Some(req)).await? {RunOutput::Edit(r)=>Ok(r),_=>unreachable!()}
+    }
+
     async fn schema_graph(&self, scope: Option<&str>) -> Result<SchemaGraph, DbError> { self.load_schema_graph(scope).await }
     async fn preview(
         &self,
         req: &ExecRequest,
         cancel: CancelToken,
     ) -> Result<ChangePreview, DbError> {
-        match self.execute_cancelled(req, cancel, true).await? {
+        match self.execute_cancelled(req, cancel, true, None).await? {
             RunOutput::Preview(r) => Ok(r),
             _ => unreachable!(),
         }
@@ -613,7 +628,7 @@ impl Session for PgSession {
         req: &ExecRequest,
         cancel: CancelToken,
     ) -> Result<Vec<ResultSet>, DbError> {
-        match self.execute_cancelled(req, cancel, false).await? {
+        match self.execute_cancelled(req, cancel, false, None).await? {
             RunOutput::Execute(r) => Ok(r),
             _ => unreachable!(),
         }
@@ -633,7 +648,7 @@ impl Session for PgSession {
         let (schema, table) = (&path[1], &path[3]);
         let keys = {
             let _guard = self.state.lock().await;
-            self.client.query("SELECT a.attname FROM pg_index i JOIN pg_attribute a ON a.attrelid=i.indrelid AND a.attnum=ANY(i.indkey) WHERE i.indrelid=to_regclass($1) AND i.indisprimary ORDER BY array_position(i.indkey,a.attnum)",&[&format!("{}.{}",quote_ident(schema),quote_ident(table))]).await.map_err(|e|self.error(e))?
+            self.client.query("SELECT a.attname FROM pg_index i JOIN pg_attribute a ON a.attrelid=i.indrelid AND a.attnum IN (SELECT k.attnum FROM unnest(i.indkey) WITH ORDINALITY AS k(attnum,ord) WHERE k.ord<=i.indnkeyatts) WHERE i.indrelid=to_regclass($1) AND i.indisprimary ORDER BY array_position(i.indkey,a.attnum)",&[&format!("{}.{}",quote_ident(schema),quote_ident(table))]).await.map_err(|e|self.error(e))?
         };
         let order = if keys.is_empty() {
             if path[2] == "views" {
@@ -670,6 +685,7 @@ impl Session for PgSession {
             preview_sample_limit: default_preview_sample_limit(),
         };
         let mut result = self.execute(&req, CancelToken::new()).await?.remove(0);
+        if !keys.is_empty() && path[2] == "tables" { result.edit_target = Some(EditTarget {node_id:node_id.into(),key_columns:keys.iter().map(|r|r.get(0)).collect()}); }
         result.page = Some(PageInfo {
             offset: page.offset,
             limit,

@@ -361,7 +361,7 @@ pub struct Approval {
     pub fingerprint: String,
     pub created: Instant,
 }
-pub fn fingerprint(session: &str, req: &ExecRequest) -> Result<String, DbError> {
+pub fn fingerprint(session: &str, req: &impl Serialize) -> Result<String, DbError> {
     Ok(hash(&format!(
         "{session}:{}",
         serde_json::to_string(req).map_err(|_| DbError::query("Invalid approval request"))?

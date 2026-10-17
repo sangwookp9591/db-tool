@@ -495,3 +495,85 @@ async fn schema_graph_and_filtered_browse() {
     let result=s.browse(&fk.to,PageRequest {offset:0,limit:10,filter:vec![("tenant".into(),Value::Text("a".into())),("id".into(),Value::Int(i64::MAX.to_string()))]}).await.unwrap();assert_eq!(result.row_count,1);assert_eq!(result.table.unwrap().rows[0][1],Value::Int(i64::MAX.to_string()));
     let result=s.browse(&fk.to,PageRequest {offset:0,limit:10,filter:vec![("tenant".into(),Value::Text("a' OR TRUE--".into()))]}).await.unwrap();assert_eq!(result.row_count,0);
 }
+
+fn edit_request(node: &str, edits: Vec<RowEdit>) -> EditRequest {EditRequest{node_id:node.into(),edits,timeout_ms:5000,preview_sample_limit:2}}
+fn edit_key(id:i64)->Vec<(String,Value)>{vec![("id".into(),Value::Int(id.to_string()))]}
+#[tokio::test]
+async fn c2_bound_edits_preview_apply_conflicts_and_catalog(){
+
+    let (_dir,s)=fixture().await;
+    let table="c2_edit";let view="c2_edit_view";let no_key="c2_no_key";
+    let node="table:c2_edit".to_string();let view_node="table:c2_edit_view".to_string();let no_key_node="table:c2_no_key".to_string();let bad_node="table:missing_c2; DROP TABLE x".to_string();
+
+    run(s.as_ref(),&format!("CREATE TABLE {table}(id INTEGER PRIMARY KEY, t TEXT); INSERT INTO {table} VALUES(1,'old'),(2,'delete'); CREATE VIEW {view} AS SELECT * FROM {table}; CREATE TABLE {no_key}(t TEXT)")).await;
+    let browse=s.browse(&node,PageRequest{offset:0,limit:10,filter:vec![]}).await.unwrap();
+    assert_eq!(browse.edit_target.unwrap().key_columns,vec!["id"]);
+    assert!(s.browse(&view_node,PageRequest{offset:0,limit:10,filter:vec![]}).await.unwrap().edit_target.is_none());
+    assert!(s.browse(&no_key_node,PageRequest{offset:0,limit:10,filter:vec![]}).await.unwrap().edit_target.is_none());
+    assert!(run(s.as_ref(),&format!("SELECT * FROM {table}")).await.edit_target.is_none());
+    let injection="'; DROP TABLE x; -- ' \\ 한글 🦀";
+    let request=edit_request(&node,vec![
+        RowEdit::Update{key:edit_key(1),set:vec![("t".into(),Value::Text(injection.into()))]},
+        RowEdit::Insert{values:vec![("id".into(),Value::Int("3".into())),("t".into(),Value::Text("insert".into()))]},
+        RowEdit::Delete{key:edit_key(2)},
+    ]);
+    let preview=s.preview_edits(&request,CancelToken::new()).await.unwrap();
+    assert!(!preview.committed);assert_eq!(preview.statements.len(),3);
+    assert_eq!(preview.statements[0].affected,Some(1));assert!(preview.statements[0].text.contains("?"));
+    assert!(!preview.statements[0].text.contains(injection));
+    assert_eq!(preview.statements[0].before.as_ref().unwrap().rows[0][1],Value::Text("old".into()));
+    assert_eq!(preview.statements[0].after.as_ref().unwrap().rows[0][1],Value::Text(injection.into()));
+    assert_eq!(run(s.as_ref(),&format!("SELECT t FROM {table} WHERE id=1")).await.table.unwrap().rows[0][0],Value::Text("old".into()));
+    let result=s.apply_edits(&request,CancelToken::new()).await.unwrap();assert_eq!(result.affected,vec![1,1,1]);
+    assert_eq!(run(s.as_ref(),&format!("SELECT id,t FROM {table} ORDER BY id")).await.table.unwrap().rows,vec![vec![Value::Int("1".into()),Value::Text(injection.into())],vec![Value::Int("3".into()),Value::Text("insert".into())]]);
+    let conflict=edit_request(&node,vec![RowEdit::Update{key:edit_key(1),set:vec![("t".into(),Value::Text("rollback".into()))]},RowEdit::Delete{key:edit_key(999)}]);
+    for preview in [false,true]{
+        let error=if preview{s.preview_edits(&conflict,CancelToken::new()).await.unwrap_err()}else{s.apply_edits(&conflict,CancelToken::new()).await.unwrap_err()};
+        assert_eq!(error.kind,ErrorKind::Conflict);assert!(error.message.contains("Edit 1"));
+        assert_eq!(run(s.as_ref(),&format!("SELECT t FROM {table} WHERE id=1")).await.table.unwrap().rows[0][0],Value::Text(injection.into()));
+    }
+    for invalid in ["missing", "t\"; DROP TABLE x; --"]{
+        let bad=edit_request(&node,vec![RowEdit::Insert{values:vec![(invalid.into(),Value::Text("x".into()))]}]);
+        assert_eq!(s.apply_edits(&bad,CancelToken::new()).await.unwrap_err().kind,ErrorKind::Query);
+    }
+    let conversion=edit_request(&node,vec![RowEdit::Insert{values:edit_key(4)},RowEdit::Insert{values:vec![("id".into(),Value::Int("invalid integer".into()))]}]);
+    let error=s.apply_edits(&conversion,CancelToken::new()).await.unwrap_err();assert_eq!(error.kind,ErrorKind::Query);assert!(error.message.contains("Edit 1"));
+    assert_eq!(run(s.as_ref(),&format!("SELECT count(*) FROM {table} WHERE id=4")).await.table.unwrap().rows[0][0],Value::Int("0".into()));
+    let bad=edit_request(&bad_node,request.edits.clone());assert!(s.apply_edits(&bad,CancelToken::new()).await.is_err());
+    let bad=edit_request(&node,vec![RowEdit::Delete{key:vec![]}]);assert!(s.apply_edits(&bad,CancelToken::new()).await.is_err());
+    let too_many=edit_request(&node,vec![RowEdit::Delete{key:edit_key(1)};1001]);assert_eq!(s.apply_edits(&too_many,CancelToken::new()).await.unwrap_err().kind,ErrorKind::Unsupported);
+    let token=CancelToken::new();token.cancel();assert_eq!(s.apply_edits(&request,token).await.unwrap_err().kind,ErrorKind::Cancelled);s.ping().await.unwrap();
+    run(s.as_ref(),&format!("DROP VIEW {view}; DROP TABLE {table}; DROP TABLE {no_key}")).await;
+}
+#[tokio::test]
+async fn c2_multirow_conflict_and_timeout_rollback(){
+    let (_dir,s)=fixture().await;
+    run(s.as_ref(),"CREATE TABLE c2_nullable(id INTEGER, part INTEGER, t TEXT, PRIMARY KEY(id,part)); INSERT INTO c2_nullable VALUES(1,NULL,'a'),(1,NULL,'b')").await;
+    let request=edit_request("table:c2_nullable",vec![RowEdit::Insert{values:vec![("id".into(),Value::Int("5".into())),("part".into(),Value::Int("5".into()))]},RowEdit::Delete{key:vec![("id".into(),Value::Int("1".into())),("part".into(),Value::Null)]}]);
+    let error=s.apply_edits(&request,CancelToken::new()).await.unwrap_err();assert_eq!(error.kind,ErrorKind::Conflict);assert!(error.message.contains("Edit 1"));
+    assert_eq!(run(s.as_ref(),"SELECT count(*) FROM c2_nullable").await.table.unwrap().rows[0][0],Value::Int("2".into()));
+    run(s.as_ref(),"CREATE TABLE c2_slow(id INTEGER PRIMARY KEY); CREATE TRIGGER c2_slow_trigger BEFORE INSERT ON c2_slow BEGIN SELECT sum(x) FROM (WITH RECURSIVE seq(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM seq WHERE x<100000000) SELECT x FROM seq); END").await;
+    let mut request=edit_request("table:c2_slow",vec![RowEdit::Insert{values:edit_key(1)}]);
+    for preview in [false,true]{
+        request.timeout_ms=10;
+        let error=if preview{s.preview_edits(&request,CancelToken::new()).await.unwrap_err()}else{s.apply_edits(&request,CancelToken::new()).await.unwrap_err()};assert_eq!(error.kind,ErrorKind::Timeout);s.ping().await.unwrap();
+        assert_eq!(run(s.as_ref(),"SELECT count(*) FROM c2_slow").await.table.unwrap().rows[0][0],Value::Int("0".into()));
+        request.timeout_ms=5000;let token=CancelToken::new();let cancelling=token.clone();
+        tokio::spawn(async move{tokio::time::sleep(Duration::from_millis(10)).await;cancelling.cancel();});
+        let error=if preview{s.preview_edits(&request,token).await.unwrap_err()}else{s.apply_edits(&request,token).await.unwrap_err()};assert_eq!(error.kind,ErrorKind::Cancelled);s.ping().await.unwrap();
+    }
+    run(s.as_ref(),"BEGIN; INSERT INTO c2_nullable VALUES(7,7,'keep')").await;
+    assert_eq!(s.apply_edits(&request,CancelToken::new()).await.unwrap_err().kind,ErrorKind::Unsupported);
+    assert_eq!(s.preview_edits(&request,CancelToken::new()).await.unwrap_err().kind,ErrorKind::Unsupported);
+    run(s.as_ref(),"COMMIT").await;
+}
+#[tokio::test]
+async fn c2_quotes_catalog_identifiers_and_avoids_temp_shadowing(){
+    let (_dir,s)=fixture().await;
+    run(s.as_ref(),"CREATE TABLE \"c2 quote; --\"(id INTEGER PRIMARY KEY, \"x\"\"column\" TEXT); INSERT INTO main.\"c2 quote; --\" VALUES(1,'main'); CREATE TEMP TABLE \"c2 quote; --\"(id INTEGER PRIMARY KEY, \"x\"\"column\" TEXT); INSERT INTO temp.\"c2 quote; --\" VALUES(1,'temp')").await;
+    let request=edit_request("table:c2 quote; --",vec![RowEdit::Update{key:edit_key(1),set:vec![("x\"column".into(),Value::Text("edited".into()))]}]);
+    assert_eq!(s.apply_edits(&request,CancelToken::new()).await.unwrap().affected,vec![1]);
+    let result=s.browse("table:c2 quote; --",PageRequest{offset:0,limit:10,filter:vec![]}).await.unwrap();
+    assert_eq!(result.table.unwrap().rows[0][1],Value::Text("edited".into()));
+    assert_eq!(run(s.as_ref(),"SELECT \"x\"\"column\" FROM temp.\"c2 quote; --\"").await.table.unwrap().rows[0][0],Value::Text("temp".into()));
+}

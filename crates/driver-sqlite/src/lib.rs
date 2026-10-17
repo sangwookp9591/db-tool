@@ -1,5 +1,6 @@
 //! SQLite driver. Every connection operation runs on the blocking pool.
 mod preview;
+mod edits;
 mod schema;
 use async_trait::async_trait;
 use dbcore::*;
@@ -69,7 +70,7 @@ impl SqliteDriver {
                     transactions: true,
                     params: false,
                     graph_expand: false,
-                    edit_rows: false,
+                    edit_rows: true,
                 },
                 default_query: "SELECT sqlite_version();".into(),
             },
@@ -165,6 +166,7 @@ impl SqliteSession {
         req: &ExecRequest,
         cancel: CancelToken,
         preview: bool,
+        edits: Option<&EditRequest>,
     ) -> Result<RunOutput, DbError> {
         if !req.params.is_empty() {
             return Err(DbError::unsupported("SQLite parameters are not enabled"));
@@ -187,6 +189,7 @@ impl SqliteSession {
         let watcher_gate = interrupt_gate.clone();
         let token = cancel.clone();
         let req = req.clone();
+        let edits = edits.cloned();
         // Keep the watcher and connection lease alive even if the host drops this future.
         let watcher = tokio::spawn(async move {
             tokio::select! {
@@ -204,7 +207,9 @@ impl SqliteSession {
         });
         tokio::task::spawn_blocking(move || {
             let conn = guard.as_ref().expect("connection lease");
-            let result = if preview {
+            let result = if let Some(edit) = edits {
+                edits::run(conn, &edit, &cancel, deadline, preview)
+            } else if preview {
                 preview::run(conn, &req, &cancel, deadline).map(RunOutput::Preview)
             } else {
                 run(conn, &req, &cancel, deadline).map(RunOutput::Execute)
@@ -248,6 +253,17 @@ impl SqliteSession {
 }
 #[async_trait]
 impl Session for SqliteSession {
+    async fn preview_edits(&self, req: &EditRequest, cancel: CancelToken) -> Result<ChangePreview,DbError> {
+        let mut exec = request(String::new());
+        exec.timeout_ms=req.timeout_ms;
+        match self.bounded(&exec,cancel,true,Some(req)).await? {RunOutput::Preview(r)=>Ok(r),_=>unreachable!()}
+    }
+    async fn apply_edits(&self, req: &EditRequest, cancel: CancelToken) -> Result<EditResult,DbError> {
+        let mut exec = request(String::new());
+        exec.timeout_ms=req.timeout_ms;
+        match self.bounded(&exec,cancel,false,Some(req)).await? {RunOutput::Edit(r)=>Ok(r),_=>unreachable!()}
+    }
+
     async fn schema_graph(&self, _scope: Option<&str>) -> Result<SchemaGraph, DbError> { self.load_schema_graph().await }
     async fn ping(&self) -> Result<(), DbError> {
         self.with_connection(|c| c.query_row("SELECT 1", [], |_| Ok(())).map_err(sql_error))
@@ -275,7 +291,7 @@ impl Session for SqliteSession {
         req: &ExecRequest,
         cancel: CancelToken,
     ) -> Result<Vec<ResultSet>, DbError> {
-        match self.bounded(req, cancel, false).await? {
+        match self.bounded(req, cancel, false, None).await? {
             RunOutput::Execute(r) => Ok(r),
             _ => unreachable!(),
         }
@@ -285,7 +301,7 @@ impl Session for SqliteSession {
         req: &ExecRequest,
         cancel: CancelToken,
     ) -> Result<ChangePreview, DbError> {
-        match self.bounded(req, cancel, true).await? {
+        match self.bounded(req, cancel, true, None).await? {
             RunOutput::Preview(r) => Ok(r),
             _ => unreachable!(),
         }
@@ -300,12 +316,14 @@ impl Session for SqliteSession {
         let predicates = page.filter.iter().map(|(field,value)| Ok(format!("{} {} {}",quote(field),if matches!(value,Value::Null) {"IS"}else{"="},dbcore::filter::sql_literal(value)?))).collect::<Result<Vec<_>,DbError>>()?;
         let condition=if predicates.is_empty(){String::new()}else{format!(" WHERE {}",predicates.join(" AND "))};
         let mut req = request(format!(
-            "SELECT * FROM {}{condition} LIMIT {} OFFSET {offset}",
+            "SELECT * FROM main.{}{condition} LIMIT {} OFFSET {offset}",
             quote(name),
             u64::from(limit) + 1
         ));
         req.row_limit = limit;
         let mut result = self.execute(&req, CancelToken::new()).await?.remove(0);
+        let owned=node_id.to_string();
+        result.edit_target=self.with_connection(move |c| edits::target(c,&owned).map(|(_,keys)| if keys.is_empty(){None}else{Some(EditTarget{node_id:owned,key_columns:keys})})).await?;
         result.page = Some(PageInfo {
             offset: page.offset,
             limit,
