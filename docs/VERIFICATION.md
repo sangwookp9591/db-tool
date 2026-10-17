@@ -177,3 +177,31 @@
 - `cargo test --workspace`: **80 통과 / 0 실패, 3회 연속**(Claude 로그인 테스트 2개를 추가한 뒤 82/82, 2회 연속), 2 ignored(유료 API, 실제 키체인). 실제 PG·Neo4j·Mongo·SQLite·Redis와 TLS 컨테이너 3개에 연결했다.
 - `clippy --all-targets -D warnings`, vitest 45/45, UI driver-id 비교 grep 0
 - 실제 앱 E2E: e2e-bridge 21/21(PG·Neo4j·SQLite), preview 5/5, permissions 13/13
+
+**회귀(2026-10-17, 커밋 24ef30e 기준 트리)**
+- `cargo test --workspace`: **100 통과 / 0 실패**, 2 ignored(유료 API, 실제 키체인). 실제 PG·Neo4j에 연결했다. 이번에는 Mongo·Redis·TLS 컨테이너를 띄우지 않았으므로 해당 실DB 경로는 건너뛰었다.
+- `clippy --workspace --all-targets -D warnings` 통과, vitest **90/90**(병렬 2회 연속), UI driver-id 비교 grep 0, 네이티브 `<select>` 0
+- 실제 앱 E2E: e2e-bridge **21/21**, preview **5/5**, permissions **13/13**(최종 확인 3). `w5-sqlite-smoke.mjs`는 감사 설정에 해당 프로필이 없어 실행하지 않았다.
+- `permissions-e2e.mjs:77`에서 한 번 예외로 끝난 실행이 있었다(U1 재감사). 재실행과 이후 두 번의 감사에서는 재현되지 않았다. 원인은 확인하지 못했다.
+
+## 8. UI 품질 감사와 수정 (2026-10-17)
+
+사용자 질문: 전체 UI가 올바르고 깔끔한가, 겹침이나 가림이 없는가.
+
+| 단계 | 보고서 | 결과 |
+|---|---|---|
+| 1차 감사 | [UI_AUDIT_NATIVE](UI_AUDIT_NATIVE.md) | 실제 앱 21건(blocker 1, major 9, minor 11). 브라우저 mock 자동 측정은 29개 화면 × 5개 크기 × 2개 테마 |
+| 공통 원인 | [U1 명세](tasks/U1-ui-fixes.md) | 디자인 v3의 `:root .ax-button`이 예전 보정 규칙을 덮어 탭 바 등 21곳이 깨졌다(사용자 제보). 위치별로 판정해 수정 |
+| U1 수정·재감사 | [U1 재감사](U1_NATIVE_REAUDIT.md) | 21건 중 고침 13, 일부 6, 미해결 2. 최소 창 960×600, 토스트, 오류 배너 단일화, 연결 대화상자, Neo4j 버전 표시 |
+| U2 | [CallChip](U2_CALLCHIP_REPORT.md) · [GlideSelect](U2_GLIDESELECT_REPORT.md) · [BranchedMenu](U2_BRANCHEDMENU_REPORT.md) · [잔여](U2_REMAINING_REPORT.md) | React Bits 3종 이식(Lucide 아이콘, 새 의존성 없음), 사이드바 스크롤 분리, 열 너비 공유, 그래프 맞춤, 제목 말줄임 |
+| U3 문구 | [문구](U3_COPY_REPORT.md) | 한국어 통일(기술 용어·DB 오류·aria-label 유지). 드라이버 연결·검증 오류 약 190곳은 남김 |
+| 최종 감사 → U4 → 재감사 2 → U5 | [최종](FINAL_UI_AUDIT.md) · [U4 상태바](U4_CHROME_REPORT.md) · [U4 사이드바](U4_SIDEBAR_REPORT.md) · [재감사 2](FINAL_UI_AUDIT_2.md) · [U5](U5_REPORT.md) | 상태바 CallChip 누적(major), 활성 카드 가림(major) 등 해결. 재감사 2에서 major 0 |
+| 최종 확인 3 | [최종 확인 3](FINAL_UI_AUDIT_3.md) | major 0, minor 6(아래). 이전 항목 회귀 없음 |
+
+**남은 UI 한계(minor)**
+- 편집 대기 중인 표 탭을 ×로 닫으면 확인 없이 편집이 사라진다(DB는 바뀌지 않는다).
+- 960×600에서 실행 이력 패널을 열면 행이 보이지 않는다. 에이전트 다이어그램의 DB 노드가 잘린다.
+- 1280×800에서 연결이 5개를 넘으면 마지막 연결 카드 테두리가 잘린다.
+- ERD에서 간선이 노드 뒤를 지나며 그 FK 라벨이 가려진다. 클라이언트 이름 줄바꿈에서 마지막 글자가 다음 줄에 남는다.
+- 확인하지 못한 것: 1492×874 일부 조합, Redis·MongoDB 실제 화면(테스트 서버 없음), 툴팁(hover 불가).
+- README의 화면 스크린샷(`docs/assets/screens/`)은 이번 UI 수정 이전 화면이다.

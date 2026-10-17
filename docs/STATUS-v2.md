@@ -78,3 +78,5 @@
   - AI1 맥락 기반 AI 지원
   - C2 편집/미리보기 UI
 - **각 wave 이후:** 코디네이터가 PG/Neo4j/SQLite 회귀 E2E(`bench/e2e-bridge.mjs`), cargo/vitest, UI driver-id grep 0을 확인하고 단계별로 커밋한다.
+
+> 2026-10-17: 전체 UI 감사와 수정(U1~U5), React Bits CallChip·GlideSelect·BranchedMenu 적용, 한국어 문구 통일. 결과와 남은 한계는 [VERIFICATION.md](VERIFICATION.md) 8절.

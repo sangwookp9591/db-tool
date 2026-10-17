@@ -15,7 +15,7 @@
   <img alt="Rust" src="https://img.shields.io/badge/Rust-1.94-B7410E?logo=rust&logoColor=white">
   <img alt="Preact" src="https://img.shields.io/badge/Preact-11-673AB8?logo=preact&logoColor=white">
   <img alt="MCP" src="https://img.shields.io/badge/MCP-scoped%20tokens-8B7BFF">
-  <img alt="Tests" src="https://img.shields.io/badge/tests-86%20Rust%20%C2%B7%2064%20UI%20%C2%B7%2039%20E2E-34D399">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-100%20Rust%20%C2%B7%2090%20UI%20%C2%B7%2039%20E2E-34D399">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-lightgrey">
 </p>
 
@@ -31,7 +31,7 @@
 |---|---|
 | **DB마다 맞는 화면** | 모든 DB를 SQL과 표에 억지로 맞추지 않습니다. 관계형은 스키마·표·ERD, 그래프는 노드·관계·경로, 문서는 컬렉션·JSON 트리, 키-값은 키 계층과 자료형별 표로 보여 줍니다. |
 | **가볍고 빠름** | 10만 행 쿼리에서 Tabularis 0.28.0은 첫 행이 549ms, 메모리가 974MiB였고 AxDB는 332ms, 255MiB였습니다. 앱 번들은 Tabularis의 절반 이하이고, 유휴 CPU는 0.1% 미만입니다. |
-| **안전한 쓰기** | 자동 쓰기는 하지 않습니다. 변경은 실행한 뒤 반드시 롤백하는 **미리보기**로 먼저 확인합니다. 연결 단위 **읽기 전용**은 호스트가 강제합니다. |
+| **안전한 쓰기** | 자동 쓰기는 하지 않습니다. 변경은 실행한 뒤 반드시 롤백하는 **미리보기**로 먼저 확인합니다. 표에서 셀을 고치거나 행을 추가·삭제해도 **편집 → 미리보기 → 적용**을 거치며, 적용은 한 트랜잭션입니다. 연결 단위 **읽기 전용**은 호스트가 강제합니다. |
 | **에이전트와 함께** | MCP로 접속하는 에이전트마다 연결별 권한(none / read / preview / write-with-approval), 해시로 저장한 토큰, 감사 로그를 둡니다. |
 | **스키마를 아는 AI** | 스키마와 작업 맥락을 읽고 쿼리를 제안합니다. 제안은 실행하지 않고 새 탭에 넣기만 합니다. 앱 안에서 Claude 로그인으로 쓸 수 있습니다. |
 
@@ -59,13 +59,13 @@
 
 ## 지원하는 데이터베이스
 
-| DB | 패러다임 | 탐색 | 결과 | 미리보기 | 읽기 전용 | ERD |
-|---|---|---|---|---|---|---|
-| **PostgreSQL** | 관계형 | 스키마 · 테이블 · 컬럼 · 인덱스 | 가상화 표, 정확한 int8 · numeric · jsonb · timestamptz | ✅ 롤백 | ✅ DB 수준 | ✅ FK |
-| **Neo4j** | 그래프 | 라벨 · 관계 · 속성 | 그래프 ↔ 표, 경로, 혼합 결과 | ✅ 롤백 | ✅ READ 모드 | ✅ |
-| **MongoDB** | 문서 | DB · 컬렉션 | JSON 트리, ObjectId · Decimal128 · Date | — | ✅ | ✅ 참조 추론 |
-| **Redis** | 키-값 | SCAN 기반 키 계층 | 자료형별 표, TYPE · TTL | — | ✅ 허용 목록 | — |
-| **SQLite** | 관계형 | 테이블 · 컬럼 | 표 | ✅ 롤백 | ✅ query_only | ✅ |
+| DB | 패러다임 | 탐색 | 결과 | 미리보기 | 표 편집 | 읽기 전용 | ERD |
+|---|---|---|---|---|---|---|---|
+| **PostgreSQL** | 관계형 | 스키마 · 테이블 · 컬럼 · 인덱스 | 가상화 표, 정확한 int8 · numeric · jsonb · timestamptz | ✅ 롤백 | ✅ 기본 키 | ✅ DB 수준 | ✅ FK |
+| **Neo4j** | 그래프 | 라벨 · 관계 · 속성 | 그래프 ↔ 표, 경로, 혼합 결과 | ✅ 롤백 | — | ✅ READ 모드 | ✅ |
+| **MongoDB** | 문서 | DB · 컬렉션 | JSON 트리, ObjectId · Decimal128 · Date | — | — | ✅ | ✅ 참조 추론 |
+| **Redis** | 키-값 | SCAN 기반 키 계층 | 자료형별 표, TYPE · TTL | — | — | ✅ 허용 목록 | — |
+| **SQLite** | 관계형 | 테이블 · 컬럼 | 표 | ✅ 롤백 | ✅ 기본 키 | ✅ query_only | ✅ |
 
 새 DB는 드라이버 crate 하나를 만들고 몇 줄로 등록하면 붙습니다. 공통 UI는 드라이버가 선언한 기능(capabilities)만 보고 화면을 그립니다. 그래서 MongoDB와 Redis를 추가할 때 `ui/`와 `crates/dbcore`는 한 줄도 바꾸지 않았습니다. 자세한 방법은 [플러그인 가이드](docs/PLUGIN_GUIDE.md)에 있습니다.
 
@@ -73,12 +73,15 @@
 
 - **테마:** Midnight(다크), Daylight(라이트), 시스템 설정 따르기 세 가지입니다.
 - **글꼴:** UI는 Pretendard, 코드와 결과 값은 JetBrains Mono를 씁니다. 둘 다 앱에 내장해 오프라인에서도 그대로 보입니다.
-- **마이크로 인터랙션 19종:**
-  - React Bits에서 가져온 9종: 결과 뷰 전환(JellyRadio), 이력(SwipeRow), 타임아웃(CometDial), 행 제한(WakeSlider), 숫자 표시(CodeSlots), 실행 중 표시(LatticeLoader), 테두리 빛(BorderGlow), 체크박스(SpringCheck), 5초 안에 되돌릴 수 있는 삭제(FuseButton)
+- **마이크로 인터랙션 22종:**
+  - React Bits에서 가져온 12종: 결과 뷰 전환(JellyRadio), 이력(SwipeRow), 타임아웃(CometDial), 행 제한(WakeSlider), 숫자 표시(CodeSlots), 실행 중 표시(LatticeLoader), 테두리 빛(BorderGlow), 체크박스(SpringCheck), 5초 안에 되돌릴 수 있는 삭제(FuseButton), 에이전트 도구 호출 칩(CallChip), 모든 선택 상자(GlideSelect), 사이드바 탐색 트리(BranchedMenu)
   - 그 밖의 10종: ⌘K 명령 팔레트, 토스트, 툴팁, 스포트라이트 카드, Integration Beam, 제안 카드, 도구 호출 카드 등
 - **모션 원칙:** 입력이 있을 때만 움직이고, 가만히 두면 애니메이션은 0입니다. `prefers-reduced-motion`을 따르고, 결과 그리드와 그래프 캔버스 안에는 인터랙션을 넣지 않습니다.
 
-세부 규칙은 [디자인 시스템](docs/DESIGN.md)에 있습니다.
+- **문구:** UI는 한국어입니다. Host·Port·TLS·SQL 같은 기술 용어와 DB가 돌려준 원본 오류는 그대로 둡니다.
+- **창 크기:** 최소 960×600입니다. 이 크기에서도 사이드바·탭·편집기·결과·상태바가 모두 보이도록 맞췄습니다.
+
+세부 규칙은 [디자인 시스템](docs/DESIGN.md)에 있고, 실제 앱 UI 감사 기록은 [최종 감사](docs/FINAL_UI_AUDIT_3.md)에 있습니다.
 
 ## 시작하기
 
