@@ -415,7 +415,7 @@ fn run(
             };
             let start = Instant::now();
             let mut result = ResultSet {
-                title: req.text.chars().take(80).collect(),
+                title: result_title(&req.text),
                 ..Default::default()
             };
             if stmt.column_count() == 0 {
@@ -514,4 +514,27 @@ fn map_value(value: ValueRef<'_>, declared: &str) -> Result<Value, DbError> {
             }
         }
     })
+}
+
+/// Result title: the first 80 chars, with an ellipsis when the text was cut.
+fn result_title(text: &str) -> String {
+    let mut chars = text.chars();
+    let mut title: String = chars.by_ref().take(80).collect();
+    if chars.next().is_some() {
+        title.push('…');
+    }
+    title
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn result_title_caps_at_80_chars_with_ellipsis() {
+        assert_eq!(result_title("select 1"), "select 1");
+        let exact = "a".repeat(80);
+        assert_eq!(result_title(&exact), exact);
+        let long = "한".repeat(81);
+        assert_eq!(result_title(&long), format!("{}…", "한".repeat(80)));
+    }
 }

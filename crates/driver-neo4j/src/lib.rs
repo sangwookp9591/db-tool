@@ -282,14 +282,7 @@ impl NeoSession {
             .join(", ");
         truncated |= collector.truncated;
         Ok(ResultSet {
-            title: req
-                .text
-                .lines()
-                .next()
-                .unwrap_or("")
-                .chars()
-                .take(80)
-                .collect(),
+            title: result_title(req.text.lines().next().unwrap_or("")),
             row_count: rows.len() as u64,
             table: Some(Table { columns, rows }),
             graph: collector.finish(),
@@ -431,9 +424,28 @@ fn first_text(value: Option<&Value>) -> Option<&str> {
     }
 }
 
+/// Result title: the first 80 chars, with an ellipsis when the text was cut.
+fn result_title(text: &str) -> String {
+    let mut chars = text.chars();
+    let mut title: String = chars.by_ref().take(80).collect();
+    if chars.next().is_some() {
+        title.push('…');
+    }
+    title
+}
+
 #[cfg(test)]
 mod server_info_tests {
     use super::*;
+
+    #[test]
+    fn result_title_caps_at_80_chars_with_ellipsis() {
+        assert_eq!(result_title("MATCH (n) RETURN n"), "MATCH (n) RETURN n");
+        let exact = "a".repeat(80);
+        assert_eq!(result_title(&exact), exact);
+        let long = "한".repeat(81);
+        assert_eq!(result_title(&long), format!("{}…", "한".repeat(80)));
+    }
 
     #[test]
     fn extracts_version_from_nested_component_values() {

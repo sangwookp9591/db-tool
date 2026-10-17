@@ -348,7 +348,7 @@ impl PgSession {
                     ..Default::default()
                 }
             };
-            result.title = sql.lines().next().unwrap_or("").chars().take(80).collect();
+            result.title = result_title(sql.lines().next().unwrap_or(""));
             result.elapsed_ms = start.elapsed().as_millis() as u64;
             results.push(result);
         }
@@ -841,9 +841,27 @@ fn map_value(typ: &Type, text: Option<&str>) -> Result<Value, DbError> {
     })
 }
 
+/// Result title: the first 80 chars, with an ellipsis when the text was cut.
+fn result_title(text: &str) -> String {
+    let mut chars = text.chars();
+    let mut title: String = chars.by_ref().take(80).collect();
+    if chars.next().is_some() {
+        title.push('…');
+    }
+    title
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn result_title_caps_at_80_chars_with_ellipsis() {
+        assert_eq!(result_title("select 1"), "select 1");
+        let exact = "a".repeat(80);
+        assert_eq!(result_title(&exact), exact);
+        let long = "한".repeat(81);
+        assert_eq!(result_title(&long), format!("{}…", "한".repeat(80)));
+    }
     #[test]
     fn quotes_identifiers_and_types() {
         assert_eq!(quote_ident("x\"; DROP TABLE t"), "\"x\"\"; DROP TABLE t\"");
