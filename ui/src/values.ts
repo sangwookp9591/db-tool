@@ -1,4 +1,4 @@
-import type { Value } from './contract';
+import type { Column, Value } from './contract';
 import { nodeCaption } from './graph';
 
 // Tokenize strings before whitespace: never decode numbers or strings from JSON.
@@ -42,6 +42,38 @@ export function valueText(value: Value, detail = false): string {
 }
 export function valueClass(v: Value): string { return v.t === 'Null' ? 'value-null' : ['Int', 'Decimal', 'Float'].includes(v.t) ? 'value-number' : v.t === 'Bool' ? 'value-boolean' : ['Date', 'Time', 'DateTime', 'DateTimeTz', 'Duration'].includes(v.t) ? 'value-date' : v.t === 'Bytes' ? 'value-binary' : ['Json', 'List', 'Map', 'Node', 'Rel', 'Path', 'Point'].includes(v.t) ? 'value-json' : 'value-string'; }
 export function valueTitle(v: Value): string { return v.t === 'Other' ? v.v.type_name : v.t; }
+export function inputValue(input: string, column: Column, original: Value): Value {
+  const type = column.type_name.toLowerCase();
+  if (original.t === 'Null' && input.trim().toUpperCase() === 'NULL') return { t: 'Null' };
+  if (original.t === 'Bool' || /^(bool|boolean)$/.test(type)) {
+    if (/^(true|t|1|yes)$/i.test(input.trim())) return { t: 'Bool', v: true };
+    if (/^(false|f|0|no)$/i.test(input.trim())) return { t: 'Bool', v: false };
+    throw new Error(`Enter true or false for ${column.name}.`);
+  }
+  if (original.t === 'Int' || /\b(int|int2|int4|int8|integer|serial|bigint|smallint|smallserial|bigserial)\b/.test(type)) {
+    if (!/^[+-]?\d+$/.test(input.trim())) throw new Error(`Enter an integer for ${column.name}.`);
+    return { t: 'Int', v: input.trim() };
+  }
+  if (original.t === 'Decimal' || /numeric|decimal|money/.test(type)) {
+    if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(input.trim())) throw new Error(`Enter a number for ${column.name}.`);
+    return { t: 'Decimal', v: input.trim() };
+  }
+  if (original.t === 'Float' || /float|double|real/.test(type)) {
+    const parsed = Number(input.trim());
+    if (!Number.isFinite(parsed)) throw new Error(`Enter a finite number for ${column.name}.`);
+    return { t: 'Float', v: parsed };
+  }
+  if (original.t === 'Json' || /json/.test(type)) {
+    try { JSON.parse(input); } catch { throw new Error(`Enter valid JSON for ${column.name}.`); }
+    return { t: 'Json', v: input };
+  }
+  if (original.t === 'Date' || /^date$/.test(type)) return { t: 'Date', v: input };
+  if (original.t === 'Time' || /^time/.test(type)) return { t: 'Time', v: input };
+  if (original.t === 'DateTimeTz' || /timestamptz|timestamp with time zone/.test(type)) return { t: 'DateTimeTz', v: input };
+  if (original.t === 'DateTime' || /timestamp|datetime/.test(type)) return { t: 'DateTime', v: input };
+  if (original.t === 'Uuid' || /uuid/.test(type)) return { t: 'Uuid', v: input };
+  return { t: 'Text', v: input };
+}
 export function normalizeError(error: unknown): import('./contract').DbError {
   if (error && typeof error === 'object' && 'kind' in error && 'message' in error) return error as import('./contract').DbError;
   return { kind: 'Internal', message: error instanceof Error ? error.message : String(error), detail: null, position: null };

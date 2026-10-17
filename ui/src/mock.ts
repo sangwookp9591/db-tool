@@ -1,5 +1,5 @@
 import type { Commands } from './api';
-import type { DriverManifest, Profile, ExplorerNode, ResultSet, Table, Value, Graph, DbError, HistoryEntry, ExecRequest } from './contract';
+import type { DriverManifest, Profile, ExplorerNode, ResultSet, Table, Value, Graph, DbError, HistoryEntry, ExecRequest, EditRequest } from './contract';
 const fields: DriverManifest['connection_fields'] = [
   { key: 'host', label: 'Host', kind: 'Text', required: true, default: 'localhost', secret: false, placeholder: 'localhost' },
   { key: 'port', label: 'Port', kind: 'Number', required: true, default: '5432', secret: false, placeholder: '' },
@@ -8,23 +8,39 @@ const fields: DriverManifest['connection_fields'] = [
   { key: 'tls', label: 'TLS', kind: {Select:{options:['disable','prefer','require','verify-full']}}, required:false, default:'prefer', secret:false, placeholder:null },
   { key: 'tls_ca_file', label:'TLS CA file', kind:'FilePath',required:false,default:null,secret:false,placeholder:null }
 ];
-const capabilities: DriverManifest['capabilities'] = { schema_graph: true, preview_changes: 'DryRun', read_only_exec: true, cancel: 'Server', timeout: true, params: true, transactions: true, paged_browse: true, graph_expand: false, multi_statement: true, edit_rows: false };
+const capabilities: DriverManifest['capabilities'] = { schema_graph: true, preview_changes: 'DryRun', read_only_exec: true, cancel: 'Server', timeout: true, params: true, transactions: true, paged_browse: true, graph_expand: false, multi_statement: true, edit_rows: true };
 export const drivers: DriverManifest[] = [
   { id: 'postgres', display_name: 'PostgreSQL · demo', paradigm: 'Relational', query_language: { id: 'sql', display: 'SQL', editor_mode: 'sql', supports_params: true }, connection_fields: fields, capabilities, default_query: 'SELECT * FROM people;' },
-  { id: 'neo4j', display_name: 'Graph · demo', paradigm: 'Graph', query_language: { id: 'cypher', display: 'Cypher', editor_mode: 'cypher', supports_params: true }, connection_fields: fields.map(f => f.key === 'port' ? { ...f, default: '7687' } : f), capabilities: { ...capabilities, cancel: 'Abort', graph_expand: true, multi_statement: false }, default_query: 'MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 100;' },
-  { id: 'mongodb', display_name: 'MongoDB · demo', paradigm: 'Document', query_language: { id: 'json', display: 'JSON', editor_mode: 'json', supports_params: false }, connection_fields: [{key:'uri',label:'URI',kind:'Text',required:true,default:'mongodb://127.0.0.1:57017',secret:false,placeholder:null},{key:'database',label:'Database',kind:'Text',required:true,default:'axdb_test',secret:false,placeholder:null},...fields.filter(f=>['user','password','tls','tls_ca_file'].includes(f.key)),{key:'auth_source',label:'Authentication database',kind:'Text',required:false,default:'admin',secret:false,placeholder:null}], capabilities: { ...capabilities, params: false, preview_changes: 'None' }, default_query: '{"find":"people","filter":{}}' }
+  { id: 'neo4j', display_name: 'Graph · demo', paradigm: 'Graph', query_language: { id: 'cypher', display: 'Cypher', editor_mode: 'cypher', supports_params: true }, connection_fields: fields.map(f => f.key === 'port' ? { ...f, default: '7687' } : f), capabilities: { ...capabilities, edit_rows: false, cancel: 'Abort', graph_expand: true, multi_statement: false }, default_query: 'MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 100;' },
+  { id: 'mongodb', display_name: 'MongoDB · demo', paradigm: 'Document', query_language: { id: 'json', display: 'JSON', editor_mode: 'json', supports_params: false }, connection_fields: [{key:'uri',label:'URI',kind:'Text',required:true,default:'mongodb://127.0.0.1:57017',secret:false,placeholder:null},{key:'database',label:'Database',kind:'Text',required:true,default:'axdb_test',secret:false,placeholder:null},...fields.filter(f=>['user','password','tls','tls_ca_file'].includes(f.key)),{key:'auth_source',label:'Authentication database',kind:'Text',required:false,default:'admin',secret:false,placeholder:null}], capabilities: { ...capabilities, edit_rows: false, params: false, preview_changes: 'None' }, default_query: '{"find":"people","filter":{}}' }
 ];
 let profiles: Profile[] = drivers.map((d, i) => ({ id: `demo-${i}`, name: ['Analytics sandbox', 'Graph playground', 'Document studio'][i], driver_id: d.id, fields: Object.fromEntries(d.connection_fields.filter(f => !f.secret).map(f => [f.key, f.default ?? ''])), save_secret: false }));
 const sessions = new Map<string, Profile>();
 const runs = new Map<string, () => void>();
 const history: HistoryEntry[] = [];
+const mockRowChanges = new Map<string, Record<string, Value>>();
+const mockDeletedRows = new Set<string>();
+const mockInsertedRows: Record<string, Value>[] = [];
 const text = (v: string): Value => ({ t: 'Text', v });
 const int = (v: string): Value => ({ t: 'Int', v });
 function failure(kind: DbError['kind'], message: string, detail: string | null = null, position: number | null = null): DbError { return { kind, message, detail, position }; }
 function session(id: string): Profile { const profile = sessions.get(id); if (!profile) throw failure('Connection', 'Session closed. Reconnect to continue.'); return profile; }
 function base(title: string): ResultSet { return { title, table: null, graph: null, documents: null, message: null, affected: null, row_count: 0, truncated: false, page: null, elapsed_ms: 12 }; }
 function tableRows(count: number, offset = 0): Table {
-  return { columns: [{ name: 'id', type_name: 'int8' }, { name: 'name', type_name: 'text' }, { name: 'balance', type_name: 'numeric' }, { name: 'metadata', type_name: 'jsonb' }, { name: 'created_at', type_name: 'timestamptz' }, { name: 'optional', type_name: 'text' }], rows: Array.from({ length: count }, (_, i) => [int(String(9007199254740993n + BigInt(offset + i))), text(`Person ${offset + i + 1}`), { t: 'Decimal', v: '12345678901234567890.123400' }, { t: 'Json', v: `{"sequence":${9007199254740993n + BigInt(offset + i)},"active":true,"tags":["demo","exact"]}` }, { t: 'DateTimeTz', v: '2026-10-15T09:30:00+09:00' }, { t: 'Null' }]) };
+  const columns = [{ name: 'id', type_name: 'int8' }, { name: 'name', type_name: 'text' }, { name: 'balance', type_name: 'numeric' }, { name: 'metadata', type_name: 'jsonb' }, { name: 'created_at', type_name: 'timestamptz' }, { name: 'optional', type_name: 'text' }];
+  const rows: Value[][] = [];
+  let source = offset;
+  while (rows.length < count && source < 100000) {
+    const id = String(9007199254740993n + BigInt(source));
+    if (!mockDeletedRows.has(id)) {
+      const values: Value[] = [int(id), text(`Person ${source + 1}`), { t: 'Decimal', v: '12345678901234567890.123400' }, { t: 'Json', v: `{"sequence":${id},"active":true,"tags":["demo","exact"]}` }, { t: 'DateTimeTz', v: '2026-10-15T09:30:00+09:00' }, { t: 'Null' }];
+      for (const [name, value] of Object.entries(mockRowChanges.get(id) ?? {})) { const index = columns.findIndex(column => column.name === name); if (index >= 0) values[index] = value; }
+      rows.push(values);
+    }
+    source++;
+  }
+  for (const inserted of mockInsertedRows.slice(offset, offset + count)) rows.push(columns.map(column => inserted[column.name] ?? { t: 'Null' }));
+  return { columns, rows };
 }
 function graphFor(seed = ''): Graph {
   const ids = seed ? [seed, `${seed}-a`, `${seed}-b`] : ['alice', 'bob', 'project'];
@@ -92,12 +108,33 @@ export async function mockInvoke<K extends keyof Commands>(command: K, args: Com
       const node: ExplorerNode = { id: a.parent ? 'people' : 'public', label: a.parent ? (graph ? 'Person' : 'people') : (graph ? 'Labels' : 'public'), detail: a.parent ? '100,000 records' : null, kind: a.parent ? 'table' : 'schema', icon: a.parent ? 'Table' : 'Folder', has_children: !a.parent, actions: a.parent ? [{ id: 'browse', label: 'Browse', kind: 'Browse' }, { id: 'query', label: 'Open query', kind: { OpenQuery: { text: query } } }, { id: 'insert', label: 'Insert name', kind: { Insert: { text: graph ? ':Person' : 'people' } } }] : [{id:'diagram',label:'Open schema diagram',kind:{OpenSchemaGraph:{scope:null}}}] };
       result = [node]; break;
     }
-    case 'browse': { session(a.sessionId as string); const count = Math.max(0, Math.min(a.limit as number, 100000 - (a.offset as number))); result = { ...base('Browse people'), table: tableRows(count, a.offset as number), row_count: count, page: { offset: a.offset, limit: a.limit, has_more: (a.offset as number) + count < 100000 } }; break; }
+    case 'browse': { session(a.sessionId as string); const count = Math.max(0, Math.min(a.limit as number, 100000 - (a.offset as number))); result = { ...base('Browse people'), table: tableRows(count, a.offset as number), edit_target: { node_id: a.nodeId as string, key_columns: ['id'] }, row_count: count, page: { offset: a.offset, limit: a.limit, has_more: (a.offset as number) + count < 100000 } }; break; }
     case 'preview': {
       const profile = session(a.sessionId as string), req = a.req as ExecRequest;
       const sample = tableRows(Math.min(req.preview_sample_limit ?? 50, 3));
       result = { committed: false, notes: ['Demo preview: illustrative samples only; no database was contacted.'], statements: [{ text: req.text, kind: 'Other', affected: null, before: sample, after: sample, schema_diff: null, counters: [], warnings: [] }] };
       history.unshift({ kind: 'preview', source: (a.source as 'ui' | 'agent') ?? 'ui', timestamp: Date.now(), profile_name: profile.name, text: req.text, elapsed_ms: 0, row_count: 0, error: null });
+      break;
+    }
+    case 'edit_preview': {
+      session(a.sessionId as string);
+      const req = a.req as EditRequest;
+      result = { committed: false, notes: ['MOCK PREVIEW: illustrative only; no database was contacted.'], statements: req.edits.map((edit, i) => ({ text: `MOCK ${edit.op} ${req.node_id} · change ${i + 1}`, kind: edit.op === 'Insert' ? 'Insert' : edit.op, affected: 1, before: null, after: null, schema_diff: null, counters: [], warnings: ['Mock only; this is not a database preview.'] })) };
+      break;
+    }
+    case 'edit_apply': {
+      session(a.sessionId as string);
+      const req = a.req as EditRequest;
+      for (const edit of req.edits) {
+        if (edit.op === 'Insert') mockInsertedRows.push(Object.fromEntries(edit.values));
+        else {
+          const id = edit.key.find(([name]) => name === 'id')?.[1];
+          const key = id?.t === 'Int' ? id.v : '';
+          if (edit.op === 'Delete') mockDeletedRows.add(key);
+          else mockRowChanges.set(key, { ...(mockRowChanges.get(key) ?? {}), ...Object.fromEntries(edit.set) });
+        }
+      }
+      result = { affected: req.edits.map(() => 1), statements: req.edits.map(edit => `MOCK ${edit.op} ${req.node_id}`) };
       break;
     }
     case 'execute_agent': result = await execute(a.sessionId as string, a.runId as string, a.req as ExecRequest, 'agent'); break;

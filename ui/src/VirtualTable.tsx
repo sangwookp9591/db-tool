@@ -1,12 +1,19 @@
 import { Button } from './ui/Button';
 import { X, ArrowUpRight } from 'lucide-preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import type { Table, Value } from './contract';
+import type { EditTarget, Table, Value } from './contract';
+import type { PendingEdits } from './edits';
+import { EditableTable } from './EditableTable';
 import { valueClass, valueText, valueTitle } from './values';
 import { ROW_HEIGHT, visibleRange, columnRange } from './virtual';
 import { tableIndex } from './perf/tableIndex';
 import { painted } from './perf';
-export function VirtualTable({ table, onRow, selectedNodeId, highlightedColumn, reference, onError }: { table: Table; onRow?: (row: Value[])=>void; selectedNodeId?: string | null; highlightedColumn?: string; reference?: (row: Value[],column: string)=> (()=>void) | null; onError?: (error:unknown)=>void }) {
+interface EditProps { target: EditTarget; edits: PendingEdits; onChange: (next: PendingEdits) => void }
+export function VirtualTable(props: { table: Table; onRow?: (row: Value[])=>void; selectedNodeId?: string | null; highlightedColumn?: string; reference?: (row: Value[],column: string)=> (()=>void) | null; onError?: (error:unknown)=>void; editing?: EditProps }) {
+  if (props.editing) return <EditableTable table={props.table} {...props.editing} />;
+  return <ReadOnlyVirtualTable {...props} />;
+}
+function ReadOnlyVirtualTable({ table, onRow, selectedNodeId, highlightedColumn, reference, onError }: { table: Table; onRow?: (row: Value[])=>void; selectedNodeId?: string | null; highlightedColumn?: string; reference?: (row: Value[],column: string)=> (()=>void) | null; onError?: (error:unknown)=>void }) {
   const callbacks = useRef({ onRow, reference }); callbacks.current = { onRow, reference };
   const scroll = useRef<HTMLDivElement>(null);
   const [viewport, setViewport] = useState({ top: 0, left: 0, height: 350, width: 800 });

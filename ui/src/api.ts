@@ -2,7 +2,7 @@ import { perf, finish } from './perf';
 import type { Scope, AiSettings, AiReply } from './ai/types';
 import type { Channel } from '@tauri-apps/api/core';
 import { invoke } from '@tauri-apps/api/core';
-import type { DriverManifest, Profile, ExplorerNode, ResultSet, ExecRequest, HistoryEntry, ChangePreview, AgentClient, AgentAudit, SchemaGraph, Value } from './contract';
+import type { DriverManifest, Profile, ExplorerNode, ResultSet, ExecRequest, HistoryEntry, ChangePreview, AgentClient, AgentAudit, SchemaGraph, Value, EditRequest, EditResult } from './contract';
 export interface Commands {
   context_get: { args: { sessionId: string; scope: Scope }; result: Record<string, unknown> };
   context_error: { args: { runId: string }; result: Record<string, unknown> };
@@ -39,6 +39,8 @@ export interface Commands {
   browse: { args: { filter?: [string, Value][]; sessionId: string; nodeId: string; offset: number; limit: number; runId: string }; result: ResultSet };
   execute: { args: { sessionId: string; runId: string; req: ExecRequest }; result: ResultSet[] };
   preview: { args: { sessionId: string; runId: string; req: ExecRequest; source?: 'ui' | 'agent' }; result: ChangePreview };
+  edit_preview: { args: { sessionId: string; runId: string; req: EditRequest }; result: ChangePreview };
+  edit_apply: { args: { sessionId: string; runId: string; req: EditRequest }; result: EditResult };
   execute_agent: { args: { sessionId: string; runId: string; req: ExecRequest }; result: ResultSet[] };
   cancel: { args: { runId: string }; result: void };
   expand: { args: { sessionId: string; elementId: string; limit: number }; result: ResultSet };

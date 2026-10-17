@@ -22,7 +22,7 @@ beforeAll(async () => {
   await page.goto(`${server.resolvedUrls!.local[0]}?gallery`);
   await page.getByTestId('d3-run').waitFor();
 }, 30000);
-afterAll(async () => { await browser?.close(); await server?.close(); });
+afterAll(async () => { await browser?.close(); await server?.close(); }, 30000);
 
 it('Button preserves native props and blocks loading/disabled clicks', async () => {
   const button = page.getByTestId('d3-run');

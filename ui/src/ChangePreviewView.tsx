@@ -1,0 +1,6 @@
+import type { ChangePreview } from './contract';
+import type { ComponentChildren } from 'preact';
+import { VirtualTable } from './VirtualTable';
+export function ChangePreviewView({ preview, children }: { preview: ChangePreview; children?: ComponentChildren }) {
+  return <div class="change-preview" style={{ overflow: 'auto', height: '100%', width: '100%', minWidth: 0, padding: '0 10px' }}><p><strong>미리보기 · 커밋하지 않았습니다</strong></p>{children}{preview.notes.map((note, i) => <p key={i}>{note}</p>)}{preview.statements.map((statement, i) => <section key={i}><h3>{statement.kind} · affected: {statement.affected ?? 'unknown'}</h3><pre>{statement.text}</pre>{statement.warnings.map((warning, j) => <p key={j}>{warning}</p>)}{statement.before && <div><h4>Before (sample)</h4><div style={{ height: '240px', display: 'flex' }}><VirtualTable table={statement.before} /></div></div>}{statement.after && <div><h4>After (sample)</h4><div style={{ height: '240px', display: 'flex' }}><VirtualTable table={statement.after} /></div></div>}{statement.schema_diff && <ul>{(['added', 'removed', 'changed'] as const).flatMap(kind => statement.schema_diff![kind].map(item => <li key={`${kind}:${item}`}>{kind}: {item}</li>))}</ul>}{statement.counters.filter(([, value]) => value !== 0).map(([name, value]) => <p key={name}>{name}: {value}</p>)}</section>)}</div>;
+}

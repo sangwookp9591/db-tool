@@ -54,3 +54,19 @@ describe('virtual table range', () => {
     expect(visibleRange(0, 0, 280)).toEqual({ start: 0, end: 0 });
   });
 });
+
+describe('inputValue', () => {
+  it('keeps exact integer and decimal strings', async () => {
+    const { inputValue } = await import('./values');
+    expect(inputValue('900719925474099312345', { name: 'id', type_name: 'int8' }, { t: 'Int', v: '1' })).toEqual({ t: 'Int', v: '900719925474099312345' });
+    expect(inputValue('900719925474099312345', { name: 'id', type_name: 'int8' }, { t: 'Null' })).toEqual({ t: 'Int', v: '900719925474099312345' });
+    expect(inputValue('12345678901234567890.123400', { name: 'amount', type_name: 'numeric' }, { t: 'Decimal', v: '0' })).toEqual({ t: 'Decimal', v: '12345678901234567890.123400' });
+  });
+  it('converts booleans, JSON, and NULL and rejects malformed input', async () => {
+    const { inputValue } = await import('./values');
+    expect(inputValue('false', { name: 'active', type_name: 'bool' }, { t: 'Bool', v: true })).toEqual({ t: 'Bool', v: false });
+    expect(inputValue('{"x":1}', { name: 'data', type_name: 'jsonb' }, { t: 'Json', v: '{}' })).toEqual({ t: 'Json', v: '{"x":1}' });
+    expect(inputValue('NULL', { name: 'note', type_name: 'text' }, { t: 'Null' })).toEqual({ t: 'Null' });
+    expect(() => inputValue('nope', { name: 'id', type_name: 'int4' }, { t: 'Int', v: '1' })).toThrow();
+  });
+});
