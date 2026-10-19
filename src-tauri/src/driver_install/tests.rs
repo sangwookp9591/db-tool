@@ -533,3 +533,39 @@ fn catalog_cache_latency_and_disk_tamper_invalidation() {
     std::fs::write(&path, bytes).unwrap();
     assert_eq!(installer.snapshot(root.path()).unwrap().drivers.len(), 5);
 }
+
+/// Installs signed release fixtures through the real host path, outside user app data.
+#[tokio::test]
+#[ignore = "resource harness only: set AXDB_RESOURCE_INSTALL_ROOT and AXDB_RESOURCE_INSTALL_PACKAGES"]
+async fn resource_bench_install_signed_packages() {
+    let root =
+        PathBuf::from(std::env::var_os("AXDB_RESOURCE_INSTALL_ROOT").expect("isolated config"))
+            .canonicalize()
+            .unwrap();
+    assert!(root.starts_with(std::env::temp_dir().canonicalize().unwrap()));
+    assert!(root
+        .file_name()
+        .unwrap()
+        .to_string_lossy()
+        .starts_with("axdb-resource-"));
+    let sources: Vec<String> = serde_json::from_str(
+        &std::env::var("AXDB_RESOURCE_INSTALL_PACKAGES").expect("signed package paths"),
+    )
+    .unwrap();
+    assert_eq!(sources.len(), 2);
+    let installer = Installer::default();
+    let registry = Registry::new();
+    for (source, expected) in sources.iter().zip(["postgres", "neo4j"]) {
+        let result = installer
+            .install(&root.join("drivers"), &registry, source, false, |_| {})
+            .await
+            .unwrap();
+        assert_eq!(result.id, expected);
+        assert_eq!(result.version, "0.2.0");
+    }
+    assert_eq!(
+        installed_executables(&root.join("drivers")).unwrap().len(),
+        2
+    );
+    assert_eq!(registry.manifests().len(), 2);
+}

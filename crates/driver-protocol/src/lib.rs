@@ -44,10 +44,26 @@ impl<'de> Deserialize<'de> for Message {
             chunk: Option<ExecuteChunk>,
             cancel: Option<u64>,
             #[serde(flatten)]
-            request: Option<Request>,
+            request: serde_json::Map<String, serde_json::Value>,
         }
         let e = Envelope::deserialize(deserializer)?;
-        match (e.id, e.result, e.error, e.chunk, e.cancel, e.request) {
+        let request = if e.request.is_empty() {
+            None
+        } else {
+            let value = serde_json::Value::Object(e.request);
+            match Request::deserialize(&value) {
+                Ok(request) => Some(request),
+                Err(_) => {
+                    // Unknown optional methods may carry arbitrary params; known malformed methods still fail.
+                    let tag = serde_json::json!({"method":value["method"]});
+                    match Request::deserialize(&tag) {
+                        Ok(Request::Unsupported) => Some(Request::Unsupported),
+                        _ => return Err(serde::de::Error::custom("Invalid driver request")),
+                    }
+                }
+            }
+        };
+        match (e.id, e.result, e.error, e.chunk, e.cancel, request) {
             (Some(id), Some(result), None, None, None, None) => Ok(Self::Result { id, result }),
             (Some(id), None, Some(error), None, None, None) => Ok(Self::Error { id, error }),
             (Some(id), None, None, Some(chunk), None, None) => Ok(Self::Chunk { id, chunk }),
@@ -93,6 +109,11 @@ pub enum Request {
         session: u64,
         scope: Option<String>,
     },
+    Explain {
+        session: u64,
+        query: String,
+        analyze: bool,
+    },
     Preview {
         session: u64,
         req: ExecRequest,
@@ -105,15 +126,28 @@ pub enum Request {
         session: u64,
         req: EditRequest,
     },
+    ApplyMigration {session:u64,req:ExecRequest},
+    SchemaSnapshot { session: u64, scope: Option<String> },
+    DdlRender { session: u64, diff: SnapshotDiff },
+    ImportRowsProgress { session: u64, req: EditRequest, preview: bool },
+    ImportRows { session: u64, req: EditRequest, preview: bool },
+    Backup { session: u64 },
+    Restore { session: u64, backup: BackupData, overwrite: bool },
+    PreviewGrants {session:u64,changes:Vec<GrantChange>},
+    ApplyGrants { session:u64, changes:Vec<GrantChange> },
+    Roles { session: u64 },
+    PlanGrants { session: u64, changes: Vec<GrantChange> },
     Close {
         session: u64,
     },
+    #[serde(other)]
+    Unsupported,
 }
 
 impl Request {
     pub fn session(&self) -> Option<u64> {
         match self {
-            Self::Handshake { .. } | Self::Connect(_) => None,
+            Self::Handshake { .. } | Self::Connect(_) | Self::Unsupported => None,
             Self::Ping { session }
             | Self::ServerInfo { session }
             | Self::ListChildren { session, .. }
@@ -121,9 +155,21 @@ impl Request {
             | Self::Execute { session, .. }
             | Self::Expand { session, .. }
             | Self::SchemaGraph { session, .. }
+            | Self::Explain { session, .. }
             | Self::Preview { session, .. }
             | Self::PreviewEdits { session, .. }
             | Self::ApplyEdits { session, .. }
+            | Self::ApplyMigration {session,..}
+            | Self::SchemaSnapshot {session,..}
+            | Self::DdlRender {session,..}
+            | Self::ImportRowsProgress {session,..}
+            | Self::ImportRows {session,..}
+            | Self::Backup {session}
+            | Self::Restore {session,..}
+            | Self::PreviewGrants {session,..}
+            | Self::ApplyGrants {session,..}
+            | Self::Roles {session}
+            | Self::PlanGrants {session,..}
             | Self::Close { session } => Some(*session),
         }
     }
@@ -144,8 +190,16 @@ pub enum Reply {
     Children(Vec<ExplorerNode>),
     ResultSet(ResultSet),
     SchemaGraph(SchemaGraph),
+    Plan(PlanTree),
     Preview(ChangePreview),
     Edits(EditResult),
+    Snapshot(SchemaSnapshot),
+    Ddl(Vec<String>),
+    Import(ImportOutput),
+    Migration(Vec<ResultSet>),
+    Backup(BackupData),
+    Roles(RolesSnapshot),
+    Grants(GrantPlan),
 }
 
 #[derive(Serialize)]
@@ -373,6 +427,28 @@ mod tests {
     use tokio::io::AsyncWriteExt;
 
     #[test]
+    fn unknown_optional_methods_decode_without_closing_transport() {
+        #[derive(Serialize)]
+        struct FutureRequest {
+            id: u64,
+            method: &'static str,
+            params: std::collections::BTreeMap<&'static str, u64>,
+        }
+        let bytes = rmp_serde::to_vec_named(&FutureRequest {
+            id: 9,
+            method: "future_optional_method",
+            params: std::collections::BTreeMap::from([("session", 1)]),
+        }).unwrap();
+        assert!(matches!(rmp_serde::from_slice::<Message>(&bytes).unwrap(), Message::Request { id: 9, request: Request::Unsupported }));
+        let malformed = rmp_serde::to_vec_named(&FutureRequest {
+            id: 10,
+            method: "explain",
+            params: std::collections::BTreeMap::from([("session", 1)]),
+        }).unwrap();
+        assert!(rmp_serde::from_slice::<Message>(&malformed).is_err());
+    }
+
+    #[test]
     fn legacy_start_defaults_to_reassembly_and_ambiguous_envelopes_fail() {
         #[derive(Serialize)]
         struct LegacyStart {
@@ -409,6 +485,15 @@ mod tests {
         })
         .unwrap();
         assert!(rmp_serde::from_slice::<Message>(&bytes).is_err());
+    }
+
+    #[test]
+    fn backup_restore_request_preserves_binary_through_request_envelope(){
+        let backup=BackupData{format:"sqlite-online-v1".into(),data:vec![255;BACKUP_MAX_BYTES],counts:vec![("table".into(),1)]};
+        let message=Message::Request{id:42,request:Request::Restore{session:1,backup:backup.clone(),overwrite:false}};
+        let bytes=encode(&message).unwrap();assert!(bytes.len()<MAX_FRAME);
+        let Message::Request{request:Request::Restore{backup:decoded,..},..}=rmp_serde::from_slice::<Message>(&bytes).unwrap() else{panic!("Restore envelope changed");};
+        assert_eq!(decoded,backup);
     }
 
     #[tokio::test]

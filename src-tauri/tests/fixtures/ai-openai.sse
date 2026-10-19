@@ -1,0 +1,4 @@
+data: {"type":"response.output_text.delta","delta":"검토할 인덱스 제안"}
+
+data: {"type":"response.completed","response":{"status":"completed","usage":{"input_tokens":120,"output_tokens":42},"output":[{"type":"function_call","name":"propose_operation","arguments":"{\"kind\":\"migrate\",\"params\":{},\"reason\":\"Index can reduce scanning\",\"evidence\":[\"schema: users.email\"],\"statements\":[\"CREATE INDEX users_email_idx ON users(email)\"]}"}]}}
+

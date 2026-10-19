@@ -48,6 +48,11 @@ fn valid_arguments(tool: &str, args: &Value) -> bool {
         return false;
     };
     let (keys, required): (&[&str], &[&str]) = match tool {
+        "backup_status" => (&["session_id"], &["session_id"]),
+        "plan_grants" => (&["session_id","changes"], &["session_id"]),
+        "schema_diff" => (&["session_id","after"], &["session_id"]),
+        "plan_import" => (&["session_id","filename","content","node_id"], &["session_id","filename","content","node_id"]),
+        "plan_migration" => (&["session_id","text"], &["session_id","text"]),
         "run_query" => (
             &[
                 "session_id",
@@ -59,6 +64,7 @@ fn valid_arguments(tool: &str, args: &Value) -> bool {
             ],
             &["session_id", "text"],
         ),
+        "explain_query" | "lint_query" => (&["session_id", "query"], &["session_id", "query"]),
         "preview_changes" => (
             &["session_id", "text", "params", "timeout_ms", "sample_limit"],
             &["session_id", "text"],
@@ -93,6 +99,9 @@ fn valid_arguments(tool: &str, args: &Value) -> bool {
                 "sample_limit" => v.as_u64().is_some_and(|n| n <= 200),
                 "offset" => v.as_u64().is_some_and(|n| n <= 9007199254740991),
                 "read_only" => v.is_boolean(),
+                "changes" => serde_json::from_value::<Vec<dbcore::GrantChange>>(v.clone()).is_ok_and(|c|dbcore::validate_grants(&c).is_ok()),
+                "after" => v.is_object(),
+                "content" => v.as_str().is_some_and(|s|s.len()<=1024*1024),
                 "params" => v.is_object(),
                 _ => v.is_string(),
             }
@@ -233,7 +242,7 @@ async fn dispatch_inner(shared: &Shared, client: &AgentClient, method: &str, par
         .as_ref()
         .and_then(|w| connection_id(&host, tool, &json!({"session_id":w.session_id})))
         .or_else(|| connection_id(&host, tool, args));
-    let text = args["text"].as_str();
+    let text = args["text"].as_str().or_else(|| args["query"].as_str());
     let requires_connection = matches!(
         tool,
         "open_connection"
@@ -241,6 +250,9 @@ async fn dispatch_inner(shared: &Shared, client: &AgentClient, method: &str, par
             | "explore"
             | "run_query"
             | "preview_changes"
+            | "schema_diff" | "plan_import" | "plan_migration" | "backup_status" | "plan_grants"
+            | "explain_query"
+            | "lint_query"
             | "browse"
             | "expand_node"
             | "open_query_tab"
@@ -278,6 +290,22 @@ async fn dispatch_inner(shared: &Shared, client: &AgentClient, method: &str, par
         return json!({"error":e});
     }
     let mut result = match tool {
+        "schema_diff" => {
+            let after=serde_json::from_value::<dbcore::SchemaSnapshot>(args["after"].clone());
+            match after {Ok(after)=>match crate::management::schema_snapshot(app.state(),args["session_id"].as_str().unwrap_or("").into(),None).await{Ok(before)=>encoded(crate::management::schema_diff(before,after)),Err(e)=>json!({"error":e})},Err(_)=>permissions::error("InvalidInput")}
+        },
+        "plan_import" => {
+            match crate::management::import_plan(args["filename"].as_str().unwrap_or("").into(),args["content"].as_str().unwrap_or("").as_bytes().to_vec(),args["node_id"].as_str().unwrap_or("").into(),None,None) {
+                Ok(plan)=>{
+                    if plan.errors.is_empty(){match crate::management::import_preview(app.clone(),app.state(),args["session_id"].as_str().unwrap_or("").into(),uuid::Uuid::new_v4().to_string(),plan.request.clone()).await{Ok(preview)=>json!({"plan":plan,"preview":preview,"needs_approval":true}),Err(e)=>json!({"plan":plan,"error":e})}}else{json!({"plan":plan,"needs_approval":true})}
+                },Err(e)=>json!({"error":e})
+            }
+        },
+        "backup_status" => encoded(crate::management::backup_status(app.state(),args["session_id"].as_str().unwrap_or("").into())),
+        "plan_grants" => match serde_json::from_value::<Vec<dbcore::GrantChange>>(args["changes"].clone()){Ok(changes)=>encoded(crate::management::plan_grants(app.state(),args["session_id"].as_str().unwrap_or("").into(),changes).await),Err(_)=>permissions::error("InvalidInput")},
+        "plan_migration" => encoded(crate::management::migration_preview(app.state(),args["session_id"].as_str().unwrap_or("").into(),uuid::Uuid::new_v4().to_string(),args["text"].as_str().unwrap_or("").into()).await),
+        "explain_query" => encoded(crate::editor::explain_query(app.state(), args["session_id"].as_str().unwrap_or("").into(), uuid::Uuid::new_v4().to_string(), args["query"].as_str().unwrap_or("").into(), false).await),
+        "lint_query" => encoded(crate::editor::lint_query(app.state(), args["session_id"].as_str().unwrap_or("").into(), args["query"].as_str().unwrap_or("").into()).await),
         "get_schema_context" | "get_work_context" | "explain_error" => {
             let mut work = work.expect("context input checked");
             work.scope.include_rows = false;
@@ -640,6 +668,9 @@ mod tests {
     }
     #[test]
     fn validates_direct_host_tool_arguments() {
+        assert!(valid_arguments("explain_query", &json!({"session_id":"s","query":"SELECT 1"})));
+        assert!(!valid_arguments("explain_query", &json!({"session_id":"s","query":"UPDATE people SET id=2","analyze":true})));
+        assert!(!valid_arguments("lint_query", &json!({"session_id":"s","query":""})));
         let mut many = json!({"results":vec![json!({"message":"done"});201]});
         bound(&mut many, 3);
         assert_eq!(many["results"].as_array().unwrap().len(), 200);

@@ -1,4 +1,5 @@
 //! Redis commands and SCAN navigation through the existing key/value contract.
+mod administration;
 use async_trait::async_trait;
 use dbcore::*;
 use redis::{aio::MultiplexedConnection, IntoConnectionInfo, Value as Resp};
@@ -54,6 +55,10 @@ impl RedisDriver {
                     field("username", FieldKind::Text, None, false),
                 ],
                 capabilities: Capabilities {
+                    backup: false, roles: true,
+                    import_rows: true, schema_snapshot: false, ddl_render: false,
+                    explain: false,
+                    lint: false,
                     read_only_exec: true,
                     cancel: CancelSupport::Abort,
                     timeout: true,
@@ -351,6 +356,10 @@ impl RedisSession {
 }
 #[async_trait]
 impl Session for RedisSession {
+    async fn roles(&self)->Result<RolesSnapshot,DbError>{self.native_roles().await}
+    async fn plan_grants(&self,changes:&[GrantChange])->Result<GrantPlan,DbError>{self.native_grants(changes)}
+    async fn import_rows(&self,req:&EditRequest,preview:bool,cancel:CancelToken)->Result<ImportOutput,DbError>{self.import_batch(req,preview,cancel).await}
+
     async fn ping(&self) -> Result<(), DbError> {
         self.guard(30_000, CancelToken::new(), async {
             query(&mut self.connection().await?, &mut redis::cmd("PING"))

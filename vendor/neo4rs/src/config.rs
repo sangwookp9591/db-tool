@@ -144,6 +144,12 @@ pub struct Config {
 }
 
 impl Config {
+    /// Override socket connect/read timeouts on an operation-owned clone.
+    pub fn with_connection_timeout(mut self,timeout:Duration)->Self {
+        self.connection_timeout=timeout;
+        self
+    }
+
     pub(crate) fn into_live_config(self) -> LiveConfig {
         LiveConfig {
             db: self.db,
@@ -385,6 +391,15 @@ mod tests {
         assert_eq!(config.fetch_size, 200);
         assert_eq!(config.max_connections, 16);
         assert_eq!(config.tls_config, ConnectionTLSConfig::NoSSLValidation);
+    }
+
+    #[test]
+    fn operation_timeout_clone_preserves_connection_settings(){
+        let initial=ConfigBuilder::default().uri("127.0.0.1:57687").user("test").password("test-only").connection_timeout(Duration::from_millis(500)).build().unwrap();
+        let operation=initial.clone().with_connection_timeout(Duration::from_secs(60));
+        assert_eq!(initial.connection_timeout,Duration::from_millis(500));
+        assert_eq!(operation.connection_timeout,Duration::from_secs(60));
+        assert_eq!(initial.uri,operation.uri);assert_eq!(initial.user,operation.user);assert_eq!(initial.tls_config,operation.tls_config);
     }
 
     #[test]

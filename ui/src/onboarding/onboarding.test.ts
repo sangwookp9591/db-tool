@@ -46,6 +46,26 @@ it('navigates by keyboard and persists skipping for the mock session', async () 
   expect(status).toBe(false);
 });
 
+it('uses the rendered step when the next key arrives before passive effects', async () => {
+  await openGuide();
+  await page.locator('.ob-content').focus();
+  await page.keyboard.press('ArrowRight');
+  await page.waitForFunction(() => document.querySelector('.ob-eyebrow')?.textContent?.includes('DB 드라이버'));
+  await page.waitForTimeout(200); // Settle the previous handler before exercising the next render boundary.
+  // Dispatch at the DOM boundary, before a passive effect can replace an old handler.
+  await page.evaluate(() => {
+    const observer = new MutationObserver(() => {
+      if (!document.querySelector('.ob-eyebrow')?.textContent?.includes('환영')) return;
+      observer.disconnect();
+      document.querySelector('.ob-content')!.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter', bubbles:true}));
+    });
+    observer.observe(document.querySelector('.ob-content')!, {childList:true, subtree:true});
+  });
+  await page.keyboard.press('ArrowLeft');
+  await page.waitForFunction(() => document.querySelector('.ob-eyebrow')?.textContent?.includes('DB 드라이버'));
+  expect(await page.locator('.ob-eyebrow').textContent()).toContain('02 / 07');
+});
+
 it('reopens from settings', async () => {
   const dialog = page.getByRole('dialog', { name: 'AxDB 사용법' });
   await page.getByRole('button', { name: 'Workspace settings', exact:true }).click();

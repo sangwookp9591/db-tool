@@ -15,6 +15,10 @@ pub struct Profile {
     pub save_secret: bool,
     #[serde(default)]
     pub access_mode: crate::permissions::AccessMode,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub network: Option<crate::net::model::Network>,
+    #[serde(default)]
+    pub auth: crate::net::model::Auth,
 }
 #[derive(Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -236,7 +240,7 @@ mod tests {
                 ("password".into(), "private-value".into()),
                 ("host".into(), "127.0.0.1".into()),
             ]),
-            save_secret: false,
+            save_secret: false, network: None, auth: Default::default(),
             access_mode: Default::default(),
         };
         assert_eq!(

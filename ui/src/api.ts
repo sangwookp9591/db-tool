@@ -1,12 +1,15 @@
+import type {} from './ax/administrationContract';
+import type { ConnectionCommands } from './ax/connectionContract';
+import type { EditorCommands } from './ax/editorContract';
 import { perf, finish } from './perf';
 import type { Scope, AiSettings, AiReply } from './ai/types';
 import type { Channel } from '@tauri-apps/api/core';
 import { invoke } from '@tauri-apps/api/core';
 import type { DriverManifest, Profile, ExplorerNode, ResultSet, ExecRequest, HistoryEntry, ChangePreview, AgentClient, AgentAudit, SchemaGraph, Value, EditRequest, EditResult } from './contract';
-export interface Commands {
+export interface Commands extends EditorCommands, ConnectionCommands {
   context_get: { args: { sessionId: string; scope: Scope }; result: Record<string, unknown> };
   context_error: { args: { runId: string }; result: Record<string, unknown> };
-  ai_settings: { args: Record<string, never>; result: { settings: AiSettings; has_key: boolean; has_ant_cli: boolean } };
+  ai_settings: { args: Record<string, never>; result: { settings: AiSettings; has_key: boolean; has_ant_cli: boolean; usage?: Partial<Record<import('./ax/aiContract').Provider, import('./ax/aiContract').Usage>>; accounts?: {id: string; label: string; active: boolean; logged_in?: boolean; expired?:boolean}[] } };
   ai_login_start: { args: Record<string, never>; result: { waiting_for_code: boolean; url: string | null } };
   ai_login_submit: { args: { code: string }; result: { logged_in: boolean; account: string | null } };
   ai_login_poll: { args: Record<string, never>; result: { state: 'idle' | 'waiting' | 'done' | 'failed'; account?: string | null } };

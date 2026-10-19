@@ -153,6 +153,7 @@ async fn dispatch(
     tx: &mpsc::Sender<Message>,
 ) -> Result<Reply, DbError> {
     match request {
+        Request::Unsupported => Err(DbError::unsupported("Unknown optional driver method")),
         Request::Handshake { protocol } => {
             if protocol != PROTOCOL {
                 return Err(DbError::unsupported(
@@ -250,6 +251,9 @@ async fn dispatch(
                 Request::SchemaGraph { scope, .. } => Ok(Reply::SchemaGraph(
                     session.schema_graph(scope.as_deref()).await?,
                 )),
+                Request::Explain { query, analyze, .. } => {
+                    Ok(Reply::Plan(session.explain(&query, analyze, cancel).await?))
+                }
                 Request::Preview { req, .. } => {
                     Ok(Reply::Preview(session.preview(&req, cancel).await?))
                 }
@@ -259,6 +263,20 @@ async fn dispatch(
                 Request::ApplyEdits { req, .. } => {
                     Ok(Reply::Edits(session.apply_edits(&req, cancel).await?))
                 }
+                Request::ApplyMigration {req,..} => Ok(Reply::Migration(session.apply_migration(&req,cancel).await?)),
+                Request::SchemaSnapshot {scope,..} => Ok(Reply::Snapshot(session.schema_snapshot(scope.as_deref()).await?)),
+                Request::DdlRender {diff,..} => Ok(Reply::Ddl(session.ddl_render(&diff).await?)),
+                Request::ImportRowsProgress {req,preview,..} => {
+                    send(tx,id,ExecuteChunk::Start{index:0,result:Box::default(),streaming:true}).await?;
+                    Ok(Reply::Import(session.import_rows_progress(&req,preview,cancel,&Progress{tx,id}).await?))
+                },
+                Request::ImportRows {req,preview,..} => Ok(Reply::Import(session.import_rows(&req,preview,cancel).await?)),
+                Request::Backup {..} => Ok(Reply::Backup(session.backup(cancel).await?)),
+                Request::Restore {backup,overwrite,..} => {session.restore(&backup,overwrite,cancel).await?; Ok(Reply::Unit)},
+                Request::PreviewGrants {changes,..} => Ok(Reply::Grants(session.preview_grants(&changes,cancel).await?)),
+                Request::ApplyGrants {changes,..} => {session.apply_grants(&changes,cancel).await?;Ok(Reply::Unit)},
+                Request::Roles {..} => Ok(Reply::Roles(session.roles().await?)),
+                Request::PlanGrants {changes,..} => Ok(Reply::Grants(session.plan_grants(&changes).await?)),
                 Request::Close { .. } => {
                     sessions.lock().unwrap().remove(&session_id);
                     session.close().await;
@@ -299,6 +317,13 @@ async fn batches<T>(
         first = false;
     }
     Ok(())
+}
+
+
+struct Progress<'a>{tx:&'a mpsc::Sender<Message>,id:u64}
+#[async_trait::async_trait]
+impl ProgressSink for Progress<'_>{
+    async fn progress(&self,completed:u64,total:u64)->Result<(),DbError>{send(self.tx,self.id,ExecuteChunk::Rows{index:0,rows:vec![vec![Value::Int(completed.to_string()),Value::Int(total.to_string())]]}).await}
 }
 
 #[cfg(test)]

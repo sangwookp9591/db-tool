@@ -162,6 +162,7 @@ describe('sidebar explorer (mock app)', () => {
     await page.getByLabel('Show more in Archive').waitFor();
     expect(await page.locator('[data-parent="public.archive"]').count()).toBe(300);
     await page.getByLabel('Show more in Archive').click();
+    await page.locator('[data-parent="public.archive"]').nth(449).waitFor({ state: 'attached' });
     expect(await page.locator('[data-parent="public.archive"]').count()).toBe(450);
     expect(await page.locator('.explorer svg:not(.lucide)').count()).toBe(0);
   });

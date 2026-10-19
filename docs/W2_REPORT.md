@@ -1,0 +1,13 @@
+# W2 편집기 구현 보고서
+
+2026-10-19, ADR-0004 B절과 ADR-0003을 기준으로 이전 워커의 구현을 이어서 완성했다. 시작 시 이미 여러 워커의 변경이 섞여 있었으며 이를 보존했다. 이 재시작 워커는 실행 계획 정규화, 프로토콜 호환성, Cypher 린트, 감사용 쿼리 해시 입력, PG/Mongo 회귀 테스트를 보완했다. 커밋·푸시, 사용자 앱·GUI 조작, 사용자 DB/SSH 접속은 하지 않았다. 빌드는 `target-w2`만 사용했고 캐시는 코디네이터가 정리할 수 있도록 남겼다.
+
+`Capabilities.explain/lint`는 이전 manifest에서 기본 false이며 `Session::explain(query, analyze, cancel)` 기본 구현은 Unsupported다. 프로토콜 1의 Explain/Plan과 SDK·PluginSession 경로를 연결했다. 알 수 없는 선택 메서드는 Unsupported로 회신하고 연결을 유지하며, 필수 인자가 빠진 기존 메서드는 거부한다. PlanTree는 `op, target, est_rows, actual_rows, cost, children, warnings`를 제공하며 미지원 수치는 null이다. PG는 EXPLAIN JSON을 기존 미리보기 롤백·SAVEPOINT·취소 경로로 실행한다. Neo4j EXPLAIN/PROFILE은 전용 트랜잭션을 롤백하고, SQLite는 EXPLAIN QUERY PLAN을 사용하며, Mongo는 읽기 명령 explain과 집계의 커서·파이프라인 단계를 정규화한다. PG의 `pg_temp` 계획 이름과 실제 `pg_temp_N` 카탈로그 이름 차이로 통계가 누락되던 문제도 수정했다.
+
+호스트 `editor.rs`는 sqlparser 0.63으로 WHERE 없는 UPDATE/DELETE, SELECT *, 카티션 곱, 구문 오류를 검사하고 PG 카탈로그 통계 기반 대형 전체 스캔 경고를 추가한다. Cypher의 무제한 가변 길이 경로를 검사하며 문자열·인용 식별자·이스케이프·주석을 제외하고 `--` 관계를 SQL 주석으로 오인하지 않는다. 진단은 규칙 ID·위치·심각도·선택적 quick fix를 반환한다. 서식 정리, 스키마의 실제 컬럼 메타데이터를 사용하는 별표 펼치기, 별칭 변경, FROM 하위 쿼리의 CTE 추출은 원문의 UTF-16 위치에 대한 TextEdit 목록만 반환한다. UI/mock 계약 이름은 `explain_query`, `lint_query`, `refactor_query`를 유지했다. MCP explain/lint는 read 권한이며 ANALYZE 인자를 허용하지 않는다. AI 출력이나 리팩터링 결과를 자동 실행하는 경로는 추가하지 않았다.
+
+최종 실검증: `cargo test`를 dbcore·driver-protocol·driver-sdk·PG·SQLite·Neo4j·Mongo 전체에 실행해 합계 76 passed/0 failed를 확인했다. 그중 explain 통합 테스트 4개는 지정한 로컬 테스트 DB와 실제 SQLite 메모리 DB를 사용했다. PG 쓰기 롤백·기존 사용자 트랜잭션 보존·실행 중 취소·오류 후 복구·통계 경고, Neo4j PROFILE 쓰기 비영속성, Mongo 집계 계획과 쓰기 거부, SQLite DML 비실행을 검증했다. `cargo build --workspace --bins` 성공 후 `AXDB_DRIVER_DIR=target-w2/debug`를 지정한 호스트 lib 테스트는 109 passed/4 ignored, 플러그인 explain 계약은 4 passed였다. 원시 MessagePack으로 unknown method → Unsupported → 후속 handshake 성공도 별도 확인했다. `pnpm --dir ui exec tsc --noEmit`, UI 26개 파일/120개 테스트, `git diff --check`가 통과했다.
+
+검증 도중 신규 회귀 테스트가 PG 임시 스키마 통계 누락을 실제로 검출했고, 수정 후 전체 드라이버 테스트와 플러그인 테스트를 다시 통과시켰다. 디스크 부족으로 중단된 검증과 AXDB_DRIVER_DIR를 빠뜨린 초기 호스트 실패는 최종 성공 증거로 사용하지 않았다. dbcore·프로토콜·SDK·4개 드라이버의 `clippy --all-targets -- -D warnings`는 통과했다. 전체 호스트를 포함한 같은 clippy는 W1 소유 `net/tls.rs:25`의 nonminimal_bool, `net/ssh.rs:285`의 items_after_test_module로 실패했다. 이 두 항목은 W1/코디네이터에게 전달했으며 W2에서 타 워커 파일을 수정하지 않았다.
+
+제한·미검증: 안전한 의미 분석이 필요한 JOIN/중첩 별칭 범위/와일드카드 modifier와 기존 WITH에 대한 리팩터링, 주석이 있는 SQL의 전체 서식 정리는 Unsupported로 명시 거부한다. SQLite는 ANALYZE 및 비용·행 수 추정을 지원하지 않고, Mongo 쓰기 explain은 허용하지 않는다. 대형 테이블의 카탈로그 통계 검증은 PG에 구현했다. 비용 단위는 엔진별로 다르며 PG 비용, Neo4j dbHits, Mongo 실행 시간 추정치를 서로 비교하면 안 된다. PG ANALYZE의 시퀀스·외부 함수/트리거 부작용은 일반 미리보기와 마찬가지로 롤백 보장 밖이며 계획 warnings에 안내한다. TLS 전용 실연결, 실제 AI 공급자·OS 키체인, 패키지/리소스 전용 ignored 테스트, 사용자 GUI 및 배포는 검증하지 않았다.

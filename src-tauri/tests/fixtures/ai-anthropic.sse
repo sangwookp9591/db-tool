@@ -1,0 +1,10 @@
+data: {"type":"message_start","message":{"usage":{"input_tokens":120,"output_tokens":0}}}
+
+data: {"type":"content_block_start","index":0,"content_block":{"type":"tool_use","name":"propose_operation","input":{}}}
+
+data: {"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\"kind\":\"migrate\",\"params\":{},\"reason\":\"Index can reduce scanning\",\"evidence\":[\"schema: users.email\"],\"statements\":[\"CREATE INDEX users_email_idx ON users(email)\"]}"}}
+
+data: {"type":"message_delta","delta":{"stop_reason":"tool_use"},"usage":{"output_tokens":42}}
+
+data: {"type":"message_stop"}
+

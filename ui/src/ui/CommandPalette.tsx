@@ -18,13 +18,14 @@ export function filterCommands(items: readonly CommandItem[], query: string) {
     return words.every(word => `${item.label} ${item.group ?? ''} ${item.keywords ?? ''}`.normalize('NFC').toLocaleLowerCase().includes(word));
   });
 }
-export interface CommandPaletteProps extends MicroAccessibility { open: boolean; onOpenChange: (open: boolean) => void; items: readonly CommandItem[] }
-export function CommandPalette({ open, onOpenChange, items, ...accessibility }: CommandPaletteProps) {
+export interface CommandPaletteProps extends MicroAccessibility { open: boolean; onOpenChange: (open: boolean) => void; items: readonly CommandItem[]; onIntent?: (intent: string) => void }
+export function CommandPalette({ open, onOpenChange, items, onIntent, ...accessibility }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState('');
   const listId = useId();
   const list = useRef<HTMLDivElement>(null);
   const visible = open ? filterCommands(items, query) : [];
+  if (open && onIntent && query.trim()) visible.push({id:'ax:ai-intent',label:`AI 계획 후보 · ${query.trim()}`,group:'자연어 → 검토용 계획',onSelect:()=>onIntent(query.trim())});
   const enabled = visible.filter(item => !item.disabled);
   const current = enabled.find(item => item.id === selected) ?? enabled[0];
   const select = (item: CommandItem) => { if (!item.disabled) { onOpenChange(false); item.onSelect(); } };
@@ -43,7 +44,7 @@ export function CommandPalette({ open, onOpenChange, items, ...accessibility }: 
   return <Dialog title="작업공간 검색" label={accessibility['aria-label'] ?? accessibility.ariaLabel ?? 'Command palette'} onClose={() => onOpenChange(false)}>
     <div className="command-palette micro" data-testid={accessibility['data-testid'] ?? accessibility.testId}>
       <div className="command-palette__search"><input autoFocus autocorrect="off" autocapitalize="off" spellcheck={false} role="combobox" aria-label="Search commands" aria-expanded="true" aria-autocomplete="list" aria-controls={listId}
-        aria-activedescendant={current ? `${listId}-${visible.indexOf(current)}` : undefined} value={query} placeholder="연결, 테이블, 최근 쿼리 검색…"
+        aria-activedescendant={current ? `${listId}-${visible.indexOf(current)}` : undefined} value={query} placeholder="작업 검색 또는 자연어로 의도 입력…"
         onInput={e => { setQuery(e.currentTarget.value); setSelected(''); }} onKeyDown={e => {
           if (e.isComposing) return;
           if (e.key === 'Enter' && current) { e.preventDefault(); select(current); }

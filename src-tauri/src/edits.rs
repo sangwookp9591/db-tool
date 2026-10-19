@@ -187,17 +187,18 @@ mod tests {
                     name: "test".into(),
                     driver_id: "sqlite".into(),
                     fields: Default::default(),
-                    save_secret: false,
+                    save_secret: false, network: None, auth: Default::default(),
                     access_mode: permissions::AccessMode::ReadWrite,
                 },
                 secret: Some("private-secret".into()),
+                _tunnel: None,
                 dead: AtomicBool::new(false),
             }),
         );
         (host, dir)
     }
     fn request() -> EditRequest {
-        EditRequest {
+        EditRequest {create_table: None,
             node_id: "table:c2".into(),
             edits: vec![RowEdit::Update {
                 key: vec![("id".into(), Value::Int("1".into()))],
@@ -280,6 +281,7 @@ mod tests {
                 session: record.session.clone(),
                 profile: profile.clone(),
                 secret: None,
+                _tunnel: None,
                 dead: AtomicBool::new(false),
             }),
         );
@@ -307,6 +309,7 @@ mod tests {
                 session: record.session.clone(),
                 profile,
                 secret: None,
+                _tunnel: None,
                 dead: AtomicBool::new(false),
             }),
         );

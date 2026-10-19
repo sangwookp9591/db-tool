@@ -18,6 +18,9 @@ export function validate(schema: Schema, input: unknown, path = 'input'): void {
       if (child) validate(child, value, `${path}.${key}`);
       else if (schema.additionalProperties === false) throw new Error(`${path}.${key} is not allowed`);
     }
+  } else if (schema.type === 'array') {
+    if (!Array.isArray(input) || input.length > 100) throw new Error(`${path} must be an array of at most 100 items`);
+    if (schema.items) input.forEach((item,index)=>validate(schema.items!,item,`${path}[${index}]`));
   } else if (schema.type === 'integer') {
     if (typeof input !== 'number' || !Number.isSafeInteger(input) || input < (schema.minimum ?? -Infinity) || input > (schema.maximum ?? Infinity)) throw new Error(`${path} is outside its integer range`);
   } else if (typeof input !== schema.type) throw new Error(`${path} must be ${schema.type}`);

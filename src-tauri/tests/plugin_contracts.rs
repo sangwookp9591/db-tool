@@ -78,3 +78,21 @@ proxy_driver!(RedisDriver, "redis", real_redis::RedisDriver);
 
 #[path = "../../crates/driver-redis/tests/redis.rs"]
 mod redis_contract;
+
+#[path = "../../crates/driver-postgres/tests/explain.rs"]
+mod postgres_explain;
+#[path = "../../crates/driver-neo4j/tests/explain.rs"]
+mod neo4j_explain;
+#[path = "../../crates/driver-sqlite/tests/explain.rs"]
+mod sqlite_explain;
+#[path = "../../crates/driver-mongodb/tests/explain.rs"]
+mod mongo_explain;
+
+#[path = "../../crates/driver-postgres/tests/management.rs"]
+mod postgres_management;
+#[path = "../../crates/driver-sqlite/tests/management.rs"]
+mod sqlite_management;
+#[path = "../../crates/driver-neo4j/tests/management.rs"]
+mod neo4j_management;
+#[path = "../../crates/driver-mongodb/tests/management.rs"]
+mod mongo_management;

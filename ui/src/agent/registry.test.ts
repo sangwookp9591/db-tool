@@ -11,6 +11,18 @@ function setup(readOnly = true) {
   return { state, host, invoke, approve, registry, api };
 }
 describe('agent registry', () => {
+  it('keeps explain and lint read-only and rejects agent ANALYZE arguments', async () => {
+    const {state,api,invoke,approve}=setup(); state.sessions.p='s';
+    expect(api.listTools().some(t=>t.name==='explain_query')).toBe(false);
+    state.drivers[0].capabilities.explain=true; state.drivers[0].capabilities.lint=true;
+    expect(api.listTools().find(t=>t.name==='explain_query')?.annotations.readOnlyHint).toBe(true);
+    expect(api.listTools().find(t=>t.name==='lint_query')?.annotations.readOnlyHint).toBe(true);
+    await api.callTool('explain_query',{session_id:'s',query:'SELECT 1'});
+    expect(invoke).toHaveBeenCalledWith('explain_query',expect.objectContaining({query:'SELECT 1',analyze:false}));
+    invoke.mockClear();
+    const result=await api.callTool('explain_query',{session_id:'s',query:'UPDATE people SET id=2',analyze:true});
+    expect(result).toHaveProperty('error'); expect(invoke).not.toHaveBeenCalled(); expect(approve).not.toHaveBeenCalled();
+  });
   it('loads manifests from the host before the UI snapshot is ready', async () => {
     const { state, invoke, api } = setup(); const drivers = state.drivers; state.drivers = [];
     let ready!: (value: DriverManifest[]) => void;

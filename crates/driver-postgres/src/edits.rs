@@ -7,8 +7,8 @@ impl PgSession {
         cancel: &CancelToken,
         preview: bool,
     ) -> Result<RunOutput, DbError> {
-        if req.edits.len() > 1000 {
-            return Err(DbError::unsupported("편집은 최대 1,000건까지 지원합니다"));
+        if req.edits.len() > dbcore_limit(req) {
+            return Err(DbError::unsupported("편집/가져오기 행 수 상한을 초과했습니다"));
         }
         let path = parse_path(&req.node_id)?;
         if path.len() != 4 || path[0] != "table" || path[2] != "tables" {
@@ -26,6 +26,10 @@ impl PgSession {
             })
             .await
             .map_err(|e| self.error(e))?;
+            let create_sql = dbcore::import_create_sql(req, &name, "postgres")?;
+            if let Some(sql) = &create_sql {
+                self.client.batch_execute(sql).await.map_err(|e| self.error(e))?;
+            }
             // Resolve only real ordinary/partitioned tables and their real, non-dropped columns.
             let rows=self.client.query("SELECT a.attname, tn.nspname, t.typname, a.atttypid, EXISTS(SELECT 1 FROM pg_index i WHERE i.indrelid=c.oid AND i.indisprimary AND a.attnum IN (SELECT k.attnum FROM unnest(i.indkey) WITH ORDINALITY AS k(attnum,ord) WHERE k.ord<=i.indnkeyatts)) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_attribute a ON a.attrelid=c.oid JOIN pg_type t ON t.oid=a.atttypid JOIN pg_namespace tn ON tn.oid=t.typnamespace WHERE n.nspname=$1 AND c.relname=$2 AND c.relkind IN ('r','p') AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum",&[&path[1],&path[3]]).await.map_err(|e|self.error(e))?;
             if rows.is_empty(){return Err(DbError::query("알 수 없는 테이블입니다"));}
@@ -39,6 +43,7 @@ impl PgSession {
             let returning=columns.iter().map(|n|format!("{}::text",quote_ident(n))).collect::<Vec<_>>().join(", ");
             let select=columns.iter().map(|n|format!("{}::text",quote_ident(n))).collect::<Vec<_>>().join(", ");
             let mut changed=EditResult{affected:vec![],statements:vec![]};let mut sample=ChangePreview::default();
+            if let Some(sql) = create_sql { changed.affected.push(0); changed.statements.push(sql.clone()); if preview { sample.statements.push(StatementPreview::new(sql, StatementKind::Ddl)); } }
             for (index,plan) in plans.into_iter().enumerate(){
                 let result=async {
                     if cancel.is_cancelled(){return Err(DbError::new(ErrorKind::Cancelled,"편집이 취소되었습니다"));}
@@ -66,10 +71,10 @@ impl PgSession {
                     // Drain every row so affected reflects the complete mutation.
                     let stream=self.client.query_raw(&stmt,params.iter().copied()).await.map_err(|e|self.error(e))?;
                     pin_mut!(stream);let mut output=vec![];let mut count=0;
-                    while let Some(row)=stream.next().await{let row=row.map_err(|e|self.error(e))?;count+=1;if preview&&output.len()<req.preview_sample_limit.min(1000) as usize{output.push(row);}}
+                    while let Some(row)=stream.next().await{let row=row.map_err(|e|self.error(e))?;count+=1;if preview&&(req.edits.len()<=1000||index<req.preview_sample_limit.min(1000) as usize)&&output.len()<req.preview_sample_limit.min(1000) as usize{output.push(row);}}
                     if plan.kind!=StatementKind::Insert&&count!=1{return Err(DbError::new(ErrorKind::Conflict,format!("정확히 1개 행이 영향을 받아야 하지만 {count}개 행이 영향을 받았습니다")));}
                     statement.affected=Some(count);if preview&&plan.kind!=StatementKind::Delete{statement.after=Some(convert(output)?);}
-                    changed.affected.push(count);changed.statements.push(plan.sql);sample.statements.push(statement);Ok(())
+                    changed.affected.push(count);changed.statements.push(plan.sql);if req.edits.len()<=1000||index<req.preview_sample_limit.min(1000) as usize {sample.statements.push(statement);}Ok(())
                 }.await;
                 result.map_err(|mut e:DbError|{e.message=format!("Edit {index}: {}",e.message);e.detail=Some(statement_text.clone());e})?;
             }
@@ -102,3 +107,5 @@ impl PgSession {
         result
     }
 }
+
+fn dbcore_limit(req: &EditRequest) -> usize { if req.edits.iter().all(|e|matches!(e,RowEdit::Insert{..})) {10_000} else {1000} }

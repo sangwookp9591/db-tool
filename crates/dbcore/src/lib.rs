@@ -5,6 +5,12 @@ use std::{collections::BTreeMap, fmt, sync::{Arc, RwLock}};
 pub use tokio_util::sync::CancellationToken as CancelToken;
 pub mod preview;
 pub mod filter;
+pub mod explain;
+pub use explain::PlanTree;
+pub mod administration;
+pub use administration::*;
+pub mod operation;
+pub use operation::{Operation, OperationKind, OperationRisk};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct DriverManifest {
@@ -51,6 +57,20 @@ pub enum FieldKind {
 }
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct Capabilities {
+    #[serde(default)]
+    pub backup: bool,
+    #[serde(default)]
+    pub roles: bool,
+    #[serde(default)]
+    pub import_rows: bool,
+    #[serde(default)]
+    pub schema_snapshot: bool,
+    #[serde(default)]
+    pub ddl_render: bool,
+    #[serde(default)]
+    pub explain: bool,
+    #[serde(default)]
+    pub lint: bool,
     #[serde(default)]
     pub schema_graph: bool,
     #[serde(default)]
@@ -152,6 +172,33 @@ pub trait Driver: Send + Sync {
 }
 #[async_trait]
 pub trait Session: Send + Sync {
+    async fn preview_grants(&self,changes:&[GrantChange],_cancel:CancelToken)->Result<GrantPlan,DbError>{self.plan_grants(changes).await}
+
+    async fn import_rows_progress(&self,req:&EditRequest,preview:bool,cancel:CancelToken,sink:&dyn ProgressSink)->Result<ImportOutput,DbError>{
+        sink.progress(0,req.edits.len() as u64).await?;
+        let output=self.import_rows(req,preview,cancel).await?;
+        sink.progress(req.edits.len() as u64,req.edits.len() as u64).await?;
+        Ok(output)
+    }
+
+    async fn apply_grants(&self, _changes:&[GrantChange], _cancel:CancelToken)->Result<(),DbError>{Err(DbError::unsupported("Grant application unsupported"))}
+
+    async fn backup(&self, _cancel: CancelToken) -> Result<BackupData, DbError> { Err(DbError::unsupported("Backup unsupported")) }
+    async fn restore(&self, _backup: &BackupData, _overwrite: bool, _cancel: CancelToken) -> Result<(), DbError> { Err(DbError::unsupported("Restore unsupported")) }
+    async fn roles(&self) -> Result<RolesSnapshot, DbError> { Err(DbError::unsupported("Roles unsupported")) }
+    async fn plan_grants(&self, _changes: &[GrantChange]) -> Result<GrantPlan, DbError> { Err(DbError::unsupported("Grant planning unsupported")) }
+
+    async fn apply_migration(&self,_req:&ExecRequest,_cancel:CancelToken)->Result<Vec<ResultSet>,DbError>{Err(DbError::unsupported("Atomic migrations unsupported"))}
+    async fn schema_snapshot(&self, _scope: Option<&str>) -> Result<SchemaSnapshot, DbError> { Err(DbError::unsupported("Schema snapshots are not supported")) }
+    async fn ddl_render(&self, _diff: &SnapshotDiff) -> Result<Vec<String>, DbError> { Err(DbError::unsupported("DDL rendering is not supported")) }
+    async fn import_rows(&self, req: &EditRequest, preview: bool, cancel: CancelToken) -> Result<ImportOutput, DbError> {
+        if req.edits.is_empty() || req.edits.len()>IMPORT_MAX_ROWS || req.edits.iter().any(|e|!matches!(e,RowEdit::Insert{..})) {return Err(DbError::query("Import requires 1..10000 inserts"));}
+        if preview { Ok(ImportOutput::Preview(self.preview_edits(req,cancel).await?)) } else { Ok(ImportOutput::Applied(self.apply_edits(req,cancel).await?)) }
+    }
+
+    async fn explain(&self, _query: &str, _analyze: bool, _cancel: CancelToken) -> Result<PlanTree, DbError> {
+        Err(DbError::unsupported("This driver does not support explain"))
+    }
     /// Stream large tables to a sink; returned results retain metadata, not streamed rows.
     async fn execute_stream(&self, req: &ExecRequest, cancel: CancelToken, sink: &dyn ResultSink) -> Result<Vec<ResultSet>, DbError> {
         let mut results = self.execute(req, cancel.clone()).await?;
@@ -506,6 +553,8 @@ pub enum RowEdit {
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct EditRequest {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub create_table: Option<Vec<Column>>,
     pub node_id: String,
     pub edits: Vec<RowEdit>,
     #[serde(default = "default_timeout_ms")]
@@ -519,3 +568,10 @@ pub struct EditResult {
     pub statements: Vec<String>,
 }
 pub mod edits;
+
+pub mod workbench;
+pub use workbench::*;
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag="status", content="result", rename_all="snake_case")]
+pub enum ImportOutput { Preview(ChangePreview), Applied(EditResult) }

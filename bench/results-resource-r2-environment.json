@@ -1,0 +1,47 @@
+[
+  {
+    "command": [
+      "codesign",
+      "--verify",
+      "--deep",
+      "--strict",
+      "/private/tmp/claude-501/-Users-iron-Project-psw-db-tool/1fe252ea-91ad-4737-8951-7e8f929f6ea0/scratchpad/r2/AxDB.app"
+    ],
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "codesign",
+      "-dv",
+      "--verbose=2",
+      "/private/tmp/claude-501/-Users-iron-Project-psw-db-tool/1fe252ea-91ad-4737-8951-7e8f929f6ea0/scratchpad/r2/AxDB.app"
+    ],
+    "exit": 0,
+    "stdout": "",
+    "stderr": "Executable=/private/tmp/claude-501/-Users-iron-Project-psw-db-tool/1fe252ea-91ad-4737-8951-7e8f929f6ea0/scratchpad/r2/AxDB.app/Contents/MacOS/axdb\nIdentifier=dev.axdb.app\nFormat=app bundle with Mach-O universal (x86_64 arm64)\nCodeDirectory v=20500 size=33368 flags=0x10000(runtime) hashes=1036+3 location=embedded\nSignature size=8977\nAuthority=Developer ID Application: SangWook Park (QRW9X3848W)\nAuthority=Developer ID Certification Authority\nAuthority=Apple Root CA\nTimestamp=Oct 19, 2026 at 2:02:59\u202fPM\nInfo.plist entries=14\nTeamIdentifier=QRW9X3848W\nRuntime Version=27.0.0\nSealed Resources version=2 rules=13 files=1\nInternal requirements count=1 size=172\nTotal signatures=1\nChosen signature=1\n"
+  },
+  {
+    "command": [
+      "lipo",
+      "-archs",
+      "/private/tmp/claude-501/-Users-iron-Project-psw-db-tool/1fe252ea-91ad-4737-8951-7e8f929f6ea0/scratchpad/r2/AxDB.app/Contents/MacOS/axdb"
+    ],
+    "exit": 0,
+    "stdout": "x86_64 arm64\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "sysctl",
+      "machdep.cpu.brand_string",
+      "hw.memsize",
+      "hw.ncpu",
+      "hw.physicalcpu"
+    ],
+    "exit": 0,
+    "stdout": "machdep.cpu.brand_string: Apple M5\nhw.memsize: 25769803776\nhw.ncpu: 10\nhw.physicalcpu: 10\n",
+    "stderr": ""
+  }
+]

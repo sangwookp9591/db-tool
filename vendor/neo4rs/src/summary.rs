@@ -144,6 +144,10 @@ impl ResultSummary {
         self.db.as_deref()
     }
 
+    pub fn plan(&self) -> Option<&Map> { self.plan.as_ref() }
+
+    pub fn profile(&self) -> Option<&Map> { self.profile.as_ref() }
+
     pub fn stats(&self) -> &Counters {
         &self.stats
     }

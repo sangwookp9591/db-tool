@@ -1,0 +1,178 @@
+{
+  "started": "2026-10-19T15:24:08.581381+09:00",
+  "gate": {
+    "label": "r2-quiet-window",
+    "passed": true,
+    "threshold": 8,
+    "timeout_seconds": 3600,
+    "samples": [
+      {
+        "at": "2026-10-19T15:24:08.647409+09:00",
+        "load1": 5.50439453125,
+        "waited_seconds": 9.292001777794212e-06,
+        "ps_top_cpu": [
+          {
+            "pid": 92705,
+            "ppid": 92566,
+            "rss_kib": 458896,
+            "cpu_seconds": 219.31,
+            "rolling_cpu_percent": 75.4,
+            "command": "/Applications/Aside.app/Contents/Frameworks/Aside Framework.framework/Versions/1.0.928.1/Helpers/Aside Helper (Renderer).app/Contents/MacOS/Aside Helper (Renderer)"
+          },
+          {
+            "pid": 24163,
+            "ppid": 23115,
+            "rss_kib": 199536,
+            "cpu_seconds": 0.98,
+            "rolling_cpu_percent": 73.7,
+            "command": "/Users/iron/.rustup/toolchains/1.94.0-aarch64-apple-darwin/bin/rustc"
+          },
+          {
+            "pid": 16508,
+            "ppid": 16414,
+            "rss_kib": 651888,
+            "cpu_seconds": 4893.28,
+            "rolling_cpu_percent": 57.3,
+            "command": "/Applications/Orca.app/Contents/Frameworks/Orca Helper (Renderer).app/Contents/MacOS/Orca Helper (Renderer)"
+          },
+          {
+            "pid": 171,
+            "ppid": 1,
+            "rss_kib": 87872,
+            "cpu_seconds": 9813.45,
+            "rolling_cpu_percent": 42.4,
+            "command": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+          },
+          {
+            "pid": 92627,
+            "ppid": 92566,
+            "rss_kib": 154352,
+            "cpu_seconds": 315.44,
+            "rolling_cpu_percent": 34.7,
+            "command": "/Applications/Aside.app/Contents/Frameworks/Aside Framework.framework/Versions/1.0.928.1/Helpers/Aside Helper.app/Contents/MacOS/Aside Helper"
+          },
+          {
+            "pid": 16460,
+            "ppid": 16414,
+            "rss_kib": 124032,
+            "cpu_seconds": 2068.44,
+            "rolling_cpu_percent": 30.4,
+            "command": "/Applications/Orca.app/Contents/Frameworks/Orca Helper.app/Contents/MacOS/Orca Helper"
+          },
+          {
+            "pid": 1186,
+            "ppid": 894,
+            "rss_kib": 119856,
+            "cpu_seconds": 2626.66,
+            "rolling_cpu_percent": 28.1,
+            "command": "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/155.0.8059.84/Helpers/Google Chrome Helper (Aperitif).app/Contents/MacOS/Google Chrome Helper (Aperitif)"
+          },
+          {
+            "pid": 1165,
+            "ppid": 1,
+            "rss_kib": 1362016,
+            "cpu_seconds": 2030.68,
+            "rolling_cpu_percent": 25.7,
+            "command": "/Applications/OrbStack.app/Contents/Frameworks/OrbStack Helper.app/Contents/MacOS/OrbStack Helper"
+          },
+          {
+            "pid": 6632,
+            "ppid": 894,
+            "rss_kib": 320560,
+            "cpu_seconds": 109.35,
+            "rolling_cpu_percent": 22.5,
+            "command": "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/155.0.8059.84/Helpers/Google Chrome Helper (Aperitif Renderer).app/Contents/MacOS/Google Chrome Helper (Aperitif Renderer)"
+          },
+          {
+            "pid": 50952,
+            "ppid": 1,
+            "rss_kib": 11872,
+            "cpu_seconds": 144.24,
+            "rolling_cpu_percent": 20.5,
+            "command": "/System/Library/PrivateFrameworks/XprotectFramework.framework/Versions/A/XPCServices/XprotectService.xpc/Contents/MacOS/XprotectService"
+          },
+          {
+            "pid": 92566,
+            "ppid": 1,
+            "rss_kib": 266096,
+            "cpu_seconds": 157.32999999999998,
+            "rolling_cpu_percent": 17.8,
+            "command": "/Applications/Aside.app/Contents/MacOS/Aside"
+          },
+          {
+            "pid": 86649,
+            "ppid": 92566,
+            "rss_kib": 306496,
+            "cpu_seconds": 19.27,
+            "rolling_cpu_percent": 16.0,
+            "command": "/Applications/Aside.app/Contents/Frameworks/Aside Framework.framework/Versions/1.0.928.1/Helpers/Aside Helper (Renderer).app/Contents/MacOS/Aside Helper (Renderer)"
+          },
+          {
+            "pid": 16414,
+            "ppid": 1,
+            "rss_kib": 326912,
+            "cpu_seconds": 1973.56,
+            "rolling_cpu_percent": 15.1,
+            "command": "/Applications/Orca.app/Contents/MacOS/Orca"
+          },
+          {
+            "pid": 24201,
+            "ppid": 20614,
+            "rss_kib": 25408,
+            "cpu_seconds": 0.17,
+            "rolling_cpu_percent": 9.9,
+            "command": "/opt/homebrew/Cellar/python@3.14/3.14.4/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python"
+          },
+          {
+            "pid": 92703,
+            "ppid": 92566,
+            "rss_kib": 279248,
+            "cpu_seconds": 60.86,
+            "rolling_cpu_percent": 8.8,
+            "command": "Aside Daemon"
+          },
+          {
+            "pid": 20614,
+            "ppid": 19878,
+            "rss_kib": 164544,
+            "cpu_seconds": 107.7,
+            "rolling_cpu_percent": 8.0,
+            "command": "codex"
+          },
+          {
+            "pid": 17231,
+            "ppid": 1,
+            "rss_kib": 182320,
+            "cpu_seconds": 627.18,
+            "rolling_cpu_percent": 4.2,
+            "command": "/Users/iron/Library/Application Support/orca/daemon-host/macos/terminal-host-499e9399663dd55819267db289c3952247e9f081/app.noindex/Orca Terminal Host.app/Contents/MacOS/orca-terminal-host"
+          },
+          {
+            "pid": 73467,
+            "ppid": 72992,
+            "rss_kib": 180240,
+            "cpu_seconds": 85.01,
+            "rolling_cpu_percent": 4.1,
+            "command": "codex"
+          },
+          {
+            "pid": 96132,
+            "ppid": 95094,
+            "rss_kib": 546848,
+            "cpu_seconds": 557.26,
+            "rolling_cpu_percent": 3.9,
+            "command": "claude"
+          },
+          {
+            "pid": 28941,
+            "ppid": 28460,
+            "rss_kib": 164144,
+            "cpu_seconds": 57.88,
+            "rolling_cpu_percent": 3.5,
+            "command": "codex"
+          }
+        ]
+      }
+    ]
+  }
+}

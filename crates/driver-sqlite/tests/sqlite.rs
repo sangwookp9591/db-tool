@@ -496,7 +496,7 @@ async fn schema_graph_and_filtered_browse() {
     let result=s.browse(&fk.to,PageRequest {offset:0,limit:10,filter:vec![("tenant".into(),Value::Text("a' OR TRUE--".into()))]}).await.unwrap();assert_eq!(result.row_count,0);
 }
 
-fn edit_request(node: &str, edits: Vec<RowEdit>) -> EditRequest {EditRequest{node_id:node.into(),edits,timeout_ms:5000,preview_sample_limit:2}}
+fn edit_request(node: &str, edits: Vec<RowEdit>) -> EditRequest {EditRequest{create_table: None,node_id:node.into(),edits,timeout_ms:5000,preview_sample_limit:2}}
 fn edit_key(id:i64)->Vec<(String,Value)>{vec![("id".into(),Value::Int(id.to_string()))]}
 #[tokio::test]
 async fn c2_bound_edits_preview_apply_conflicts_and_catalog(){

@@ -1,6 +1,7 @@
 //! SQLite driver. Every connection operation runs on the blocking pool.
 mod preview;
 mod edits;
+mod administration;
 mod schema;
 use async_trait::async_trait;
 use dbcore::*;
@@ -59,6 +60,12 @@ impl SqliteDriver {
                     },
                 ],
                 capabilities: Capabilities {
+                    backup: true, roles: false,
+                    import_rows: true,
+                    schema_snapshot: true,
+                    ddl_render: true,
+                    explain: true,
+                    lint: true,
                     schema_graph: true,
                     filtered_browse: true,
                     preview_changes: PreviewSupport::Transactional,
@@ -253,6 +260,31 @@ impl SqliteSession {
 }
 #[async_trait]
 impl Session for SqliteSession {
+    async fn backup(&self,cancel:CancelToken)->Result<BackupData,DbError>{self.native_backup(cancel).await}
+    async fn restore(&self,backup:&BackupData,overwrite:bool,cancel:CancelToken)->Result<(),DbError>{self.native_restore(backup,overwrite,cancel).await}
+
+    async fn apply_migration(&self,req:&ExecRequest,cancel:CancelToken)->Result<Vec<ResultSet>,DbError>{self.migrate(req,cancel).await}
+    async fn schema_snapshot(&self, scope:Option<&str>)->Result<SchemaSnapshot,DbError>{ self.load_snapshot(scope).await }
+    async fn ddl_render(&self,diff:&SnapshotDiff)->Result<Vec<String>,DbError>{dbcore::workbench::render_sql(diff,"sqlite")}
+    async fn explain(&self, query: &str, analyze: bool, cancel: CancelToken) -> Result<PlanTree, DbError> {
+        if analyze { return Err(DbError::unsupported("SQLite does not support EXPLAIN ANALYZE")); }
+        let ts = dbcore::preview::tokens(query)?;
+        if ts.iter().filter(|t| t.depth == 0 && t.text == ";").count() > usize::from(query.trim_end().ends_with(';')) { return Err(DbError::query("Explain requires one statement")); }
+        let results = self.execute(&request(format!("EXPLAIN QUERY PLAN {query}")), cancel).await?;
+        let table = results.first().and_then(|r| r.table.as_ref()).ok_or_else(|| DbError::query("Missing SQLite plan"))?;
+        let mut nodes = Vec::new();
+        for row in &table.rows {
+            if let [Value::Int(id), Value::Int(parent), _, Value::Text(detail)] = row.as_slice() {
+                nodes.push((id.clone(), parent.clone(), PlanTree { op: detail.clone(), target: detail.split_whitespace().nth(1).map(str::to_owned), ..Default::default() }));
+            }
+        }
+        fn branch(parent: &str, nodes: &[(String, String, PlanTree)], depth: usize) -> Vec<PlanTree> {
+            if depth > nodes.len() { return vec![]; }
+            nodes.iter().filter(|(id, p, _)| p == parent && id != p).map(|(id, _, node)| { let mut node = node.clone(); node.children = branch(id, nodes, depth + 1); node }).collect()
+        }
+        Ok(PlanTree { op: "Query Plan".into(), children: branch("0", &nodes, 0), warnings: vec!["SQLite does not expose row or cost estimates in EXPLAIN QUERY PLAN".into()], ..Default::default() })
+    }
+
     async fn preview_edits(&self, req: &EditRequest, cancel: CancelToken) -> Result<ChangePreview,DbError> {
         let mut exec = request(String::new());
         exec.timeout_ms=req.timeout_ms;
@@ -538,3 +570,5 @@ mod tests {
         assert_eq!(result_title(&long), format!("{}…", "한".repeat(80)));
     }
 }
+
+mod management;

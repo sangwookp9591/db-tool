@@ -1,3 +1,5 @@
+pub mod net;
+mod management;
 pub mod driver_install;
 mod agent_bridge;
 mod onboarding;
@@ -7,10 +9,12 @@ mod assistant;
 mod agent_dispatch;
 mod permissions;
 mod edits;
+mod editor;
 mod export;
 pub mod drivers;
 pub mod plugin_host;
 pub mod storage;
+mod star;
 pub mod stream;
 mod viewer_bench;
 use dbcore::*;
@@ -30,6 +34,7 @@ struct SessionRecord {
     session: Arc<dyn Session>,
     profile: Profile,
     secret: Option<String>,
+    _tunnel: Option<net::Tunnel>,
     dead: AtomicBool,
 }
 struct RunRecord {
@@ -37,6 +42,8 @@ struct RunRecord {
     session_id: String,
 }
 pub struct Host {
+    backup_statuses: Mutex<HashMap<String,management::BackupStatus>>,
+    network: Arc<net::State>,
     registry: Registry,
     paths: Paths,
     sessions: Mutex<HashMap<String, Arc<SessionRecord>>>,
@@ -50,6 +57,8 @@ pub struct Host {
 impl Host {
     pub fn new(paths: Paths) -> Self {
         Self {
+            network: Arc::new(net::State::default()),
+            backup_statuses: Mutex::default(),
             registry: drivers::registry(&paths.data.join("drivers")),
             paths,
             sessions: Mutex::new(HashMap::new()),
@@ -111,10 +120,16 @@ impl Host {
         &self,
         profile: &Profile,
         secret: Option<String>,
-    ) -> Result<(Box<dyn Session>, Option<String>), DbError> {
+    ) -> Result<(Box<dyn Session>, Option<String>, Option<net::Tunnel>), DbError> {
+        self.connect_progress(profile, secret, net::Progress::default()).await
+    }
+    async fn connect_progress(
+        &self, profile: &Profile, secret: Option<String>, progress: net::Progress,
+    ) -> Result<(Box<dyn Session>, Option<String>, Option<net::Tunnel>), DbError> {
         let driver = self.driver(&profile.driver_id)?;
         let mut safe = profile.clone();
-        let inline = storage::strip_secrets(&mut safe, driver.manifest());
+        let uri_secret = net::extract_uri_secret(&mut safe)?;
+        let inline = storage::strip_secrets(&mut safe, driver.manifest()).or(uri_secret);
         let secret = match secret.or(inline) {
             Some(s) => Some(s),
             None if safe.save_secret => { let _bench = viewer_bench::span("keychain_get"); storage::keychain_get(&profile.id)? },
@@ -128,14 +143,33 @@ impl Host {
                 .any(|f| !f.secret && f.key == *key)
         });
         tracing::info!(driver=%safe.driver_id,field_names=?safe.fields.keys().collect::<Vec<_>>(),"Connecting");
-        let session = driver
+        let prepared = net::prepare(&safe, safe.fields.clone(), secret, driver.manifest(), &self.paths.data, self.network.clone(), progress.clone()).await?;
+        let tls = !prepared.tls_offloaded && net::tls_required(&prepared.fields);
+        let start = Instant::now();
+        if !prepared.tls_offloaded { progress.stage("tls", if tls { "running" } else { "skipped" }, start, None); }
+        progress.stage("db_auth", "running", start, None);
+        let result = driver
             .connect(&ConnectConfig {
-                fields: safe.fields,
-                secret: secret.clone(),
+                fields: prepared.fields,
+                secret: prepared.secret.clone(),
                 connect_timeout_ms: 5000,
             })
-            .await?;
-        Ok((session, secret))
+            .await;
+        match &result {
+            Ok(_) => {
+                if tls { progress.stage("tls", "passed", start, None); }
+                progress.stage("db_auth", "passed", start, None);
+            }
+            Err(e) => {
+                let (stage, safe) = net::database_error(e, !matches!(profile.auth, net::model::Auth::Password));
+                if tls && stage != "tls" {
+                    progress.stage("tls", if e.kind == ErrorKind::Auth { "passed" } else { "skipped" }, start, None);
+                }
+                if stage == "tls" { progress.stage("db_auth", "skipped", start, None); }
+                progress.stage(stage, "failed", start, Some(&safe));
+            }
+        }
+        Ok((result?, prepared.secret, prepared.tunnel))
     }
     fn access_mode(&self, record: &SessionRecord) -> Result<permissions::AccessMode, DbError> {
         Ok(storage::read_profiles(&self.paths.config.join("profiles.json"))?.into_iter().find(|p|p.id==record.profile.id).map(|p|p.access_mode).unwrap_or(record.profile.access_mode))
@@ -150,6 +184,7 @@ impl Host {
     }
     async fn history(&self, entry: HistoryEntry) -> Result<(), DbError> {
         let _guard = self.storage.lock().await;
+        if entry.kind == "execute" && entry.error.is_none() { star::successful_query(&self.paths.config)?; }
         let path = self.paths.data.join("history.jsonl");
         let mut entries = storage::read_history(&path)?;
         entries.push(entry);
@@ -203,7 +238,10 @@ async fn profile_save(
     let _bench = viewer_bench::span("profile_save");
     let driver = host.driver(&profile.driver_id)?;
     if profile.access_mode == permissions::AccessMode::ReadOnly && !driver.manifest().capabilities.read_only_exec { return Err(DbError::unsupported("이 드라이버는 읽기 전용 실행을 강제할 수 없습니다")); }
-    let secret = secret.or(storage::strip_secrets(&mut profile, driver.manifest()));
+    let uri_secret = net::extract_uri_secret(&mut profile)?;
+    let secret = secret.or(storage::strip_secrets(&mut profile, driver.manifest())).or(uri_secret);
+    if let Some(network) = &profile.network { network.validate()?; }
+    host.network.invalidate(&profile.id);
     if profile.id.is_empty() {
         profile.id = uuid::Uuid::new_v4().to_string();
     }
@@ -238,6 +276,8 @@ async fn profile_delete(host: tauri::State<'_, Host>, profile_id: String) -> Com
     let path = host.paths.config.join("profiles.json");
     let mut profiles = storage::read_profiles(&path)?;
     { let _keychain = viewer_bench::span("keychain_delete"); storage::keychain_set(&profile_id, None)?; }
+    net::delete_credentials(&profile_id)?;
+    host.network.invalidate(&profile_id);
     profiles.retain(|p| p.id != profile_id);
     storage::write_private(
         &path,
@@ -252,7 +292,7 @@ async fn connection_test(
     secret: Option<String>,
 ) -> CommandResult<String> {
     let _bench = viewer_bench::span("connection_test");
-    let (session, _) = host.connect(&profile, secret).await?;
+    let (session, _, _tunnel) = host.connect(&profile, secret).await?;
     let result = async {
         session.ping().await?;
         session.server_info().await
@@ -280,7 +320,7 @@ async fn session_open(
             .find(|p| p.id == profile_id)
             .ok_or_else(|| DbError::query("연결 프로필을 찾을 수 없습니다"))?
     };
-    let (session, secret) = host.connect(&profile, secret).await?;
+    let (session, secret, tunnel) = host.connect(&profile, secret).await?;
     let id = uuid::Uuid::new_v4().to_string();
     host.sessions
         .lock()
@@ -291,6 +331,7 @@ async fn session_open(
                 session: Arc::from(session),
                 profile,
                 secret,
+                _tunnel: tunnel,
                 dead: AtomicBool::new(false),
             }),
         );
@@ -305,6 +346,8 @@ async fn session_close(host: tauri::State<'_, Host>, session_id: String) -> Comm
         .remove(&session_id);
     if let Some(record) = record {
         record.dead.store(true, Ordering::Release);
+        if let Some(tunnel) = &record._tunnel { tunnel.close(); }
+        host.network.emit(net::Event::Network { profile_id:record.profile.id.clone(), state:"disconnected".into(), attempt:0, code:None });
         {
             let runs = host
                 .runs
@@ -604,7 +647,13 @@ pub fn run() {
                 .map_err(|_| "Cannot initialize file logging")?;
             let config = paths.config.clone();
             let enabled = agent_bridge::Bridge::configured(&config)?;
-            app.manage(Host::new(paths));
+            let host = Host::new(paths);
+            let network_handle = app.handle().clone();
+            host.network.set_sink(Arc::new(move |event| {
+                use tauri::Emitter;
+                let _ = network_handle.emit("connection-network", event);
+            }));
+            app.manage(host);
             app.manage(agent_bridge::Bridge::default());
             if enabled {
                 let handle = app.handle().clone();
@@ -615,6 +664,11 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            net::connection_parse,
+            net::connection_test_steps,
+            net::connection_host_key_confirm,
+            net::connection_credentials_save,
+            net::iam_profiles,
             export::export_save_dialog,
             export::export_write,
             export::export_reveal,
@@ -634,6 +688,14 @@ pub fn run() {
             assistant::ai_login_poll,
             assistant::ai_login_status,
             assistant::ai_logout,
+            assistant::provider::ai_provider_login_start,
+            assistant::provider::ai_provider_login_poll,
+            assistant::provider::ai_provider_login_cancel,
+            assistant::provider::ai_provider_logout,
+            assistant::provider::ai_models,
+            assistant::oauth::ai_account_select,
+            assistant::operation::ai_operation,
+            assistant::operation::ai_diagnose_connection,
             drivers_list,
             driver_install::drivers_catalog,
             driver_install::driver_install,
@@ -648,6 +710,8 @@ pub fn run() {
             session_open,
             session_info,
             session_close,
+            star::star_prompt,
+            star::star_count,
             explorer_children,
             schema_graph,
             browse,
@@ -665,6 +729,24 @@ pub fn run() {
             viewer_bench::viewer_bench_config,
             viewer_bench::viewer_bench_write,
             viewer_bench::viewer_bench_checkpoint,
+            editor::explain_query,
+            editor::lint_query,
+            editor::refactor_query,
+            management::administration::backup_status, management::administration::backup_create, management::administration::restore_preview, management::administration::restore_apply,
+            management::administration::roles, management::administration::plan_grants, management::administration::grants_preview, management::administration::grants_apply,
+            management::import_plan,
+            management::import_target,
+            management::import_pick_file,
+            management::import_preview,
+            management::import_apply,
+            management::schema_snapshot,
+            management::schema_diff,
+            management::ddl_render,
+            management::snapshot_encode,
+            management::snapshot_decode,
+            management::migration::migration_scan,
+            management::migration::migration_preview,
+            management::migration::migration_apply,
             edits::edit_preview,
             edits::edit_apply,
             cancel,
@@ -776,7 +858,7 @@ mod tests {
             name: "test".into(),
             driver_id: "postgres".into(),
             fields: Default::default(),
-            save_secret: false,
+            save_secret: false, network: None, auth: Default::default(),
             access_mode: Default::default(),
         };
         app.state::<Host>().sessions.lock().unwrap().insert(
@@ -785,6 +867,7 @@ mod tests {
                 session: session.clone(),
                 profile,
                 secret: Some("history-secret".into()),
+                _tunnel: None,
                 dead: AtomicBool::new(false),
             }),
         );
@@ -826,6 +909,11 @@ mod tests {
                 .len(),
             1000
         );
+        let close_host=app.state::<Host>();
+        let close_run=close_host.run("s", "close-test").unwrap();
+        session_close(app.state(), "s".into()).await.unwrap();
+        assert!(close_run.token.is_cancelled());
+        assert!(app.state::<Host>().session("s").is_err());
         session_close(app.state(), "s".into()).await.unwrap();
         std::fs::remove_dir_all(dir).unwrap();
     }
@@ -847,7 +935,7 @@ mod tests {
                 ("user".into(), "postgres".into()),
             ]
             .into(),
-            save_secret: false,
+            save_secret: false, network: None, auth: Default::default(),
             access_mode: Default::default(),
         };
         // OS keychain interaction is deliberately separate from live DB command verification.
@@ -944,7 +1032,7 @@ mod tests {
     #[tokio::test]
     async fn read_only_mode_updates_open_sessions_and_approvals_are_bound_and_single_use() {
         let (app,dir)=setup();
-        let profile=Profile{id:"readonly".into(),name:"test".into(),driver_id:"sqlite".into(),fields:std::collections::BTreeMap::from([("path".into(),dir.join("test.sqlite").to_string_lossy().to_string())]),save_secret:false,access_mode:Default::default()};
+        let profile=Profile{id:"readonly".into(),name:"test".into(),driver_id:"sqlite".into(),fields:std::collections::BTreeMap::from([("path".into(),dir.join("test.sqlite").to_string_lossy().to_string())]),save_secret:false,network:None,auth:Default::default(),access_mode:Default::default()};
         storage::write_private(&dir.join("profiles.json"),&serde_json::to_vec(&vec![profile.clone()]).unwrap()).unwrap();
         let session=session_open(app.state(),profile.id.clone(),None).await.unwrap();
         execute(app.state(),session.clone(),"setup".into(),request("CREATE TABLE items(id integer); INSERT INTO items VALUES(1)",1000)).await.unwrap();

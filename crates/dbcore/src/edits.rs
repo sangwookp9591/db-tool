@@ -15,10 +15,10 @@ pub fn plan(
     quote: impl Fn(&str) -> String,
     placeholder: impl Fn(usize, &str, &Value) -> String,
 ) -> Result<Vec<Plan>, DbError> {
-    if req.edits.len() > 1000 {
-        return Err(DbError::unsupported("편집은 최대 1,000건까지 지원합니다"));
+    if req.edits.len() > dbcore_limit(req) {
+        return Err(DbError::unsupported("편집/가져오기 행 수 상한을 초과했습니다"));
     }
-    if keys.is_empty() {
+    if keys.is_empty() && req.edits.iter().any(|e| !matches!(e,RowEdit::Insert{..})) {
         return Err(DbError::unsupported("편집하려면 테이블에 기본 키가 있어야 합니다"));
     }
     req.edits
@@ -144,6 +144,9 @@ pub fn text(value: &Value) -> Result<Option<String>, DbError> {
         }
     }))
 }
+
+fn dbcore_limit(req: &EditRequest) -> usize { if req.edits.iter().all(|e|matches!(e,RowEdit::Insert{..})) {10_000} else {1000} }
+
 #[cfg(test)]
 mod tests {
     use super::*;

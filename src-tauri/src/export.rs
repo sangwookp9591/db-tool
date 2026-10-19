@@ -119,7 +119,7 @@ pub async fn export_save_dialog(
     extension: String,
 ) -> Result<Option<Selection>, String> {
     main_window(&window)?;
-    if !["csv", "json", "md", "ndjson", "svg", "png"].contains(&extension.as_str())
+    if !["csv", "json", "md", "ndjson", "svg", "png", "sql", "axbackup"].contains(&extension.as_str())
         || Path::new(&filename).file_name().and_then(|n| n.to_str()) != Some(filename.as_str())
     {
         return Err("지원하지 않는 파일 이름 또는 형식입니다".into());

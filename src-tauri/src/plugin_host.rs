@@ -528,6 +528,38 @@ impl PluginSession {
 
 #[async_trait]
 impl Session for PluginSession {
+    async fn preview_grants(&self,changes:&[GrantChange],cancel:CancelToken)->Result<GrantPlan,DbError>{match self.call(Request::PreviewGrants{session:self.session,changes:changes.to_vec()},cancel,30000).await?.reply{Reply::Grants(p)=>Ok(p),_=>Err(invalid_reply())}}
+
+    async fn import_rows_progress(&self,req:&EditRequest,preview:bool,cancel:CancelToken,sink:&dyn ProgressSink)->Result<ImportOutput,DbError>{
+        let (tx,mut rx)=tokio::sync::mpsc::unbounded_channel();
+        let adapter=ProgressAdapter{tx};
+        let work=self.process.call_with_sink(Request::ImportRowsProgress{session:self.session,req:req.clone(),preview},cancel.clone(),Duration::from_millis(req.timeout_ms.saturating_add(6000)),Some(&adapter));
+        tokio::pin!(work);
+        loop {tokio::select!{result=&mut work=>{while let Ok((done,total))=rx.try_recv(){sink.progress(done,total).await?;}return match result{Ok(response)=>match response.reply{Reply::Import(output)=>Ok(output),_=>Err(invalid_reply())},Err(e) if e.kind==ErrorKind::Unsupported=>self.import_rows(req,preview,cancel.clone()).await,Err(e)=>Err(e)};},Some((done,total))=rx.recv()=>sink.progress(done,total).await?}}
+
+    }
+
+    async fn apply_grants(&self,changes:&[GrantChange],cancel:CancelToken)->Result<(),DbError>{match self.call(Request::ApplyGrants{session:self.session,changes:changes.to_vec()},cancel,30000).await?.reply{Reply::Unit=>Ok(()),_=>Err(invalid_reply())}}
+
+    async fn backup(&self,cancel:CancelToken)->Result<BackupData,DbError>{ match self.call(Request::Backup{session:self.session},cancel,3600000).await?.reply{Reply::Backup(b)=>Ok(b),_=>Err(invalid_reply())} }
+    async fn restore(&self,backup:&BackupData,overwrite:bool,cancel:CancelToken)->Result<(),DbError>{ match self.call(Request::Restore{session:self.session,backup:backup.clone(),overwrite},cancel,3600000).await?.reply{Reply::Unit=>Ok(()),_=>Err(invalid_reply())} }
+    async fn roles(&self)->Result<RolesSnapshot,DbError>{ match self.call(Request::Roles{session:self.session},CancelToken::new(),30000).await?.reply{Reply::Roles(r)=>Ok(r),_=>Err(invalid_reply())} }
+    async fn plan_grants(&self,changes:&[GrantChange])->Result<GrantPlan,DbError>{ match self.call(Request::PlanGrants{session:self.session,changes:changes.to_vec()},CancelToken::new(),30000).await?.reply{Reply::Grants(p)=>Ok(p),_=>Err(invalid_reply())} }
+
+    async fn apply_migration(&self,req:&ExecRequest,cancel:CancelToken)->Result<Vec<ResultSet>,DbError>{
+        match self.call(Request::ApplyMigration{session:self.session,req:req.clone()},cancel,req.timeout_ms).await?.reply{Reply::Migration(r)=>Ok(r),_=>Err(invalid_reply())}
+    }
+
+    async fn schema_snapshot(&self,scope:Option<&str>)->Result<SchemaSnapshot,DbError>{
+        match self.call(Request::SchemaSnapshot{session:self.session,scope:scope.map(str::to_owned)},CancelToken::new(),30000).await?.reply {Reply::Snapshot(s)=>Ok(s),_=>Err(invalid_reply())}
+    }
+    async fn ddl_render(&self,diff:&SnapshotDiff)->Result<Vec<String>,DbError>{
+        match self.call(Request::DdlRender{session:self.session,diff:diff.clone()},CancelToken::new(),30000).await?.reply {Reply::Ddl(s)=>Ok(s),_=>Err(invalid_reply())}
+    }
+    async fn import_rows(&self,req:&EditRequest,preview:bool,cancel:CancelToken)->Result<ImportOutput,DbError>{
+        match self.call(Request::ImportRows{session:self.session,req:req.clone(),preview},cancel,req.timeout_ms).await?.reply {Reply::Import(s)=>Ok(s),_=>Err(invalid_reply())}
+    }
+
     async fn execute_stream(
         &self,
         req: &ExecRequest,
@@ -663,6 +695,12 @@ impl Session for PluginSession {
             _ => Err(invalid_reply()),
         }
     }
+    async fn explain(&self, query: &str, analyze: bool, cancel: CancelToken) -> Result<PlanTree, DbError> {
+        match self.call(Request::Explain { session: self.session, query: query.into(), analyze }, cancel, 30000).await?.reply {
+            Reply::Plan(plan) => Ok(plan),
+            _ => Err(invalid_reply()),
+        }
+    }
     async fn preview(
         &self,
         req: &ExecRequest,
@@ -740,6 +778,13 @@ impl Session for PluginSession {
             self.closed.cancel();
         }
     }
+}
+
+
+struct ProgressAdapter{tx:tokio::sync::mpsc::UnboundedSender<(u64,u64)>}
+impl ResultSink for ProgressAdapter{
+ fn start(&self,_:usize,_:&ResultSet)->Result<(),DbError>{Ok(())}
+ fn rows(&self,_:usize,rows:Vec<Vec<Value>>)->Result<(),DbError>{for row in rows {if let [Value::Int(done),Value::Int(total)]=row.as_slice(){let done=done.parse().map_err(|_|DbError::query("Invalid progress"))?;let total=total.parse().map_err(|_|DbError::query("Invalid progress"))?;self.tx.send((done,total)).map_err(|_|DbError::internal("Progress channel closed"))?;}else{return Err(DbError::query("Invalid progress"));}}Ok(())}
 }
 
 #[cfg(test)]

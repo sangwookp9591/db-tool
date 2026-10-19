@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { ArrowLeft, ArrowRight, Check, Copy, Sparkles } from 'lucide-preact';
 import { Button } from '../ui/Button';
 import { SpringCheck } from '../ui/SpringCheck';
@@ -64,7 +64,7 @@ export function Onboarding(props: Props) {
     catch (error) { if (alive.current) setError(normalizeError(error).message); }
     finally { if (alive.current) setBridgeBusy(false); }
   }
-  useEffect(() => {
+  useLayoutEffect(() => {
     const key = (event: KeyboardEvent) => {
       if (locked || event.defaultPrevented || event.isComposing || event.altKey || event.metaKey || event.ctrlKey) return;
       const target = event.target as HTMLElement;

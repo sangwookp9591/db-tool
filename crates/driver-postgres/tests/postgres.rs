@@ -692,7 +692,7 @@ async fn change_preview_ignores_concurrent_ddl_from_other_sessions() {
     s.close().await;
 }
 
-fn edit_request(node: &str, edits: Vec<RowEdit>) -> EditRequest {EditRequest{node_id:node.into(),edits,timeout_ms:5000,preview_sample_limit:2}}
+fn edit_request(node: &str, edits: Vec<RowEdit>) -> EditRequest {EditRequest{create_table: None,node_id:node.into(),edits,timeout_ms:5000,preview_sample_limit:2}}
 fn edit_key(id:i64)->Vec<(String,Value)>{vec![("id".into(),Value::Int(id.to_string()))]}
 #[tokio::test]
 async fn c2_bound_edits_preview_apply_conflicts_and_catalog(){

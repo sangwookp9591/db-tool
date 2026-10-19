@@ -483,7 +483,7 @@ mod tests {
             name: "AI test".into(),
             driver_id: driver.manifest().id.clone(),
             fields: cfg.fields,
-            save_secret: false,
+            save_secret: false, network: None, auth: Default::default(),
             access_mode: Default::default(),
         };
         host.sessions.lock().unwrap().insert(
@@ -492,6 +492,7 @@ mod tests {
                 session: Arc::from(session),
                 profile,
                 secret: Some("private-password".into()),
+                _tunnel: None,
                 dead: AtomicBool::new(false),
             }),
         );

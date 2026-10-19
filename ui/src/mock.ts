@@ -1,3 +1,4 @@
+import { administrationMock } from './ax/administrationContract';
 import type { Commands } from './api';
 import type { AgentClient, DriverManifest, Profile, ExplorerNode, ResultSet, Table, Value, Graph, DbError, HistoryEntry, ExecRequest, EditRequest } from './contract';
 const fields: DriverManifest['connection_fields'] = [
@@ -8,11 +9,11 @@ const fields: DriverManifest['connection_fields'] = [
   { key: 'tls', label: 'TLS 모드', kind: {Select:{options:['disable','prefer','require','verify-full']}}, required:false, default:'prefer', secret:false, placeholder:null },
   { key: 'tls_ca_file', label:'TLS CA 파일', kind:'FilePath',required:false,default:null,secret:false,placeholder:null }
 ];
-const capabilities: DriverManifest['capabilities'] = { schema_graph: true, preview_changes: 'DryRun', read_only_exec: true, cancel: 'Server', timeout: true, params: true, transactions: true, paged_browse: true, graph_expand: false, multi_statement: true, edit_rows: true };
+const capabilities: DriverManifest['capabilities'] = { lint: true, import_rows: true, schema_snapshot: true, ddl_render: true, roles: true, backup: true, explain: true, schema_graph: true, preview_changes: 'DryRun', read_only_exec: true, cancel: 'Server', timeout: true, params: true, transactions: true, paged_browse: true, graph_expand: false, multi_statement: true, edit_rows: true };
 export const drivers: DriverManifest[] = [
   { id: 'postgres', display_name: 'PostgreSQL · 데모', paradigm: 'Relational', query_language: { id: 'sql', display: 'SQL', editor_mode: 'sql', supports_params: true }, connection_fields: fields, capabilities, default_query: 'SELECT * FROM people;' },
   { id: 'neo4j', display_name: '그래프 · 데모', paradigm: 'Graph', query_language: { id: 'cypher', display: 'Cypher', editor_mode: 'cypher', supports_params: true }, connection_fields: fields.map(f => f.key === 'port' ? { ...f, default: '7687' } : f), capabilities: { ...capabilities, edit_rows: false, cancel: 'Abort', graph_expand: true, multi_statement: false }, default_query: 'MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 100;' },
-  { id: 'mongodb', display_name: 'MongoDB · 데모', paradigm: 'Document', query_language: { id: 'json', display: 'JSON', editor_mode: 'json', supports_params: false }, connection_fields: [{key:'uri',label:'URI',kind:'Text',required:true,default:'mongodb://127.0.0.1:57017',secret:false,placeholder:null},{key:'database',label:'데이터베이스',kind:'Text',required:true,default:'axdb_test',secret:false,placeholder:null},...fields.filter(f=>['user','password','tls','tls_ca_file'].includes(f.key)),{key:'auth_source',label:'인증 데이터베이스',kind:'Text',required:false,default:'admin',secret:false,placeholder:null}], capabilities: { ...capabilities, edit_rows: false, params: false, preview_changes: 'None' }, default_query: '{"find":"people","filter":{}}' }
+  { id: 'mongodb', display_name: 'MongoDB · 데모', paradigm: 'Document', query_language: { id: 'json', display: 'JSON', editor_mode: 'json', supports_params: false }, connection_fields: [{key:'uri',label:'URI',kind:'Text',required:true,default:'mongodb://127.0.0.1:57017',secret:false,placeholder:null},{key:'database',label:'데이터베이스',kind:'Text',required:true,default:'axdb_test',secret:false,placeholder:null},...fields.filter(f=>['user','password','tls','tls_ca_file'].includes(f.key)),{key:'auth_source',label:'인증 데이터베이스',kind:'Text',required:false,default:'admin',secret:false,placeholder:null}], capabilities: { ...capabilities, lint: false, edit_rows: false, params: false, preview_changes: 'None' }, default_query: '{"find":"people","filter":{}}' }
 ];
 let profiles: Profile[] = drivers.map((d, i) => ({ id: `demo-${i}`, name: ['Analytics sandbox', 'Graph playground', 'Document studio'][i], driver_id: d.id, fields: Object.fromEntries(d.connection_fields.filter(f => !f.secret).map(f => [f.key, f.default ?? ''])), save_secret: false }));
 const sessions = new Map<string, Profile>();
@@ -86,9 +87,16 @@ async function execute(sessionId: string, runId: string, req: ExecRequest, sourc
   finally { runs.delete(runId); history.unshift({ source, timestamp: Date.now(), profile_name: profile.name, text: req.text, elapsed_ms: Math.round(performance.now() - start), row_count: result.reduce((sum, r) => sum + r.row_count, 0), error: error?.message ?? null }); }
 }
 export async function mockInvoke<K extends keyof Commands>(command: K, args: Commands[K]['args']): Promise<Commands[K]['result']> {
+  if (['connection_parse', 'connection_test_steps', 'connection_host_key_confirm', 'connection_credentials_save', 'iam_profiles'].includes(command)) return (await import('./ax/connectionContract')).connectionMock(command, args) as Promise<Commands[K]['result']>;
   const a = args as Record<string, unknown>;
+  const ax = await import('./ax/mock');
+  if (ax.axMockCommands.includes(command)) return await ax.axMock(command,a) as Commands[K]['result'];
   let result: unknown;
   switch (command) {
+    case 'backup_create': case 'backup_status': case 'restore_preview': case 'restore_apply': case 'roles': case 'plan_grants': case 'grants_preview': case 'grants_apply': result=await administrationMock(command,a);break;
+    case 'explain_query': { session(a.sessionId as string); result = { op: 'Gather', target: null, est_rows: 100000, actual_rows: a.analyze ? 100000 : null, cost: 2100, children: [{ op: 'Parallel Seq Scan', target: 'people', est_rows: 1000, actual_rows: a.analyze ? 50000 : null, cost: 1800, children: [], warnings: ['전체 스캔입니다. 필터 조건과 인덱스 사용 가능성을 검토하세요.'] }], warnings: [] }; break; }
+    case 'lint_query': { session(a.sessionId as string); const query = String(a.query); const star = query.indexOf('*'); result = star < 0 ? [] : [{ rule_id: 'select_star', start: star, end: star + 1, severity: 'warning', message: 'Select explicit columns', quick_fix: { title: 'Expand columns (demo)', edits: [{ start: star, end: star + 1, text: 'id, name, team_id' }] } }]; break; }
+    case 'refactor_query': { session(a.sessionId as string); const query = String(a.query); const action = a.action as {kind:string}; if (action.kind === 'expand_star' && query.includes('*')) { const start = query.indexOf('*'); result = [{start,end:start+1,text:'id, name, team_id'}]; } else throw failure('Unsupported', 'Use the native SQL parser for this refactoring'); break; }
     case 'agent_clients_list': result = mockAgentClients.map(client => ({ ...client, connections: { ...client.connections }, allowed_tools: [...client.allowed_tools] })); break;
     case 'agent_audit_list': result = []; break;
     case 'agent_client_save': {

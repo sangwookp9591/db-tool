@@ -1,8 +1,9 @@
+import type { GrantChange } from '../ax/administrationContract';
 import type { WorkInput } from '../ai/types';
 import { perf } from '../perf';
 import type { Commands } from '../api';
 import type { DriverManifest, Profile, ResultSet, JsonValue, ChangePreview } from '../contract';
-export interface Schema { type: string; properties?: Record<string, Schema>; required?: string[]; additionalProperties?: boolean; minimum?: number; maximum?: number; default?: unknown }
+export interface Schema { type: string; items?:Schema; properties?: Record<string, Schema>; required?: string[]; additionalProperties?: boolean; minimum?: number; maximum?: number; default?: unknown }
 export interface Tool { name: string; title: string; description: string; inputSchema: Schema; annotations: { readOnlyHint: boolean; consequentialHint: boolean; untrustedContentHint?: boolean }; execute: (input: Record<string, unknown>, context?: { signal?: AbortSignal }) => Promise<unknown> }
 export interface AgentHost {
   snapshot: () => { drivers: DriverManifest[]; profiles: Profile[]; sessions: Record<string, string> };
@@ -105,6 +106,25 @@ export function createRegistry(host: AgentHost) {
       try { return await host.invoke('preview', { sessionId: id, runId, source: 'agent', req: { text: a.text as string, params: (a.params ?? {}) as Record<string, JsonValue>, row_limit: 200, graph_node_limit: 200, preview_sample_limit: a.sample_limit as number ?? 50, timeout_ms: a.timeout_ms as number ?? 30_000 } }); }
       finally { context?.signal?.removeEventListener('abort', cancel); host.history(); }
     });
+    if (openDrivers.some(d => d?.capabilities.explain)) add('explain_query', 'Explain query plan', 'Get a normalized execution plan without executing the query. ANALYZE is available only in the native UI rollback preview.', {session_id:string,query:string}, ['session_id','query'], true, true, async (a, context) => {
+      const s = session(a.session_id); if (!s.driver.capabilities.explain) throw {kind:'Unsupported',message:'Explain not supported'};
+      if (context?.signal?.aborted) throw {kind:'Cancelled',message:'Explain cancelled'};
+      const runId = crypto.randomUUID(); const cancel = () => { void host.invoke('cancel',{runId}).catch(() => {}); }; context?.signal?.addEventListener('abort',cancel,{once:true});
+      try { return await host.invoke('explain_query',{sessionId:s.id,runId,query:a.query as string,analyze:false}); } finally { context?.signal?.removeEventListener('abort',cancel); }
+    });
+    if (openDrivers.some(d => d?.capabilities.schema_snapshot)) add('schema_diff','Compare schema','Read the current schema and compare with a supplied normalized snapshot. Does not execute DDL.',{session_id:string,after:{type:'object'}},['session_id','after'],true,true,async a => {
+      const before = await host.invoke('schema_snapshot',{sessionId:session(a.session_id).id});
+      return host.invoke('schema_diff',{before,after:a.after as typeof before});
+    });
+    if (openDrivers.some(d=>d?.capabilities.backup)) add('backup_status','Backup status','Read the last native backup/restore status and manifest. Does not create, restore or expose backup row data.',{session_id:string},['session_id'],true,false,async a=>host.invoke('backup_status',{sessionId:session(a.session_id).id}));
+    if (openDrivers.some(d=>d?.capabilities.roles)) add('plan_grants','Plan privileges','Plan GRANT/REVOKE or role membership changes without applying them. Native human approval is required for application.',{session_id:string,changes:{type:'array',items:{type:'object',properties:{role:string,namespace:string,object:string,privilege:string,revoke:{type:'boolean'}},required:['role','namespace','object','privilege','revoke'],additionalProperties:false}}},['session_id','changes'],false,true,async a=>host.invoke('plan_grants',{sessionId:session(a.session_id).id,changes:a.changes as GrantChange[]}));
+    if (openDrivers.some(d => d?.capabilities.import_rows)) add('plan_import','Plan import','Parse bounded text data and preview inserts with rollback. Never applies changes.',{session_id:string,filename:string,content:string,node_id:string},['session_id','filename','content','node_id'],false,true,async a => {
+      const s=session(a.session_id); const plan=await host.invoke('import_plan',{filename:a.filename as string,bytes:Array.from(new TextEncoder().encode(a.content as string)),nodeId:a.node_id as string});
+      if(plan.errors.length)return {plan,needs_approval:true};
+      const preview=await host.invoke('import_preview',{sessionId:s.id,runId:crypto.randomUUID(),req:plan.request});return {plan,preview,needs_approval:true};
+    });
+    if (openDrivers.some(d => d?.capabilities.ddl_render && d.capabilities.transactions)) add('plan_migration','Plan migration','Preview transactional SQL with rollback. Execution requires a separate human approval.',{session_id:string,text:string},['session_id','text'],false,true,async a => host.invoke('migration_preview',{sessionId:session(a.session_id).id,runId:crypto.randomUUID(),text:a.text as string}));
+    if (openDrivers.some(d => d?.capabilities.lint)) add('lint_query', 'Lint query', 'Deterministic SQL/Cypher diagnostics and suggested text edits. Does not execute query text.', {session_id:string,query:string}, ['session_id','query'], true, true, async a => { const s=session(a.session_id); if (!s.driver.capabilities.lint) throw {kind:'Unsupported',message:'Lint not supported'}; return host.invoke('lint_query',{sessionId:s.id,query:a.query as string}); });
     if (openDrivers.some(d => d?.capabilities.paged_browse)) add('browse', 'Browse database node', 'Read one page from an explorer node in a session supporting paged browsing. Returns at most 200 typed rows.', { session_id: string, node_id: string, offset: integer(Number.MAX_SAFE_INTEGER, 0), limit: integer(1000) }, ['session_id', 'node_id'], true, true, async a => ({ results: compact([await host.invoke('browse', { sessionId: session(a.session_id, 'paged_browse').id, nodeId: a.node_id as string, offset: a.offset as number ?? 0, limit: a.limit as number ?? 100, runId: crypto.randomUUID() })]) }));
     if (openDrivers.some(d => d?.capabilities.graph_expand)) add('expand_node', 'Expand graph node', 'Read neighboring graph nodes using an opaque element ID in a session supporting graph expansion. Returns at most 200 nodes.', { session_id: string, element_id: string, limit: integer(200) }, ['session_id', 'element_id'], true, true, async a => ({ results: compact([await host.invoke('expand', { sessionId: session(a.session_id, 'graph_expand').id, elementId: a.element_id as string, limit: a.limit as number ?? 200 })]) }));
     return tools;

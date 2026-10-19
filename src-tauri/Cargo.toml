@@ -8,15 +8,30 @@ license.workspace = true
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+zstd = "0.13"
+csv = "1.4"
+calamine = "0.36"
+zip = { version = "4.6", default-features = false, features = ["deflate"] }
+ring = "0.17"
+sqlparser = { version = "0.63", features = ["visitor"] }
+russh = { version = "0.64.1", default-features = false, features = ["ring", "rsa"] }
+url = "2"
+percent-encoding = "2"
+shell-words = "1"
+native-tls = "0.2"
+tokio-native-tls = "0.3"
+hmac = "0.12"
+sha1 = "0.10"
+base64 = "0.22"
 axdb-driver-package = { path = "../crates/driver-package" }
 semver = "1"
 axdb-driver-protocol = { path = "../crates/driver-protocol" }
-reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "rustls"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "rustls", "query", "form"] }
 axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio"] }
 dbcore.workspace = true
 async-trait.workspace = true
 serde.workspace = true
-serde_json.workspace = true
+serde_json = { workspace = true, features = ["raw_value"] }
 sha2 = "0.10.9"
 tokio.workspace = true
 tokio-util.workspace = true

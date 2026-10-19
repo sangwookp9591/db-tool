@@ -4,20 +4,26 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::time::Duration;
 
+pub(crate) mod oauth;
+pub(crate) mod operation;
+pub(crate) mod provider;
+
 const ENDPOINT: &str = "https://api.anthropic.com/v1/messages";
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Settings {
     pub enabled: bool,
+    pub provider: String,
     pub model: String,
     pub effort: String,
-    /// "api_key" (OS keychain) or "claude_login" (the user's `ant auth login` session).
+    /// API keys and ChatGPT OAuth use the OS keychain; ant manages Claude login and refresh.
     pub auth: String,
 }
 impl Default for Settings {
     fn default() -> Self {
         Self {
             enabled: false,
+            provider: "anthropic".into(),
             model: "claude-opus-5-5".into(),
             effort: "medium".into(),
             auth: "api_key".into(),
@@ -33,12 +39,18 @@ fn read(host: &Host) -> Result<Settings, DbError> {
         Err(_) => Err(DbError::internal("Cannot read AI settings")),
     }
 }
-fn key_entry() -> Result<keyring::Entry, DbError> {
-    keyring::Entry::new("axdb", "ai:anthropic")
+fn key_entry(provider: &str) -> Result<keyring::Entry, DbError> {
+    keyring::Entry::new("axdb", &format!("ai:{provider}"))
         .map_err(|_| DbError::internal("AI keychain unavailable"))
 }
-fn key() -> Result<Option<String>, DbError> {
-    match key_entry()?.get_password() {
+fn delete_key(provider: &str) -> Result<(), DbError> {
+    match key_entry(provider)?.delete_credential() {
+        Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+        Err(_) => Err(DbError::internal("Cannot delete AI key")),
+    }
+}
+fn key(provider: &str) -> Result<Option<String>, DbError> {
+    match key_entry(provider)?.get_password() {
         Ok(k) => Ok(Some(k)),
         Err(keyring::Error::NoEntry) => Ok(None),
         Err(_) => Err(DbError::internal("Cannot read AI keychain")),
@@ -66,7 +78,11 @@ fn ant_cli() -> Option<std::path::PathBuf> {
         .into_iter()
         .map(std::path::PathBuf::from)
         .chain(home.map(|h| h.join(".local/bin/ant")))
-        .chain(std::env::var_os("PATH").into_iter().flat_map(|p| std::env::split_paths(&p).map(|d| d.join("ant")).collect::<Vec<_>>()))
+        .chain(std::env::var_os("PATH").into_iter().flat_map(|p| {
+            std::env::split_paths(&p)
+                .map(|d| d.join("ant"))
+                .collect::<Vec<_>>()
+        }))
         .find(|p| p.is_file())
 }
 /// Reads the user's Claude login through the official `ant` CLI, which refreshes the token when it can.
@@ -88,8 +104,15 @@ fn parse_login(ok: bool, stdout: &[u8], stderr: &[u8]) -> Result<String, DbError
     let token = String::from_utf8_lossy(stdout).trim().to_owned();
     // ant prints an expired token with a warning when no refresh token is stored; sending it would only 401.
     let expired = String::from_utf8_lossy(stderr).contains("expired");
-    if !ok || expired || token.is_empty() || token.len() > 4096 || token.chars().any(char::is_whitespace) {
-        return Err(DbError::query("Claude 로그인이 만료되었거나 없습니다. 터미널에서 `ant auth login`을 실행하세요"));
+    if !ok
+        || expired
+        || token.is_empty()
+        || token.len() > 4096
+        || token.chars().any(char::is_whitespace)
+    {
+        return Err(DbError::query(
+            "Claude 로그인이 만료되었거나 없습니다. 터미널에서 `ant auth login`을 실행하세요",
+        ));
     }
     Ok(token)
 }
@@ -100,30 +123,50 @@ struct Login {
     output: std::sync::Arc<std::sync::Mutex<String>>,
 }
 fn login_slot() -> &'static tokio::sync::Mutex<Option<Login>> {
-    static SLOT: std::sync::OnceLock<tokio::sync::Mutex<Option<Login>>> = std::sync::OnceLock::new();
+    static SLOT: std::sync::OnceLock<tokio::sync::Mutex<Option<Login>>> =
+        std::sync::OnceLock::new();
     SLOT.get_or_init(|| tokio::sync::Mutex::new(None))
 }
-fn collect(stream: impl tokio::io::AsyncRead + Unpin + Send + 'static, output: std::sync::Arc<std::sync::Mutex<String>>) {
+#[cfg(test)]
+fn ant_test_lock() -> &'static tokio::sync::Mutex<()> {
+    static LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+    &LOCK
+}
+fn collect(
+    stream: impl tokio::io::AsyncRead + Unpin + Send + 'static,
+    output: std::sync::Arc<std::sync::Mutex<String>>,
+) {
     tokio::spawn(async move {
         use tokio::io::AsyncReadExt;
         let mut stream = stream;
         let mut buf = [0u8; 4096];
         while let Ok(n) = stream.read(&mut buf).await {
-            if n == 0 { break; }
+            if n == 0 {
+                break;
+            }
             if let Ok(mut out) = output.lock() {
-                if out.len() < 64_000 { out.push_str(&String::from_utf8_lossy(&buf[..n])); }
+                if out.len() < 64_000 {
+                    out.push_str(&String::from_utf8_lossy(&buf[..n]));
+                }
             }
         }
     });
 }
 fn authorize_url(output: &str) -> Option<String> {
-    output.split_whitespace().find(|w| w.starts_with("https://") && w.contains("/oauth/authorize")).map(str::to_owned)
+    output
+        .split_whitespace()
+        .find(|w| w.starts_with("https://") && w.contains("/oauth/authorize"))
+        .map(str::to_owned)
 }
 #[tauri::command]
 pub async fn ai_login_start() -> Result<Value, DbError> {
-    let ant = ant_cli().ok_or_else(|| DbError::query("ant CLI를 찾지 못했습니다 (brew install anthropic/tap/ant)"))?;
+    let ant = ant_cli().ok_or_else(|| {
+        DbError::query("ant CLI를 찾지 못했습니다 (brew install anthropic/tap/ant)")
+    })?;
     let mut slot = login_slot().lock().await;
-    if let Some(mut old) = slot.take() { let _ = old.child.kill().await; }
+    if let Some(mut old) = slot.take() {
+        let _ = old.child.kill().await;
+    }
     let mut child = tokio::process::Command::new(ant)
         .args(["auth", "login", "--timeout", "15m"])
         .stdin(std::process::Stdio::piped())
@@ -141,11 +184,19 @@ pub async fn ai_login_start() -> Result<Value, DbError> {
         let text = output.lock().map(|o| o.clone()).unwrap_or_default();
         if text.contains("Code:") {
             let url = authorize_url(&text);
-            *slot = Some(Login { child, stdin, output });
+            *slot = Some(Login {
+                child,
+                stdin,
+                output,
+            });
             return Ok(json!({"waiting_for_code": true, "url": url}));
         }
         if let Ok(Some(status)) = child.try_wait() {
-            return Err(DbError::query(if status.success() { "ant 로그인이 코드를 요청하지 않고 끝났습니다" } else { "ant 로그인을 시작하지 못했습니다" }));
+            return Err(DbError::query(if status.success() {
+                "ant 로그인이 코드를 요청하지 않고 끝났습니다"
+            } else {
+                "ant 로그인을 시작하지 못했습니다"
+            }));
         }
         if tokio::time::Instant::now() >= deadline {
             let _ = child.kill().await;
@@ -158,12 +209,27 @@ pub async fn ai_login_start() -> Result<Value, DbError> {
 pub async fn ai_login_submit(code: String) -> Result<Value, DbError> {
     use tokio::io::AsyncWriteExt;
     let code = code.trim().to_owned();
-    if code.is_empty() || code.len() > 2048 || code.chars().any(|c| c.is_whitespace() || c.is_control()) {
+    if code.is_empty()
+        || code.len() > 2048
+        || code.chars().any(|c| c.is_whitespace() || c.is_control())
+    {
         return Err(DbError::query("로그인 코드가 올바르지 않습니다"));
     }
-    let mut login = login_slot().lock().await.take().ok_or_else(|| DbError::query("먼저 Claude 로그인을 시작하세요"))?;
-    login.stdin.write_all(format!("{code}\n").as_bytes()).await.map_err(|_| DbError::query("ant 로그인이 닫혔습니다"))?;
-    login.stdin.flush().await.map_err(|_| DbError::query("ant 로그인이 닫혔습니다"))?;
+    let mut login = login_slot()
+        .lock()
+        .await
+        .take()
+        .ok_or_else(|| DbError::query("먼저 Claude 로그인을 시작하세요"))?;
+    login
+        .stdin
+        .write_all(format!("{code}\n").as_bytes())
+        .await
+        .map_err(|_| DbError::query("ant 로그인이 닫혔습니다"))?;
+    login
+        .stdin
+        .flush()
+        .await
+        .map_err(|_| DbError::query("ant 로그인이 닫혔습니다"))?;
     drop(login.stdin);
     let status = tokio::time::timeout(Duration::from_secs(90), login.child.wait()).await;
     let text = login.output.lock().map(|o| o.clone()).unwrap_or_default();
@@ -171,14 +237,21 @@ pub async fn ai_login_submit(code: String) -> Result<Value, DbError> {
         Ok(Ok(s)) if login_result(s.success(), &text)["state"] == "done" => {
             Ok(json!({"logged_in": true, "account": login_result(true, &text)["account"]}))
         }
-        Ok(_) => Err(DbError::query("Claude 로그인에 실패했습니다. 코드를 다시 받아 시도하세요")),
-        Err(_) => { let _ = login.child.kill().await; Err(DbError::query("ant 로그인 시간이 초과되었습니다")) }
+        Ok(_) => Err(DbError::query(
+            "Claude 로그인에 실패했습니다. 코드를 다시 받아 시도하세요",
+        )),
+        Err(_) => {
+            let _ = login.child.kill().await;
+            Err(DbError::query("ant 로그인 시간이 초과되었습니다"))
+        }
     }
 }
 fn login_result(ok: bool, text: &str) -> Value {
     if ok && text.contains("Logged in") {
         // The success line can share a line with the "Code:" prompt, so start at "Logged in".
-        let account = text.lines().find_map(|l| l.find("Logged in").map(|i| l[i..].trim().to_owned()));
+        let account = text
+            .lines()
+            .find_map(|l| l.find("Logged in").map(|i| l[i..].trim().to_owned()));
         json!({"state": "done", "account": account})
     } else {
         json!({"state": "failed"})
@@ -188,7 +261,9 @@ fn login_result(ok: bool, text: &str) -> Value {
 #[tauri::command]
 pub async fn ai_login_poll() -> Result<Value, DbError> {
     let mut slot = login_slot().lock().await;
-    let Some(login) = slot.as_mut() else { return Ok(json!({"state": "idle"})) };
+    let Some(login) = slot.as_mut() else {
+        return Ok(json!({"state": "idle"}));
+    };
     match login.child.try_wait() {
         Ok(None) => Ok(json!({"state": "waiting"})),
         Ok(Some(status)) => {
@@ -196,12 +271,17 @@ pub async fn ai_login_poll() -> Result<Value, DbError> {
             *slot = None;
             Ok(login_result(status.success(), &text))
         }
-        Err(_) => { *slot = None; Ok(json!({"state": "failed"})) }
+        Err(_) => {
+            *slot = None;
+            Ok(json!({"state": "failed"}))
+        }
     }
 }
 #[tauri::command]
 pub async fn ai_login_cancel() -> Result<(), DbError> {
-    if let Some(mut login) = login_slot().lock().await.take() { let _ = login.child.kill().await; }
+    if let Some(mut login) = login_slot().lock().await.take() {
+        let _ = login.child.kill().await;
+    }
     Ok(())
 }
 #[tauri::command]
@@ -212,20 +292,41 @@ pub async fn ai_login_status() -> Result<Value, DbError> {
 #[tauri::command]
 pub async fn ai_logout() -> Result<(), DbError> {
     let ant = ant_cli().ok_or_else(|| DbError::query("ant CLI를 찾지 못했습니다"))?;
-    let status = tokio::process::Command::new(ant).args(["auth", "logout"]).kill_on_drop(true).status().await.map_err(|_| DbError::query("ant CLI를 실행할 수 없습니다"))?;
-    if status.success() { Ok(()) } else { Err(DbError::query("ant 로그아웃에 실패했습니다")) }
+    let status = tokio::process::Command::new(ant)
+        .args(["auth", "logout"])
+        .kill_on_drop(true)
+        .status()
+        .await
+        .map_err(|_| DbError::query("ant CLI를 실행할 수 없습니다"))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(DbError::query("ant 로그아웃에 실패했습니다"))
+    }
 }
-async fn credential(settings: &Settings) -> Result<Credential, DbError> {
+async fn credential(settings: &Settings, config: &std::path::Path) -> Result<Credential, DbError> {
+    if settings.auth == "chatgpt_login" {
+        return oauth::access_token(config).await.map(Credential::Bearer);
+    }
     if settings.auth == "claude_login" {
         return login_token().await.map(Credential::Bearer);
     }
-    key()?
-        .map(Credential::ApiKey)
-        .ok_or_else(|| DbError::query("먼저 Anthropic API 키를 설정하세요"))
+    key(&settings.provider)?
+        .map(|key| {
+            if settings.provider == "openai" {
+                Credential::Bearer(key)
+            } else {
+                Credential::ApiKey(key)
+            }
+        })
+        .ok_or_else(|| DbError::query("선택한 공급자의 API 키를 먼저 설정하세요"))
 }
 #[tauri::command]
 pub fn ai_settings(host: tauri::State<'_, Host>) -> Result<Value, DbError> {
-    Ok(json!({"settings":read(&host)?,"has_key":key()?.is_some(),"has_ant_cli":ant_cli().is_some()}))
+    let settings = read(&host)?;
+    Ok(
+        json!({"has_key":key(&settings.provider)?.is_some(),"settings":settings,"has_ant_cli":ant_cli().is_some(),"usage":provider::usage(&host)?,"accounts":oauth::accounts()?}),
+    )
 }
 #[tauri::command]
 pub fn ai_configure(
@@ -236,15 +337,12 @@ pub fn ai_configure(
     validate(&settings)?;
     if let Some(k) = api_key {
         if k.trim().is_empty() {
-            match key_entry()?.delete_credential() {
-                Ok(()) | Err(keyring::Error::NoEntry) => {}
-                Err(_) => return Err(DbError::internal("Cannot delete AI key")),
-            }
+            delete_key(&settings.provider)?;
         } else {
             if k.len() > 4096 || k.chars().any(char::is_whitespace) {
                 return Err(DbError::query("API 키가 올바르지 않습니다"));
             }
-            key_entry()?
+            key_entry(&settings.provider)?
                 .set_password(&k)
                 .map_err(|_| DbError::internal("Cannot save AI key"))?;
         }
@@ -262,8 +360,11 @@ fn validate(settings: &Settings) -> Result<(), DbError> {
             .model
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '.')
-        || !["low", "medium", "high", "max"].contains(&settings.effort.as_str())
-        || !["api_key", "claude_login"].contains(&settings.auth.as_str())
+        || if provider::efforts(&settings.provider, &settings.model).is_empty() { !settings.effort.is_empty() } else { !provider::efforts(&settings.provider, &settings.model).contains(&settings.effort.as_str()) }
+        || !["anthropic", "openai"].contains(&settings.provider.as_str())
+        || !["api_key", "claude_login", "chatgpt_login"].contains(&settings.auth.as_str())
+        || (settings.auth == "claude_login" && settings.provider != "anthropic")
+        || (settings.auth == "chatgpt_login" && settings.provider != "openai")
     {
         return Err(DbError::query("AI 모델 또는 추론 수준이 올바르지 않습니다"));
     }
@@ -286,6 +387,8 @@ struct Sse {
     stop: Option<String>,
     done: bool,
     bytes: usize,
+    usage: Value,
+    tools: std::collections::BTreeMap<usize, (String, String)>,
 }
 impl Sse {
     fn push(
@@ -329,6 +432,53 @@ impl Sse {
             let event: Value = serde_json::from_str(&data)
                 .map_err(|_| DbError::query("Invalid AI stream event"))?;
             match event["type"].as_str() {
+                Some("message_start") => self.usage = event["message"]["usage"].clone(),
+                Some("content_block_start") if event["content_block"]["type"] == "tool_use" => {
+                    let index = event["index"].as_u64().unwrap_or(0) as usize;
+                    let block = &event["content_block"];
+                    self.tools.insert(
+                        index,
+                        (block["name"].as_str().unwrap_or("").into(), String::new()),
+                    );
+                }
+                Some("content_block_delta") if event["delta"]["type"] == "input_json_delta" => {
+                    let index = event["index"].as_u64().unwrap_or(0) as usize;
+                    if let Some((_, args)) = self.tools.get_mut(&index) {
+                        args.push_str(event["delta"]["partial_json"].as_str().unwrap_or(""));
+                    }
+                }
+                Some("response.output_text.delta") => {
+                    if let Some(text) = event["delta"].as_str() {
+                        self.text.push_str(text);
+                        emit(text.into())?;
+                    }
+                }
+                Some("response.completed") => {
+                    self.done = true;
+                    self.stop = Some("completed".into());
+                    self.usage = event["response"]["usage"].clone();
+                    if let Some(output) = event["response"]["output"].as_array() {
+                        for (i, item) in output.iter().enumerate() {
+                            if item["type"] == "function_call" {
+                                self.tools.insert(
+                                    i,
+                                    (
+                                        item["name"].as_str().unwrap_or("").into(),
+                                        item["arguments"].as_str().unwrap_or("").into(),
+                                    ),
+                                );
+                            }
+                            if let Some(content) = item["content"].as_array() {
+                                if content.iter().any(|c| c["type"] == "refusal") {
+                                    self.stop = Some("refusal".into());
+                                }
+                            }
+                        }
+                    }
+                }
+                Some("response.failed" | "response.incomplete" | "error") => {
+                    return Err(DbError::query("AI 공급자가 응답 실패를 반환했습니다"))
+                }
                 Some("content_block_delta") if event["delta"]["type"] == "text_delta" => {
                     if let Some(text) = event["delta"]["text"].as_str() {
                         self.text.push_str(text);
@@ -336,14 +486,19 @@ impl Sse {
                     }
                 }
                 Some("message_delta") => {
+                    if let Some(usage) = event["usage"].as_object() {
+                        if !self.usage.is_object() {
+                            self.usage = json!({});
+                        }
+                        for (key, value) in usage {
+                            self.usage[key] = value.clone();
+                        }
+                    }
                     if let Some(reason) = event["delta"]["stop_reason"].as_str() {
                         self.stop = Some(reason.into());
                     }
                 }
                 Some("message_stop") => self.done = true,
-                Some("error") => {
-                    return Err(DbError::query("AI 공급자가 스트리밍 오류를 반환했습니다"))
-                }
                 _ => {}
             }
         }
@@ -356,8 +511,18 @@ impl Sse {
             ));
         }
         let refused = self.stop.as_deref() == Some("refusal");
+        let tools = self
+            .tools
+            .into_values()
+            .filter(|_| !refused)
+            .map(|(name, args)| {
+                serde_json::from_str::<Value>(&args)
+                    .map(|input| json!({"name":name,"input":input}))
+                    .map_err(|_| DbError::query("Invalid AI tool arguments"))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
         Ok(
-            json!({"text":if refused {""}else{&self.text},"refused":refused,"stop_reason":self.stop}),
+            json!({"text":if refused {""}else{&self.text},"refused":refused,"stop_reason":self.stop,"usage":self.usage,"tools":if refused {vec![]} else {tools}}),
         )
     }
 }
@@ -380,11 +545,13 @@ async fn send(
         .build()
         .map_err(|_| DbError::internal("Cannot initialize AI HTTP client"))?;
     // Errors intentionally omit provider bodies, request headers and prompts.
-    let mut response = client
-        .post(endpoint)
-        .header(name, header)
-        .header("anthropic-version", "2023-06-01")
-        .header("anthropic-beta", "server-side-fallback-2026-07-01")
+    let mut request = client.post(endpoint).header(name, header);
+    if body.get("input").is_none() {
+        request = request
+            .header("anthropic-version", "2023-06-01")
+            .header("anthropic-beta", "server-side-fallback-2026-07-01");
+    }
+    let mut response = request
         .json(&body)
         .send()
         .await
@@ -395,6 +562,10 @@ async fn send(
             response.status().as_u16()
         )));
     }
+    if body["stream"] == false {
+        let value = oauth::json_response(response).await?;
+        return complete_response(value);
+    }
     let mut parser = Sse::default();
     while let Some(chunk) = response
         .chunk()
@@ -404,6 +575,55 @@ async fn send(
         parser.push(&chunk, &mut emit)?;
     }
     parser.finish()
+}
+fn complete_response(value: Value) -> Result<Value, DbError> {
+    if value.get("output").is_some() {
+        if value["status"] != "completed" {
+            return Err(DbError::query("AI response did not complete"));
+        }
+        let mut parser = Sse::default();
+        parser.push(
+            format!(
+                "data: {}\n\n",
+                json!({"type":"response.completed","response":value})
+            )
+            .as_bytes(),
+            &mut |_| Ok(()),
+        )?;
+        if let Some(output) = value["output"].as_array() {
+            for item in output {
+                if let Some(content) = item["content"].as_array() {
+                    for block in content {
+                        if block["type"] == "output_text" {
+                            parser.text.push_str(block["text"].as_str().unwrap_or(""));
+                        }
+                    }
+                }
+            }
+        }
+        return parser.finish();
+    }
+    let content = value["content"]
+        .as_array()
+        .ok_or_else(|| DbError::query("Invalid AI response content"))?;
+    let stop = value["stop_reason"]
+        .as_str()
+        .ok_or_else(|| DbError::query("Incomplete AI response"))?;
+    let refused = stop == "refusal";
+    let text = content
+        .iter()
+        .filter(|v| v["type"] == "text")
+        .filter_map(|v| v["text"].as_str())
+        .collect::<Vec<_>>()
+        .join("");
+    let tools = content
+        .iter()
+        .filter(|v| v["type"] == "tool_use")
+        .map(|v| json!({"name":v["name"],"input":v["input"]}))
+        .collect::<Vec<_>>();
+    Ok(
+        json!({"text":if refused {""}else{&text},"refused":refused,"stop_reason":stop,"tools":if refused {vec![]} else {tools},"usage":value["usage"]}),
+    )
 }
 fn redact_ai_key(value: &mut Value, key: &str) {
     match value {
@@ -421,6 +641,7 @@ pub async fn ai_request(
     question: String,
     channel: tauri::ipc::Channel<String>,
 ) -> Result<Value, DbError> {
+    use provider::AiProvider;
     let settings = read(&host)?;
     if !settings.enabled {
         return Err(DbError::query("AI 도우미가 꺼져 있습니다"));
@@ -429,7 +650,9 @@ pub async fn ai_request(
     if question.trim().is_empty() || question.len() > 8000 {
         return Err(DbError::query("질문은 1~8,000바이트여야 합니다"));
     }
-    let credential = credential(&settings).await?;
+    let credential = provider::Provider::new(&settings.provider)?
+        .refresh(&host, &settings)
+        .await?;
     let key = credential.secret();
     let context_started = std::time::Instant::now();
     let mut context = context::build(&host, &session_id, scope).await?;
@@ -437,14 +660,15 @@ pub async fn ai_request(
     let secret = host.session(&session_id)?.secret.clone();
     let question = storage::redact(&storage::redact(&question, secret.as_deref()), Some(key));
     redact_ai_key(&mut context, key);
-    let mut body = request_body(&settings, context.clone(), &question);
+    let mut body = provider::request_body(&settings, context.clone(), &question, &[]);
     redact_ai_key(&mut body, key);
-    let mut reply = send(ENDPOINT, &credential, body, |text| {
+    let mut reply = provider::send(&settings.provider, &credential, body, &mut |text| {
         channel
             .send(text)
             .map_err(|_| DbError::query("AI panel closed"))
     })
     .await?;
+    provider::record_usage(&host, &settings.provider, &reply["usage"])?;
     reply["context"] = context;
     reply["context_elapsed_ms"] = json!(context_elapsed_ms);
     Ok(reply)
@@ -468,12 +692,75 @@ mod tests {
         assert_eq!(context["selected_rows"][0]["note"], "***");
         assert!(!context["text"].as_str().unwrap().contains(key));
         let body = request_body(&Settings::default(), context.clone(), "Question");
-        let content = body["messages"][0]["content"].as_str().unwrap().strip_prefix("Work context:\n").unwrap().split("\n\nRequest:\n").next().unwrap();
+        let content = body["messages"][0]["content"]
+            .as_str()
+            .unwrap()
+            .strip_prefix("Work context:\n")
+            .unwrap()
+            .split("\n\nRequest:\n")
+            .next()
+            .unwrap();
         let user: Value = serde_json::from_str(content).unwrap();
         assert_eq!(user["text"], context["text"]);
         assert_eq!(body["system"][1]["text"], context["schema"]);
     }
 
+    #[test]
+    fn nonstream_responses_normalize_text_tools_and_refusal() {
+        let reply=complete_response(json!({"status":"completed","output":[{"type":"message","content":[{"type":"output_text","text":"OK"}]},{"type":"function_call","name":"propose_operation","arguments":"{}"}],"usage":{"input_tokens":1,"output_tokens":2}})).unwrap();
+        assert_eq!(reply["text"], "OK");
+        assert_eq!(reply["tools"][0]["name"], "propose_operation");
+        assert!(complete_response(json!({"status":"incomplete","output":[]})).is_err());
+        let reply=complete_response(json!({"content":[{"type":"text","text":"refused"}],"stop_reason":"refusal","usage":{}})).unwrap();
+        assert_eq!(reply["text"], "");
+        assert_eq!(reply["refused"], true);
+    }
+    #[test]
+    fn provider_fixtures_parse_tools_usage_and_openai_terminal_failures() {
+        for fixture in [
+            include_str!("../tests/fixtures/ai-openai.sse"),
+            include_str!("../tests/fixtures/ai-anthropic.sse"),
+        ] {
+            let mut parser = Sse::default();
+            for byte in fixture.as_bytes() {
+                parser.push(&[*byte], &mut |_| Ok(())).unwrap();
+            }
+            let reply = parser.finish().unwrap();
+            assert_eq!(reply["tools"][0]["input"]["kind"], "migrate");
+            assert_eq!(reply["usage"]["input_tokens"], 120);
+            assert_eq!(reply["usage"]["output_tokens"], 42);
+        }
+        for kind in ["response.failed", "response.incomplete", "error"] {
+            assert!(Sse::default()
+                .push(
+                    format!("data: {{\"type\":\"{kind}\",\"error\":\"private-key\"}}\n\n")
+                        .as_bytes(),
+                    &mut |_| Ok(())
+                )
+                .is_err());
+        }
+        let settings: Settings = serde_json::from_value(
+            json!({"enabled":false,"model":"claude-opus-5-5","effort":"medium","auth":"api_key"}),
+        )
+        .unwrap();
+        assert_eq!(settings.provider, "anthropic");
+        let openai = Settings {
+            provider: "openai".into(),
+            model: "gpt-6.1-sol".into(),
+            auth: "chatgpt_login".into(),
+            ..Default::default()
+        };
+        assert!(validate(&openai).is_ok());
+        let body = provider::request_body(
+            &openai,
+            json!({"schema":"users(id)"}),
+            "Suggest a query",
+            &[],
+        );
+        assert_eq!(body["store"], false);
+        assert_eq!(body["stream"], true);
+        assert!(body.get("fallbacks").is_none());
+    }
     #[test]
     fn stable_schema_prefix_and_explicit_model_effort() {
         let body = body();
@@ -587,6 +874,7 @@ mod tests {
     #[tokio::test]
     async fn gui_login_drives_ant_prompt_and_submits_code() {
         use std::os::unix::fs::PermissionsExt;
+        let _guard = ant_test_lock().lock().await;
         let dir = std::env::temp_dir().join(format!("axdb-ant-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&dir).unwrap();
         let fake = dir.join("ant");
@@ -596,7 +884,10 @@ mod tests {
         std::env::set_var("AXDB_ANT_CLI", &fake);
         let started = ai_login_start().await.unwrap();
         assert_eq!(started["waiting_for_code"], true);
-        assert!(started["url"].as_str().unwrap().contains("/oauth/authorize"));
+        assert!(started["url"]
+            .as_str()
+            .unwrap()
+            .contains("/oauth/authorize"));
         assert!(ai_login_submit("bad code".into()).await.is_err()); // whitespace rejected before reaching ant
         let done = ai_login_submit("good-code".into()).await.unwrap();
         assert_eq!(done["logged_in"], true);
@@ -614,7 +905,10 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(1500)).await;
         let done = ai_login_poll().await.unwrap();
         assert_eq!(done["state"], "done");
-        assert!(done["account"].as_str().unwrap().starts_with("Logged in to Cb Org"));
+        assert!(done["account"]
+            .as_str()
+            .unwrap()
+            .starts_with("Logged in to Cb Org"));
         std::fs::write(&fake, "#!/bin/sh\necho '  https://platform.claude.com/oauth/authorize?x=1'\nprintf 'Code: '\nsleep 1\necho 'timed out waiting for callback' >&2\nexit 1\n").unwrap();
         ai_login_start().await.unwrap();
         tokio::time::sleep(Duration::from_millis(1500)).await;
@@ -637,19 +931,37 @@ mod tests {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
         let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
-        let reply = send(&format!("http://{addr}/v1/messages"), &Credential::Bearer("oat-token".into()), body(), |_| Ok(())).await.unwrap();
+        let reply = send(
+            &format!("http://{addr}/v1/messages"),
+            &Credential::Bearer("oat-token".into()),
+            body(),
+            |_| Ok(()),
+        )
+        .await
+        .unwrap();
         assert_eq!(reply["stop_reason"], "end_turn");
         server.abort();
     }
     #[test]
     fn login_output_rejects_expired_and_malformed_tokens() {
-        assert_eq!(parse_login(true, b"sk-ant-oat01-abc\n", b"").unwrap(), "sk-ant-oat01-abc");
-        let expired = parse_login(true, b"sk-ant-oat01-abc\n", b"warning: token for profile \"default\" expired at 2026-07-29").unwrap_err();
+        assert_eq!(
+            parse_login(true, b"sk-ant-oat01-abc\n", b"").unwrap(),
+            "sk-ant-oat01-abc"
+        );
+        let expired = parse_login(
+            true,
+            b"sk-ant-oat01-abc\n",
+            b"warning: token for profile \"default\" expired at 2026-07-29",
+        )
+        .unwrap_err();
         assert!(expired.message.contains("ant auth login") && !expired.message.contains("abc"));
         assert!(parse_login(false, b"x", b"").is_err());
         assert!(parse_login(true, b"", b"").is_err());
         assert!(parse_login(true, b"a b", b"").is_err());
-        let mut settings = Settings { auth: "claude_login".into(), ..Default::default() };
+        let mut settings = Settings {
+            auth: "claude_login".into(),
+            ..Default::default()
+        };
         assert!(validate(&settings).is_ok());
         settings.auth = "cookie".into();
         assert!(validate(&settings).is_err());
@@ -657,14 +969,22 @@ mod tests {
     #[tokio::test]
     #[ignore = "Requires AXDB_TEST_ANTHROPIC=key|login (OS keychain ai:anthropic or `ant auth login`); incurs one API request"]
     async fn real_anthropic_once() {
+        let _guard = ant_test_lock().lock().await;
         let auth = match std::env::var("AXDB_TEST_ANTHROPIC").as_deref() {
             Ok("login") => "claude_login",
             Ok("1" | "key") => "api_key",
             _ => panic!("set AXDB_TEST_ANTHROPIC=key or login"),
         };
-        let settings = Settings { auth: auth.into(), ..Default::default() };
-        let credential = credential(&settings).await.unwrap();
-        let reply = send(ENDPOINT, &credential, body(), |_| Ok(())).await.unwrap();
+        let settings = Settings {
+            auth: auth.into(),
+            ..Default::default()
+        };
+        let credential = credential(&settings, std::path::Path::new("."))
+            .await
+            .unwrap();
+        let reply = send(ENDPOINT, &credential, body(), |_| Ok(()))
+            .await
+            .unwrap();
         assert!(reply["stop_reason"].is_string());
     }
 }

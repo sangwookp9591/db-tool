@@ -6,6 +6,8 @@ use sha2::{Digest, Sha256};
 use std::{collections::BTreeMap, io::Write, path::Path, time::Instant};
 
 pub const TOOLS: &[&str] = &[
+    "backup_status", "plan_grants",
+    "schema_diff", "plan_import", "plan_migration",
     "list_drivers",
     "list_connections",
     "open_connection",
@@ -13,6 +15,8 @@ pub const TOOLS: &[&str] = &[
     "explore",
     "run_query",
     "preview_changes",
+    "explain_query",
+    "lint_query",
     "browse",
     "expand_node",
     "get_history",
@@ -166,7 +170,7 @@ pub fn check(
     if !client.allowed_tools.iter().any(|t| t == tool) {
         return Err("Forbidden");
     }
-    if tool == "preview_changes"
+    if matches!(tool, "preview_changes" | "plan_import" | "plan_migration" | "plan_grants")
         && (mode == AccessMode::ReadOnly
             || !matches!(
                 permission,
@@ -447,7 +451,7 @@ mod tests {
                                     Err("NotFound")
                                 } else if !allowed {
                                     Err("Forbidden")
-                                } else if *tool == "preview_changes" {
+                                } else if matches!(*tool, "preview_changes" | "plan_import" | "plan_migration" | "plan_grants") {
                                     if mode == AccessMode::ReadOnly
                                         || permission == Permission::Read
                                     {

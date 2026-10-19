@@ -102,7 +102,11 @@ impl PgSession {
         let mut preview = ChangePreview::default();
         // Preflight the complete batch before executing its first statement.
         for sql in &statements {
-            if let Some(reason) = rejection(&tokens(sql)?) {
+            let ts = tokens(sql)?;
+            let inner = if ts.first().is_some_and(|t| t.is("EXPLAIN")) {
+                ts.iter().position(|t| t.depth == 0 && ["SELECT", "WITH", "INSERT", "UPDATE", "DELETE", "MERGE", "VALUES"].iter().any(|w| t.is(w))).map(|i| &ts[i..]).unwrap_or(&ts)
+            } else { &ts };
+            if let Some(reason) = rejection(inner) {
                 preview.notes.push(reason.clone());
                 let mut statement = StatementPreview::new(sql.clone(), kind(&tokens(sql)?));
                 statement.warnings.push(reason);

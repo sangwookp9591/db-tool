@@ -1,3 +1,4 @@
+import {StatusMark} from '../ui/StatusMark';
 import { useState } from 'preact/hooks';
 import { Download, RefreshCw } from 'lucide-preact';
 import { Button } from '../ui/Button';
@@ -7,7 +8,7 @@ import { stages, type CatalogDriver, type InstallProgress } from './api';
 export function driverSize(bytes: number) { return bytes > 0 ? `${(bytes / 1024 / 1024).toLocaleString('ko-KR', { maximumFractionDigits: 1 })} MB` : '크기 정보 없음'; }
 export function DriverProgress({ progress }: { progress: InstallProgress | null }) {
   const percent = progress?.total ? Math.min(100, Math.round(progress.downloaded / progress.total * 100)) : undefined;
-  return <div class="driver-progress" role="status"><span>{stages[progress?.stage ?? ''] ?? '설치 준비'}{percent !== undefined && ` · ${percent}%`}</span><progress aria-label="드라이버 설치 진행률" max={100} value={percent ?? 0} /></div>;
+  return <div class="driver-progress" role="status"><StatusMark status={progress?.stage==='complete'?'done':'running'} progress={percent===undefined?undefined:percent/100} label={`${stages[progress?.stage ?? ''] ?? '설치 준비'}${percent===undefined?'':` · ${percent}%`}`} strike={false}/><progress aria-label="드라이버 설치 진행률" max={100} value={percent ?? 0} /></div>;
 }
 export function DriverCard({ driver, busy, progress, onAction }: { driver: CatalogDriver; busy: string | null; progress: InstallProgress | null; onAction: (kind: 'install' | 'update' | 'remove', id: string) => void }) {
   const [pending, setPending] = useState(false);

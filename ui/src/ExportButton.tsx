@@ -11,8 +11,8 @@ import './export.css';
 
 export interface ExportOptions { format: string; visible: boolean; nullLabel: boolean; background: boolean }
 export interface ExportFile { bytes: Uint8Array; count: number; unit?: string }
-const extensions: Record<string, string> = { CSV: 'csv', JSON: 'json', Markdown: 'md', NDJSON: 'ndjson', SVG: 'svg', PNG: 'png' };
-const mime: Record<string, string> = { CSV: 'text/csv;charset=utf-8', JSON: 'application/json', Markdown: 'text/markdown;charset=utf-8', NDJSON: 'application/x-ndjson', SVG: 'image/svg+xml', PNG: 'image/png' };
+const extensions: Record<string, string> = { SQL: 'sql', CSV: 'csv', JSON: 'json', Markdown: 'md', NDJSON: 'ndjson', SVG: 'svg', PNG: 'png' };
+const mime: Record<string, string> = { SQL: 'text/plain;charset=utf-8', CSV: 'text/csv;charset=utf-8', JSON: 'application/json', Markdown: 'text/markdown;charset=utf-8', NDJSON: 'application/x-ndjson', SVG: 'image/svg+xml', PNG: 'image/png' };
 export function ExportButton({ formats, name = 'axdb-results', count, truncated = false, table = false, image = false, disabled = false, makeFile }: { formats: string[]; name?: string; count: number; truncated?: boolean; table?: boolean; image?: boolean; disabled?: boolean; makeFile: (options: ExportOptions) => ExportFile | Promise<ExportFile> }) {
   const [open, setOpen] = useState(false), [busy, setBusy] = useState(false);
   const [format, setFormat] = useState(formats[0]), [visible, setVisible] = useState(true), [nullLabel, setNullLabel] = useState(false), [background, setBackground] = useState(true);

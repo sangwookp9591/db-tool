@@ -16,7 +16,7 @@ impl NeoSession {
         }) {
             return Ok(ChangePreview { notes: vec!["미리보기를 거부했습니다: 프로시저, 외부 로딩, 데이터베이스 관리, 하위 트랜잭션은 롤백을 보장할 수 없습니다.".into()], ..Default::default() });
         }
-        let graph = neo4rs::Graph::connect(self.config.clone()).map_err(|e| self.error(e))?;
+        let graph = neo4rs::Graph::connect(self.operation_config(req.timeout_ms)).map_err(|e| self.error(e))?;
         let deadline = tokio::time::sleep(Duration::from_millis(req.timeout_ms.max(1)));
         tokio::pin!(deadline);
         let mut txn = tokio::select! { biased;

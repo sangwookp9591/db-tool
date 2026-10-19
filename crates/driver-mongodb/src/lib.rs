@@ -87,6 +87,10 @@ impl MongoDriver {
                     },
                 ],
                 capabilities: Capabilities {
+                    backup: true, roles: true,
+                    import_rows: true, schema_snapshot: true, ddl_render: true,
+                    explain: true,
+                    lint: false,
                     schema_graph: true,
                     read_only_exec: true,
                     cancel: CancelSupport::Abort,
@@ -458,6 +462,30 @@ impl Drop for CursorCleanup {
 
 #[async_trait]
 impl Session for MongoSession {
+    async fn backup(&self,cancel:CancelToken)->Result<BackupData,DbError>{self.native_backup(cancel).await}
+    async fn restore(&self,backup:&BackupData,overwrite:bool,cancel:CancelToken)->Result<(),DbError>{self.native_restore(backup,overwrite,cancel).await}
+    async fn roles(&self)->Result<RolesSnapshot,DbError>{self.native_roles().await}
+    async fn plan_grants(&self,changes:&[GrantChange])->Result<GrantPlan,DbError>{self.native_grants(changes)}
+    async fn apply_grants(&self,changes:&[GrantChange],cancel:CancelToken)->Result<(),DbError>{self.native_apply_grants(changes,cancel).await}
+
+    async fn import_rows(&self,req:&EditRequest,preview:bool,cancel:CancelToken)->Result<ImportOutput,DbError>{self.import_batch(req,preview,cancel).await}
+    async fn schema_snapshot(&self,_scope:Option<&str>)->Result<SchemaSnapshot,DbError>{self.load_snapshot().await}
+    async fn ddl_render(&self,diff:&SnapshotDiff)->Result<Vec<String>,DbError>{Self::render_schema(diff)}
+
+    async fn explain(&self, query: &str, analyze: bool, cancel: CancelToken) -> Result<PlanTree, DbError> {
+        let command = parse_command(query)?;
+        check_read_only(&command)?;
+        if !matches!(command.keys().next().map(String::as_str), Some("find" | "aggregate" | "count" | "distinct")) { return Err(DbError::unsupported("Explain supports read commands only")); }
+        let command = doc! {"explain": command, "verbosity": if analyze {"executionStats"} else {"queryPlanner"}, "maxTimeMS": 30000};
+        let database = self.db();
+        let raw = tokio::select! { biased;
+            _ = cancel.cancelled() => return Err(DbError::new(ErrorKind::Cancelled, "Explain cancelled")),
+            result = self.command(&database, command) => result?,
+        };
+        let raw = serde_json::to_value(raw).map_err(|_| DbError::query("Invalid Mongo explain plan"))?;
+        Ok(PlanTree::mongo_explain(&raw, analyze))
+    }
+
     async fn ping(&self) -> Result<(), DbError> {
         self.command(&self.db(), doc! {"ping":1}).await?;
         Ok(())
@@ -959,3 +987,6 @@ fn document_result(documents: Vec<Document>, truncated: bool) -> ResultSet {
 }
 #[cfg(test)]
 mod tests;
+
+mod management;
+mod administration;

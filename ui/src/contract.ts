@@ -1,7 +1,7 @@
 export type FieldKind = 'Text' | 'Number' | 'Password' | 'FilePath' | 'Bool' | { Select: { options: string[] } };
 export interface FieldSpec { key: string; label: string; kind: FieldKind; required: boolean; default: string | null; secret: boolean; placeholder: string | null }
 export type PreviewSupport = 'None' | 'Transactional' | 'DryRun';
-export interface Capabilities { schema_graph?: boolean; filtered_browse?: boolean; preview_changes?: PreviewSupport; read_only_exec?: boolean; cancel: 'None' | 'Abort' | 'Server'; timeout: boolean; params: boolean; transactions: boolean; paged_browse: boolean; graph_expand: boolean; multi_statement: boolean; edit_rows: boolean }
+export interface Capabilities { explain?: boolean; lint?: boolean; schema_graph?: boolean; filtered_browse?: boolean; preview_changes?: PreviewSupport; read_only_exec?: boolean; cancel: 'None' | 'Abort' | 'Server'; timeout: boolean; params: boolean; transactions: boolean; paged_browse: boolean; graph_expand: boolean; multi_statement: boolean; edit_rows: boolean }
 export interface QueryLanguage { id: string; display: string; editor_mode: string; supports_params: boolean }
 export interface DriverManifest { id: string; display_name: string; paradigm: 'Relational' | 'Graph' | 'Document' | 'KeyValue'; query_language: QueryLanguage; connection_fields: FieldSpec[]; capabilities: Capabilities; default_query: string }
 export interface ConnectConfig { fields: Record<string, string>; secret: string | null; connect_timeout_ms: number }
@@ -22,7 +22,7 @@ export type Value = { t: 'Null' } | { t: 'Bool'; v: boolean } | { t: 'Int' | 'De
 export type ErrorKind = 'Connection' | 'Auth' | 'Query' | 'Timeout' | 'Cancelled' | 'Unsupported' | 'Conflict' | 'Internal';
 export interface DbError { kind: ErrorKind; message: string; detail: string | null; position: number | null }
 // Host persistence types are kept separate from the driver contract.
-export interface Profile { id: string; name: string; driver_id: string; fields: Record<string, string>; save_secret: boolean; access_mode?: 'read_only' | 'read_write' }
+export interface Profile { network?: import('./ax/connectionContract').ConnectionNetwork | null; auth?: import('./ax/connectionContract').ConnectionAuth; id: string; name: string; driver_id: string; fields: Record<string, string>; save_secret: boolean; access_mode?: 'read_only' | 'read_write' }
 export interface HistoryEntry { kind?: 'execute' | 'preview'; source?: "ui" | "agent"; timestamp: string | number; profile_id?: string | null; profile_name: string; text: string; elapsed_ms: number; row_count: number; error: string | null }
 
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };

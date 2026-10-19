@@ -1,6 +1,7 @@
 //! Bolt graph driver with bounded results and disposable execution connections.
 mod explorer;
 mod preview;
+mod explain;
 mod value;
 use async_trait::async_trait;
 use dbcore::*;
@@ -57,6 +58,10 @@ impl Neo4jDriver {
                 })
                 .collect(),
                 capabilities: Capabilities {
+                    backup: true, roles: true,
+                    import_rows: true, schema_snapshot: true, ddl_render: true,
+                    explain: true,
+                    lint: true,
                     schema_graph: true,
                     filtered_browse: true,
                     preview_changes: PreviewSupport::Transactional,
@@ -154,6 +159,11 @@ struct NeoSession {
     closed: AtomicBool,
 }
 impl NeoSession {
+    fn operation_config(&self,timeout_ms:u64)->Config {
+        // neo4rs reuses connection_timeout for socket reads; keep operation and initial-connect deadlines separate.
+        self.config.clone().with_connection_timeout(Duration::from_millis(timeout_ms.max(1)))
+    }
+
     fn error(&self, e: neo4rs::Error) -> DbError {
         let redact = |s: &str| {
             if self.secret.is_empty() {
@@ -183,6 +193,7 @@ impl NeoSession {
             neo4rs::Error::AuthenticationError(_) => {
                 DbError::new(ErrorKind::Auth, "Neo4j authentication failed")
             }
+            neo4rs::Error::ConnectionTimedOut => DbError::new(ErrorKind::Timeout,"Neo4j operation timed out"),
             _ => DbError::new(
                 ErrorKind::Connection,
                 "Neo4j connection failed or was closed",
@@ -200,7 +211,7 @@ impl NeoSession {
         }
         let start = Instant::now();
         // An execution owns its pool: dropping this future also destroys any interrupted socket.
-        let graph = neo4rs::Graph::connect(self.config.clone()).map_err(|e| self.error(e))?;
+        let graph = neo4rs::Graph::connect(self.operation_config(req.timeout_ms)).map_err(|e| self.error(e))?;
         let mut q = query(&req.text).extra(
             "tx_timeout",
             i64::try_from(req.timeout_ms.max(1)).unwrap_or(i64::MAX),
@@ -344,6 +355,15 @@ impl NeoSession {
 }
 #[async_trait]
 impl Session for NeoSession {
+    async fn backup(&self,cancel:CancelToken)->Result<BackupData,DbError>{self.native_backup(cancel).await}
+    async fn restore(&self,backup:&BackupData,overwrite:bool,cancel:CancelToken)->Result<(),DbError>{self.native_restore(backup,overwrite,cancel).await}
+    async fn roles(&self)->Result<RolesSnapshot,DbError>{self.native_roles().await}
+
+    async fn schema_snapshot(&self,_scope:Option<&str>)->Result<SchemaSnapshot,DbError>{self.load_snapshot().await}
+    async fn ddl_render(&self,diff:&SnapshotDiff)->Result<Vec<String>,DbError>{Self::render_schema(diff)}
+    async fn import_rows(&self,req:&EditRequest,preview:bool,cancel:CancelToken)->Result<ImportOutput,DbError>{self.import_batch(req,preview,cancel).await}
+
+    async fn explain(&self, query: &str, analyze: bool, cancel: CancelToken) -> Result<PlanTree, DbError> { self.explain_plan(query, analyze, cancel).await }
     async fn schema_graph(&self, scope: Option<&str>) -> Result<SchemaGraph, DbError> { self.load_schema_graph(scope).await }
     async fn preview(
         &self,
@@ -453,3 +473,6 @@ mod server_info_tests {
         assert_eq!(first_text(Some(&value)), Some("5.26.30"));
     }
 }
+
+mod management;
+mod administration;

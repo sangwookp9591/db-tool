@@ -29,11 +29,11 @@ def cpu_seconds(value):
 
 def processes():
     rows = {}
-    for line in subprocess.check_output(['/bin/ps', '-axo', 'pid=,rss=,time=,%cpu=,comm='], text=True).splitlines():
-        parts = line.strip().split(None, 4)
-        if len(parts) == 5:
-            pid, rss, cpu, percent, command = parts
-            rows[int(pid)] = dict(pid=int(pid), rss_kib=int(rss), cpu_seconds=cpu_seconds(cpu), rolling_cpu_percent=float(percent), command=command)
+    for line in subprocess.check_output(['/bin/ps', '-axo', 'pid=,ppid=,rss=,time=,%cpu=,comm='], text=True).splitlines():
+        parts = line.strip().split(None, 5)
+        if len(parts) == 6:
+            pid, ppid, rss, cpu, percent, command = parts
+            rows[int(pid)] = dict(pid=int(pid), ppid=int(ppid), rss_kib=int(rss), cpu_seconds=cpu_seconds(cpu), rolling_cpu_percent=float(percent), command=command)
     return rows
 
 
@@ -67,13 +67,23 @@ def gate(label, timeout=600):
         time.sleep(min(30, timeout - elapsed))
 
 
-def sample(host, prior, start):
-    load_before = os.getloadavg()[0]
-    first = processes()
-    owned = {pid: row for pid, row in first.items() if pid == host or (pid not in prior and 'com.apple.WebKit.' in row['command'])}
-    assert host in owned, 'App exited while sampling'
+def owned_processes(host, prior, roster, config=None):
+    owned = {pid: dict(row) for pid, row in roster.items() if pid == host or (pid not in prior and 'com.apple.WebKit.' in row['command'])}
     for pid, row in owned.items():
         row['role'] = 'host' if pid == host else next((role for role in ROLES[1:] if f'WebKit.{role}' in row['command']), 'unknown')
+    if config is not None:
+        root = str(config / 'drivers') + '/'
+        for pid, row in roster.items():
+            if row['ppid'] == host and row['command'].startswith(root):
+                owned[pid] = dict(row, role=Path(row['command']).name.removeprefix('axdb-'))
+    return owned
+
+
+def sample(host, prior, start, config=None):
+    load_before = os.getloadavg()[0]
+    first = processes()
+    owned = owned_processes(host, prior, first, config)
+    assert host in owned, 'App exited while sampling'
     begun = time.monotonic()
     time.sleep(1)
     second = processes()
@@ -84,11 +94,11 @@ def sample(host, prior, start):
     for pid, row in owned.items():
         row['phys_footprint_bytes'] = sizes.get(pid)
         row['cpu_interval_percent'] = (second[pid]['cpu_seconds'] - row['cpu_seconds']) / elapsed * 100 if pid in second else None
-    counts = {role: sum(row['role'] == role for row in owned.values()) for role in ROLES}
+    counts = {role: sum(row['role'] == role for row in owned.values()) for role in (*ROLES, 'driver-postgres', 'driver-neo4j')}
     # shortcut: XPC helpers are attributed by launch-time set difference; reject multiple helpers per role, upgrade to Instruments for shared-process attribution.
     return dict(at_seconds=time.monotonic() - start, load_before=load_before, processes=list(owned.values()), role_counts=counts,
                 system_builders=[p for p in first.values() if Path(p['command']).name in ('rustc', 'cargo', 'node', 'tsgo', 'clang', 'swiftc', 'ld')],
-                ownership='host + newly observed WebKit PIDs; no unrelated WebKit launch may overlap', ownership_count_check=counts['host'] == 1 and all(n <= 1 for n in counts.values()) and all(p['role'] != 'unknown' for p in owned.values()),
+                ownership='host + direct driver children under isolated config + newly observed WebKit PIDs; no unrelated WebKit launch may overlap', ownership_count_check=counts['host'] == 1 and all(n <= 1 for n in counts.values()) and all(p['role'] in counts for p in owned.values()),
                 cpu_interval_seconds=elapsed, cpu_sample_started_seconds=begun - start, footprint_exit=footprint.returncode, footprint_raw=footprint.stdout, footprint_error=footprint.stderr,
                 rss_kib=sum(row['rss_kib'] for row in owned.values()))
 
@@ -123,6 +133,9 @@ def run(args):
         executable = bundle / 'Contents/MacOS/axdb'
         assert executable.is_file(), executable
         artifacts.append(dict(app=str(bundle), sha256=hashlib.sha256(executable.read_bytes()).hexdigest(), binary_bytes=executable.stat().st_size))
+    assert bool(args.driver_packages) == bool(args.installer_test), 'Pass both --driver-packages and --installer-test'
+    packages = [str((Path(args.driver_packages) / f'{driver}-0.2.0.axdriver').resolve()) for driver in ('postgres', 'neo4j')] if args.driver_packages else []
+    result_packages = [dict(path=p, sha256=hashlib.sha256(Path(p).read_bytes()).hexdigest()) for p in packages]
     output = Path(__file__).parent / f'results-resource-{args.variant}.json'
     assert not output.exists(), f'Preserve existing evidence: {output}'
     workers = args.workers.split(',') if args.workers else [os.environ.get('TOKIO_WORKER_THREADS', 'default')]
@@ -130,7 +143,7 @@ def run(args):
     configurations = [(index, 'default') for index in range(1, len(bundles))] + [(0, worker) for worker in workers]
     schedule = [(repeat, index, worker) for repeat in range(1, args.runs + 1) for index, worker in (configurations if repeat % 2 else configurations[::-1])]
     result = dict(variant=args.variant, scenario="connections" if args.connections else "resource", artifacts=artifacts, workers=workers, script_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
-                  platform=subprocess.check_output(['sw_vers'], text=True), runs=[])
+                  installer_sha256=hashlib.sha256(Path(args.installer_test).read_bytes()).hexdigest() if args.installer_test else None, packages=result_packages, platform=subprocess.check_output(['sw_vers'], text=True), power_settings=subprocess.check_output(['pmset', '-g'], text=True), runs=[])
     save = lambda: output.write_text(json.dumps(result, indent=2))
     lock = Path(tempfile.gettempdir()) / 'axdb-viewer-native.lock'
     descriptor = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
@@ -139,12 +152,18 @@ def run(args):
         for repeat, index, worker in schedule:
             bundle = bundles[index]; executable = bundle / 'Contents/MacOS/axdb'
             launch_gate = gate(f'{args.variant}-app{index}-workers{worker}-{repeat}-launch')
-            config = Path(tempfile.mkdtemp(prefix='axdb-resource-'))
+            config = Path(tempfile.mkdtemp(prefix='axdb-resource-')).resolve()
             row = dict(repeat=repeat, artifact=index, workers=worker, config=str(config), launch_gate=launch_gate, samples=[])
             result['runs'].append(row)
             if not launch_gate['passed']:
                 row['status'] = 'gate-failed'; save()
                 raise RuntimeError('Launch load gate failed after 600 seconds; no app launched')
+            if packages:
+                install = subprocess.run([str(Path(args.installer_test).resolve()), '--ignored', '--exact', 'driver_install::tests::resource_bench_install_signed_packages', '--nocapture'],
+                    env={**os.environ, 'AXDB_RESOURCE_INSTALL_ROOT': str(config), 'AXDB_RESOURCE_INSTALL_PACKAGES': json.dumps(packages)}, capture_output=True, text=True, timeout=120)
+                row['installation'] = dict(exit=install.returncode, stdout=install.stdout, stderr=install.stderr)
+                save()
+                assert install.returncode == 0 and '1 passed' in install.stdout, 'Real host driver installation failed'
             prior_rows = processes(); prior = set(prior_rows)
             row['launch_ps'] = list(prior_rows.values())
             row['vm_stat'] = subprocess.check_output(['/usr/bin/vm_stat'], text=True)
@@ -176,6 +195,7 @@ def run(args):
                         if state['checkpoint'] != seen:
                             seen = state['checkpoint']
                             if seen == 1:
+                                assert not any(p['command'] == '/Applications/AxDB.app/Contents/MacOS/axdb' for p in processes().values()), 'User app is running; refusing LaunchServices activation'
                                 subprocess.run(['/usr/bin/open', '-a', str(bundle)], check=True, capture_output=True)
                             current = dict(stage=state['stage'], iteration=state['iteration'], graphWorkers=state['graphWorkers'], viewport=state.get('viewport'), last_query=state.get('lastQuery'))
                             label = f"{args.variant}-app{index}-workers{worker}-{repeat}-{state['stage']}-{state['iteration']}"
@@ -187,7 +207,7 @@ def run(args):
                                 continue
                             current['gate'] = gate(label, timeout=0)
                             current['preparation_gate_passed'] = preparation_passed
-                            current.update(sample(app.pid, prior, started))
+                            current.update(sample(app.pid, prior, started, config))
                             if state['stage'] == 'idle-60':
                                 previous = next(s for s in row['samples'] if s['stage'] == 'idle-10')
                                 span = current['cpu_sample_started_seconds'] - previous['cpu_sample_started_seconds']
@@ -195,7 +215,9 @@ def run(args):
                                 for process in current['processes']:
                                     process['idle_interval_percent'] = (process['cpu_seconds'] - initial[process['pid']]) / span * 100 if process['pid'] in initial else None
                                 current['idle_cpu_interval_seconds'] = span
-                            current['accepted'] = preparation_passed and current['gate']['passed'] and current['load_before'] <= 8 and current['ownership_count_check'] and current['footprint_exit'] == 0 and all(p['phys_footprint_bytes'] is not None for p in current['processes'])
+                            required_drivers = () if state['stage'] in ('startup', 'idle-10', 'idle-60') else ('driver-postgres',) if state['stage'] == 'table-100000' else ('driver-postgres', 'driver-neo4j')
+                            current['required_driver_count_check'] = not packages or all(current['role_counts'][role] == 1 for role in required_drivers)
+                            current['accepted'] = current['required_driver_count_check'] and preparation_passed and current['gate']['passed'] and current['load_before'] <= 8 and current['ownership_count_check'] and current['footprint_exit'] == 0 and all(p['phys_footprint_bytes'] is not None for p in current['processes'])
                             row['samples'].append(current); save()
                             acknowledge(config, seen)
                             print(args.variant, index, worker, repeat, state['stage'], state['iteration'], round(current['rss_kib'] / 1024, 1), 'MiB', current['accepted'], flush=True)
@@ -217,9 +239,19 @@ def run(args):
                             time.sleep(.1)
                     raise
                 finally:
+                    driver_pids = {pid: p['command'] for pid, p in processes().items() if p['ppid'] == app.pid and p['command'].startswith(str(config / 'drivers') + '/')}
                     app.terminate()
                     try: app.wait(timeout=10)
                     except subprocess.TimeoutExpired: app.kill(); app.wait()
+                    until = time.monotonic() + 10
+                    while any(pid in processes() for pid in driver_pids) and time.monotonic() < until:
+                        time.sleep(.1)
+                    remaining = processes()
+                    for pid, command in driver_pids.items():
+                        if pid in remaining and remaining[pid]['command'] == command:
+                            os.kill(pid, 15)
+                    time.sleep(.2)
+                    row['exit_verified'] = app.poll() is not None and not any(pid in processes() for pid in driver_pids)
                     for stage in ('repeat-query', 'repeat-tabs'):
                         points = [(s['iteration'], s['rss_kib'] / 1024) for s in row['samples'] if s['stage'] == stage and s['accepted']]
                         row[f'{stage}-rss-mib-per-cycle'] = slope(points)
@@ -228,7 +260,7 @@ def run(args):
             time.sleep(3)
     finally:
         os.close(descriptor); lock.unlink()
-    assert len(result['runs']) == len(schedule) and all(r.get('status') == 'complete' and all(s['accepted'] for s in r['samples']) for r in result['runs']), 'Incomplete or contaminated samples: inspect report'
+    assert len(result['runs']) == len(schedule) and all(r.get('status') == 'complete' and r['exit_verified'] and all(s['accepted'] for s in r['samples']) for r in result['runs']), 'Incomplete or contaminated samples: inspect report'
 
 
 if __name__ == '__main__':
@@ -241,6 +273,8 @@ if __name__ == '__main__':
     parser.add_argument('--runs', type=int, default=5)
     parser.add_argument('--no-leak', action='store_true')
     parser.add_argument('--connections', action='store_true')
+    parser.add_argument('--driver-packages', help='Directory containing signed PG/Neo4j 0.2.0 packages')
+    parser.add_argument('--installer-test', help='axdb library test executable built with CARGO_TARGET_DIR=target-r2')
     parser.add_argument('--self-check', action='store_true')
     args = parser.parse_args()
     assert re.fullmatch(r'[a-zA-Z0-9_-]+', args.variant), 'Invalid variant name'
@@ -248,8 +282,12 @@ if __name__ == '__main__':
     if args.self_check:
         from unittest.mock import patch
         assert cpu_seconds('1:02:03.45') == 3723.45
-        with patch('subprocess.check_output', return_value='42 2048 1:02.34 0.5 /tmp/space name/axdb\n'):
-            assert processes()[42] == dict(pid=42, rss_kib=2048, cpu_seconds=62.34, rolling_cpu_percent=.5, command='/tmp/space name/axdb')
+        with patch('subprocess.check_output', return_value='42 1 2048 1:02.34 0.5 /tmp/space name/axdb\n'):
+            assert processes()[42] == dict(pid=42, ppid=1, rss_kib=2048, cpu_seconds=62.34, rolling_cpu_percent=.5, command='/tmp/space name/axdb')
+        roster = {1: dict(ppid=0, command='/tmp/app/axdb'), 2: dict(ppid=1, command='/tmp/config/drivers/postgres/bin/axdb-driver-postgres'), 3: dict(ppid=9, command='/tmp/config/drivers/neo4j/bin/axdb-driver-neo4j'), 4: dict(ppid=1, command='/other/drivers/axdb-driver-postgres')}
+        owned = owned_processes(1, set(), roster, Path('/tmp/config'))
+        assert set(owned) == {1, 2} and owned[2]['role'] == 'driver-postgres'
+        assert 'role' not in roster[2], 'Do not mutate process snapshots'
         assert footprints('axdb [123]: 64-bit    Footprint: 3145728 B\nphys_footprint: 3145728 B') == {123: 3145728}
         assert footprints('WebContent [4]: 64-bit    Footprint: 1.5 MB') == {4: 1572864}
         assert footprints('axdb [123]: 64-bit    Footprint: 3145728 (16384 bytes per page)') == {123: 3145728}

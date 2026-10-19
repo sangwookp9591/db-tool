@@ -84,6 +84,12 @@ impl PostgresDriver {
                     })
                     .collect(),
                 capabilities: Capabilities {
+                    backup: true, roles: true,
+                    import_rows: true,
+                    schema_snapshot: true,
+                    ddl_render: true,
+                    explain: true,
+                    lint: true,
                     schema_graph: true,
                     filtered_browse: true,
                     preview_changes: PreviewSupport::Transactional,
@@ -115,7 +121,7 @@ impl Driver for PostgresDriver {
                 .unwrap_or_else(|| default.into())
         };
         let mut pg = tokio_postgres::Config::new();
-        pg.host(field("host", "localhost"))
+        pg.host(field("tls_server_name", &field("host", "localhost")))
             .port(
                 field("port", "5432")
                     .parse::<u16>()
@@ -124,6 +130,13 @@ impl Driver for PostgresDriver {
             .dbname(field("database", "postgres"))
             .user(field("user", "postgres"))
             .connect_timeout(Duration::from_millis(cfg.connect_timeout_ms.max(1)));
+        if cfg.fields.contains_key("tls_server_name") {
+            // Keep certificate verification bound to the destination behind the local relay.
+            let address = field("host", "localhost").parse::<std::net::IpAddr>()
+                .map_err(|_| DbError::new(ErrorKind::Connection, "Invalid tunnel address"))?;
+            if !address.is_loopback() { return Err(DbError::new(ErrorKind::Connection, "Tunnel must use loopback")); }
+            pg.hostaddr(address);
+        }
         if let Some(secret) = &cfg.secret {
             pg.password(secret);
         }
@@ -185,6 +198,7 @@ impl Driver for PostgresDriver {
             client,
             tls,
             cancel_address: (field("host", "localhost"), pg.get_ports()[0]),
+            tls_server_name: field("tls_server_name", &field("host", "localhost")),
             state: Mutex::new(TxState::default()),
             closed: AtomicBool::new(false),
             connection: task.abort_handle(),
@@ -203,6 +217,7 @@ pub struct PgSession {
     client: Client,
     tls: MakeTlsConnector,
     cancel_address: (String, u16),
+    tls_server_name: String,
     state: Mutex<TxState>,
     closed: AtomicBool,
     connection: tokio::task::AbortHandle,
@@ -236,7 +251,7 @@ impl PgSession {
             .map_err(|_| DbError::internal("Cannot restore cancellation socket"))?;
         let tls = <MakeTlsConnector as MakeTlsConnect<tokio::net::TcpStream>>::make_tls_connect(
             &mut self.tls.clone(),
-            host,
+            &self.tls_server_name,
         )
         .map_err(|_| DbError::internal("Cannot initialize cancellation TLS"))?;
         self.client
@@ -503,7 +518,7 @@ impl PgSession {
         req: &ExecRequest,
         cancel: CancelToken,
         preview: bool,
-        edits: Option<&EditRequest>,
+        edits: Option<(&EditRequest, bool)>,
     ) -> Result<RunOutput, DbError> {
         let deadline = tokio::time::sleep(Duration::from_millis(req.timeout_ms.max(1)));
         tokio::pin!(deadline);
@@ -514,7 +529,8 @@ impl PgSession {
         let mut sent_cancel = false;
         let kind = {
             let future = async {
-                if let Some(edit) = edits {
+                if let Some((edit, import)) = edits {
+                    if import && state.explicit { return Err(DbError::unsupported("Finish the existing transaction before importing")); }
                     self.edit_run(edit, &mut state, &cancel, preview).await
                 } else if preview {
                     self.preview_run(req, &mut state, &cancel)
@@ -584,15 +600,75 @@ fn uuid_free_id() -> u64 {
 }
 #[async_trait]
 impl Session for PgSession {
+    async fn preview_grants(&self,changes:&[GrantChange],cancel:CancelToken)->Result<GrantPlan,DbError>{let plan=self.native_grants(changes).await?;let req=ExecRequest{text:plan.statements.join(";\n"),read_only:false,params:Default::default(),row_limit:1,graph_node_limit:1,timeout_ms:30000,preview_sample_limit:1};self.migrate_transaction(&req,cancel,true).await?;Ok(plan)}
+
+    async fn import_rows_progress(&self,req:&EditRequest,preview:bool,cancel:CancelToken,sink:&dyn ProgressSink)->Result<ImportOutput,DbError>{if preview {let output=self.import_rows(req,true,cancel).await?;sink.progress(req.edits.len() as u64,req.edits.len() as u64).await?;Ok(output)}else{self.copy_import(req,cancel,sink).await}}
+
+    async fn apply_grants(&self,changes:&[GrantChange],cancel:CancelToken)->Result<(),DbError>{let plan=self.native_grants(changes).await?;let req=ExecRequest{text:plan.statements.join(";\n"),params:Default::default(),read_only:false,row_limit:1,graph_node_limit:1,timeout_ms:30000,preview_sample_limit:1};self.migrate(&req,cancel).await?;Ok(())}
+
+    async fn backup(&self,cancel:CancelToken)->Result<BackupData,DbError>{self.native_backup(cancel).await}
+    async fn restore(&self,backup:&BackupData,overwrite:bool,cancel:CancelToken)->Result<(),DbError>{self.native_restore(backup,overwrite,cancel).await}
+    async fn roles(&self)->Result<RolesSnapshot,DbError>{self.native_roles().await}
+    async fn plan_grants(&self,changes:&[GrantChange])->Result<GrantPlan,DbError>{self.native_grants(changes).await}
+
+    async fn import_rows(&self, req: &EditRequest, preview: bool, cancel: CancelToken) -> Result<ImportOutput, DbError> {
+        if req.edits.is_empty() || req.edits.len() > IMPORT_MAX_ROWS || req.edits.iter().any(|e| !matches!(e, RowEdit::Insert { .. })) {
+            return Err(DbError::query("Import requires 1..10000 inserts"));
+        }
+        let exec = ExecRequest { text: String::new(), read_only: false, params: Default::default(), row_limit: 100, graph_node_limit: 1, timeout_ms: req.timeout_ms, preview_sample_limit: 100 };
+        match self.execute_cancelled(&exec, cancel, preview, Some((req, true))).await? {
+            RunOutput::Preview(result) => Ok(ImportOutput::Preview(result)),
+            RunOutput::Edit(result) => Ok(ImportOutput::Applied(result)),
+            _ => Err(DbError::internal("Invalid import result")),
+        }
+    }
+    async fn apply_migration(&self,req:&ExecRequest,cancel:CancelToken)->Result<Vec<ResultSet>,DbError>{self.migrate(req,cancel).await}
+    async fn schema_snapshot(&self, scope:Option<&str>)->Result<SchemaSnapshot,DbError>{ self.load_snapshot(scope).await }
+    async fn ddl_render(&self,diff:&SnapshotDiff)->Result<Vec<String>,DbError>{dbcore::workbench::render_sql(diff,"postgres")}
+    async fn explain(&self, query: &str, analyze: bool, cancel: CancelToken) -> Result<PlanTree, DbError> {
+        let statements = split_statements(query)?;
+        if statements.len() != 1 { return Err(DbError::query("Explain requires one statement")); }
+        let tokens = dbcore::preview::tokens(&statements[0])?;
+        if let Some(reason) = dbcore::preview::rejection(&tokens) { return Err(DbError::query(reason)); }
+        if !tokens.first().is_some_and(|t| ["SELECT", "WITH", "INSERT", "UPDATE", "DELETE", "MERGE", "VALUES"].iter().any(|w| t.is(w))) {
+            return Err(DbError::unsupported("Explain supports queries and transactional DML only"));
+        }
+        let req = ExecRequest { text: format!("EXPLAIN (FORMAT JSON, VERBOSE TRUE, ANALYZE {}) {}", if analyze { "TRUE" } else { "FALSE" }, statements[0]), params: Default::default(), read_only: false, row_limit: 1, graph_node_limit: 1, timeout_ms: 30000, preview_sample_limit: 1 };
+        // The existing preview path owns the session lock, cancellation and rollback cleanup.
+        let preview = self.preview(&req, cancel.clone()).await?;
+        let raw = preview.statements.first().and_then(|s| s.after.as_ref()).and_then(|t| t.rows.first()).and_then(|r| r.first());
+        let Some(Value::Json(raw)) = raw else { return Err(DbError::query("Missing JSON explain plan")); };
+        let raw: serde_json::Value = serde_json::from_str(raw).map_err(|_| DbError::query("Invalid JSON explain plan"))?;
+        let mut plan = PlanTree::postgres(&raw[0]["Plan"]);
+        fn scans(raw: &serde_json::Value, out: &mut Vec<(String,String)>) {
+            if raw["Node Type"] == "Seq Scan" { if let (Some(schema),Some(table))=(raw["Schema"].as_str(),raw["Relation Name"].as_str()) { out.push((schema.into(),table.into())); } }
+            if let Some(children)=raw["Plans"].as_array() { for c in children { scans(c,out); } }
+        }
+        let mut tables=vec![]; scans(&raw[0]["Plan"],&mut tables);
+        for (schema,table) in tables {
+            let _guard=tokio::select! { biased; _=cancel.cancelled()=>return Err(DbError::new(ErrorKind::Cancelled,"Explain cancelled")), guard=self.state.lock()=>guard };
+            let params: [&(dyn tokio_postgres::types::ToSql + Sync); 2] = [&schema, &table];
+            let rows=tokio::select! { biased;
+                _=cancel.cancelled()=>return Err(DbError::new(ErrorKind::Cancelled,"Explain cancelled")),
+                rows=self.client.query("SELECT c.reltuples::float8 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE (n.nspname=$1 OR ($1='pg_temp' AND n.oid=pg_my_temp_schema())) AND c.relname=$2", &params) => rows.map_err(|e| self.error(e))?,
+            };
+            if rows.first().is_some_and(|r| r.get::<_,f64>(0)>=10000.0) {
+                plan.warnings.push(format!("Large table full scan: {schema}.{table} (~{} rows in catalog statistics)",rows[0].get::<_,f64>(0)));
+            }
+        }
+        if analyze { plan.warnings.extend(preview.notes); }
+        Ok(plan)
+    }
+
     async fn preview_edits(&self, req: &EditRequest, cancel: CancelToken) -> Result<ChangePreview,DbError> {
         let mut exec = ExecRequest {text:String::new(),read_only:false,params:Default::default(),row_limit:1000,graph_node_limit:1,timeout_ms:req.timeout_ms,preview_sample_limit:req.preview_sample_limit};
         exec.timeout_ms=req.timeout_ms;
-        match self.execute_cancelled(&exec,cancel,true,Some(req)).await? {RunOutput::Preview(r)=>Ok(r),_=>unreachable!()}
+        match self.execute_cancelled(&exec,cancel,true,Some((req, false))).await? {RunOutput::Preview(r)=>Ok(r),_=>unreachable!()}
     }
     async fn apply_edits(&self, req: &EditRequest, cancel: CancelToken) -> Result<EditResult,DbError> {
         let mut exec = ExecRequest {text:String::new(),read_only:false,params:Default::default(),row_limit:1000,graph_node_limit:1,timeout_ms:req.timeout_ms,preview_sample_limit:req.preview_sample_limit};
         exec.timeout_ms=req.timeout_ms;
-        match self.execute_cancelled(&exec,cancel,false,Some(req)).await? {RunOutput::Edit(r)=>Ok(r),_=>unreachable!()}
+        match self.execute_cancelled(&exec,cancel,false,Some((req, false))).await? {RunOutput::Edit(r)=>Ok(r),_=>unreachable!()}
     }
 
     async fn schema_graph(&self, scope: Option<&str>) -> Result<SchemaGraph, DbError> { self.load_schema_graph(scope).await }
@@ -787,7 +863,11 @@ fn pg_error(e: tokio_postgres::Error, secret: Option<&str>) -> DbError {
     } else {
         DbError::new(
             ErrorKind::Connection,
-            "PostgreSQL connection failed or was closed",
+            if e.to_string().to_ascii_lowercase().contains("tls") {
+                "PostgreSQL TLS handshake failed"
+            } else {
+                "PostgreSQL connection failed or was closed"
+            },
         )
     }
 }
@@ -889,3 +969,6 @@ mod tests {
         );
     }
 }
+
+mod management;
+mod administration;

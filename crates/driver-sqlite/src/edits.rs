@@ -96,14 +96,28 @@ pub(super) fn run(
     deadline: Instant,
     preview: bool,
 ) -> Result<RunOutput, DbError> {
-    if req.edits.len() > 1000 {
-        return Err(DbError::unsupported("편집은 최대 1,000건까지 지원합니다"));
+    if req.edits.len() > dbcore_limit(req) {
+        return Err(DbError::unsupported("편집/가져오기 행 수 상한을 초과했습니다"));
     }
     if !conn.is_autocommit() {
         return Err(DbError::unsupported(
             "편집하기 전에 사용자 트랜잭션을 마치세요",
         ));
     }
+    conn.execute_batch("SAVEPOINT axdb_row_edit")
+        .map_err(sql_error)?;
+    let token = cancel.clone();
+    let result = (|| {
+        conn.progress_handler(
+            1000,
+            Some(move || token.is_cancelled() || Instant::now() >= deadline),
+        )
+        .map_err(sql_error)?;
+        let name = req.node_id.strip_prefix("table:").ok_or_else(|| DbError::query("Select a table node"))?;
+        let create_sql = dbcore::import_create_sql(req, &format!("main.{}", quote(name)), "sqlite")?;
+        if let Some(sql) = &create_sql {
+            conn.execute_batch(sql).map_err(sql_error)?;
+        }
     let (columns, keys) = target(conn, &req.node_id)?;
     let plans = dbcore::edits::plan(
         req,
@@ -121,20 +135,12 @@ pub(super) fn run(
         .map(|p| p.sql.clone())
         .collect::<Vec<_>>()
         .join(";\n");
-    conn.execute_batch("SAVEPOINT axdb_row_edit")
-        .map_err(sql_error)?;
-    let token = cancel.clone();
-    let result = (|| {
-        conn.progress_handler(
-            1000,
-            Some(move || token.is_cancelled() || Instant::now() >= deadline),
-        )
-        .map_err(sql_error)?;
         let mut changed = EditResult {
             affected: vec![],
             statements: vec![],
         };
         let mut sample = ChangePreview::default();
+        if let Some(sql) = create_sql { changed.affected.push(0); changed.statements.push(sql.clone()); if preview { sample.statements.push(StatementPreview::new(sql, StatementKind::Ddl)); } }
         for (
             index,
             Plan {
@@ -171,7 +177,7 @@ pub(super) fn run(
                     conn,
                     &format!("{sql} RETURNING *"),
                     &values,
-                    if preview {
+                    if preview && (req.edits.len() <= 1000 || index < req.preview_sample_limit.min(1000) as usize) {
                         req.preview_sample_limit.min(1000) as usize
                     } else {
                         0
@@ -190,7 +196,7 @@ pub(super) fn run(
                 }
                 changed.affected.push(count);
                 changed.statements.push(sql);
-                sample.statements.push(statement);
+                if req.edits.len() <= 1000 || index < req.preview_sample_limit.min(1000) as usize { sample.statements.push(statement); }
                 Ok(())
             })();
             result.map_err(|mut e: DbError| {
@@ -229,3 +235,5 @@ pub(super) fn run(
     hooks.map_err(|_| DbError::new(ErrorKind::Connection, "편집 훅 정리에 실패했습니다"))?;
     result
 }
+
+fn dbcore_limit(req: &EditRequest) -> usize { if req.edits.iter().all(|e|matches!(e,RowEdit::Insert{..})) {10_000} else {1000} }

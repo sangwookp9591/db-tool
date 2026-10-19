@@ -467,7 +467,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
 Copyright (c) 2026 David Haz. Source: https://github.com/DavidHDev/react-bits and https://reactbits.dev.
 
-GlassIcons, JellyRadio, SwipeRow, CometDial, WakeSlider, CodeSlots (including NumberSlots), LatticeLoader, BorderGlow, SpringCheck, FuseButton and SpotlightCard in `ui/src/ui/` adapt the supplied TypeScript/plain CSS interaction references to Preact. React, motion and Hugeicons code/dependencies are not bundled by these ports. Motion, color and accessibility behavior is changed to follow `docs/DESIGN.md`; the components are distributed only as part of AxDB.
+GlassIcons, JellyRadio, SwipeRow, CometDial, WakeSlider, CodeSlots (including NumberSlots), LatticeLoader, BorderGlow, SpringCheck, FuseButton, SpotlightCard, PulseHeart and StatusMark in `ui/src/ui/` adapt the supplied TypeScript/plain CSS interaction references to Preact. React, motion and Hugeicons code/dependencies are not bundled by these ports. Motion, color and accessibility behavior is changed to follow `docs/DESIGN.md`; the components are distributed only as part of AxDB.
 
 License text retrieved from the upstream LICENSE.md on 2026-10-16:
 
