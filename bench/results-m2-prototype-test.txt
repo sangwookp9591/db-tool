@@ -1,0 +1,16 @@
+
+running 1 test
+test viewer_bench_m2::tests::fixed_query_and_window_bounds ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 131 filtered out; finished in 0.00s
+
+   Compiling tauri v2.12.4
+   Compiling driver-mysql v0.3.0 (/Users/iron/Project/psw/db-tool/crates/driver-mysql)
+   Compiling tauri-plugin-fs v2.7.1
+   Compiling tauri-plugin-updater v2.14.0
+   Compiling tauri-plugin-process v2.4.0
+   Compiling tauri-plugin-dialog v2.8.3
+   Compiling tauri-plugin-opener v2.7.2
+   Compiling axdb v0.3.0 (/Users/iron/Project/psw/db-tool/src-tauri)
+    Finished `test` profile [unoptimized] target(s) in 29.55s
+     Running unittests src/lib.rs (target-m2/debug/deps/axdb-e88bbd2abd26cfd8)

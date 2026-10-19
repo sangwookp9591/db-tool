@@ -1,0 +1,2 @@
+Output graph successfully written to '/Users/iron/Project/psw/db-tool/target-m2/full-diagnostic-raw-1.memgraph' [34.90 MB]
+Ignoring --nostacks flag because --outputGraph was specified.

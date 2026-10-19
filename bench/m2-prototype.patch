@@ -1,0 +1,348 @@
+diff --git a/src-tauri/src/lib.rs b/src-tauri/src/lib.rs
+index 5ad4f31..055867a 100644
+--- a/src-tauri/src/lib.rs
++++ b/src-tauri/src/lib.rs
+@@ -18,6 +18,7 @@ pub mod storage;
+ mod star;
+ pub mod stream;
+ mod viewer_bench;
++mod viewer_bench_m2;
+ use dbcore::*;
+ use std::{
+     collections::HashMap,
+@@ -736,6 +737,7 @@ pub fn run() {
+             viewer_bench::viewer_bench_config,
+             viewer_bench::viewer_bench_write,
+             viewer_bench::viewer_bench_checkpoint,
++            viewer_bench_m2::viewer_bench_m2,
+             editor::explain_query,
+             editor::lint_query,
+             editor::refactor_query,
+@@ -768,7 +770,13 @@ pub fn run() {
+             permissions::agent_audit_list,
+             permissions::agent_approve_write
+         ])
+-        .build(tauri::generate_context!())
++        .build({
++            let mut context = tauri::generate_context!();
++            if context.config().identifier == "dev.axdb.m2probe" {
++                context.config_mut().app.windows[0].data_store_identifier = Some([109,50,119,101,98,107,105,116,109,101,109,111,114,121,1,9]);
++            }
++            context
++        })
+         .expect("Failed to build axdb")
+         .run(|app, event| {
+             if matches!(event, tauri::RunEvent::Exit) {
+diff --git a/src-tauri/src/viewer_bench.rs b/src-tauri/src/viewer_bench.rs
+index cd5f13e..38a6cb3 100644
+--- a/src-tauri/src/viewer_bench.rs
++++ b/src-tauri/src/viewer_bench.rs
+@@ -22,7 +22,7 @@ pub fn viewer_bench_write(
+ #[tauri::command]
+ pub fn viewer_bench_target() -> String {
+     let target = std::env::var("AXDB_BENCH_TARGET").unwrap_or_default();
+-    if viewer_bench_enabled() && matches!(target.as_str(), "graph" | "workspace" | "idle" | "small" | "matrix" | "resource" | "resource-leak" | "connections") {
++    if viewer_bench_enabled() && matches!(target.as_str(), "m2" | "graph" | "workspace" | "idle" | "small" | "matrix" | "resource" | "resource-leak" | "connections") {
+         target
+     } else {
+         "all".into()
+diff --git a/ui/src/perf/app.tsx b/ui/src/perf/app.tsx
+index 318d040..27119eb 100644
+--- a/ui/src/perf/app.tsx
++++ b/ui/src/perf/app.tsx
+@@ -9,6 +9,7 @@ import { finish, frame, painted, perf, sampleFrames, start } from './index';
+ async function waitFor(test: () => boolean, timeout = 60000) { const until = performance.now() + timeout; while (!test()) { if (performance.now() > until) throw new Error('Native benchmark timed out'); await frame(); } }
+ async function run() {
+   const resourceTarget = await invoke<string>('viewer_bench_target');
++  if (resourceTarget === 'm2') { try { await (await import('./m2')).memoryBench(); } catch (error) { await invoke('viewer_bench_write', { report: { complete: false, error: String(error) } }); } return; }
+   if (resourceTarget === 'connections') { await (await import('./connections')).connectionBench(); return; }
+   if (resourceTarget.startsWith('resource')) { await (await import('./resource')).resourceBench(resourceTarget === 'resource-leak'); return; }
+   const root = document.createElement('div'); root.style.cssText = 'position:fixed;inset:0;z-index:10000;display:flex;background:var(--surface)'; document.body.append(root);
+diff --git a/ui/src/perf/resource.ts b/ui/src/perf/resource.ts
+index aa3a2a2..9418c13 100644
+--- a/ui/src/perf/resource.ts
++++ b/ui/src/perf/resource.ts
+@@ -1,4 +1,5 @@
+ import { messagePackStats } from './msgpack';
++import { referencePaths } from './m2References';
+ import { invoke } from '@tauri-apps/api/core';
+ import { api } from '../api';
+ import type { DriverManifest } from '../contract';
+@@ -16,6 +17,8 @@ function input(element: HTMLInputElement | HTMLSelectElement, value: string) {
+ }
+ export async function resourceBench(leak: boolean) {
+   let checkpoint = 0;
++  let noDomRefs = false;
++  let closedTabRefs: WeakRef<Element>[] = [];
+   const report: Record<string, unknown> = { target: 'resource', leak, userAgent: navigator.userAgent };
+   async function sample(stage: string, iteration = 0) {
+     if (stage !== 'startup' && stage !== 'prepare-window') { await frame(); await frame(); }
+@@ -23,13 +26,24 @@ export async function resourceBench(leak: boolean) {
+     report.codec = { ...messagePackStats };
+     report.viewers = [...app.querySelectorAll<HTMLElement>('.virtual-scroll')].map(grid => ({ totalRows: grid.getAttribute('aria-rowcount'), renderedRows: grid.querySelector('.virtual-spacer')?.children.length ?? 0, width: grid.clientWidth, height: grid.clientHeight, hidden: !!grid.closest('[hidden]') }));
+     report.canvasPixels = [...app.querySelectorAll<HTMLCanvasElement>('canvas')].map(canvas => ({ width: canvas.width, height: canvas.height, hidden: !!canvas.closest('[hidden]') }));
++    report.closedTabRefsAlive = closedTabRefs.filter(ref => ref.deref()).length;
++    if (stage === 'tabs-closed-10' && closedTabRefs.length) {
++      const targets = new Set(closedTabRefs.map(ref => ref.deref()).filter((value): value is Element => !!value));
++      const { paths, examined, truncated } = referencePaths([app, window.axdb], targets);
++      report.closedTabReferencePaths = { paths, examined, truncated };
++    }
+     await invoke('viewer_bench_write', { report });
+     await invoke('viewer_bench_checkpoint', { checkpoint });
+   }
+   const app = document.getElementById('app')!;
+   const active = () => app.querySelector<HTMLElement>('.tab-body:not([hidden])')!;
+   const close = async () => {
+-    for (const button of app.querySelectorAll<HTMLButtonElement>('.workspace-tab > button:last-child')) { button.click(); await pause(0); }
++    if (app.querySelectorAll('.workspace-tab').length >= 10) closedTabRefs = [...app.querySelectorAll('.tab-body')].map(tab => new WeakRef(tab));
++    if (noDomRefs) {
++      for (let remaining = app.querySelectorAll('.workspace-tab').length; remaining > 0; remaining--) { app.querySelector<HTMLButtonElement>('.workspace-tab > button:last-child')?.click(); await pause(0); }
++    } else {
++      for (const button of app.querySelectorAll<HTMLButtonElement>('.workspace-tab > button:last-child')) { button.click(); await pause(0); }
++    }
+     await waitFor(() => !app.querySelector('.workspace-tab'));
+     await frame(); await frame();
+     if (readGraphProbes().length) throw new Error('Graph worker owner survived tab close');
+@@ -41,6 +55,8 @@ export async function resourceBench(leak: boolean) {
+   let graphSession = '';
+   const req = (text: string) => ({ text, params: {}, row_limit: 100000, graph_node_limit: 300, timeout_ms: 60000 });
+   try {
++    const m2 = await invoke<string>('viewer_bench_m2', { sessionId: '', action: 'mode', offset: 0 }).catch(() => null);
++    noDomRefs = m2 === 'dom-release'; report.noDomRefs = noDomRefs;
+     await sample('prepare-window'); await frame(); await frame();
+     await sample('startup'); await pause(Math.max(0, 10000 - performance.now())); await sample('idle-10');
+     await pause(Math.max(0, 60000 - performance.now())); await sample('idle-60');
+@@ -83,17 +99,17 @@ export async function resourceBench(leak: boolean) {
+       await frame(); await frame();
+     }
+     async function run(expected: number, graph = false) {
+-      const tab = active();
+-      input(tab.querySelector<HTMLInputElement>('[aria-label="Row limit"]')!, '100000'); await frame();
+-      const since = performance.now(); tab.querySelector<HTMLButtonElement>('[aria-label="Run query"]')!.click();
++      const tab = noDomRefs ? null : active(), current = () => tab ?? active();
++      input(current().querySelector<HTMLInputElement>('[aria-label="Row limit"]')!, '100000'); await frame();
++      const since = performance.now(); current().querySelector<HTMLButtonElement>('[aria-label="Run query"]')!.click();
+       await frame();
+-      await waitFor(() => tab.querySelector('.results-wrap')?.getAttribute('aria-busy') === 'false');
++      await waitFor(() => current().querySelector('.results-wrap')?.getAttribute('aria-busy') === 'false');
+       report.lastQuery = { rows: expected, wall_ms: performance.now() - since };
+       await frame(); await frame();
+-      if (tab.querySelector('.db-error')) throw new Error(tab.querySelector('.db-error')!.textContent!);
+-      await waitFor(() => tab.querySelector('.result-status [aria-label^="Rows:"]')?.getAttribute('aria-label') === `Rows: ${expected.toLocaleString()}`);
++      if (current().querySelector('.db-error')) throw new Error(current().querySelector('.db-error')!.textContent!);
++      await waitFor(() => current().querySelector('.result-status [aria-label^="Rows:"]')?.getAttribute('aria-label') === `Rows: ${expected.toLocaleString()}`);
+       if (!graph) {
+-        const grid = tab.querySelector('[role=grid][aria-label="Query results"]');
++        const grid = current().querySelector('[role=grid][aria-label="Query results"]');
+         if (Number(grid?.getAttribute('aria-rowcount')) !== expected + 1 || grid?.querySelector('[role=gridcell]')?.textContent !== (expected === 100000 ? '9007199254740994' : '1')) throw new Error('Loaded table rows or exact first value did not match the query');
+       }
+     }
+@@ -113,6 +129,27 @@ export async function resourceBench(leak: boolean) {
+     while (app.querySelectorAll('.workspace-tab').length < 10) { await open(tableSession, 'SELECT i FROM generate_series(1,1000) i'); await run(1000); }
+     app.querySelector<HTMLButtonElement>('.workspace-tab [role=tab]')!.click(); await frame(); await frame(); await run(100000);
+     await sample('tabs-10'); await sample('prepare-close'); const closedAt = performance.now(); await close(); await sample('tabs-closed'); await pause(Math.max(0, closedAt + 10000 - performance.now())); await sample('tabs-closed-10');
++    if (m2) {
++      await pause(Math.max(0, closedAt + 30000 - performance.now())); await sample('tabs-closed-30');
++      await invoke('viewer_bench_m2', { sessionId: '', action: 'cache', offset: 0 }); await pause(3000); await sample('cache-requested-3');
++      await sample('pressure-ready'); await sample('pressure-after');
++      // Diagnostic allocation pressure uses ordinary JS APIs, not a private GC hook.
++      const churnRefs: WeakRef<object>[] = [];
++      for (let batch = 0; batch < 8; batch++) {
++        const garbage = Array.from({ length: 100000 }, (_, index) => ({ index, text: `m2-${batch}-${index}` }));
++        churnRefs.push(new WeakRef(garbage));
++        report.churnBatchSize = garbage.length;
++        await pause(0);
++      }
++      await pause(5000); report.churnBatchesAlive = churnRefs.filter(ref => ref.deref()).length; await sample('js-churn-after');
++      const bufferRefs: WeakRef<ArrayBufferLike>[] = [];
++      for (let batch = 0; batch < 4; batch++) {
++        const buffer = new Uint8Array(64 * 1024 * 1024); buffer.fill(batch + 1);
++        bufferRefs.push(new WeakRef(buffer.buffer)); report.churnBufferBytes = buffer.byteLength;
++        await pause(100);
++      }
++      await pause(5000); report.churnBuffersAlive = bufferRefs.filter(ref => ref.deref()).length; await sample('buffer-churn-after');
++    }
+     if (leak) {
+       await sample('prepare-repeat-query');
+       await open(tableSession, sql);
+diff --git a/src-tauri/src/viewer_bench_m2.rs b/src-tauri/src/viewer_bench_m2.rs
+new file mode 100644
+index 0000000..40666df
+--- /dev/null
++++ b/src-tauri/src/viewer_bench_m2.rs
+@@ -0,0 +1,58 @@
++//! Bounded, fixed-query experiment; not a product result-handle API.
++use crate::{storage::HistorySource, CommandResult, Host};
++use dbcore::{DbError, ExecRequest, ResultSet, Table};
++use std::sync::Mutex;
++use tauri::Manager;
++
++static RESULT: Mutex<Option<(String, ResultSet)>> = Mutex::new(None);
++
++pub fn query() -> String {
++    format!("SELECT {} FROM generate_series(1,100000) i", (0..10).map(|i| if i % 2 == 1 { format!("'row ' || i::text AS c{i}") } else { format!("9007199254740993::bigint+i AS c{i}") }).collect::<Vec<_>>().join(","))
++}
++
++fn page(result: &ResultSet, offset: usize) -> Result<ResultSet, DbError> {
++    let table = result.table.as_ref().ok_or_else(|| DbError::internal("Expected benchmark table"))?;
++    if offset > table.rows.len() { return Err(DbError::query("Page offset exceeds result")); }
++    let mut output = ResultSet { title: result.title.clone(), row_count: result.row_count, truncated: result.truncated, elapsed_ms: result.elapsed_ms, ..Default::default() };
++    output.table = Some(Table { columns: table.columns.clone(), rows: table.rows[offset..table.rows.len().min(offset.saturating_add(200))].to_vec() });
++    Ok(output)
++}
++
++#[tauri::command]
++pub async fn viewer_bench_m2(host: tauri::State<'_, Host>, window: tauri::WebviewWindow, session_id: String, action: String, offset: usize) -> CommandResult<serde_json::Value> {
++    if !super::viewer_bench::viewer_bench_enabled() || window.app_handle().config().identifier != "dev.axdb.m2probe" { return Err(DbError::unsupported(format!("Isolated M2 benchmark disabled: {}", window.app_handle().config().identifier))); }
++    match action.as_str() {
++        "mode" => Ok(serde_json::json!(std::env::var("AXDB_M2_MODE").unwrap_or_else(|_| "raw".into()))),
++        "cache" => { window.clear_all_browsing_data().map_err(|_| DbError::internal("Cannot clear webview data"))?; Ok(serde_json::Value::Null) },
++        "open" => {
++            let mut results = crate::execute_impl(&host, session_id.clone(), uuid::Uuid::new_v4().to_string(), ExecRequest { text: query(), params: Default::default(), row_limit: 100000, graph_node_limit: 300, timeout_ms: 60000, read_only: true, preview_sample_limit: 50 }, None, HistorySource::Ui).await?;
++            if results.len() != 1 || results[0].row_count != 100000 { return Err(DbError::internal("Unexpected benchmark result")); }
++            let result = results.remove(0);
++            let output = page(&result, 0)?;
++            *RESULT.lock().map_err(|_| DbError::internal("Benchmark result lock"))? = Some((session_id, result));
++            serde_json::to_value(output).map_err(|_| DbError::internal("Cannot encode benchmark page"))
++        },
++        "page" => {
++            let guard = RESULT.lock().map_err(|_| DbError::internal("Benchmark result lock"))?;
++            let (owner, result) = guard.as_ref().ok_or_else(|| DbError::query("Benchmark result released"))?;
++            if owner != &session_id { return Err(DbError::query("Benchmark session mismatch")); }
++            serde_json::to_value(page(result, offset)?).map_err(|_| DbError::internal("Cannot encode benchmark page"))
++        },
++        "release" => { RESULT.lock().map_err(|_| DbError::internal("Benchmark result lock"))?.take(); Ok(serde_json::Value::Null) },
++        _ => Err(DbError::unsupported("Unknown benchmark action")),
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    #[test]
++    fn fixed_query_and_window_bounds() {
++        assert!(query().contains("9007199254740993::bigint+i AS c8"));
++        let result = ResultSet { table: Some(Table { columns: vec![], rows: vec![vec![]; 451] }), ..Default::default() };
++        assert_eq!(page(&result, 0).unwrap().table.unwrap().rows.len(), 200);
++        assert_eq!(page(&result, 400).unwrap().table.unwrap().rows.len(), 51);
++        assert!(page(&result, usize::MAX).is_err());
++        assert_eq!(page(&result, 451).unwrap().table.unwrap().rows.len(), 0);
++    }
++}
+diff --git a/ui/src/perf/m2.tsx b/ui/src/perf/m2.tsx
+new file mode 100644
+index 0000000..28dd6a9
+--- /dev/null
++++ b/ui/src/perf/m2.tsx
+@@ -0,0 +1,69 @@
++import '../results.css';
++import { render } from 'preact';
++import { invoke } from '@tauri-apps/api/core';
++import { api } from '../api';
++import type { BenchConfig } from './benchConfig';
++import type { ResultSet } from '../contract';
++import { VirtualTable } from '../VirtualTable';
++import { executeQuery } from './stream';
++import { frame } from './index';
++
++const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
++export async function memoryBench() {
++  const mode = await invoke<string>('viewer_bench_m2', { sessionId: '', action: 'mode', offset: 0 });
++  const report: Record<string, unknown> = { mode, target: 'm2', userAgent: navigator.userAgent };
++  let checkpoint = 0, sessionId = '', profileId = '';
++  const root = document.createElement('div');
++  root.style.cssText = 'position:fixed;inset:0;z-index:10000;display:flex;flex-direction:column;background:var(--surface)';
++  document.body.append(root);
++  const command = <T,>(action: string, offset = 0) => invoke<T>('viewer_bench_m2', { sessionId, action, offset });
++  async function sample(stage: string) {
++    if (stage !== 'prepare-window') { await frame(); await frame(); }
++    Object.assign(report, { checkpoint: ++checkpoint, stage, at: Date.now(), viewport: { width: innerWidth, height: innerHeight, scale: devicePixelRatio }, renderedRows: root.querySelectorAll('.table-row').length, canvasPixels: root.querySelectorAll('canvas').length });
++    await invoke('viewer_bench_write', { report });
++    await invoke('viewer_bench_checkpoint', { checkpoint });
++  }
++  async function query() {
++    if (mode === 'window') return [await command<ResultSet>('open')];
++    const text = `SELECT ${Array.from({ length: 10 }, (_, i) => i % 2 ? `'row ' || i::text AS c${i}` : `9007199254740993::bigint+i AS c${i}`).join(',')} FROM generate_series(1,100000) i`;
++    return executeQuery({ sessionId, runId: crypto.randomUUID(), req: { text, params: {}, row_limit: 100000, graph_node_limit: 300, timeout_ms: 60000, read_only: true } }, () => {});
++  }
++  async function load() {
++    const since = performance.now();
++    const results = await query();
++    if (results.length !== 1 || results[0].row_count !== 100000 || results[0].table?.rows[0][0].t !== 'Int' || results[0].table.rows[0][0].v !== '9007199254740994') throw new Error('Exact query result mismatch');
++    report.queryWall = performance.now() - since;
++    report.uiRows = results[0].table.rows.length;
++    if (mode !== 'headless') render(<VirtualTable table={results[0].table} />, root);
++    // The query-local result is deliberately not kept by this benchmark after rendering.
++  }
++  try {
++    await sample('prepare-window');
++    await sample('startup'); await pause(10000); await sample('idle-10');
++    const drivers = await api('drivers_list', {}), config = await invoke<BenchConfig>('viewer_bench_config');
++    const driver = drivers.find(driver => driver.paradigm === 'Relational' && driver.connection_fields.some(field => field.key === 'host'));
++    if (!driver) throw new Error('No relational test driver');
++    profileId = crypto.randomUUID();
++    await api('profile_save', { profile: { id: profileId, name: 'M2 isolated', driver_id: driver.id, fields: config.table.fields, save_secret: false }, secret: null });
++    sessionId = await api('session_open', { profileId, secret: config.table.secret });
++    await sample('prepare-table'); await load(); await sample('table-100000');
++    if (mode === 'window') {
++      const page = await command<ResultSet>('page', 99800), table = page.table;
++      if (table?.rows.length !== 200 || table.rows[199][0].t !== 'Int' || table.rows[199][0].v !== '9007199254840993') throw new Error('Final page precision mismatch');
++      render(<VirtualTable table={table} />, root); report.finalPageVerified = true;
++      await sample('last-page');
++    }
++    const closedAt = performance.now(); render(null, root); await command('release');
++    await sample('tabs-closed'); await pause(Math.max(0, closedAt + 10000 - performance.now())); await sample('tabs-closed-10');
++    await pause(Math.max(0, closedAt + 30000 - performance.now())); await sample('tabs-closed-30');
++    await command('cache'); await pause(3000); await sample('cache-requested-3');
++    await sample('pressure-ready'); await sample('pressure-after');
++    report.complete = true;
++  } catch (error) { report.complete = false; report.error = error instanceof Error ? error.message : String(error); }
++  finally {
++    render(null, root); root.remove(); await command('release').catch(() => {});
++    if (sessionId) await api('session_close', { sessionId });
++    if (profileId) await api('profile_delete', { profileId });
++    await invoke('viewer_bench_write', { report });
++  }
++}
+diff --git a/ui/src/perf/m2References.ts b/ui/src/perf/m2References.ts
+new file mode 100644
+index 0000000..c1deadc
+--- /dev/null
++++ b/ui/src/perf/m2References.ts
+@@ -0,0 +1,20 @@
++// Diagnostic only: inspect data properties, never invoke getters or expand large result arrays.
++export function referencePaths(roots: object[], targets: Set<object>, limit = 20000) {
++  const queue = roots.map((value, index) => ({ value, path: `root${index}`, depth: 0 }));
++  const seen = new WeakSet<object>(), paths: string[] = [];
++  let index = 0;
++  while (index < queue.length && index < limit) {
++    const { value, path, depth } = queue[index++];
++    if (seen.has(value)) continue;
++    seen.add(value);
++    if (targets.has(value)) { paths.push(path); continue; }
++    if (depth >= 24 || ArrayBuffer.isView(value) || value instanceof ArrayBuffer || (Array.isArray(value) && value.length > 1000)) continue;
++    const entries: [string, unknown][] = value instanceof Map || value instanceof Set ? [...value.values()].slice(0, 1000).map((item, index) => [`entry${index}`, item]) : Object.entries(Object.getOwnPropertyDescriptors(value)).map(([key, descriptor]) => [key, descriptor.value]);
++    for (const [key, child] of entries) {
++      if (typeof child !== 'object' || child === null || seen.has(child)) continue;
++      if (queue.length >= limit) break;
++      queue.push({ value: child, path: `${path}.${key}`, depth: depth + 1 });
++    }
++  }
++  return { paths, visited: seen, examined: index, truncated: index >= limit };
++}
+diff --git a/ui/src/perf/m2References.test.ts b/ui/src/perf/m2References.test.ts
+new file mode 100644
+index 0000000..54a83f3
+--- /dev/null
++++ b/ui/src/perf/m2References.test.ts
+@@ -0,0 +1,10 @@
++import { expect, it } from 'vitest';
++import { referencePaths } from './m2References';
++it('finds data-property and Map roots without invoking getters or walking large row arrays', () => {
++  const target = {}, root: Record<string, unknown> = { map: new Map([['private', target]]), rows: Array(100001).fill(target) };
++  root.self = root;
++  Object.defineProperty(root, 'unsafe', { enumerable: true, get() { throw new Error('Getter invoked'); } });
++  const result = referencePaths([root], new Set([target]));
++  expect(result.paths).toEqual(['root0.map.entry0']);
++  expect(result.truncated).toBe(false);
++});

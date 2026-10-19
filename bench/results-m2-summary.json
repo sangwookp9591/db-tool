@@ -1,0 +1,579 @@
+{
+  "verdict": "Goal not achieved for the full workbench; no product memory cleanup retained",
+  "production_change_kept": false,
+  "release_verified": false,
+  "notes": [
+    "Debug=0 probe apps; no release performance claim",
+    "Diagnostic-tool run excluded from performance comparison; raw accepted flags retained as collected",
+    "Pilot raw/window startup and 30-second paired-load checks failed; only passing point pairs are comparable",
+    "2 GiB allocation had no warn/critical event and moved dirty pages into swap",
+    "Vec-backed host paging increased total active footprint; rejected"
+  ],
+  "cases": [
+    {
+      "evidence": "bench/results-m2-pilot.json",
+      "mode": "raw",
+      "status": "failed",
+      "exit_verified": true,
+      "diagnostic_only": false,
+      "points": {}
+    },
+    {
+      "evidence": "bench/results-m2-pilot-v2.json",
+      "mode": "raw",
+      "status": "complete",
+      "exit_verified": true,
+      "diagnostic_only": false,
+      "points": {
+        "startup": {
+          "app_mib": 129.816,
+          "load1": 12.080078125,
+          "gate_accepted": true,
+          "webcontent_mib": 55.938
+        },
+        "idle-10": {
+          "app_mib": 120.144,
+          "load1": 11.083984375,
+          "gate_accepted": true,
+          "webcontent_mib": 54.017
+        },
+        "table-100000": {
+          "app_mib": 214.91,
+          "load1": 10.6767578125,
+          "gate_accepted": true,
+          "webcontent_mib": 132.892
+        },
+        "tabs-closed": {
+          "app_mib": 210.441,
+          "load1": 10.46240234375,
+          "gate_accepted": true,
+          "webcontent_mib": 131.032
+        },
+        "tabs-closed-10": {
+          "app_mib": 131.676,
+          "load1": 10.1376953125,
+          "gate_accepted": true,
+          "webcontent_mib": 62.079
+        },
+        "tabs-closed-30": {
+          "app_mib": 130.972,
+          "load1": 10.236328125,
+          "gate_accepted": true,
+          "webcontent_mib": 61.267
+        },
+        "cache-requested-3": {
+          "app_mib": 131.379,
+          "load1": 9.65673828125,
+          "gate_accepted": true,
+          "webcontent_mib": 61.282
+        },
+        "pressure-ready": {
+          "app_mib": 131.379,
+          "load1": 9.65673828125,
+          "gate_accepted": true,
+          "webcontent_mib": 61.376
+        },
+        "pressure-after": {
+          "app_mib": 131.363,
+          "load1": 9.65673828125,
+          "gate_accepted": true,
+          "webcontent_mib": 61.36
+        }
+      },
+      "closed_minus_startup_mib": 1.86,
+      "closed_within_startup_plus_50": true
+    },
+    {
+      "evidence": "bench/results-m2-pilot-v2.json",
+      "mode": "window",
+      "status": "complete",
+      "exit_verified": true,
+      "diagnostic_only": false,
+      "points": {
+        "startup": {
+          "app_mib": 124.894,
+          "load1": 8.9140625,
+          "gate_accepted": true,
+          "webcontent_mib": 53.86
+        },
+        "idle-10": {
+          "app_mib": 112.879,
+          "load1": 8.87255859375,
+          "gate_accepted": true,
+          "webcontent_mib": 52.188
+        },
+        "table-100000": {
+          "app_mib": 319.691,
+          "load1": 8.40185546875,
+          "gate_accepted": true,
+          "webcontent_mib": 103.782
+        },
+        "last-page": {
+          "app_mib": 316.222,
+          "load1": 8.40185546875,
+          "gate_accepted": true,
+          "webcontent_mib": 102.345
+        },
+        "tabs-closed": {
+          "app_mib": 176.269,
+          "load1": 8.04931640625,
+          "gate_accepted": true,
+          "webcontent_mib": 100.845
+        },
+        "tabs-closed-10": {
+          "app_mib": 129.801,
+          "load1": 7.580078125,
+          "gate_accepted": true,
+          "webcontent_mib": 62.985
+        },
+        "tabs-closed-30": {
+          "app_mib": 125.972,
+          "load1": 6.8212890625,
+          "gate_accepted": true,
+          "webcontent_mib": 59.142
+        },
+        "cache-requested-3": {
+          "app_mib": 126.457,
+          "load1": 6.75537109375,
+          "gate_accepted": true,
+          "webcontent_mib": 59.157
+        },
+        "pressure-ready": {
+          "app_mib": 126.348,
+          "load1": 6.75537109375,
+          "gate_accepted": true,
+          "webcontent_mib": 59.204
+        },
+        "pressure-after": {
+          "app_mib": 126.363,
+          "load1": 7.17529296875,
+          "gate_accepted": true,
+          "webcontent_mib": 59.22
+        }
+      },
+      "closed_minus_startup_mib": 4.907,
+      "closed_within_startup_plus_50": true
+    },
+    {
+      "evidence": "bench/results-m2-pilot-v2.json",
+      "mode": "headless",
+      "status": "complete",
+      "exit_verified": true,
+      "diagnostic_only": false,
+      "points": {
+        "startup": {
+          "app_mib": 195.707,
+          "load1": 6.7607421875,
+          "gate_accepted": true,
+          "webcontent_mib": 71.657
+        },
+        "idle-10": {
+          "app_mib": 116.05,
+          "load1": 6.17333984375,
+          "gate_accepted": true,
+          "webcontent_mib": 53.423
+        },
+        "table-100000": {
+          "app_mib": 160.613,
+          "load1": 7.2001953125,
+          "gate_accepted": true,
+          "webcontent_mib": 90.454
+        },
+        "tabs-closed": {
+          "app_mib": 160.441,
+          "load1": 7.2001953125,
+          "gate_accepted": true,
+          "webcontent_mib": 90.36
+        },
+        "tabs-closed-10": {
+          "app_mib": 159.316,
+          "load1": 7.09521484375,
+          "gate_accepted": true,
+          "webcontent_mib": 89.923
+        },
+        "tabs-closed-30": {
+          "app_mib": 158.8,
+          "load1": 6.37939453125,
+          "gate_accepted": true,
+          "webcontent_mib": 89.438
+        },
+        "cache-requested-3": {
+          "app_mib": 159.254,
+          "load1": 6.1083984375,
+          "gate_accepted": true,
+          "webcontent_mib": 89.423
+        },
+        "pressure-ready": {
+          "app_mib": 159.082,
+          "load1": 5.939453125,
+          "gate_accepted": true,
+          "webcontent_mib": 89.423
+        },
+        "pressure-after": {
+          "app_mib": 159.097,
+          "load1": 5.939453125,
+          "gate_accepted": true,
+          "webcontent_mib": 89.438
+        }
+      },
+      "closed_minus_startup_mib": -36.391,
+      "closed_within_startup_plus_50": true
+    },
+    {
+      "evidence": "bench/results-m2-full-diagnostic.json",
+      "mode": "raw",
+      "status": "complete",
+      "exit_verified": true,
+      "diagnostic_only": true,
+      "points": {
+        "startup": {
+          "app_mib": 197.504,
+          "load1": 5.3681640625,
+          "gate_accepted": true,
+          "webcontent_mib": 71.392
+        },
+        "idle-10": {
+          "app_mib": 122.644,
+          "load1": 5.09814453125,
+          "gate_accepted": true,
+          "webcontent_mib": 54.251
+        },
+        "idle-60": {
+          "app_mib": 115.863,
+          "load1": 4.18359375,
+          "gate_accepted": true,
+          "webcontent_mib": 53.095
+        },
+        "table-100000": {
+          "app_mib": 330.582,
+          "load1": 4.80908203125,
+          "gate_accepted": true,
+          "webcontent_mib": 184.845
+        },
+        "graph-300": {
+          "app_mib": 436.77,
+          "load1": 4.60400390625,
+          "gate_accepted": true,
+          "webcontent_mib": 287.829
+        },
+        "tabs-10": {
+          "app_mib": 482.036,
+          "load1": 4.99072265625,
+          "gate_accepted": true,
+          "webcontent_mib": 344.751
+        },
+        "tabs-closed": {
+          "app_mib": 474.223,
+          "load1": 4.99072265625,
+          "gate_accepted": true,
+          "webcontent_mib": 337.189
+        },
+        "tabs-closed-10": {
+          "app_mib": 375.598,
+          "load1": 4.69677734375,
+          "gate_accepted": true,
+          "webcontent_mib": 287.329
+        },
+        "tabs-closed-30": {
+          "app_mib": 410.02,
+          "load1": 5.0576171875,
+          "gate_accepted": true,
+          "webcontent_mib": 326.673
+        },
+        "cache-requested-3": {
+          "app_mib": 413.098,
+          "load1": 4.892578125,
+          "gate_accepted": true,
+          "webcontent_mib": 328.767
+        },
+        "pressure-ready": {
+          "app_mib": 414.036,
+          "load1": 5.22119140625,
+          "gate_accepted": true,
+          "webcontent_mib": 329.876
+        },
+        "pressure-after": {
+          "app_mib": 413.942,
+          "load1": 5.4267578125,
+          "gate_accepted": true,
+          "webcontent_mib": 329.814
+        }
+      },
+      "closed_minus_startup_mib": 178.094,
+      "closed_within_startup_plus_50": false
+    },
+    {
+      "evidence": "bench/results-m2-full-churn.json",
+      "mode": "raw",
+      "status": "complete",
+      "exit_verified": true,
+      "diagnostic_only": false,
+      "points": {
+        "startup": {
+          "app_mib": 127.488,
+          "load1": 4.9306640625,
+          "gate_accepted": true,
+          "webcontent_mib": 56.673
+        },
+        "idle-10": {
+          "app_mib": 124.91,
+          "load1": 4.78076171875,
+          "gate_accepted": true,
+          "webcontent_mib": 55.251
+        },
+        "idle-60": {
+          "app_mib": 115.55,
+          "load1": 4.8662109375,
+          "gate_accepted": true,
+          "webcontent_mib": 53.954
+        },
+        "table-100000": {
+          "app_mib": 323.738,
+          "load1": 4.87646484375,
+          "gate_accepted": true,
+          "webcontent_mib": 178.86
+        },
+        "graph-300": {
+          "app_mib": 427.895,
+          "load1": 4.72607421875,
+          "gate_accepted": true,
+          "webcontent_mib": 275.595
+        },
+        "tabs-10": {
+          "app_mib": 480.926,
+          "load1": 4.50732421875,
+          "gate_accepted": true,
+          "webcontent_mib": 335.189
+        },
+        "tabs-closed": {
+          "app_mib": 454.379,
+          "load1": 4.94677734375,
+          "gate_accepted": true,
+          "webcontent_mib": 311.454
+        },
+        "tabs-closed-10": {
+          "app_mib": 354.504,
+          "load1": 4.88720703125,
+          "gate_accepted": true,
+          "webcontent_mib": 259.626
+        },
+        "tabs-closed-30": {
+          "app_mib": 347.41,
+          "load1": 4.54296875,
+          "gate_accepted": true,
+          "webcontent_mib": 260.392
+        },
+        "cache-requested-3": {
+          "app_mib": 348.036,
+          "load1": 4.3388671875,
+          "gate_accepted": true,
+          "webcontent_mib": 260.423
+        },
+        "pressure-ready": {
+          "app_mib": 347.911,
+          "load1": 4.3388671875,
+          "gate_accepted": true,
+          "webcontent_mib": 260.423
+        },
+        "pressure-after": {
+          "app_mib": 347.926,
+          "load1": 4.2314453125,
+          "gate_accepted": true,
+          "webcontent_mib": 260.439
+        },
+        "js-churn-after": {
+          "app_mib": 430.52,
+          "load1": 4.533203125,
+          "gate_accepted": true,
+          "webcontent_mib": 343.079
+        }
+      },
+      "closed_minus_startup_mib": 227.016,
+      "closed_within_startup_plus_50": false
+    },
+    {
+      "evidence": "bench/results-m2-full-references.json",
+      "mode": "raw",
+      "status": "complete",
+      "exit_verified": true,
+      "diagnostic_only": false,
+      "points": {
+        "startup": {
+          "app_mib": 197.097,
+          "load1": 4.607421875,
+          "gate_accepted": true,
+          "webcontent_mib": 71.798
+        },
+        "idle-10": {
+          "app_mib": 124.082,
+          "load1": 4.5810546875,
+          "gate_accepted": true,
+          "webcontent_mib": 54.438
+        },
+        "idle-60": {
+          "app_mib": 114.878,
+          "load1": 5.427734375,
+          "gate_accepted": true,
+          "webcontent_mib": 53.36
+        },
+        "table-100000": {
+          "app_mib": 319.973,
+          "load1": 5.47314453125,
+          "gate_accepted": true,
+          "webcontent_mib": 177.626
+        },
+        "graph-300": {
+          "app_mib": 423.02,
+          "load1": 5.75537109375,
+          "gate_accepted": true,
+          "webcontent_mib": 274.751
+        },
+        "tabs-10": {
+          "app_mib": 478.942,
+          "load1": 5.85498046875,
+          "gate_accepted": true,
+          "webcontent_mib": 338.267
+        },
+        "tabs-closed": {
+          "app_mib": 471.192,
+          "load1": 6.1865234375,
+          "gate_accepted": true,
+          "webcontent_mib": 331.517
+        },
+        "tabs-closed-10": {
+          "app_mib": 374.176,
+          "load1": 5.85107421875,
+          "gate_accepted": true,
+          "webcontent_mib": 284.033
+        },
+        "tabs-closed-30": {
+          "app_mib": 366.457,
+          "load1": 5.6875,
+          "gate_accepted": true,
+          "webcontent_mib": 285.595
+        },
+        "cache-requested-3": {
+          "app_mib": 366.957,
+          "load1": 5.39208984375,
+          "gate_accepted": true,
+          "webcontent_mib": 285.611
+        },
+        "pressure-ready": {
+          "app_mib": 366.77,
+          "load1": 5.2802734375,
+          "gate_accepted": true,
+          "webcontent_mib": 285.626
+        },
+        "pressure-after": {
+          "app_mib": 366.786,
+          "load1": 5.2802734375,
+          "gate_accepted": true,
+          "webcontent_mib": 285.642
+        },
+        "js-churn-after": {
+          "app_mib": 361.254,
+          "load1": 5.6435546875,
+          "gate_accepted": true,
+          "webcontent_mib": 278.47
+        }
+      },
+      "closed_minus_startup_mib": 177.079,
+      "closed_within_startup_plus_50": false
+    },
+    {
+      "evidence": "bench/results-m2-full-dom-release.json",
+      "mode": "dom-release",
+      "status": "complete",
+      "exit_verified": true,
+      "diagnostic_only": false,
+      "points": {
+        "startup": {
+          "app_mib": 125.644,
+          "load1": 6.5283203125,
+          "gate_accepted": true,
+          "webcontent_mib": 56.126
+        },
+        "idle-10": {
+          "app_mib": 122.785,
+          "load1": 6.40576171875,
+          "gate_accepted": true,
+          "webcontent_mib": 54.938
+        },
+        "idle-60": {
+          "app_mib": 120.394,
+          "load1": 4.88671875,
+          "gate_accepted": true,
+          "webcontent_mib": 55.923
+        },
+        "table-100000": {
+          "app_mib": 316.254,
+          "load1": 4.8154296875,
+          "gate_accepted": true,
+          "webcontent_mib": 176.001
+        },
+        "graph-300": {
+          "app_mib": 414.598,
+          "load1": 4.669921875,
+          "gate_accepted": true,
+          "webcontent_mib": 268.157
+        },
+        "tabs-10": {
+          "app_mib": 466.832,
+          "load1": 5.48291015625,
+          "gate_accepted": true,
+          "webcontent_mib": 329.392
+        },
+        "tabs-closed": {
+          "app_mib": 458.692,
+          "load1": 5.48291015625,
+          "gate_accepted": true,
+          "webcontent_mib": 321.611
+        },
+        "tabs-closed-10": {
+          "app_mib": 363.285,
+          "load1": 5.33447265625,
+          "gate_accepted": true,
+          "webcontent_mib": 274.376
+        },
+        "tabs-closed-30": {
+          "app_mib": 359.442,
+          "load1": 5.55517578125,
+          "gate_accepted": true,
+          "webcontent_mib": 277.564
+        },
+        "cache-requested-3": {
+          "app_mib": 359.973,
+          "load1": 5.75048828125,
+          "gate_accepted": true,
+          "webcontent_mib": 277.548
+        },
+        "pressure-ready": {
+          "app_mib": 359.739,
+          "load1": 5.93017578125,
+          "gate_accepted": true,
+          "webcontent_mib": 277.564
+        },
+        "pressure-after": {
+          "app_mib": 359.739,
+          "load1": 5.93017578125,
+          "gate_accepted": true,
+          "webcontent_mib": 277.564
+        },
+        "js-churn-after": {
+          "app_mib": 474.989,
+          "load1": 5.775390625,
+          "gate_accepted": true,
+          "webcontent_mib": 392.579
+        },
+        "buffer-churn-after": {
+          "app_mib": 362.286,
+          "load1": 5.82861328125,
+          "gate_accepted": true,
+          "webcontent_mib": 279.205
+        }
+      },
+      "closed_minus_startup_mib": 237.641,
+      "closed_within_startup_plus_50": false
+    }
+  ]
+}

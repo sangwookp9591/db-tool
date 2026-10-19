@@ -431,3 +431,22 @@ PG의 protocol 1 선택 `execute_stream`을 capability로 협상한다. 같은 �
 기존 결과 집합당 100,000행 상한을 바꾸지 않았다. 따라서 총 1,000,000행은 같은 요청 안에서 100,000행 결과 집합 10개를 사용했다. 단일 결과 1,000,000행 또는 기존 호스트의 누적 256MiB 응답 한도를 넘는 UI 전송 근거가 아니다. 느린 소비자(각 rows 청크에 2ms 대기) 단일 1,000,000행 실험은 RSS 50.97MiB, footprint 30.34MiB, 전체 19,920.52ms였다. 행 수 10배에 따라 드라이버 보유 메모리가 비례 증가하는 현상을 제거했지만, L1의 앱 종료 뒤 +50MiB 목표를 달성했다는 뜻은 아니다.
 
 [원자료](../bench/results-l2-streaming.json), [계산 요약](../bench/results-l2-streaming-summary.json), [L2 보고서](L2_REPORT.md). MySQL true streaming은 보류했으며 기존 쿼리·취소·타임존 경로를 변경하지 않았다. 전체 workspace 검증은 Mongo 병렬 fixture 충돌로 실패했으며 집중 검사의 통과와 구분한다.
+
+## L3: MySQL·MariaDB true streaming (2026-10-19)
+
+L2에서 보류한 MySQL 확장을 완료했다. `capabilities.execute_stream=true`를 선언하고 protocol 1 선택 메서드를 기존 SDK의 8프레임 async 채널에 연결했다. `mysql_async::QueryResult::stream<Row>`로 text·prepared 결과를 읽으며 첫 200행·이후 최대 2,000행, 보수적 크기 추정 약 256KiB마다 sink를 await한다. legacy 수집 루프·guarded 취소·연결 보안 옵션은 그대로 유지한다. 시작은 미정 행 수, 종료는 실제 행 수·잘림·elapsed metadata이며 스트리밍 결과에는 행을 보관하지 않는다.
+
+변경 전 main `d93ebd5`에서 보관한 debug 바이너리의 legacy 경로와 최종 debug 바이너리의 streaming을 DB·행 수별 교차 3쌍 비교했다. 아래는 각 지표의 중앙값이며 **전 → 후** 순서다. MySQL 8.4.11, MariaDB 11.8.9의 로컬 테스트 DB만 사용했다. 드라이버 stdio 경계로 host·UI·WebView·DB 서버 메모리와 화면 표시 시간은 제외한다. `proc_pid_rusage(RUSAGE_INFO_V2)`를 약 2ms마다 샘플링한 피크이며 정확한 OS high-water mark가 아니다. 공유 작업 트리의 빌드·다른 작업이 병행됐고 load gate는 적용하지 않았다.
+
+| DB | 결과 총행 | 피크 RSS MiB | 피크 physical footprint MiB | 첫 rows 청크 ms | 전체 ms |
+|---|---:|---:|---:|---:|---:|
+| MySQL | 100,000 | 73.95 → 26.25 | 61.39 → 14.75 | 606.74 → 97.42 | 974.36 → 698.15 |
+| MySQL | 1,000,000 | 581.36 → 43.98 | 568.25 → 24.13 | 5,506.80 → 85.31 | 8,540.53 → 5,973.91 |
+| MariaDB | 100,000 | 73.61 → 26.39 | 61.30 → 15.02 | 536.68 → 98.74 | 898.44 → 801.08 |
+| MariaDB | 1,000,000 | 584.59 → 44.30 | 572.14 → 24.84 | 4,311.82 → 82.60 | 6,434.44 → 4,760.39 |
+
+기존 결과당 100,000행 상한을 유지했다. 총 1,000,000행은 한 요청 안의 100,000행 결과 집합 10개이며, 단일 결과 1,000,000행이나 host 누적 응답 256MiB 초과 전송을 검증한 것이 아니다. 행 한도 뒤에도 결과를 drain해 다음 결과 집합·세션 상태를 보존하므로 서버 작업량 상한은 보장하지 않는다. 단일 큰 셀은 분할하지 않으며 기존 16MiB 프로토콜 프레임 상한을 따른다.
+
+각 rows 청크에 2ms 대기한 1,000,000 총행의 별도 실험에서 MySQL RSS/footprint는 45.14/24.02MiB, 전체 4,766.57ms였고 MariaDB는 43.58/25.17MiB, 전체 4,892.43ms였다. 총행 수에 비례해 메모리가 증가하던 수집 경로를 제거한 근거이며, release 성능·native 앱 footprint·L1 종료 뒤 +50MiB 목표 달성으로 일반화하지 않는다.
+
+[측정 하네스](../bench/mysql_stream_bench.py), [26회 원자료·중앙값·바이너리 SHA-256](../bench/results-l3-streaming.json), [검증 명세](../bench/results-l3-verification.json), [검증 로그](../bench/results-l3-validation.txt), [L3 보고서](L3_REPORT.md). 재현은 보관한 변경 전 바이너리를 `uv run --script bench/mysql_stream_bench.py --baseline <변경-전-바이너리>`에 전달한다. baseline 생략 시 같은 바이너리의 legacy/streaming 비교이며 이번 표의 별도 바이너리 비교와 구분한다.

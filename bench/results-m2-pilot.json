@@ -1,0 +1,20 @@
+{
+  "binary_sha256": "6e31d643bc3c8aff125eff33e36ea64d6d5ef847b1954eb9268d87da6dfad7a0",
+  "app": "/Users/iron/Project/psw/db-tool/target-m2/M2Probe.app",
+  "script_sha256": "37b976aa449c510089bd1cdf304a962f35d90a7bb3d2c0c1630155e0c1b35d94",
+  "r2_script_sha256": "ceae664b60ee2c64eded9684d5ad2d0cdcd9ba4f058ee5b65f88abcac631a6a0",
+  "platform": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434\n",
+  "build_profile": "dev, debug=0, probe-only",
+  "runs": [
+    {
+      "mode": "raw",
+      "config": "/private/var/folders/_p/fy8jj5b95c38w41rttwnnll40000gn/T/axdb-resource-m2-s_s68yz_",
+      "samples": [],
+      "host_pid": 96893,
+      "status": "failed",
+      "error": "",
+      "exit_verified": true
+    }
+  ],
+  "pairs": []
+}

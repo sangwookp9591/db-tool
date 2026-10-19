@@ -1,0 +1,43 @@
+{
+  "verdict": "full workbench startup + 50 MiB not achieved; experiments reverted",
+  "source_head": "77564ebc171af806d858d2dc4a7e45c049b5b298",
+  "owned_product_diff_empty": true,
+  "workspace_bins_build_exit": 0,
+  "host_cargo_test": {
+    "passed": 194,
+    "failed": 0,
+    "ignored": 7,
+    "real_db_environment": [
+      "PostgreSQL 127.0.0.1:55432",
+      "Neo4j 127.0.0.1:57687"
+    ],
+    "not_claimed": [
+      "MySQL",
+      "MongoDB",
+      "Redis",
+      "TLS",
+      "SSH",
+      "IAM",
+      "AI providers"
+    ]
+  },
+  "host_clippy_all_targets_deny_warnings_exit": 0,
+  "tsc_exit": 0,
+  "latest_ui_test": {
+    "passed": 143,
+    "failed": 1,
+    "skipped": 1,
+    "failure": "src/ui/branched-menu.test.ts:170 Archive paging timeout 5000ms",
+    "retried": false
+  },
+  "prototype_bounds_test_passed": 1,
+  "prototype_reference_test_passed": 1,
+  "patch_apply_check": true,
+  "secret_scan": {
+    "checked_files": 31,
+    "matches": 0
+  },
+  "release_gate_passed": false,
+  "actual_warn_critical_reclaim_verified": false,
+  "backup_test_side_effect_archived_and_original_restored": true
+}

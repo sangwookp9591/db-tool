@@ -1,0 +1,16 @@
+{
+  "base": "77564ebc171af806d858d2dc4a7e45c049b5b298",
+  "files": {
+    "src-tauri/src/lib.rs": "80a4ed7275f67660ede534f9264422da71e7a66ba28222f20ccdc31723ac381c",
+    "src-tauri/src/viewer_bench.rs": "59f4e9df110ec9b111fece62ed6e120f103594a8473e5f6d1f716e9a4ef497c5",
+    "ui/src/perf/app.tsx": "710bf71a2751f0246b400a7749e67f027e989e4f5521a4f60943dceb3fad2be2",
+    "ui/src/perf/resource.ts": "8efa394e21c83f7861fa03acbf04447880ab005f636896ba70a482cc453013ee",
+    "src-tauri/src/viewer_bench_m2.rs": "02d6c6728b1097b6545d12afed1777ef2bfef221fe536484b5186be28f87706a",
+    "ui/src/perf/m2.tsx": "5894e5d9cce357c81d98b0807eec7fb9dd8bd052f8f0d0dc5897dd7e57389800",
+    "ui/src/perf/m2References.ts": "5fae48e4cc9882377719c58f05c8e810a9a51ea8bc453886fef9ec35e5456fb4",
+    "ui/src/perf/m2References.test.ts": "acdc41bdfa3da72107f742c86aa4d6449bda04a365d6079443e4b2349c9c538b"
+  },
+  "patch_sha256": "456887c37faff44f45c44c8f6335a709a8e2d7775767e1365b39cefdf8f9ff1f",
+  "final_probe_sha256": "0ade68ad37bd0c6766359498c0a800bbe9a6924c7fa8333fcf16dd006374ad98",
+  "final_probe_kind": "debug=0, M2 experiments only; not a release candidate"
+}
