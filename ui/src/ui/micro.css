@@ -140,3 +140,16 @@
 }
 /* the action rail sits behind the surface; hide it (and its hit-testing/occlusion) until the row is opened */
 .swipe-row[data-open=false] > .swipe-row__actions { visibility: hidden; transition: visibility 0s linear .35s; }
+
+/* Beam nodes are tile buttons, not text buttons: the generic `.micro button:hover:enabled` text-button
+   treatment (grey slab + accent text) must not apply. Hover lifts the tile and accents only its border. */
+.micro button.integration-beam__node:hover:enabled,
+.micro button.integration-beam__node:focus-visible { background: none; border: 0; color: inherit; box-shadow: none; }
+.integration-beam__node .integration-beam__tile { transition: transform 160ms ease-out, border-color 160ms ease-out, box-shadow 160ms ease-out; }
+.integration-beam__node:hover .integration-beam__tile,
+.integration-beam__node:focus-visible .integration-beam__tile { transform: translateY(-2px); border-color: var(--accent-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-primary) 18%, transparent); }
+.integration-beam__node:focus-visible { outline: none; }
+.integration-beam__label { width: 96px; white-space: normal; overflow-wrap: anywhere; text-align: center; line-height: 1.25; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; color: var(--text-secondary); transition: color 160ms ease-out; }
+.integration-beam__node { width: 96px; }
+.integration-beam__node:hover .integration-beam__label { color: var(--text-primary); }
+@media (prefers-reduced-motion: reduce) { .integration-beam__node .integration-beam__tile { transition: none; } .integration-beam__node:hover .integration-beam__tile { transform: none; } }
