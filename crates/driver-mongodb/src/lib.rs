@@ -188,6 +188,9 @@ impl Driver for MongoDriver {
             options.server_selection_timeout = Some(timeout);
             options.retry_reads = Some(false);
             options.retry_writes = Some(false);
+            // The default 10s server monitor was the only CPU wake-up of an idle, hidden app (V1 report).
+            // A desktop session re-checks topology on use, so a 60s heartbeat is enough.
+            options.heartbeat_freq = Some(Duration::from_secs(60));
             let client = Client::with_options(options).map_err(|_| {
                 DbError::new(ErrorKind::Connection, "Invalid MongoDB connection options")
             })?;
