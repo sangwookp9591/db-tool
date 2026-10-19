@@ -8,6 +8,13 @@ python3 - "$artifact_dir" <<'PY'
 import hashlib, json, pathlib, subprocess, sys
 root = pathlib.Path(sys.argv[1])
 index = json.loads((root / 'index.json').read_text())
+v2 = json.loads((root / 'index-v2.json').read_text())
+legacy_catalog = json.loads(json.dumps(v2['catalog']))
+for driver in legacy_catalog['drivers']:
+    if not isinstance(driver.pop('icon_key', None), str):
+        raise SystemExit('Missing v2 icon key')
+if legacy_catalog != index['catalog']:
+    raise SystemExit('Catalog versions disagree')
 repo = 'sangwookp9591/db-tool'
 assets = []
 for driver in index['catalog']['drivers']:
@@ -30,5 +37,5 @@ for tag, path in assets:
 tag = 'drivers-index'
 if subprocess.run(['gh', 'release', 'view', tag, '--repo', repo], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode:
     subprocess.run(['gh', 'release', 'create', tag, '--repo', repo, '--title', 'AxDB driver catalog', '--notes', 'Signed driver catalog', '--latest=false'], check=True)
-subprocess.run(['gh', 'release', 'upload', tag, str(root / 'index.json'), '--repo', repo, '--clobber'], check=True)
+subprocess.run(['gh', 'release', 'upload', tag, str(root / 'index.json'), str(root / 'index-v2.json'), '--repo', repo, '--clobber'], check=True)
 PY

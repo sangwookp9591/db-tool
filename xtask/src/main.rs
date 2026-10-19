@@ -254,31 +254,11 @@ fn package_drivers(args: &[String]) -> Result<()> {
             );
             binaries.insert(target.clone(), data);
         }
-        let bytes = package::write_package(&manifest, &binaries, Some(&key))?;
-        // Verify our output before publishing any artifact.
-        let trusted = [package::TrustedKey {
-            public_key: key.verifying_key().to_bytes(),
-        }];
-        package::read_package(&bytes, &trusted, false)?;
-        std::fs::create_dir_all(&out)?;
-        std::fs::write(out.join(format!("{id}-{version}.axdriver")), &bytes)?;
-        catalog.drivers.push(CatalogEntry {
-            id: id.clone(),
-            icon_key: manifest.icon_key.clone(),
-            name: name.to_string(),
-            version: version.clone(),
-            description: manifest.description,
-            paradigm: manifest.paradigm,
-            homepage: manifest.homepage,
-            license: manifest.license,
-            platforms: targets.clone(),
-            url: package::package_url(&id, &version),
-            size: bytes.len() as u64,
-            sha256: package::sha256(&bytes),
-        });
+        catalog
+            .drivers
+            .push(write_driver_package(&out, manifest, &binaries, &key)?);
     }
-    let index = SignedCatalog::new(catalog, &key)?;
-    std::fs::write(out.join("index.json"), serde_json::to_vec_pretty(&index)?)?;
+    write_catalogs(&out, catalog, &key)?;
     println!(
         "Packaged drivers in {}; signing public key: {}",
         out.display(),
@@ -286,3 +266,50 @@ fn package_drivers(args: &[String]) -> Result<()> {
     );
     Ok(())
 }
+
+fn write_driver_package(
+    out: &Path,
+    manifest: Manifest,
+    binaries: &BTreeMap<String, Vec<u8>>,
+    key: &SigningKey,
+) -> Result<CatalogEntry> {
+    let bytes = package::write_package(&manifest, binaries, Some(key))?;
+    let trusted = [package::TrustedKey {
+        public_key: key.verifying_key().to_bytes(),
+    }];
+    package::read_package(&bytes, &trusted, false)?;
+    std::fs::create_dir_all(out)?;
+    std::fs::write(
+        out.join(format!("{}-{}.axdriver", manifest.id, manifest.version)),
+        &bytes,
+    )?;
+    Ok(CatalogEntry {
+        platforms: manifest.platforms.keys().cloned().collect(),
+        url: package::package_url(&manifest.id, &manifest.version),
+        id: manifest.id,
+        icon_key: manifest.icon_key,
+        name: manifest.name,
+        version: manifest.version,
+        description: manifest.description,
+        paradigm: manifest.paradigm,
+        homepage: manifest.homepage,
+        license: manifest.license,
+        size: bytes.len() as u64,
+        sha256: package::sha256(&bytes),
+    })
+}
+
+fn write_catalogs(out: &Path, mut catalog: Catalog, key: &SigningKey) -> Result<()> {
+    let v2 = SignedCatalog::new(catalog.clone(), key)?;
+    for driver in &mut catalog.drivers {
+        driver.icon_key = None;
+    }
+    let v1 = SignedCatalog::new(catalog, key)?;
+    std::fs::write(out.join("index.json"), serde_json::to_vec_pretty(&v1)?)?;
+    std::fs::write(out.join("index-v2.json"), serde_json::to_vec_pretty(&v2)?)?;
+    Ok(())
+}
+
+#[cfg(test)]
+#[path = "tests.rs"]
+mod tests;

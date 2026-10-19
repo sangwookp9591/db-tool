@@ -494,6 +494,7 @@ fn catalog_cache_latency_and_disk_tamper_invalidation() {
     let cached = CachedCatalog {
         index: SignedCatalog::new(catalog, &key).unwrap(),
         etag: Some("fixture".into()),
+        source_url: None,
     };
     let bundled = serde_json::to_vec(&cached.index).unwrap();
     assert_eq!(
@@ -635,4 +636,167 @@ async fn mysql_package_uses_generic_consent_activation_and_removal() {
         .unwrap();
     assert!(registry.manifests().is_empty());
     assert!(marker(root.path(), "mysql").unwrap().is_none());
+}
+
+#[tokio::test]
+async fn v2_catalog_fallback_is_missing_only_and_etags_are_url_scoped() {
+    use axum::{
+        extract::State,
+        http::{HeaderMap, StatusCode, Uri},
+        routing::get,
+        Router,
+    };
+    type RequestLog = Arc<Mutex<Vec<(String, Option<String>)>>>;
+    #[derive(Clone)]
+    struct Server {
+        v2_status: Arc<Mutex<StatusCode>>,
+        v2: Arc<Mutex<Vec<u8>>>,
+        v1: Vec<u8>,
+        requests: RequestLog,
+    }
+    async fn index(
+        State(state): State<Server>,
+        uri: Uri,
+        headers: HeaderMap,
+    ) -> (StatusCode, [(&'static str, &'static str); 1], Vec<u8>) {
+        let etag = headers
+            .get("if-none-match")
+            .map(|v| v.to_str().unwrap().to_owned());
+        state
+            .requests
+            .lock()
+            .unwrap()
+            .push((uri.path().into(), etag.clone()));
+        let v2 = uri.path() == "/index-v2.json";
+        let status = if v2 {
+            *state.v2_status.lock().unwrap()
+        } else {
+            StatusCode::OK
+        };
+        if status != StatusCode::OK {
+            return (status, [("etag", "\"same\"")], Vec::new());
+        }
+        if etag.as_deref() == Some("\"same\"") {
+            return (StatusCode::NOT_MODIFIED, [("etag", "\"same\"")], Vec::new());
+        }
+        (
+            StatusCode::OK,
+            [("etag", "\"same\"")],
+            if v2 {
+                state.v2.lock().unwrap().clone()
+            } else {
+                state.v1
+            },
+        )
+    }
+    let key = SigningKey::from_bytes(&[11; 32]);
+    let catalog = Catalog {
+        drivers: vec![CatalogEntry {
+            id: "mysql".into(),
+            icon_key: Some("mysql".into()),
+            name: "MySQL / MariaDB".into(),
+            version: "0.3.0".into(),
+            description: "test catalog".into(),
+            paradigm: "Relational".into(),
+            homepage: String::new(),
+            license: "MIT".into(),
+            platforms: vec![host_target().into()],
+            url: package::package_url("mysql", "0.3.0"),
+            size: 1,
+            sha256: package::sha256(b"x"),
+        }],
+    };
+    let v2 = serde_json::to_vec(&SignedCatalog::new(catalog.clone(), &key).unwrap()).unwrap();
+    let mut legacy = catalog;
+    legacy.drivers[0].icon_key = None;
+    let state = Server {
+        v2_status: Arc::new(Mutex::new(StatusCode::NOT_FOUND)),
+        v2: Arc::new(Mutex::new(v2.clone())),
+        v1: serde_json::to_vec(&SignedCatalog::new(legacy, &key).unwrap()).unwrap(),
+        requests: Arc::new(Mutex::new(Vec::new())),
+    };
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    let app = Router::new()
+        .route("/index-v2.json", get(index))
+        .route("/index.json", get(index))
+        .with_state(state.clone());
+    let server = tokio::spawn(async move {
+        axum::serve(listener, app).await.unwrap();
+    });
+    let installer = Installer {
+        client: reqwest::Client::new(),
+        allow_loopback: true,
+        keys: vec![TrustedKey {
+            public_key: key.verifying_key().to_bytes(),
+        }],
+        index_url: format!("{base}/index-v2.json"),
+        fallback_index_url: format!("{base}/index.json"),
+        ..Installer::default()
+    };
+    let root = tempfile::tempdir().unwrap();
+    installer.refresh(root.path()).await.unwrap();
+    assert!(installer.snapshot(root.path()).unwrap().drivers[0]
+        .entry
+        .icon_key
+        .is_none());
+    *state.v2_status.lock().unwrap() = StatusCode::GONE;
+    installer.refresh(root.path()).await.unwrap();
+    assert_eq!(
+        *state.requests.lock().unwrap(),
+        vec![
+            ("/index-v2.json".into(), None),
+            ("/index.json".into(), None),
+            ("/index-v2.json".into(), None),
+            ("/index.json".into(), Some("\"same\"".into())),
+        ]
+    );
+    *state.v2_status.lock().unwrap() = StatusCode::OK;
+    installer.refresh(root.path()).await.unwrap();
+    assert_eq!(state.requests.lock().unwrap().last().unwrap().1, None);
+    assert_eq!(
+        installer.snapshot(root.path()).unwrap().drivers[0]
+            .entry
+            .icon_key
+            .as_deref(),
+        Some("mysql")
+    );
+    installer.refresh(root.path()).await.unwrap();
+    assert_eq!(
+        state.requests.lock().unwrap().last().unwrap().1.as_deref(),
+        Some("\"same\"")
+    );
+    // Old caches lack source_url: refetch instead of sending their v1 ETag to v2.
+    let cache_path = root.path().join("catalog-cache.json");
+    let mut cache: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&cache_path).unwrap()).unwrap();
+    cache.as_object_mut().unwrap().remove("source_url");
+    std::fs::write(&cache_path, serde_json::to_vec(&cache).unwrap()).unwrap();
+    installer.refresh(root.path()).await.unwrap();
+    assert_eq!(state.requests.lock().unwrap().last().unwrap().1, None);
+    for (status, body) in [
+        (StatusCode::INTERNAL_SERVER_ERROR, Vec::new()),
+        (StatusCode::OK, b"invalid json".to_vec()),
+        (
+            StatusCode::OK,
+            String::from_utf8(v2)
+                .unwrap()
+                .replace("test catalog", "tampered")
+                .into_bytes(),
+        ),
+    ] {
+        *state.v2_status.lock().unwrap() = status;
+        *state.v2.lock().unwrap() = body;
+        // Force a fresh response for malformed JSON/signatures.
+        std::fs::remove_file(&cache_path).unwrap();
+        let before = state.requests.lock().unwrap().len();
+        assert!(installer.refresh(root.path()).await.is_err());
+        assert_eq!(
+            state.requests.lock().unwrap().len(),
+            before + 1,
+            "invalid v2 must not fall back"
+        );
+        std::fs::write(&cache_path, serde_json::to_vec(&cache).unwrap()).unwrap();
+    }
+    server.abort();
 }

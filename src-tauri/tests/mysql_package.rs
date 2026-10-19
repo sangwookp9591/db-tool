@@ -75,6 +75,7 @@ async fn signed_mysql_package_loads_without_host_driver_registration() {
     )
     .unwrap();
     assert!(verified.trusted);
+    assert!(verified.manifest.icon_key.is_none());
     let root = tempfile::tempdir().unwrap();
     std::fs::write(root.path().join("mysql-0.2.0.axdriver"), &bytes).unwrap();
     let staged = verified.stage(root.path(), &target).unwrap();

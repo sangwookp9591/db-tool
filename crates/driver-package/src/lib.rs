@@ -14,6 +14,8 @@ use zip::{write::SimpleFileOptions, ZipArchive, ZipWriter};
 pub const REPOSITORY: &str = "sangwookp9591/db-tool";
 pub const INDEX_URL: &str =
     "https://github.com/sangwookp9591/db-tool/releases/download/drivers-index/index.json";
+pub const INDEX_V2_URL: &str =
+    "https://github.com/sangwookp9591/db-tool/releases/download/drivers-index/index-v2.json";
 pub const MAX_PACKAGE_BYTES: u64 = 256 * 1024 * 1024;
 pub const MAX_UNPACKED_BYTES: u64 = 512 * 1024 * 1024;
 pub const TARGETS: &[&str] = &[
@@ -130,7 +132,7 @@ pub struct Platform {
 #[serde(deny_unknown_fields)]
 pub struct Manifest {
     pub id: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing)]
     pub icon_key: Option<String>,
     pub name: String,
     pub version: String,

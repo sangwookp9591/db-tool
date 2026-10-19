@@ -182,7 +182,7 @@ pub enum ErrorKind { Connection, Auth, Query, Timeout, Cancelled, Unsupported, I
 | command | 역할 |
 |---|---|
 | `drivers_list` | **설치된** 드라이버의 manifest 목록(설치 폴더와 debug 전용 `AXDB_DRIVER_DIR`) |
-| `drivers_catalog` | 캐시된 서명 목록과 설치 상태를 즉시 반환하고, 백그라운드에서 `index.json` 하나만 ETag로 갱신한 뒤 `drivers-catalog-updated` 이벤트를 보낸다 |
+| `drivers_catalog` | 캐시된 서명 목록과 설치 상태를 즉시 반환하고, 백그라운드에서 `index-v2.json`을 ETag로 갱신하고, 404/410일 때만 `index.json`으로 폴백한 뒤 `drivers-catalog-updated` 이벤트를 보낸다 |
 | `driver_install({source, allowUnverified?, onProgress})` | 카탈로그 id 또는 로컬 `.axdriver` 경로로 설치. `onProgress` 채널에 `download → verify → signature → extract → handshake → register → complete` 단계와 bytes, 전송 속도를 보낸다 |
 | `driver_update / driver_remove / driver_pick_file / driver_cancel` | 업데이트, 삭제(열린 세션이 있으면 거부), 파일 선택, 진행 중 설치 취소(커밋을 시작한 뒤에는 거부) |
 | `updater_settings / updater_configure` | 업데이트 자동 확인 토글과 건너뛴 버전(`settings.json`의 `updater`) |
@@ -217,11 +217,11 @@ pub enum ErrorKind { Connection, Auth, Query, Timeout, Cancelled, Unsupported, I
 
 - **`.axdriver`:** zip. `manifest.json`(id, name, version, protocol, description, paradigm, homepage, license, 플랫폼별 경로와 sha256), `bin/<target-triple>/<exe>`, `manifest.sig`(manifest의 Ed25519 서명). 대상 플랫폼은 `aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-pc-windows-msvc`, `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`다.
 - **신뢰:** 앱에 공식 공개 키를 내장한다(테스트와 키 교체용으로 `AXDB_OFFICIAL_DRIVER_PUBLIC_KEY`, `AXDB_PREVIOUS_DRIVER_PUBLIC_KEY`로 덮어쓸 수 있다). 서명이 없거나 알 수 없는 키인 로컬 패키지는 사용자가 명시적으로 동의해야 설치된다.
-- **레지스트리:** 서명된 단일 `index.json`을 GitHub Releases의 `drivers-index` 릴리스에 둔다. 패키지는 `drivers-<id>-v<버전>` 릴리스의 `<id>-<버전>.axdriver`다. 드라이버 릴리스는 `--latest=false`로 만들어 `releases/latest`가 앱 릴리스를 가리키게 유지한다.
-- **앱 시작 시 네트워크 호출은 없다.** 설치된 드라이버는 앱 데이터의 `drivers/<id>/<version>/`에서만 읽고, `drivers/<id>/current.json`이 활성 버전을 가리킨다. 드라이버 화면을 열면 캐시한 목록을 바로 보여 주고 `index.json` 하나만 ETag로 갱신한다.
+- **레지스트리:** GitHub Releases의 `drivers-index` 릴리스에 구버전 스키마의 `index.json`(v1)과 항목별 `icon_key`를 포함한 `index-v2.json`을 각각 같은 키로 서명해 둔다. 패키지 manifest는 v0.2.0 호환을 위해 `icon_key`를 직렬화하지 않으며, 설치 후 아이콘은 handshake의 `DriverManifest`로 전달한다. 패키지는 `drivers-<id>-v<버전>` 릴리스의 `<id>-<버전>.axdriver`다. 드라이버 릴리스는 `--latest=false`로 만들어 `releases/latest`가 앱 릴리스를 가리키게 유지한다.
+- **앱 시작 시 네트워크 호출은 없다.** 설치된 드라이버는 앱 데이터의 `drivers/<id>/<version>/`에서만 읽고, `drivers/<id>/current.json`이 활성 버전을 가리킨다. 드라이버 화면을 열면 캐시한 목록을 바로 보여 주고 `index-v2.json`을 먼저 조회하며 404/410일 때만 v1으로 폴백한다. ETag는 캐시의 원본 URL에만 보내고, 빌드 시 오프라인 스냅숏은 v2를 사용한다.
 - **설치 단계:** 다운로드 → 패키지 해시 → manifest 서명과 실행 파일 해시 → 임시 폴더에 압축 해제 → 폴더 rename(원자적) → `PluginDriver::load_cancelable` 핸드셰이크(manifest의 id·이름·paradigm 일치 확인) → 활성 표시 → Registry 등록. 활성화 전에는 기존 버전이 그대로 동작한다. 이전 버전은 롤백용으로 1개만 보관한다.
 - **한도:** 운영 환경에서는 HTTPS만 허용하고 리다이렉트 3회, 요청 90초, 패키지 256 MiB, 압축 해제 후 512 MiB, 목록 2 MiB로 제한한다. 경로 탈출, 중복·예상 밖 항목, symlink, 특수 파일은 거부한다.
-- **빌드와 서명:** `cargo xtask package-drivers`가 대상별 크로스 빌드, (macOS) Developer ID 서명·공증, 패키지, Ed25519 서명, `index.json` 생성을 맡는다. 서명 개인 키는 키체인(`axdb-driver-signing`)이나 `AXDB_DRIVER_SIGNING_KEY`로만 받는다. `scripts/publish-drivers.sh`가 검증한 산출물을 올린다.
+- **빌드와 서명:** `cargo xtask package-drivers`가 대상별 크로스 빌드, (macOS) Developer ID 서명·공증, 패키지, Ed25519 서명, `index.json`·`index-v2.json` 생성을 맡는다. 서명 개인 키는 키체인(`axdb-driver-signing`)이나 `AXDB_DRIVER_SIGNING_KEY`로만 받는다. `scripts/publish-drivers.sh`가 검증한 산출물을 올린다.
 
 ## 앱 업데이트 (`updater`)
 

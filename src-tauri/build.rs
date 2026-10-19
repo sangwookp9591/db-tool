@@ -1,6 +1,6 @@
 fn main() {
     // package-drivers emits the signed index; absent development snapshots stay empty.
-    let snapshot = std::path::Path::new("../dist/drivers/index.json");
+    let snapshot = std::path::Path::new("../dist/drivers/index-v2.json");
     println!("cargo:rerun-if-changed={}", snapshot.display());
     let bytes = match std::fs::read(snapshot) {
         Ok(bytes) => bytes,

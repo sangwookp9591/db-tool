@@ -13,7 +13,7 @@ SCRIPT = Path(__file__).with_name("publish-drivers.sh").resolve()
 
 
 class PublishTests(unittest.TestCase):
-    def run_publish(self, corrupt=False):
+    def run_publish(self, corrupt=False, mismatch=False, missing_v2=False):
         with tempfile.TemporaryDirectory(prefix="axdb-publish-test-") as directory:
             root = Path(directory)
             calls = root / "calls.jsonl"
@@ -37,6 +37,11 @@ class PublishTests(unittest.TestCase):
             if corrupt:
                 drivers[-1]["sha256"] = "0" * 64
             (root / "index.json").write_text(json.dumps({"catalog": {"drivers": drivers}}))
+            v2 = {"catalog": {"drivers": [{**driver, "icon_key": driver["id"]} for driver in drivers]}}
+            if mismatch:
+                v2["catalog"]["drivers"][0]["version"] = "9.0.0"
+            if not missing_v2:
+                (root / "index-v2.json").write_text(json.dumps(v2))
             result = subprocess.run(
                 ["bash", str(SCRIPT), str(root)], capture_output=True, text=True,
                 env={**os.environ, "PATH": str(root) + os.pathsep + os.environ["PATH"], "AXDB_TEST_GH_LOG": str(calls)},
@@ -49,6 +54,7 @@ class PublishTests(unittest.TestCase):
         uploads = [call for call in calls if call[:2] == ["release", "upload"]]
         self.assertEqual([call[2] for call in uploads], ["drivers-postgres-v1.0.0", "drivers-sqlite-v1.0.0", "drivers-index"])
         self.assertTrue(uploads[-1][3].endswith("index.json"))
+        self.assertTrue(uploads[-1][4].endswith("index-v2.json"))
         self.assertTrue(all("--clobber" not in call for call in uploads[:-1]))
         self.assertIn("--clobber", uploads[-1])
 
@@ -56,6 +62,17 @@ class PublishTests(unittest.TestCase):
         result, calls = self.run_publish(corrupt=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("integrity mismatch", result.stderr)
+        self.assertEqual(calls, [])
+
+    def test_both_catalogs_must_match_before_any_remote_call(self):
+        result, calls = self.run_publish(mismatch=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Catalog versions disagree", result.stderr)
+        self.assertEqual(calls, [])
+
+    def test_both_catalogs_must_exist_before_any_remote_call(self):
+        result, calls = self.run_publish(missing_v2=True)
+        self.assertNotEqual(result.returncode, 0)
         self.assertEqual(calls, [])
 
 

@@ -90,17 +90,21 @@ impl Progress {
 struct CachedCatalog {
     index: SignedCatalog,
     etag: Option<String>,
+    #[serde(default)]
+    source_url: Option<String>,
 }
 
 struct ValidatedCatalog {
     digest: String,
     catalog: Catalog,
     etag: Option<String>,
+    source_url: Option<String>,
 }
 pub struct Installer {
     client: reqwest::Client,
     keys: Vec<TrustedKey>,
     index_url: String,
+    fallback_index_url: String,
     #[cfg(test)]
     allow_loopback: bool,
     refreshing: AtomicBool,
@@ -121,7 +125,8 @@ impl Default for Installer {
             #[cfg(test)]
             allow_loopback: false,
             keys: package::official_keys(),
-            index_url: package::INDEX_URL.into(),
+            index_url: package::INDEX_V2_URL.into(),
+            fallback_index_url: package::INDEX_URL.into(),
             refreshing: AtomicBool::new(false),
             warning: Mutex::new(None),
             operation: tokio::sync::Mutex::new(()),
@@ -316,7 +321,7 @@ impl Installer {
         let index: SignedCatalog = serde_json::from_slice(bytes).map_err(error)?;
         index.verified(&self.keys).map_err(error)
     }
-    fn cached(&self, root: &Path) -> CommandResult<(Catalog, Option<String>)> {
+    fn cached(&self, root: &Path) -> CommandResult<(Catalog, Option<String>, Option<String>)> {
         let path = root.join("catalog-cache.json");
         if !path.try_exists().map_err(error)? {
             return Ok((
@@ -325,13 +330,18 @@ impl Installer {
                     "/driver-index.json"
                 )))?,
                 None,
+                None,
             ));
         }
         let bytes = read_limited(&path, MAX_INDEX_BYTES + 4096)?;
         let digest = package::sha256(&bytes);
         let mut validated = self.validated.lock().map_err(error)?;
         if let Some(cached) = validated.as_ref().filter(|cached| cached.digest == digest) {
-            return Ok((cached.catalog.clone(), cached.etag.clone()));
+            return Ok((
+                cached.catalog.clone(),
+                cached.etag.clone(),
+                cached.source_url.clone(),
+            ));
         }
         let cached: CachedCatalog = serde_json::from_slice(&bytes).map_err(error)?;
         let catalog = cached.index.verified(&self.keys).map_err(error)?;
@@ -339,13 +349,14 @@ impl Installer {
             digest,
             catalog: catalog.clone(),
             etag: cached.etag.clone(),
+            source_url: cached.source_url.clone(),
         });
-        Ok((catalog, cached.etag))
+        Ok((catalog, cached.etag, cached.source_url))
     }
     fn snapshot(&self, root: &Path) -> CommandResult<CatalogSnapshot> {
         let installed = installed(root)?;
         let (catalog, cache_warning) = match self.cached(root) {
-            Ok((catalog, _)) => (catalog, None),
+            Ok((catalog, _, _)) => (catalog, None),
             Err(failure) => (Catalog::default(), Some(failure.message)),
         };
         let drivers = catalog
@@ -412,13 +423,36 @@ impl Installer {
         }
         Ok(bytes)
     }
-    async fn refresh(&self, root: &Path) -> CommandResult<()> {
-        let (_, etag) = self.cached(root).unwrap_or_default();
-        let mut request = self.client.get(self.validate_url(&self.index_url)?);
-        if let Some(etag) = etag {
-            request = request.header(reqwest::header::IF_NONE_MATCH, etag);
+    async fn catalog_response(
+        &self,
+        url: &str,
+        etag: Option<&str>,
+        source_url: Option<&str>,
+    ) -> CommandResult<reqwest::Response> {
+        let mut request = self.client.get(self.validate_url(url)?);
+        // An ETag belongs to its URL; legacy caches have no URL and must refetch once.
+        if source_url == Some(url) {
+            if let Some(etag) = etag {
+                request = request.header(reqwest::header::IF_NONE_MATCH, etag);
+            }
         }
-        let response = request.send().await.map_err(error)?;
+        request.send().await.map_err(error)
+    }
+    async fn refresh(&self, root: &Path) -> CommandResult<()> {
+        let (_, etag, source_url) = self.cached(root).unwrap_or_default();
+        let mut url = &self.index_url;
+        let mut response = self
+            .catalog_response(url, etag.as_deref(), source_url.as_deref())
+            .await?;
+        if matches!(
+            response.status(),
+            reqwest::StatusCode::NOT_FOUND | reqwest::StatusCode::GONE
+        ) {
+            url = &self.fallback_index_url;
+            response = self
+                .catalog_response(url, etag.as_deref(), source_url.as_deref())
+                .await?;
+        }
         if response.status() == reqwest::StatusCode::NOT_MODIFIED {
             return Ok(());
         }
@@ -440,6 +474,7 @@ impl Installer {
         let bytes = serde_json::to_vec(&CachedCatalog {
             index,
             etag: etag.clone(),
+            source_url: Some(url.clone()),
         })
         .map_err(error)?;
         storage::write_private(&root.join("catalog-cache.json"), &bytes)?;
@@ -447,6 +482,7 @@ impl Installer {
             digest: package::sha256(&bytes),
             catalog,
             etag,
+            source_url: Some(url.clone()),
         });
         Ok(())
     }
@@ -488,7 +524,7 @@ impl Installer {
             )
         } else {
             package::validate_id(source).map_err(error)?;
-            let (mut catalog, _) = self.cached(root)?;
+            let (mut catalog, _, _) = self.cached(root)?;
             if marker(root, source)?.is_some()
                 || !catalog.drivers.iter().any(|driver| driver.id == source)
             {

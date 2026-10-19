@@ -180,31 +180,33 @@ fn cancelled_validation_and_extraction_leave_no_candidate() {
 }
 
 #[test]
-fn optional_icon_key_preserves_legacy_signatures_and_is_signed_when_present() {
+fn package_omits_icon_key_but_accepts_it_when_reading() {
     let (mut manifest, binaries, key, trusted) = fixture();
-    let legacy = serde_json::to_vec(&manifest).unwrap();
-    assert!(!String::from_utf8_lossy(&legacy).contains("icon_key"));
-    let decoded: Manifest = serde_json::from_slice(&legacy).unwrap();
-    assert!(decoded.icon_key.is_none());
-    assert_eq!(serde_json::to_vec(&decoded).unwrap(), legacy);
     manifest.icon_key = Some("sqlite".into());
-    let bytes = write_package(&manifest, &binaries, Some(&key)).unwrap();
+    let serialized = serde_json::to_vec(&manifest).unwrap();
+    assert!(!String::from_utf8_lossy(&serialized).contains("icon_key"));
+    let mut input = serde_json::from_slice::<serde_json::Value>(&serialized).unwrap();
+    input["icon_key"] = "sqlite".into();
     assert_eq!(
-        read_package(&bytes, &trusted, false)
+        serde_json::from_value::<Manifest>(input.clone())
             .unwrap()
-            .manifest
             .icon_key
             .as_deref(),
         Some("sqlite")
     );
-    let signature = sign(&serde_json::to_vec(&manifest).unwrap(), &key);
-    manifest.icon_key = Some("redis".into());
-    assert!(verify(
-        &serde_json::to_vec(&manifest).unwrap(),
-        &signature,
-        &trusted
-    )
-    .is_err());
+    input["unknown"] = true.into();
+    assert!(serde_json::from_value::<Manifest>(input).is_err());
+    let bytes = write_package(&manifest, &binaries, Some(&key)).unwrap();
+    assert!(read_package(&bytes, &trusted, false)
+        .unwrap()
+        .manifest
+        .icon_key
+        .is_none());
+}
+
+#[test]
+fn optional_catalog_icon_key_preserves_legacy_signatures_and_is_signed_when_present() {
+    let (_, _, key, trusted) = fixture();
     let entry = CatalogEntry {
         id: "sqlite".into(),
         icon_key: None,
