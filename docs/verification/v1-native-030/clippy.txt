@@ -1,0 +1,2 @@
+   Compiling axdb v0.3.0 (/Users/iron/Project/psw/db-tool/src-tauri)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 8.45s

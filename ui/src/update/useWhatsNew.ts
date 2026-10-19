@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { isMock } from '../api';
 import { onboardingStatus, shouldShowOnboarding } from '../onboarding/host';
 
-export const CURRENT_RELEASE = '0.2.0';
+export const CURRENT_RELEASE = '0.3.0';
 const SEEN_RELEASE = 'axdb.changelog.seen';
 export function useWhatsNew(ready: boolean, automatic: boolean) {
   const [open, setOpen] = useState(false);

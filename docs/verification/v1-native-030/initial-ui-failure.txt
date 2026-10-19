@@ -1,0 +1,38 @@
+
+> axdb-ui@0.3.0 test /Users/iron/Project/psw/db-tool/ui
+> vitest run
+
+
+ RUN  v5.0.4 /Users/iron/Project/psw/db-tool/ui
+
+(node:65455) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ❯ src/ui/branched-menu.test.ts (10 tests | 1 failed) 19454ms
+   ❯ sidebar explorer (mock app) (3)
+     × loads lazily, reaches the active row, and supports deep levels and the keyboard 5006ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/ui/branched-menu.test.ts > sidebar explorer (mock app) > loads lazily, reaches the active row, and supports deep levels and the keyboard
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ src/ui/branched-menu.test.ts:133:3
+    131|   });
+    132|
+    133|   it('loads lazily, reaches the active row, and supports deep levels a…
+       |   ^
+    134|     await page.getByLabel('Expand public').click();
+    135|     await page.getByLabel('Expand people').waitFor();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 37 passed | 1 skipped (39)
+      Tests  1 failed | 145 passed | 1 skipped (147)
+   Start at  01:02:12
+   Duration  36.99s (tests 80%, import 18%, worker 1%, transform 1%)
+
+    Isolate  39 workers spawned · ~1.24s startup each (spawn + environment, per file)
+             at least ~4.13s faster with isolate: false — reuses workers across files instead of one per file
+
+ ELIFECYCLE  Test failed. See above for more details.

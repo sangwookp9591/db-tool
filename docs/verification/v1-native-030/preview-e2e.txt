@@ -1,0 +1,6 @@
+PASS pg UPDATE preview shows before/after, does not commit affected=1 value unchanged (<null>)
+PASS pg DDL preview shows schema diff, does not commit diff has preview_col, column absent afterwards
+PASS pg non-rollbackable statement refused refused in notes
+PASS neo4j CREATE preview shows counters, does not commit counters=[["nodes_created",1],["nodes_deleted",0],["relationships_created",0],["relationships_deleted",0],["properties_set",1],["labels_added",1],["labels_removed",0],["indexes_added",0],["indexes_removed",0],["constraints_added",0],["constraints_removed",0],["system_updates",0]] committed nodes=0
+PASS sqlite DELETE preview, does not commit affected=10 count unchanged (100)
+5/5 passed

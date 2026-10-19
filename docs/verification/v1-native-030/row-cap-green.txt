@@ -1,0 +1,69 @@
+   Compiling axdb v0.3.0 (/Users/iron/Project/psw/db-tool/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 20.23s
+     Running unittests src/lib.rs (target-v1/debug/deps/axdb-79a40a0e18e3c7cd)
+
+running 1 test
+test agent_dispatch::tests::result_projection_preserves_aggregate_execution_cap ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 131 filtered out; finished in 0.01s
+
+     Running unittests src/main.rs (target-v1/debug/deps/axdb-f0b017a7f0872a3a)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/administration.rs (target-v1/debug/deps/administration-7defd322ed76eaf0)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests/backup_streaming.rs (target-v1/debug/deps/backup_streaming-7f0d7c318726c5a4)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests/mysql_package.rs (target-v1/debug/deps/mysql_package-e5baac1699e88bf7)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests/mysql_streaming_compat.rs (target-v1/debug/deps/mysql_streaming_compat-ebef92bde557ac7a)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests/plugin_contracts.rs (target-v1/debug/deps/plugin_contracts-344722e7a4437f7f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 40 filtered out; finished in 0.00s
+
+     Running tests/plugin_stream_bench.rs (target-v1/debug/deps/plugin_stream_bench-e8e29a395ba66270)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+     Running tests/streaming_compat.rs (target-v1/debug/deps/streaming_compat-536f534c07a75b24)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests/streaming_memory.rs (target-v1/debug/deps/streaming_memory-a212338e2f4fad08)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+     Running tests/updater_feed.rs (target-v1/debug/deps/updater_feed-24bea7e8de88d944)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+

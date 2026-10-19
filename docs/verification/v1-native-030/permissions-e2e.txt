@@ -1,0 +1,14 @@
+PASS default client preserves all connections and tools
+PASS client A filters connections and tools
+PASS forbidden tools and invisible connections fail closed
+PASS A write is rejected by database read-only transaction
+PASS A cannot request write or preview privilege
+PASS host enforces max_rows across statements
+PASS B preview returns changes and never commits
+PASS write approval shows rollback preview and denial is audited
+PASS write executes only after preview and in-app approval
+PASS revocation during approval prevents execution
+PASS read_only connection rejects UI Run and agent preview on an already open session
+PASS token rotation, expiration and revocation return 401
+PASS private hash-only store and redacted audit/logs
+13/13 permissions checks passed

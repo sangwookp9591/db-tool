@@ -1,0 +1,691 @@
+   Compiling axdb v0.3.0 (/Users/iron/Project/psw/db-tool/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 13.40s
+     Running unittests src/lib.rs (target-v1/debug/deps/axdb-79a40a0e18e3c7cd)
+
+running 132 tests
+test agent_bridge::tests::old_contract_defaults_remain_compatible ... ok
+test agent_dispatch::tests::activity_is_metadata_only_and_never_assumes_approval_on_failure ... ok
+test agent_dispatch::tests::caps_rows_documents_preview_samples_and_graph_without_dangling_edges ... ok
+test agent_dispatch::tests::context_arguments_cannot_enable_row_export ... ok
+test agent_dispatch::tests::result_page_rejects_invalid_offsets_and_limits ... ok
+test agent_bridge::tests::queues_until_ready_and_waits_again_after_reload ... ok
+test agent_bridge::tests::transport_failure_is_unavailable_but_explicit_denial_is_preserved ... ok
+test agent_bridge::tests::stopping_releases_requests_waiting_for_ready ... ok
+test agent_dispatch::tests::validates_direct_host_tool_arguments ... ok
+test assistant::oauth::tests::discovery_cannot_send_refresh_tokens_outside_openai ... ok
+test assistant::oauth::tests::refresh_rotates_atomically_and_rejects_missing_scope ... ok
+test assistant::oauth::tests::pkce_and_callback_bind_state_path_and_issued_client ... ok
+test assistant::oauth::tests::signed_id_token_checks_signature_identity_issuer_audience_expiry_and_nonce ... ok
+test assistant::operation::tests::connection_diagnosis_rejects_raw_logs_and_secrets ... ok
+test assistant::operation::tests::plan_context_cannot_include_rows_queries_errors_or_connection_fields ... ok
+test assistant::operation::tests::fixture_candidates_are_plans_only_and_cannot_forge_approval_or_connection ... ok
+test assistant::provider::tests::anthropic_tools_preserve_adaptive_thinking_without_unsupported_forced_choice ... ok
+test assistant::provider::tests::effort_mapping_rejects_unknown_models_and_omits_unsupported_parameters ... ok
+test agent_bridge::tests::missing_ready_is_unavailable_and_does_not_forward ... ok
+test assistant::provider::tests::real_anthropic_only_when_explicitly_enabled ... ok
+test assistant::provider::tests::real_openai_only_when_explicitly_enabled ... ok
+test agent_bridge::tests::http_auth_origin_protocol_and_webview_forwarding ... ok
+test assistant::oauth::tests::session_file_lock_serializes_independent_handles ... ok
+test agent_bridge::tests::discovery_is_published_on_ready_and_removed_on_reload_and_stop ... ok
+test assistant::tests::login_output_rejects_expired_and_malformed_tokens ... ok
+test agent_dispatch::tests::result_projection_preserves_aggregate_execution_cap ... ok
+test assistant::tests::nonstream_responses_normalize_text_tools_and_refusal ... ok
+test assistant::provider::tests::usage_sums_completed_response_tokens_per_provider_and_rejects_corrupt_storage ... ok
+test assistant::tests::real_anthropic_once ... ignored, Requires AXDB_TEST_ANTHROPIC=key|login (OS keychain ai:anthropic or `ant auth login`); incurs one API request
+test assistant::tests::returned_context_and_provider_context_share_pre_serialization_redaction ... ok
+test assistant::tests::provider_fixtures_parse_tools_usage_and_openai_terminal_failures ... ok
+test assistant::tests::stable_schema_prefix_and_explicit_model_effort ... ok
+test assistant::tests::sse_handles_every_byte_boundary_refusal_errors_and_truncation ... ok
+test assistant::tests::claude_login_sends_bearer_without_api_key_header ... ok
+test assistant::provider::tests::openai_http_uses_bearer_responses_tools_and_redacted_failures ... ok
+test assistant::tests::mock_http_verifies_headers_body_and_redacted_errors ... ok
+test context::tests::rows_require_consent_and_remove_sensitive_and_nested_values ... ok
+test context::tests::schema_budget_keeps_focus_first_and_utf8_intact ... ok
+test context::tests::run_context_is_bounded_and_cannot_contain_result_rows ... ok
+test agent_bridge::results::tests::caps_owner_lru_ttl_cleanup_and_huge_utf8 ... ok
+test driver_install::tests::catalog_cache_latency_and_disk_tamper_invalidation ... ok
+test driver_install::tests::download_limit_checks_headers_and_streamed_bytes ... ok
+test driver_install::tests::http_catalog_install_handshake_rollback_update_remove ... ignored, set AXDB_PACKAGE_TEST_BINARY to a built axdb-driver-example-kv executable
+test driver_install::tests::local_artifacts_reject_named_pipes_before_opening ... ok
+test driver_install::tests::mysql_package_uses_generic_consent_activation_and_removal ... ok
+test agent_bridge::results::tests::byte_budget_evicts_and_client_cleanup_drops_entries ... ok
+test driver_install::tests::resource_bench_install_signed_packages ... ignored, resource harness only: set AXDB_RESOURCE_INSTALL_ROOT and AXDB_RESOURCE_INSTALL_PACKAGES
+test driver_install::tests::transport_and_markers_reject_untrusted_paths ... ok
+test driver_install::tests::unsigned_requires_consent_and_bad_handshake_never_registers ... ok
+test driver_install::tests::v2_catalog_fallback_is_missing_only_and_etags_are_url_scoped ... ok
+test editor::tests::formatting_is_parseable_and_rejects_injection_identifiers_by_quoting ... ok
+test editor::tests::lint_walks_ctes_and_preserves_literal_boundaries ... ok
+test editor::tests::refactors_use_original_utf16_spans_and_do_not_touch_strings ... ok
+test driver_install::tests::progress_channel_coalesces_and_never_exceeds_ten_hz ... ok
+test assistant::tests::gui_login_drives_ant_prompt_and_submits_code ... ok
+test export::tests::only_dialog_grants_allow_one_write_to_the_selected_path ... ok
+test management::administration::tests::archive_roundtrip_and_tamper_rejection ... ok
+test edits::tests::host_rejects_read_only_and_unsupported_edits ... ok
+test management::import::tests::conversion_errors_keep_original_source_line_numbers ... ok
+test management::import::tests::json_empty_strings_and_large_integers_are_preserved ... ok
+test management::import::tests::json_numbers_and_nested_json_keep_source_precision ... ok
+test management::import::tests::json_union_samples_and_row_cap ... ok
+test management::import::tests::quoted_csv_and_mapping_errors ... ok
+test assistant::operation::tests::real_sqlite_context_and_tool_fixture_never_leak_rows_or_apply_ddl ... ok
+test context::tests::sqlite_empty_context_explains_missing_metadata ... ok
+test management::migration::tests::formats_and_transaction_escape ... ok
+test context::tests::sqlite_real_context ... ok
+test management::import::xlsx_tests::xlsx_streaming_and_sparse_dimension_limit ... ok
+test management::tests::snapshot_file_roundtrip_and_version_rejection ... ok
+test management::migration::tests::folder_scan_orders_versions_and_rejects_duplicates ... ok
+test net::iam::tests::expires_before_server_deadline ... ok
+test net::iam::tests::official_aws_presigned_s3_vector ... ok
+test net::iam::tests::rds_encoding_and_session_token ... ok
+test net::model::tests::defaults_and_secrets_boundary ... ok
+test net::parse::tests::parses_ssh_config_without_executing_commands ... ok
+test net::parse::tests::parses_supported_inputs_and_removes_secrets ... ok
+test net::parse::tests::rejects_invalid_ports_and_non_postgres_psql_targets ... ok
+test net::proxy::tests::http_leaves_coalesced_payload_and_handles_rejection ... ok
+test net::iam::tests::region_uses_profile_then_rds_endpoint_with_explicit_override ... ok
+test net::proxy::tests::socks_rejects_auth_downgrade ... ok
+test net::ssh::tests::refuses_readable_private_key ... ok
+test net::tests::confirmation_is_single_use_and_reject_cannot_pin ... ok
+test net::tests::failure_keeps_network_stage_and_is_emitted_once ... ok
+test net::tests::legacy_profile_defaults_and_unknown_secret_rejected ... ok
+test net::ssh::tests::pins_host_keys_and_rejects_changes ... ok
+test edits::tests::host_requires_matching_fresh_single_use_edit_preview ... ok
+test management::administration::tests::restore_requires_exact_one_use_preview_human_approval_and_name ... ok
+test management::tests::import_approval_is_bound_single_use_and_history_has_no_values ... ok
+test net::tests::route_connects_and_rewrite_retains_destination_name ... ok
+test net::tls::tests::offload_removes_only_transport_tls_options ... ok
+test onboarding::tests::completion_preserves_settings_and_rejects_corruption ... ok
+test onboarding::tests::stopped_bridge_never_returns_config ... ok
+test management::tests::migration_preview_approval_history_and_destructive_confirmation ... ok
+test permissions::tests::full_permission_matrix ... ok
+test permissions::tests::legacy_profile_defaults_to_read_write ... ok
+test permissions::tests::legacy_clients_default_to_bounded_model_results ... ok
+test permissions::tests::tokens_are_salted_private_rotatable_revocable_and_expiring ... ok
+test context::tests::postgres_real_context ... ok
+test context::tests::neo4j_real_context ... ok
+test net::tests::real_connection_stages_and_redacted_auth_failure ... ok
+test plugin_host::tests::idle_shutdown_protects_live_sessions_invalidates_stale_deadlines_and_reaps ... ok
+test plugin_host::tests::only_bounded_backup_chunks_bypass_the_aggregate_response_budget ... ok
+test plugin_host::tests::result_memory_budget_rejects_overflow ... ok
+test plugin_host::tests::stderr_redacts_overlapping_and_multiline_secrets ... ok
+test agent_bridge::results_e2e::real_pg_http_caps_pages_scope_and_revocation ... ok
+test star::tests::usage_age_snooze_and_two_prompt_limit ... ok
+test plugin_host::tests::multiplexes_sessions_and_restarts_after_crash_without_replaying_old_sessions ... ok
+test star::tests::usage_preserves_settings_and_rejects_corruption ... ok
+test storage::tests::legacy_history_defaults_to_execution_kind ... ok
+test storage::tests::log_permissions_are_private_for_new_and_existing_files ... ok
+test star::tests::click_snooze_and_cached_count_preserve_other_settings_without_network ... ok
+test storage::tests::real_os_keychain_roundtrip ... ignored
+test stream::tests::live_channel_keeps_event_order_and_rejects_incomplete_or_oversized_rows ... ok
+test stream::tests::packs_exact_and_mixed_cells ... ok
+test stream::tests::pending_metadata_requires_matching_end_before_completion ... ok
+test context::tests::mongodb_real_context ... ok
+test storage::tests::deletes_only_matching_history_and_preserves_invalid_files ... ok
+test tests::file_logging_excludes_database_notices ... ok
+test storage::tests::profile_secrets_and_atomic_files ... ok
+test tests::client_crud_rotation_and_private_audit_commands ... ok
+test updater::tests::automation_is_never_automatic ... ok
+test updater::tests::preferences_preserve_other_settings_and_corruption ... ok
+test viewer_bench::timing_tests::records_drop_on_error_without_logging_values ... ok
+test tests::timeout_waits_for_cancel_and_redacts_history ... ok
+test plugin_host::tests::cancelling_handshake_reaps_probe_before_returning ... ok
+test tests::read_only_mode_updates_open_sessions_and_approvals_are_bound_and_single_use ... ok
+test plugin_host::tests::cancellation_propagates_and_large_results_reassemble ... ok
+test net::tests::real_tunnel_verifies_tls_name_and_cancels_over_tls ... ok
+test tests::real_host_commands ... ok
+test net::tests::real_ssh_reconnects_without_replaying_database_work ... ok
+test plugin_host::tests::incompatible_protocol_is_rejected_and_silent_handshake_is_bounded ... ok
+test net::tests::real_test_databases_via_ssh_key_password_jumps_and_proxies ... ok
+
+test result: ok. 128 passed; 0 failed; 4 ignored; 0 measured; 0 filtered out; finished in 15.79s
+
+     Running unittests src/main.rs (target-v1/debug/deps/axdb-f0b017a7f0872a3a)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/administration.rs (target-v1/debug/deps/administration-7defd322ed76eaf0)
+
+running 5 tests
+test admin_neo4j_roundtrip_and_community_reason ... ok
+test admin_redis_atomic_import_and_acl_no_secrets ... ok
+test admin_sqlite_backup_restore_and_cancel ... ok
+test admin_mongo_roundtrip_indexes_and_roles ... ok
+test admin_pg_roundtrip_roles_copy_progress ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.74s
+
+     Running tests/backup_streaming.rs (target-v1/debug/deps/backup_streaming-7f0d7c318726c5a4)
+
+running 4 tests
+test streaming_neo4j_empty_target_and_community_guidance ... ok
+test streaming_mongo_new_database_preserves_existing_target ... ok
+test streaming_sqlite_file_cancel_and_tamper ... ok
+test streaming_pg_large_objects_and_memory has been running for over 60 seconds
+test streaming_pg_large_objects_and_memory ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 75.87s
+
+     Running tests/mysql_package.rs (target-v1/debug/deps/mysql_package-e5baac1699e88bf7)
+
+running 2 tests
+test mysql_100k_plugin_measurement ... ignored, manual MySQL 100k measurement after R2 quiet window; requires both test flags
+test signed_mysql_package_loads_without_host_driver_registration ... ok
+
+test result: ok. 1 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 22.52s
+
+     Running tests/mysql_streaming_compat.rs (target-v1/debug/deps/mysql_streaming_compat-ebef92bde557ac7a)
+
+running 8 tests
+test new_host_keeps_pre_stream_mysql_driver_fallback ... ok
+test old::tests::invalid_and_partial_frames_fail ... ok
+test old::tests::cancellation_frame_roundtrip ... ok
+test old::tests::legacy_start_defaults_to_reassembly_and_ambiguous_envelopes_fail ... ok
+test old::tests::fragmented_and_consecutive_frames ... ok
+test mariadb_plugin_stream_and_old_host_codec ... ok
+test mysql_plugin_stream_and_old_host_codec ... ok
+test old::tests::typed_large_result_roundtrip_and_order_validation ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.59s
+
+     Running tests/plugin_contracts.rs (target-v1/debug/deps/plugin_contracts-344722e7a4437f7f)
+
+running 40 tests
+test mysql_contract::mysql_tls_authentication_and_validation ... ok
+test neo4j::schema_graph_and_filtered_browse ... ok
+test neo4j_explain::explain_and_profile_return_plans_and_rollback ... ok
+test mongo_explain::explain_reads_only_and_exposes_execution_stats ... ok
+test mongo_management::snapshot_indexes_and_standalone_import_refusal ... ok
+test neo4j_management::import_rollback_commit_and_schema ... ok
+test postgres::c2_binary_edit_binds_and_reads_bytea ... ok
+test postgres::c2_bound_edits_preview_apply_conflicts_and_catalog ... ok
+test postgres::c2_nested_multirow_conflict_and_interruption ... ok
+test mongo_schema::real_mongodb_schema_graph ... ok
+test neo4j::real_neo4j_contract ... ok
+test mongo::real_mongodb_contract ... ok
+test postgres::read_only_execution_is_enforced_and_cleans_up ... ok
+test postgres::schema_graph_and_filtered_browse ... ok
+test postgres::change_preview_rolls_back_rows_schema_and_preserves_user_transaction ... ok
+test postgres_explain::explain_analyze_rolls_back_writes_and_recovers_from_errors ... ok
+test sqlite::c2_binary_edit_keeps_blob_storage_and_exact_bytes ... ok
+test sqlite::c2_bound_edits_preview_apply_conflicts_and_catalog ... ok
+test sqlite::c2_multirow_conflict_and_timeout_rollback ... ok
+test sqlite::c2_quotes_catalog_identifiers_and_avoids_temp_shadowing ... ok
+test postgres_management::atomic_import_snapshot_and_migration ... ok
+test sqlite::dropping_session_releases_uncommitted_write_lock ... ok
+test sqlite::change_preview_rolls_back_rows_schema_and_interruptions ... ok
+test sqlite::parser_and_readonly_cleanup_after_timeout ... ok
+test redis_contract::real_server_contract ... ok
+test sqlite::schema_graph_and_filtered_browse ... ok
+test sqlite::special_reals_are_json_serializable ... ok
+test sqlite::readonly_cannot_be_disabled_and_is_restored ... ok
+test sqlite::values_limits_errors_and_explorer ... ok
+test postgres::change_preview_ignores_concurrent_ddl_from_other_sessions ... ok
+test sqlite_explain::query_plan_is_a_tree_and_never_executes_dml ... ok
+test sqlite::queued_timeout_and_precancel_do_not_interrupt_next_run ... ok
+test sqlite_management::atomic_import_snapshot_and_migration ... ok
+test postgres::real_postgres_contract ... ok
+test sqlite::timeout_cancel_and_session_reuse ... ok
+test postgres::cancellation_races_do_not_poison_next_query ... ok
+test mongo_schema::real_mongodb_schema_collection_limit ... ok
+test neo4j::change_preview_rolls_back_graph_writes_and_interruptions ... ok
+test mysql_contract::mariadb_contract ... ok
+test mysql_contract::mysql_contract ... ok
+
+test result: ok. 40 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.07s
+
+     Running tests/plugin_stream_bench.rs (target-v1/debug/deps/plugin_stream_bench-e8e29a395ba66270)
+
+running 1 test
+test paired_ui_channel_benchmark ... ignored, manual performance measurement requires isolated PostgreSQL and built plugin
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/streaming_compat.rs (target-v1/debug/deps/streaming_compat-536f534c07a75b24)
+
+running 8 tests
+test new_host_old_driver_uses_capability_fallback ... ok
+test old::tests::invalid_and_partial_frames_fail ... ok
+test old::tests::cancellation_frame_roundtrip ... ok
+test old::tests::legacy_start_defaults_to_reassembly_and_ambiguous_envelopes_fail ... ok
+test old::tests::fragmented_and_consecutive_frames ... ok
+test old_host_codec_new_driver_keeps_legacy_chunks ... ok
+test new_host_new_driver_updates_pending_metadata ... ok
+test old::tests::typed_large_result_roundtrip_and_order_validation ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.58s
+
+     Running tests/streaming_memory.rs (target-v1/debug/deps/streaming_memory-a212338e2f4fad08)
+
+running 1 test
+test driver_streaming_memory_benchmark ... ignored, manual real PostgreSQL performance run
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/updater_feed.rs (target-v1/debug/deps/updater_feed-24bea7e8de88d944)
+
+running 1 test
+test older_runtime_detects_local_feed_without_downloading_or_installing ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/lib.rs (target-v1/debug/deps/axdb_driver_package-f81928403efecf9b)
+
+running 8 tests
+test tests::catalog_signature_cannot_be_bypassed_or_tampered ... ok
+test tests::optional_catalog_icon_key_preserves_legacy_signatures_and_is_signed_when_present ... ok
+test tests::package_omits_icon_key_but_accepts_it_when_reading ... ok
+test tests::zip_slip_and_links_rejected ... ok
+test tests::signed_manifest_rejects_tampered_executable ... ok
+test tests::strict_signatures_and_consent ... ok
+test tests::cancelled_validation_and_extraction_leave_no_candidate ... ok
+test tests::atomic_stage_rolls_back_and_preserves_previous ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running unittests src/lib.rs (target-v1/debug/deps/axdb_driver_protocol-768c539e7df952b3)
+
+running 7 tests
+test tests::invalid_and_partial_frames_fail ... ok
+test tests::cancellation_frame_roundtrip ... ok
+test tests::legacy_start_defaults_to_reassembly_and_ambiguous_envelopes_fail ... ok
+test tests::unknown_optional_methods_decode_without_closing_transport ... ok
+test tests::fragmented_and_consecutive_frames ... ok
+test tests::backup_restore_request_preserves_binary_through_request_envelope ... ok
+test tests::typed_large_result_roundtrip_and_order_validation ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.56s
+
+     Running unittests src/lib.rs (target-v1/debug/deps/axdb_driver_sdk-49617285b28abd05)
+
+running 2 tests
+test tests::incremental_sink_backpressures_at_eight_frames_and_propagates_closed_receiver ... ok
+test tests::oversized_batch_splits_without_losing_order ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
+
+     Running unittests src/lib.rs (target-v1/debug/deps/dbcore-c7ee7a81dc2f53d6)
+
+running 10 tests
+test preview::tests::plans_respect_comments_quotes_nested_keywords_and_unsafe_controls ... ok
+test explain::tests::mongo_aggregation_preserves_cursor_and_pipeline_stages ... ok
+test explain::tests::estimates_and_nested_plans ... ok
+test filter::tests::keys_are_exact_and_cannot_inject_sql ... ok
+test workbench::tests::duplicate_objects_and_cross_dialect_rejected ... ok
+test workbench::tests::changes_are_destructive_and_identifiers_quoted ... ok
+test workbench::tests::new_import_table_types_are_allowlisted ... ok
+test workbench::tests::sqlite_columns_and_postgres_constraints_render_without_table_rebuilds ... ok
+test explain::tests::old_capabilities_default_editor_extensions_off ... ok
+test edits::tests::additive_contract_defaults_and_roundtrip ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/contract.rs (target-v1/debug/deps/contract-6bcd0c30fc0a8b25)
+
+running 4 tests
+test debug_never_exposes_secrets ... ok
+test values_preserve_tags_and_precision ... ok
+test viewer_contract_defaults_are_additive ... ok
+test preview_contract_is_additive_and_defaults_to_no_support ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target-v1/debug/deps/driver_example_kv-ec11bf48e1346b8f)
+
+running 1 test
+test tests::commands_and_capabilities ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/axdb-driver-example-kv.rs (target-v1/debug/deps/axdb_driver_example_kv-55657d7567c781ce)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target-v1/debug/deps/driver_mongodb-e6180b4e82b75e98)
+
+running 6 tests
+test tests::table_unions_sampled_fields_and_pads_missing_values ... ok
+test tests::read_only_fails_closed_for_commands_and_nested_write_stages ... ok
+test tests::maps_bson_without_precision_or_field_order_loss ... ok
+test tests::parses_one_extended_json_command_and_rejects_shell_and_duplicates ... ok
+test schema::tests::infers_nested_unions_nullable_fields_and_references ... ok
+test schema::tests::dbrefs_respect_database_and_reference_sample_limit ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/axdb-driver-mongodb.rs (target-v1/debug/deps/axdb_driver_mongodb-2155ed048a7c8692)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/explain.rs (target-v1/debug/deps/explain-e393b871ffb8a822)
+
+running 1 test
+test explain_reads_only_and_exposes_execution_stats ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+     Running tests/management.rs (target-v1/debug/deps/management-1573f015fa48046b)
+
+running 1 test
+test snapshot_indexes_and_standalone_import_refusal ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+     Running tests/mongodb.rs (target-v1/debug/deps/mongodb-dde3baca7fa5c744)
+
+running 1 test
+test real_mongodb_contract ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.93s
+
+     Running tests/schema.rs (target-v1/debug/deps/schema-b5b270544cf7ca70)
+
+running 2 tests
+test real_mongodb_schema_graph ... ok
+test real_mongodb_schema_collection_limit ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.35s
+
+     Running tests/tls.rs (target-v1/debug/deps/tls-20e08f66f8b725f4)
+
+running 1 test
+test real_mongodb_tls_modes ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target-v1/debug/deps/driver_mysql-b00bd123fc55e3ce)
+
+running 8 tests
+test value::tests::decimal_filters_never_round_to_the_column_scale ... ok
+test value::tests::precision_and_boundary_validation ... ok
+test management::tests::normalizes_mysql_and_maria_plans ... ok
+test value::tests::old_driver_manifest_without_icon_key_deserializes ... ok
+test catalog::tests::snapshots_exclude_only_the_volatile_auto_increment_counter ... ok
+test management::tests::edit_operators_do_not_rewrite_quoted_identifiers ... ok
+test management::tests::mysql_ddl_keeps_column_attributes_and_never_rebuilds_tables ... ok
+test management::tests::protected_sql_rejects_implicit_commit_and_external_effects ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/axdb-driver-mysql.rs (target-v1/debug/deps/axdb_driver_mysql-984db649747b9c9c)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/mysql.rs (target-v1/debug/deps/mysql-0d2eacd4633824db)
+
+running 3 tests
+test mysql_tls_authentication_and_validation ... ok
+test mariadb_contract ... ok
+test mysql_contract ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.80s
+
+     Running tests/streaming.rs (target-v1/debug/deps/streaming-e301cf634d4c37e8)
+
+running 4 tests
+test mariadb_incremental_contract ... ok
+test mysql_incremental_contract ... ok
+test mariadb_incremental_interruptions ... ok
+test mysql_incremental_interruptions ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.01s
+
+     Running unittests src/lib.rs (target-v1/debug/deps/driver_neo4j-5fc841d077bce0be)
+
+running 5 tests
+test server_info_tests::extracts_version_from_nested_component_values ... ok
+test explorer::tests::escapes_identifiers ... ok
+test server_info_tests::result_title_caps_at_80_chars_with_ellipsis ... ok
+test value::tests::integer_precision_and_duration ... ok
+test value::tests::bytes_special_float_and_graph_limits ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/axdb-driver-neo4j.rs (target-v1/debug/deps/axdb_driver_neo4j-ab7170c3cda1f9f2)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/explain.rs (target-v1/debug/deps/explain-06b4d5fc2b16b14c)
+
+running 1 test
+test explain_and_profile_return_plans_and_rollback ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/management.rs (target-v1/debug/deps/management-ceed629945c80b80)
+
+running 1 test
+test import_rollback_commit_and_schema ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+     Running tests/neo4j.rs (target-v1/debug/deps/neo4j-c517b2a68c18adbf)
+
+running 3 tests
+test schema_graph_and_filtered_browse ... ok
+test real_neo4j_contract ... ok
+test change_preview_rolls_back_graph_writes_and_interruptions ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.26s
+
+     Running tests/tls.rs (target-v1/debug/deps/tls-4ecdf3a136f20916)
+
+running 1 test
+test real_neo4j_tls_modes ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target-v1/debug/deps/driver_postgres-a187b5b73f513f3e)
+
+running 4 tests
+test split::tests::rejects_unterminated_input_before_any_execution ... ok
+test split::tests::postgres_quotes_comments_and_unicode ... ok
+test tests::quotes_identifiers_and_types ... ok
+test tests::result_title_caps_at_80_chars_with_ellipsis ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/axdb-driver-postgres.rs (target-v1/debug/deps/axdb_driver_postgres-3e74c45e78cf2e41)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/explain.rs (target-v1/debug/deps/explain-767d45046a8e6429)
+
+running 1 test
+test explain_analyze_rolls_back_writes_and_recovers_from_errors ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s
+
+     Running tests/management.rs (target-v1/debug/deps/management-f6697fc71dc42a87)
+
+running 1 test
+test atomic_import_snapshot_and_migration ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+     Running tests/postgres.rs (target-v1/debug/deps/postgres-bbb4e1913c55d1d0)
+
+running 9 tests
+test c2_binary_edit_binds_and_reads_bytea ... ok
+test schema_graph_and_filtered_browse ... ok
+test c2_bound_edits_preview_apply_conflicts_and_catalog ... ok
+test read_only_execution_is_enforced_and_cleans_up ... ok
+test c2_nested_multirow_conflict_and_interruption ... ok
+test change_preview_rolls_back_rows_schema_and_preserves_user_transaction ... ok
+test change_preview_ignores_concurrent_ddl_from_other_sessions ... ok
+test real_postgres_contract ... ok
+test cancellation_races_do_not_poison_next_query ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.08s
+
+     Running tests/streaming.rs (target-v1/debug/deps/streaming-c7823df7d6fce77a)
+
+running 2 tests
+test real_incremental_limits_metadata_precision_and_multi_result ... ok
+test real_incremental_cancel_timeout_and_session_reuse ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.87s
+
+     Running tests/tls.rs (target-v1/debug/deps/tls-81adbaadd49027c7)
+
+running 1 test
+test real_postgres_tls_modes ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target-v1/debug/deps/driver_redis-fff28f7368fc47f3)
+
+running 2 tests
+test tests::tokenizer_parameters_and_capabilities ... ok
+test tests::invalid_settings_do_not_expose_credentials ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/axdb-driver-redis.rs (target-v1/debug/deps/axdb_driver_redis-93e6c16f866c72ba)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/redis.rs (target-v1/debug/deps/redis-4afcb93f6e941288)
+
+running 1 test
+test real_server_contract ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s
+
+     Running unittests src/lib.rs (target-v1/debug/deps/driver_sqlite-c1d9e5be6e090ede)
+
+running 1 test
+test tests::result_title_caps_at_80_chars_with_ellipsis ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/axdb-driver-sqlite.rs (target-v1/debug/deps/axdb_driver_sqlite-5c0352fd9fad4a30)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/explain.rs (target-v1/debug/deps/explain-d4e44579431eae29)
+
+running 1 test
+test query_plan_is_a_tree_and_never_executes_dml ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/management.rs (target-v1/debug/deps/management-2d26d81bde4897b1)
+
+running 1 test
+test atomic_import_snapshot_and_migration ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/sqlite.rs (target-v1/debug/deps/sqlite-78bf76aef070b373)
+
+running 13 tests
+test c2_binary_edit_keeps_blob_storage_and_exact_bytes ... ok
+test dropping_session_releases_uncommitted_write_lock ... ok
+test c2_quotes_catalog_identifiers_and_avoids_temp_shadowing ... ok
+test readonly_cannot_be_disabled_and_is_restored ... ok
+test special_reals_are_json_serializable ... ok
+test schema_graph_and_filtered_browse ... ok
+test values_limits_errors_and_explorer ... ok
+test c2_bound_edits_preview_apply_conflicts_and_catalog ... ok
+test c2_multirow_conflict_and_timeout_rollback ... ok
+test parser_and_readonly_cleanup_after_timeout ... ok
+test change_preview_rolls_back_rows_schema_and_interruptions ... ok
+test queued_timeout_and_precancel_do_not_interrupt_next_run ... ok
+test timeout_cancel_and_session_reuse ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.48s
+
+     Running unittests src/main.rs (target-v1/debug/deps/xtask-ddff1bdbfd891ec0)
+
+running 1 test
+test tests::generated_artifacts_are_installable_by_v0_2_0 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+   Doc-tests axdb
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests axdb_driver_package
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests axdb_driver_protocol
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests axdb_driver_sdk
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests dbcore
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests driver_example_kv
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests driver_mongodb
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests driver_mysql
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests driver_neo4j
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests driver_postgres
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests driver_redis
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests driver_sqlite
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

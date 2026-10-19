@@ -438,6 +438,7 @@ async fn dispatch_inner(shared: &Shared, client: &AgentClient, method: &str, par
 }
 pub(crate) fn limit_result(host: &Host, client: &AgentClient, tool: &str, args: &Value, profile: Option<&str>, mut result: Value) -> Value {
     if result.get("results").is_some() && args["session_id"].as_str().is_some_and(|s|host.session(s).is_err()) { return permissions::error("NotFound"); }
+    bound(&mut result, client.max_rows.clamp(1,1000) as usize);
     let mut limited = crate::agent_bridge::results::project(&result, 0, client.max_result_rows.clamp(1,1000) as usize, client.max_result_bytes.clamp(8192,1024*1024));
     if limited["truncated"] == true {
         if let (Some(session), Some(profile)) = (args["session_id"].as_str(), profile) {
@@ -645,6 +646,25 @@ pub fn bound(value: &mut Value, limit: usize) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn result_projection_preserves_aggregate_execution_cap() {
+        let directory = tempfile::tempdir().unwrap();
+        let host = Host::new(storage::Paths {
+            config: directory.path().into(),
+            data: directory.path().into(),
+            log: directory.path().into(),
+        });
+        permissions::migrate_local(directory.path(), "v1-test-only").unwrap();
+        let mut client = permissions::authenticate(directory.path(), "v1-test-only")
+            .unwrap().unwrap();
+        client.max_rows = 3;
+        let result = limit_result(&host, &client, "run_query", &json!({}), None,
+            json!({"results":[{"table":{"rows":[[1],[2],[3]]}}, {"table":{"rows":[[4],[5],[6]]}}]}));
+        assert_eq!(result["results"][0]["table"]["rows"], json!([[1],[2],[3]]));
+        assert_eq!(result["results"][1]["table"]["rows"], json!([]));
+        assert_eq!(result["results"][1]["truncated"], true);
+    }
+
     #[test]
     fn result_page_rejects_invalid_offsets_and_limits() {
         let valid=serde_json::json!({"session_id":"s","result_id":"r","offset":0,"byte_offset":0,"limit":200});

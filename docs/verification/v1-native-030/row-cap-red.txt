@@ -1,0 +1,27 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on artifact directory
+   Compiling axdb v0.3.0 (/Users/iron/Project/psw/db-tool/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2m 12s
+     Running unittests src/lib.rs (target-v1/debug/deps/axdb-79a40a0e18e3c7cd)
+
+running 1 test
+test agent_dispatch::tests::result_projection_preserves_aggregate_execution_cap ... FAILED
+
+failures:
+
+---- agent_dispatch::tests::result_projection_preserves_aggregate_execution_cap stdout ----
+
+thread 'agent_dispatch::tests::result_projection_preserves_aggregate_execution_cap' (7153719) panicked at src-tauri/src/agent_dispatch.rs:663:9:
+assertion `left == right` failed
+  left: Array [Array [Number(4)], Array [Number(5)], Array [Number(6)]]
+ right: Array []
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    agent_dispatch::tests::result_projection_preserves_aggregate_execution_cap
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 131 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `-p axdb --lib`

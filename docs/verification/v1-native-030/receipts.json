@@ -1,0 +1,659 @@
+{
+  "restore": {
+    "status": "PASS",
+    "database": "axdb_test_v1_restored_030",
+    "manifest": {
+      "version": 2,
+      "format": "postgres-copy-v2",
+      "sha256": "366c9eb09fb13cae24904684eb066ebaa5f9af3c06545e918abf214d3a82eca7",
+      "bytes": 706,
+      "counts": [
+        [
+          "\"public\".\"v1_import_030\"",
+          2
+        ],
+        [
+          "\"public\".\"v1_people\"",
+          2
+        ]
+      ],
+      "warnings": []
+    },
+    "originalRows": 2,
+    "importedRows": 2,
+    "unapprovedRejected": true
+  },
+  "ssh": {
+    "tested": "PostgreSQL 16.15 on aarch64-unknown-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+    "events": [
+      {
+        "event": "stage",
+        "stage": "dns",
+        "status": "running",
+        "elapsed_ms": 0,
+        "code": null,
+        "help_key": null
+      },
+      {
+        "event": "stage",
+        "stage": "dns",
+        "status": "passed",
+        "elapsed_ms": 0,
+        "code": null,
+        "help_key": null
+      },
+      {
+        "event": "stage",
+        "stage": "ssh",
+        "status": "running",
+        "elapsed_ms": 0,
+        "code": null,
+        "help_key": null
+      },
+      {
+        "event": "stage",
+        "stage": "ssh",
+        "status": "passed",
+        "elapsed_ms": 40,
+        "code": null,
+        "help_key": null
+      },
+      {
+        "event": "stage",
+        "stage": "tunnel",
+        "status": "running",
+        "elapsed_ms": 0,
+        "code": null,
+        "help_key": null
+      },
+      {
+        "event": "stage",
+        "stage": "tunnel",
+        "status": "passed",
+        "elapsed_ms": 2,
+        "code": null,
+        "help_key": null
+      },
+      {
+        "event": "stage",
+        "stage": "tls",
+        "status": "skipped",
+        "elapsed_ms": 0,
+        "code": null,
+        "help_key": null
+      },
+      {
+        "event": "stage",
+        "stage": "db_auth",
+        "status": "running",
+        "elapsed_ms": 0,
+        "code": null,
+        "help_key": null
+      },
+      {
+        "event": "stage",
+        "stage": "db_auth",
+        "status": "passed",
+        "elapsed_ms": 66,
+        "code": null,
+        "help_key": null
+      },
+      {
+        "event": "stage",
+        "stage": "permissions",
+        "status": "running",
+        "elapsed_ms": 0,
+        "code": null,
+        "help_key": null
+      },
+      {
+        "event": "stage",
+        "stage": "permissions",
+        "status": "passed",
+        "elapsed_ms": 8,
+        "code": null,
+        "help_key": null
+      }
+    ],
+    "connected": true
+  },
+  "socks": {
+    "status": "PASS",
+    "tested": "PostgreSQL 16.15 on aarch64-unknown-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+    "events": [
+      {
+        "event": "stage",
+        "stage": "dns",
+        "status": "running",
+        "elapsed_ms": 0,
+        "code": null,
+        "help_key": null
+      },
+      {
+        "event": "stage",
+        "stage": "dns",
+        "status": "passed",
+        "elapsed_ms": 0,
+        "code": null,
+        "help_key": null
+      },
+      {
+        "event": "stage",
+        "stage": "ssh",
+        "status": "running",
+        "elapsed_ms": 0,
+        "code": null,
+        "help_key": null
+      },
+      {
+        "event": "stage",
+        "stage": "ssh",
+        "status": "skipped",
+        "elapsed_ms": 0,
+        "code": null,
+        "help_key": null
+      },
+      {
+        "event": "stage",
+        "stage": "tunnel",
+        "status": "running",
+        "elapsed_ms": 0,
+        "code": null,
+        "help_key": null
+      },
+      {
+        "event": "stage",
+        "stage": "tunnel",
+        "status": "passed",
+        "elapsed_ms": 81,
+        "code": null,
+        "help_key": null
+      },
+      {
+        "event": "stage",
+        "stage": "tls",
+        "status": "skipped",
+        "elapsed_ms": 0,
+        "code": null,
+        "help_key": null
+      },
+      {
+        "event": "stage",
+        "stage": "db_auth",
+        "status": "running",
+        "elapsed_ms": 0,
+        "code": null,
+        "help_key": null
+      },
+      {
+        "event": "stage",
+        "stage": "db_auth",
+        "status": "passed",
+        "elapsed_ms": 86,
+        "code": null,
+        "help_key": null
+      },
+      {
+        "event": "stage",
+        "stage": "permissions",
+        "status": "running",
+        "elapsed_ms": 0,
+        "code": null,
+        "help_key": null
+      },
+      {
+        "event": "stage",
+        "stage": "permissions",
+        "status": "passed",
+        "elapsed_ms": 10,
+        "code": null,
+        "help_key": null
+      }
+    ]
+  },
+  "mcp-pages": {
+    "status": "PASS",
+    "createdThroughNativeCommand": true,
+    "maxResultRows": 2,
+    "maxResultBytes": 8192,
+    "firstRows": 2,
+    "secondPageRows": 2,
+    "secondPageStartsAt": "3",
+    "foreignOwnerDenied": true,
+    "hugeCellByteRecovery": true,
+    "closedSessionDenied": true
+  },
+  "native-images": {
+    "status": "PASS",
+    "images": [
+      {
+        "inline": false,
+        "complete": true,
+        "width": 112,
+        "visible": true
+      },
+      {
+        "inline": false,
+        "complete": true,
+        "width": 112,
+        "visible": true
+      },
+      {
+        "inline": false,
+        "complete": true,
+        "width": 112,
+        "visible": true
+      },
+      {
+        "inline": false,
+        "complete": true,
+        "width": 112,
+        "visible": true
+      },
+      {
+        "inline": false,
+        "complete": true,
+        "width": 112,
+        "visible": true
+      },
+      {
+        "inline": false,
+        "complete": true,
+        "width": 112,
+        "visible": true
+      },
+      {
+        "inline": false,
+        "complete": true,
+        "width": 112,
+        "visible": true
+      },
+      {
+        "inline": false,
+        "complete": true,
+        "width": 112,
+        "visible": true
+      },
+      {
+        "inline": false,
+        "complete": true,
+        "width": 112,
+        "visible": true
+      },
+      {
+        "inline": false,
+        "complete": true,
+        "width": 112,
+        "visible": true
+      },
+      {
+        "inline": false,
+        "complete": true,
+        "width": 112,
+        "visible": true
+      },
+      {
+        "inline": false,
+        "complete": true,
+        "width": 112,
+        "visible": true
+      }
+    ]
+  },
+  "update-feed-receipt": {
+    "calls": 2,
+    "downloads": 0
+  },
+  "management-ui": {
+    "status": "PASS",
+    "importUI": {
+      "preview": true,
+      "approval": true,
+      "rows": 2
+    },
+    "schemaUI": {
+      "diff": true,
+      "applied": false
+    },
+    "rolesUI": {
+      "preview": true,
+      "applied": false
+    }
+  },
+  "visible-animation": {
+    "hidden": false,
+    "animations": [],
+    "overflow": false
+  },
+  "hidden-animation": {
+    "hidden": true,
+    "animations": []
+  },
+  "automation-stopped": {
+    "stopped": true,
+    "visible": true,
+    "animations": 0
+  },
+  "idle-cpu": {
+    "pollingStopped": true,
+    "ownership": "exact app PID + direct plugin children + newly observed WebKit PIDs; exactly one per WebKit role",
+    "samples": [
+      {
+        "mode": "visible",
+        "interval_seconds": 15.003924708995328,
+        "processes": [
+          {
+            "pid": 21937,
+            "role": "host",
+            "delta_cpu_seconds": 0.0,
+            "cpu_percent": 0.0
+          },
+          {
+            "pid": 22253,
+            "role": "com.apple.WebKit.GPU",
+            "delta_cpu_seconds": 0.0,
+            "cpu_percent": 0.0
+          },
+          {
+            "pid": 22267,
+            "role": "com.apple.WebKit.WebContent",
+            "delta_cpu_seconds": 0.0,
+            "cpu_percent": 0.0
+          },
+          {
+            "pid": 22309,
+            "role": "com.apple.WebKit.Networking",
+            "delta_cpu_seconds": 0.0,
+            "cpu_percent": 0.0
+          },
+          {
+            "pid": 22921,
+            "role": "axdb-driver-postgres",
+            "delta_cpu_seconds": 0.0,
+            "cpu_percent": 0.0
+          },
+          {
+            "pid": 22942,
+            "role": "axdb-driver-neo4j",
+            "delta_cpu_seconds": 0.0,
+            "cpu_percent": 0.0
+          },
+          {
+            "pid": 22986,
+            "role": "axdb-driver-sqlite",
+            "delta_cpu_seconds": 0.0,
+            "cpu_percent": 0.0
+          },
+          {
+            "pid": 23960,
+            "role": "axdb-driver-mongodb",
+            "delta_cpu_seconds": 0.0,
+            "cpu_percent": 0.0
+          },
+          {
+            "pid": 23961,
+            "role": "axdb-driver-redis",
+            "delta_cpu_seconds": 0.0,
+            "cpu_percent": 0.0
+          },
+          {
+            "pid": 23972,
+            "role": "axdb-driver-mysql",
+            "delta_cpu_seconds": 0.0,
+            "cpu_percent": 0.0
+          }
+        ],
+        "total_delta_cpu_seconds": 0.0
+      },
+      {
+        "mode": "hidden",
+        "interval_seconds": 15.003077000001213,
+        "processes": [
+          {
+            "pid": 21937,
+            "role": "host",
+            "delta_cpu_seconds": 0.0,
+            "cpu_percent": 0.0
+          },
+          {
+            "pid": 22253,
+            "role": "com.apple.WebKit.GPU",
+            "delta_cpu_seconds": 0.0,
+            "cpu_percent": 0.0
+          },
+          {
+            "pid": 22267,
+            "role": "com.apple.WebKit.WebContent",
+            "delta_cpu_seconds": 0.0,
+            "cpu_percent": 0.0
+          },
+          {
+            "pid": 22309,
+            "role": "com.apple.WebKit.Networking",
+            "delta_cpu_seconds": 0.0,
+            "cpu_percent": 0.0
+          },
+          {
+            "pid": 22921,
+            "role": "axdb-driver-postgres",
+            "delta_cpu_seconds": 0.0,
+            "cpu_percent": 0.0
+          },
+          {
+            "pid": 22942,
+            "role": "axdb-driver-neo4j",
+            "delta_cpu_seconds": 0.0,
+            "cpu_percent": 0.0
+          },
+          {
+            "pid": 22986,
+            "role": "axdb-driver-sqlite",
+            "delta_cpu_seconds": 0.0,
+            "cpu_percent": 0.0
+          },
+          {
+            "pid": 23960,
+            "role": "axdb-driver-mongodb",
+            "delta_cpu_seconds": 0.01,
+            "cpu_percent": 0.0667
+          },
+          {
+            "pid": 23961,
+            "role": "axdb-driver-redis",
+            "delta_cpu_seconds": 0.0,
+            "cpu_percent": 0.0
+          },
+          {
+            "pid": 23972,
+            "role": "axdb-driver-mysql",
+            "delta_cpu_seconds": 0.0,
+            "cpu_percent": 0.0
+          }
+        ],
+        "total_delta_cpu_seconds": 0.01
+      }
+    ],
+    "hidden_native_process_visible_after_sample": false
+  },
+  "final-views": {
+    "status": "PASS",
+    "mysqlNativePlan": true,
+    "erd": true,
+    "referenceFollowed": true
+  },
+  "install": {
+    "status": "PASS",
+    "installed": {
+      "id": "sqlite",
+      "version": "0.2.0"
+    }
+  },
+  "mcp-import-corrected": {
+    "node": "[\"table\",\"public\",\"tables\",\"v1_people\"]",
+    "status": "PASS",
+    "committed": false,
+    "needs_approval": true
+  },
+  "build": {
+    "base_commit": "480eeac13e88c4b9165ffb622a844428a85a13b5",
+    "binary": {
+      "pid": 21937,
+      "sha256": "ea11f56816c1b1977e19c18d044ef9ebdf33a9c798c017e41ef9f2516b96859a"
+    },
+    "native_instrumentation": "test-only frontend task transport on loopback 55191; production host commands and UI; stopped before CPU sampling",
+    "updater": "native plugin, loopback mock feed 55192, detection only",
+    "tsc_exit": 0,
+    "cargo_test_exit": 0,
+    "clippy_exit": 0,
+    "ui_test_exit": 0
+  },
+  "screenshots": [
+    {
+      "path": "../../design-shots/v1-native-backup-daylight.png",
+      "sha256": "04b9058c199e96808b93071be82ec543bf0d5a025228270c7cf1f1a0ce6db407"
+    },
+    {
+      "path": "../../design-shots/v1-native-backup-midnight.png",
+      "sha256": "44a33b80e7ced72490f5600446cd953c46c8c253942baef11362dc24575504e2"
+    },
+    {
+      "path": "../../design-shots/v1-native-changelog-daylight.png",
+      "sha256": "6c709d445da7648fd4cda20329bc944879f3cb96c1e2d7bf983bb16b18948bab"
+    },
+    {
+      "path": "../../design-shots/v1-native-changelog-midnight.png",
+      "sha256": "a6529c943c1c9633481bf820d3b43ce0351030064a7b2613ad0d101e0e5f14e0"
+    },
+    {
+      "path": "../../design-shots/v1-native-drivers-daylight.png",
+      "sha256": "996406a936dcf1db35f9ca9f72fc6f7315fb3fa36d37551c97caa680b780f240"
+    },
+    {
+      "path": "../../design-shots/v1-native-drivers-midnight.png",
+      "sha256": "1f498695535ce17d15553c43fe2d5d0a0cf1a8097a5e7b6d4a2629cc7539c710"
+    },
+    {
+      "path": "../../design-shots/v1-native-import-mapping-daylight.png",
+      "sha256": "b663ec3f4171869af739cb86ccf79aca074877b5c0e2a6bfb573e1b5f1151b3d"
+    },
+    {
+      "path": "../../design-shots/v1-native-import-mapping-midnight.png",
+      "sha256": "fe40d541e22a59aebacf4b78d8ab1bf6ad2d9e1a5dc248bed9925d8d39e058a5"
+    },
+    {
+      "path": "../../design-shots/v1-native-import-preview-daylight.png",
+      "sha256": "d38243f387e58e6e97f5f06048701899f70a14b6b4a15c96d936825fb9b8cb8c"
+    },
+    {
+      "path": "../../design-shots/v1-native-import-preview-midnight.png",
+      "sha256": "2f6b1fef3f2ce770c73e94fd72ec0b22764b17389fa0cb6e49a87c6d2a7743b7"
+    },
+    {
+      "path": "../../design-shots/v1-native-mcp-clients-daylight.png",
+      "sha256": "5c667c4baff60c4f868270d642c1eab531958e6d638d28a6bc5ab644a902e4c2"
+    },
+    {
+      "path": "../../design-shots/v1-native-mcp-clients-midnight.png",
+      "sha256": "98261316103641fe666998157fecde938ab5abe9e2e80b1b064ac86ef6673b39"
+    },
+    {
+      "path": "../../design-shots/v1-native-mongo-documents-daylight.png",
+      "sha256": "f896f83c048640f8bc88cfe649a10843e05fbeb29cac1b4f250bef104fc6f707"
+    },
+    {
+      "path": "../../design-shots/v1-native-mongo-documents-midnight.png",
+      "sha256": "bb06e49f52f3c30aa6b531248cb03949ca80bf6d0979d9c88c5ac4e9b644e82c"
+    },
+    {
+      "path": "../../design-shots/v1-native-mysql-plan-daylight.png",
+      "sha256": "8261b620cb70f2f9ebf9444315da10d079b5ccd659b51aafa355b76305afa7cf"
+    },
+    {
+      "path": "../../design-shots/v1-native-mysql-plan-midnight.png",
+      "sha256": "1c392cc3085ec0e6051f92882234e7a747369a52baa3bc49a7eb9854b7fa55ca"
+    },
+    {
+      "path": "../../design-shots/v1-native-neo4j-graph-daylight.png",
+      "sha256": "b017506d8fc8b825cd99a5e38781fe7f541bac1538a96c0ffc4004464cb8d473"
+    },
+    {
+      "path": "../../design-shots/v1-native-neo4j-graph-midnight.png",
+      "sha256": "b43b15f8b7649bf14c7223858385f6c8935ea4ebef753ffde61b3ba6f68e19bc"
+    },
+    {
+      "path": "../../design-shots/v1-native-pg-erd-daylight.png",
+      "sha256": "fc4e79a7bc7a75be69bc358120e6eaf8660bde536746d0fa1fd7de47a32a6f2a"
+    },
+    {
+      "path": "../../design-shots/v1-native-pg-erd-midnight.png",
+      "sha256": "935bd7582391788374f944b1eb533a9373b6d4652396f7f611ccd97cd5890907"
+    },
+    {
+      "path": "../../design-shots/v1-native-pg-follow-reference-daylight.png",
+      "sha256": "8b098d5a16e753ef48392bd6d7635a48b017bdbdc98a765cf466334def60d482"
+    },
+    {
+      "path": "../../design-shots/v1-native-pg-plan-daylight.png",
+      "sha256": "21f95ffc9420289f30303f12f2a67c2782665acac0280aaafa799bf0b6e1f934"
+    },
+    {
+      "path": "../../design-shots/v1-native-pg-plan-midnight.png",
+      "sha256": "1482559a2da6cf5f6f3dcfd20ed7dd704f995e10ea1e5c14f918fed3eccf7450"
+    },
+    {
+      "path": "../../design-shots/v1-native-pg-table-daylight.png",
+      "sha256": "1a4aac2c28c95ea5e7c45640453091e19e922f7b3ca77aed3dfe0fbff2f8e827"
+    },
+    {
+      "path": "../../design-shots/v1-native-pg-table-midnight.png",
+      "sha256": "65e1baa223616217d05066a203270e7619954564d975f299012ca613eea75153"
+    },
+    {
+      "path": "../../design-shots/v1-native-redis-keyvalue-daylight.png",
+      "sha256": "d26bfa5d896bda929fdbf398b06e3331e63cfa2bb4fd5d735bdea3e9cd6b227e"
+    },
+    {
+      "path": "../../design-shots/v1-native-redis-keyvalue-midnight.png",
+      "sha256": "5e464743ede839b9f1ec4d7441d479c8a4a45ac773e56b30cc2e33df31f401da"
+    },
+    {
+      "path": "../../design-shots/v1-native-roles-daylight.png",
+      "sha256": "b90eca84908f8c5dbb4e8817b6fdfc02444fd92d7a60a980fdb01bcea1920c6c"
+    },
+    {
+      "path": "../../design-shots/v1-native-roles-matrix-daylight.png",
+      "sha256": "217597cf06e512a0f2afa433ba636afc34a205d0f41ca6421ff921e40630f7f2"
+    },
+    {
+      "path": "../../design-shots/v1-native-roles-midnight.png",
+      "sha256": "09c4b36357d5bb01d48a127594485a915add8b9e9f2fc88c5b6e6c9d18c7ed5f"
+    },
+    {
+      "path": "../../design-shots/v1-native-schema-diff-daylight.png",
+      "sha256": "e6888170da7538640f8f2f2eb568037a5fcd51fa9d56e7271006f8f187750734"
+    },
+    {
+      "path": "../../design-shots/v1-native-schema-diff-midnight.png",
+      "sha256": "172f92478523e15241bd322e4c4dc09b886ec40f0f1fba675ea8831918c7ce84"
+    },
+    {
+      "path": "../../design-shots/v1-native-ssh-host-key-daylight.png",
+      "sha256": "ece6f8654b205cab69d486300454951736daad7ea118be0e82099f062dcface8"
+    },
+    {
+      "path": "../../design-shots/v1-native-update-mock-daylight.png",
+      "sha256": "012509deed3ed83660d1d919d05eeb936171bc1195a7c28b56b17911ad885140"
+    },
+    {
+      "path": "../../design-shots/v1-native-update-mock-midnight.png",
+      "sha256": "a4210a564cc350dcf8c01c2d23c0e91740d1e3c9f6af265d39ff3cda079afaef"
+    }
+  ],
+  "cleanup": {
+    "app_stopped": true,
+    "temporary_credential_store_removed": true,
+    "owned_pg_databases_removed": true,
+    "owned_pg_role_removed": true,
+    "local_test_transport_and_update_feed_stopped": true
+  }
+}

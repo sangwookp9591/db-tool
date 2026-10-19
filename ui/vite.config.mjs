@@ -18,7 +18,7 @@ const releaseDates = Object.fromEntries(readdirSync(notesDir).filter(name => /^v
   return [version, date];
 }));
 export default defineConfig({
-  build: { target: 'es2022' }, clearScreen: false,
+  build: { target: 'es2022', assetsInlineLimit: 0 }, clearScreen: false,
   server: { fs: { allow: [fileURLToPath(new URL('.', import.meta.url)), fileURLToPath(notesDir)] } },
   define: {
     'import.meta.env.AXDB_BUILD_COMMIT': JSON.stringify(git('rev-parse', '--short=7', 'HEAD') || '확인 불가'),
