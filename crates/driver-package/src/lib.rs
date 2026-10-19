@@ -24,8 +24,12 @@ pub const TARGETS: &[&str] = &[
     "aarch64-unknown-linux-gnu",
 ];
 
-// Release builds provision this public key; an unprovisioned build fails closed.
-pub const OFFICIAL_PUBLIC_KEY: Option<&str> = option_env!("AXDB_OFFICIAL_DRIVER_PUBLIC_KEY");
+// Official AxDB driver signing key (2026-10-19; private seed lives only in the release Mac's Keychain).
+// AXDB_OFFICIAL_DRIVER_PUBLIC_KEY overrides it for tests and key rotation.
+pub const OFFICIAL_PUBLIC_KEY: Option<&str> = match option_env!("AXDB_OFFICIAL_DRIVER_PUBLIC_KEY") {
+    Some(key) => Some(key),
+    None => Some("dcdd779ce6af24db29663761120f24ec902cfbe440c939abc5a23bd0901ee3ad"),
+};
 pub const OFFICIAL_PREVIOUS_PUBLIC_KEY: Option<&str> =
     option_env!("AXDB_PREVIOUS_DRIVER_PUBLIC_KEY");
 pub fn official_keys() -> Vec<TrustedKey> {

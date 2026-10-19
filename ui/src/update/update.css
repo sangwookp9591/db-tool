@@ -1,0 +1,17 @@
+.update-badge.ax-button { color: var(--text-accent); border-color: var(--border-subtle); padding: 0 8px; min-height: 20px; height: 20px; font-size: 11px; }
+.update-dialog { width: min(560px, calc(100vw - 48px)); }
+.update-dialog .dialog-footer { flex-wrap: wrap; }
+.update-versions { display: flex; gap: 12px; align-items: center; font-size: 18px; }
+.update-versions strong { color: var(--text-accent); }
+.update-date, .update-hint { color: var(--text-secondary); font-size: 12px; line-height: 1.6; }
+.update-notes { padding: 8px 16px; border: 1px solid var(--border-subtle); border-radius: var(--radius); background: var(--bg-input); overflow-wrap: anywhere; line-height: 1.7; }
+.update-notes h3, .update-notes h4, .update-notes h5, .update-notes h6 { margin: 12px 0 6px; font-size: 14px; }
+.update-notes p { margin: 8px 0; white-space: pre-wrap; }
+.update-notes ul, .update-notes ol { padding-left: 24px; }
+.update-notes a { color: var(--text-accent); text-decoration: underline; }
+.update-progress { display: grid; gap: 8px; margin-top: 16px; }
+.update-progress progress { width: 100%; accent-color: var(--accent-primary); }
+.update-error { color: var(--accent-error); }
+.update-settings { display: grid; gap: 8px; }
+.update-settings label { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.update-settings input { accent-color: var(--accent-primary); }

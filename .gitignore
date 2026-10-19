@@ -5,3 +5,4 @@ ui/dist/
 *.log
 target-*/
 bench/__pycache__/
+/dist/

@@ -160,3 +160,29 @@ gh release create v0.1.0 "$DMG" target/x86_64-pc-windows-msvc/release/bundle/nsi
 - 앱 전용 암호나 `.p8` 키를 명령 인자, 채팅, 커밋에 남기지 않는다. 노출됐다면 즉시 폐기하고 다시 발급한다(account.apple.com의 앱 전용 암호, App Store Connect의 API 키 **취소**).
 - 공증 자격 증명은 키체인 프로필(`axdb-notary`)로만 참조한다.
 - 인증서 개인 키를 담은 `.p12`는 강한 암호를 걸어 보관하고, 저장소에 넣지 않는다.
+
+## 8. 앱 자동 업데이트 서명 키와 통합 릴리스
+
+0.2.0부터 앱 안에서 이후 버전의 릴리스 노트를 확인하고 업데이트를 설치할 수 있습니다. 기존 0.1.x 앱에는 updater가 없으므로 0.2.0은 설치 파일로 한 번 설치해야 합니다. Apple Developer ID 서명과 별개로 Tauri updater 서명을 검증하며, 공개 키는 `src-tauri/tauri.conf.json`에 포함됩니다.
+
+- 개인 키 위치: `~/.tauri/axdb-updater.key`. 개인 키 내용은 출력하거나 저장소에 넣지 않습니다.
+- 암호: macOS 키체인 서비스 `axdb-updater`, 계정 `signing-key-password`. 스크립트가 `security find-generic-password`의 출력을 환경 변수로만 받아 사용하고 빌드 뒤 해제합니다. `set -x`를 끄며 암호를 CLI 인자로 전달하지 않습니다.
+- **키를 분실하면 기존 설치 앱의 업데이트 체인이 끊깁니다.** 암호와 함께 별도 보안 저장소에 백업하세요. 임의로 새 키를 만들고 공개 키만 교체해도 기존 앱은 새 서명을 신뢰하지 않습니다. 그런 경우 사용자는 새 설치 파일을 수동으로 설치해야 합니다.
+
+세 버전(Cargo workspace, Tauri, UI)을 맞추고 `docs/release-notes/v<버전>.md`를 작성한 뒤 실행합니다. 이미 존재하는 출력 디렉터리는 거부하므로 이전 실패 산출물은 먼저 다른 곳으로 옮겨 검토합니다.
+
+```sh
+export APPLE_SIGNING_IDENTITY="Developer ID Application: SangWook Park (QRW9X3848W)"
+CARGO_TARGET_DIR=target-u1 scripts/release.sh 0.2.0
+# 검토 뒤 실제 GitHub 공개를 하려면 처음부터 --publish를 지정합니다.
+# 기존 산출물이 있다면 먼저 다른 곳으로 옮깁니다.
+CARGO_TARGET_DIR=target-u1 scripts/release.sh 0.2.0 --publish
+```
+
+기본 실행은 업로드하지 않고 `dist/release/<버전>/`에 DMG, universal `.app.tar.gz`와 `.sig`, Windows NSIS `.exe`와 `.sig`, `latest.json`을 만듭니다. macOS 앱과 DMG를 공증하고 staple 검증한 뒤, **staple된 앱을 다시 압축하고 서명**하므로 updater로 받은 앱에도 티켓이 포함됩니다. `latest.json`의 `darwin-aarch64`와 `darwin-x86_64`는 같은 universal 아카이브를 가리킵니다. Windows에는 updater 서명이 있지만 Authenticode 인증서는 아직 없으므로 기존 SmartScreen 제한은 남습니다.
+
+`--publish`가 있을 때만 `gh release create --latest`로 `sangwookp9591/db-tool`의 `v<버전>` 릴리스를 공개합니다. 동일 태그를 덮어쓰지 않습니다. 전제 조건은 위의 개발 도구·Developer ID·`axdb-notary` 키체인 프로필·updater 키·GitHub 인증입니다. 드라이버 산출물(`dist/drivers`)은 읽거나 바꾸지 않습니다. 업데이트 피드는 `https://github.com/sangwookp9591/db-tool/releases/latest/download/latest.json`이며 앱 릴리스가 GitHub의 latest를 유지해야 합니다.
+
+앱의 자동 확인은 시작 10초 뒤 유휴 시점과 이후 24시간 주기이며, `settings.json`의 `updater.auto_check` 기본값은 `true`입니다. `updater.skipped_version`은 자동 배지만 숨기며 수동 확인으로 다시 설치할 수 있습니다. debug 빌드, `AXDB_BENCH`가 설정된 실행, `AXDB_AGENT_BRIDGE=1` 실행에서는 자동 확인을 하지 않습니다. 설치와 재시작은 명시적인 버튼으로 진행하며, Windows 설치 프로그램은 실행 중인 앱을 종료·재실행합니다.
+
+참고: [Tauri updater](https://v2.tauri.app/plugin/updater/), [Tauri process](https://v2.tauri.app/plugin/process/).

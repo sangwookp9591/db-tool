@@ -251,3 +251,28 @@ export async function mockDriverInvoke<K extends keyof import('./drivers/api').D
   }
   return result as import('./drivers/api').DriverCommands[K]['result'];
 }
+
+// Browser-only updater scenarios: ?update=available|none|error|download-error|install-error.
+export async function mockUpdater(): Promise<import('./update/host').AppUpdate | null> {
+  const scenario = new URLSearchParams(location.search).get('update');
+  if (scenario === 'error') throw new Error('모의 네트워크 오류');
+  if (scenario === 'none' || !scenario) return null;
+  return {
+    version: '0.3.0', currentVersion: '0.2.0', date: '2026-10-19T00:00:00Z',
+    body: '# AxDB 0.3.0\n새로운 업데이트를 준비했습니다.\n## 개선 사항\n- 자동 업데이트와 릴리스 노트\n- 연결 안정성 개선\n1. 작업을 저장하세요.\n2. 업데이트 후 다시 시작하세요.\n[자세한 변경 사항](https://github.com/sangwookp9591/db-tool/releases)\n<script>alert("HTML은 실행되지 않습니다")</script>\n[차단된 링크](javascript:alert)',
+    async download(onEvent) {
+      onEvent?.({ event: 'Started', data: { contentLength: 100 } });
+      for (let i = 0; i < 5; i++) {
+        await new Promise(resolve => setTimeout(resolve, 250));
+        if (scenario === 'download-error') throw new Error('모의 다운로드 오류');
+        onEvent?.({ event: 'Progress', data: { chunkLength: 20 } });
+      }
+      onEvent?.({ event: 'Finished' });
+    },
+    async install() {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      if (scenario === 'install-error') throw new Error('모의 설치 오류');
+    },
+    async close() {},
+  };
+}

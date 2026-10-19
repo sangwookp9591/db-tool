@@ -1,6 +1,7 @@
 pub mod driver_install;
 mod agent_bridge;
 mod onboarding;
+mod updater;
 mod context;
 mod assistant;
 mod agent_dispatch;
@@ -579,6 +580,9 @@ fn file_logger(log: std::fs::File) -> impl tracing::Subscriber + Send + Sync {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_opener::Builder::new().build())
         .manage(export::Exports::default())
         .manage(driver_install::Installer::default())
         .on_page_load(|webview, payload| {
@@ -614,6 +618,8 @@ pub fn run() {
             export::export_save_dialog,
             export::export_write,
             export::export_reveal,
+            updater::updater_settings,
+            updater::updater_configure,
             onboarding::onboarding_status,
             onboarding::onboarding_complete,
             onboarding::onboarding_mcp_config,

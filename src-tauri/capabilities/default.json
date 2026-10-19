@@ -1,1 +1,25 @@
-{ "identifier": "default", "description": "Local app window", "windows": ["main"], "permissions": ["core:default"] }
+{
+  "identifier": "default",
+  "description": "Local app window",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "updater:allow-check",
+    "updater:allow-download",
+    "updater:allow-install",
+    "process:allow-restart",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        {
+          "url": "https://*"
+        },
+        {
+          "url": "http://*"
+        }
+      ]
+    }
+  ]
+}
