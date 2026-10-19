@@ -1,0 +1,151 @@
+App=axdb (pid 87980)
+Window: "AxDB", App: axdb.
+
+0 standard window AxDB
+	1 scroll area
+		2 HTML content AxDB
+			3 container Workspace tools
+				4 text AxDB
+				5 toggle button Connections panel, Value: 1
+				6 toggle button Execution history panel, Value: 0
+				7 button Command palette
+				8 toggle button 드라이버, Value: 0
+				9 button AI 도우미
+				10 toggle button Workspace settings, Value: 0
+			11 container Connections
+				12 text 작업공간
+				13 text 연결된 데이터베이스를 탐색하세요.
+				14 container 연결 섹션
+					15 button (expanded) 연결 7
+					16 button Add connection
+					17 container
+						18 text field (settable) Search connections, Placeholder: 연결 검색…
+						19 text ⌘ K
+					20 toggle button 컴팩트 보기, Value: 0
+					21 container e2e-pg
+						22 text e2e-pg
+					23 text PostgreSQL
+					24 button Connect or disconnect e2e-pg
+					25 summary Connection actions for e2e-pg, Value: 0
+					26 container e2e-pg-badport
+						27 text e2e-pg-badport
+					28 text PostgreSQL
+					29 button Connect or disconnect e2e-pg-badport
+					30 summary Connection actions for e2e-pg-badport, Value: 0
+					31 container e2e-neo4j
+						32 text e2e-neo4j
+					33 text Neo4j
+					34 button Connect or disconnect e2e-neo4j
+					35 summary Connection actions for e2e-neo4j, Value: 0
+					36 container e2e-sqlite
+						37 text e2e-sqlite
+					38 text SQLite
+					39 button Connect or disconnect e2e-sqlite
+					40 summary Connection actions for e2e-sqlite, Value: 0
+					41 container p1-mongodb
+						42 text p1-mongodb
+					43 text MongoDB
+					44 button Connect or disconnect p1-mongodb
+					45 summary Connection actions for p1-mongodb, Value: 0
+					46 container p1-redis
+						47 text p1-redis
+					48 text Redis
+					49 button Connect or disconnect p1-redis
+					50 summary Connection actions for p1-redis, Value: 0
+					51 container p1-example-kv
+						52 text p1-example-kv
+					53 text Example KV (memory)
+					54 button Connect or disconnect p1-example-kv
+					55 summary Connection actions for p1-example-kv, Value: 0
+				56 splitter 연결과 탐색기 높이 조절, Value: 35
+				57 container 탐색기 섹션
+					58 button (expanded) 탐색기
+					59 button 쿼리 · SQL
+					60 text field (settable) Filter explorer, Placeholder: 탐색 항목 필터
+					61 button Refresh explorer
+					62 button Expand e2e
+					63 button e2e
+					64 button Actions for e2e
+					65 button Expand e2e_fk
+					66 button e2e_fk
+					67 button Actions for e2e_fk
+					68 button Expand public
+					69 button public
+					70 button Actions for public
+			71 splitter Resize connections sidebar, Value: 270
+			72 container
+				73 tab group Workspace tabs
+					74 tab e2e-pg / 쿼리 1, Value: 0
+					75 button Close Query 1
+					76 tab (selected) e2e-pg / 쿼리 2, Value: 1
+					77 button Close Query 2
+				78 container Query 2
+					79 button Run query
+					80 button Preview changes
+					81 button (disabled) Cancel query
+					82 text 30초 · 100,000행
+					83 container (expanded)
+						84 summary (expanded) Execution options, Value: 1
+						85 heading 실행 옵션
+						86 slider (settable) Timeout dial, Value: 30, Secondary Actions: increment, decrement
+						87 container
+							88 text 시간 제한
+							89 number field (settable) Timeout seconds, Value: 30
+								90 stepper, Value: 0
+									91 unknown
+									92 unknown
+							93 text 초
+						94 slider (settable) Row limit slider, Value: 100000, Secondary Actions: increment, decrement
+						95 container
+							96 text 최대 행 수
+							97 number field (settable) Row limit, Value: 100000
+								98 stepper, Value: 0
+									99 unknown
+									100 unknown
+						101 text 다음 실행부터 적용됩니다.
+					102 text SQL
+					103 text entry area (settable) Query editor SELECT i::int8 AS n, repeat('x',32) AS text FROM generate_series(1,100000) i, Secondary Actions: show writing tools
+						104 text SELECT i::int8 AS n, repeat('x',32) AS text FROM generate_series(1,100000) i
+					105 splitter Resize editor and results, Value: 186
+					106 container
+						107 container SELECT i::int8 AS n, repeat('x',32) AS text FROM generate_series(1,100000) i
+							108 text SELECT i::int8 AS n, repeat('x',32) AS text FROM generate_series(1,100000) i
+						109 button 결과 내보내기
+						110 tab group Result views
+							111 tab (selected) Show Table results, Value: 1
+						112 text field (settable) Filter loaded rows, Value: 100000, Placeholder: 불러온 행에서 검색…
+						113 text 불러온 행
+						114 text 1
+						115 text 헤더를 클릭해 정렬
+						116 table Query results
+							117 row int8 text
+								118 cell int8, Description: n
+									119 button n
+									120 text int8
+									121 splitter Resize n, Value: 50
+								122 cell text
+									123 button text
+									124 text text
+									125 splitter Resize text, Value: 50
+							126 row 100000 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+								127 cell 100000
+									128 text 100000
+								129 cell xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+									130 text xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+						131 container, Text: 시간 ms 행
+			132 container Workspace status
+				133 text e2e-pg
+				134 text PostgreSQL 16.15
+				135 text 270 ms · 100,000행
+				136 container 에이전트 활동
+					137 text 에이전트 활동 · 2
+				138 container
+					139 checkbox Localhost MCP bridge, Value: 1
+					140 text MCP 브리지
+				141 button 에이전트 클라이언트
+	142 close button
+	143 full screen button, Secondary Actions: zoom the window
+	144 minimize button
+	145 text AxDB
+
+The focused UI element is 112 text field (settable) Filter loaded rows, Value: 100000, Placeholder: 불러온 행에서 검색….

@@ -8,14 +8,12 @@ license.workspace = true
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+axdb-driver-package = { path = "../crates/driver-package" }
+semver = "1"
+axdb-driver-protocol = { path = "../crates/driver-protocol" }
 reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "rustls"] }
 axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio"] }
 dbcore.workspace = true
-driver-postgres = { path = "../crates/driver-postgres" }
-driver-neo4j = { path = "../crates/driver-neo4j" }
-driver-sqlite = { path = "../crates/driver-sqlite" }
-driver-mongodb = { path = "../crates/driver-mongodb" }
-driver-redis = { path = "../crates/driver-redis" }
 async-trait.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -24,6 +22,7 @@ tokio.workspace = true
 tokio-util.workspace = true
 mimalloc = { version = "=0.1.52", default-features = false }
 tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2.8.3"
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["fmt"] }
@@ -31,6 +30,16 @@ uuid = { version = "1", features = ["v4"] }
 time = { version = "0.3", features = ["formatting", "parsing"] }
 
 [dev-dependencies]
+futures-util = "0.3"
+tokio-postgres = "0.7"
+mongodb = "3.9.1"
+tempfile = "3"
+redis.workspace = true
+driver-postgres = { path = "../crates/driver-postgres" }
+driver-neo4j = { path = "../crates/driver-neo4j" }
+driver-sqlite = { path = "../crates/driver-sqlite" }
+driver-mongodb = { path = "../crates/driver-mongodb" }
+driver-redis = { path = "../crates/driver-redis" }
 tauri = { version = "2", features = ["test"] }
 
 [features]

@@ -1,0 +1,11 @@
+[package]
+name = "axdb-driver-sdk"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+axdb-driver-protocol = { path = "../driver-protocol" }
+dbcore.workspace = true
+tokio.workspace = true
+mimalloc = { version = "=0.1.52", default-features = false }

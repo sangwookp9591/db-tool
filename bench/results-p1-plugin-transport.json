@@ -1,0 +1,62 @@
+{
+  "connected_idle_ps": [
+    "88035 87964   7200   0:00.01 /Users/iron/Project/psw/db-tool/target-p1/release/axdb-driver-postgres"
+  ],
+  "first_budget_pass": true,
+  "first_overhead_percent": -44.628610161740475,
+  "idle_ps_after": [
+    "88035 87964 116368   0:00.57 /Users/iron/Project/psw/db-tool/target-p1/release/axdb-driver-postgres"
+  ],
+  "idle_ps_before": [
+    "88035 87964 130416   0:00.57 /Users/iron/Project/psw/db-tool/target-p1/release/axdb-driver-postgres"
+  ],
+  "idle_sample_seconds": 5,
+  "median_in_process_ms": 196.137542,
+  "median_plugin_first_ms": 108.604083,
+  "median_plugin_total_ms": 192.80325000000002,
+  "rows": 100000,
+  "samples": [
+    {
+      "in_process_ms": 132.368125,
+      "plugin_first_ms": 100.292542,
+      "plugin_total_ms": 154.98612500000002
+    },
+    {
+      "in_process_ms": 196.137542,
+      "plugin_first_ms": 98.120041,
+      "plugin_total_ms": 166.980917
+    },
+    {
+      "in_process_ms": 278.343417,
+      "plugin_first_ms": 279.338792,
+      "plugin_total_ms": 360.79729100000003
+    },
+    {
+      "in_process_ms": 169.72995799999998,
+      "plugin_first_ms": 98.710958,
+      "plugin_total_ms": 244.91058299999997
+    },
+    {
+      "in_process_ms": 283.81879100000003,
+      "plugin_first_ms": 158.694042,
+      "plugin_total_ms": 482.58866700000004
+    },
+    {
+      "in_process_ms": 228.136708,
+      "plugin_first_ms": 151.154542,
+      "plugin_total_ms": 192.80325000000002
+    },
+    {
+      "in_process_ms": 104.630125,
+      "plugin_first_ms": 108.604083,
+      "plugin_total_ms": 168.58937500000002
+    }
+  ],
+  "load_average_after": [
+    14.67822265625,
+    49.373046875,
+    58.4609375
+  ],
+  "total_overhead_percent": -1.6999764379631022,
+  "total_budget_pass": true
+}

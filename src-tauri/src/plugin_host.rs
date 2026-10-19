@@ -1,0 +1,961 @@
+//! Isolated, lazily started driver processes. A session never migrates across a crash.
+use async_trait::async_trait;
+use axdb_driver_protocol::*;
+use dbcore::*;
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    process::Stdio,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc, Mutex, Weak,
+    },
+    time::{Duration, Instant},
+};
+use tokio::{
+    io::AsyncReadExt,
+    process::{Child, ChildStdin, Command},
+    sync::{mpsc, Mutex as AsyncMutex},
+};
+
+const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(3);
+// Driver rollback may consume three seconds before its final response can cross the pipe.
+const CLEANUP_GRACE: Duration = Duration::from_secs(3);
+const RESPONSE_GRACE: Duration = CLEANUP_GRACE.saturating_add(HANDSHAKE_TIMEOUT);
+const MAX_RESPONSE: usize = 256 * 1024 * 1024;
+
+fn disconnected() -> DbError {
+    DbError::new(
+        ErrorKind::Connection,
+        "드라이버 연결이 끊겼습니다. 다시 연결하세요",
+    )
+}
+fn invalid_reply() -> DbError {
+    DbError::internal("Invalid driver response")
+}
+
+pub struct PluginDriver {
+    executable: PathBuf,
+    manifest: DriverManifest,
+    process: AsyncMutex<Option<Arc<Process>>>,
+}
+
+impl PluginDriver {
+    /// Probe the executable, then release it until the first connection.
+    pub async fn load(executable: PathBuf) -> Result<Self, DbError> {
+        Self::load_cancelable(executable, CancelToken::new()).await
+    }
+
+    /// Cancellation finishes killing and reaping the probe before a package is removed.
+    pub async fn load_cancelable(
+        executable: PathBuf,
+        cancel: CancelToken,
+    ) -> Result<Self, DbError> {
+        if cancel.is_cancelled() {
+            return Err(DbError::new(
+                ErrorKind::Cancelled,
+                "드라이버 설치가 취소되었습니다",
+            ));
+        }
+        let process = Process::spawn(&executable)?;
+        let _probe = Probe(process.clone());
+        let result = tokio::select! {
+            result = process.handshake() => result,
+            _ = cancel.cancelled() => Err(DbError::new(ErrorKind::Cancelled, "드라이버 설치가 취소되었습니다")),
+        };
+        process.stop().await;
+        let manifest = result?;
+        Ok(Self {
+            executable,
+            manifest,
+            process: AsyncMutex::new(None),
+        })
+    }
+
+    async fn process(&self) -> Result<Arc<Process>, DbError> {
+        let mut slot = self.process.lock().await;
+        if let Some(process) = slot.as_ref().filter(|p| !p.dead.is_cancelled()) {
+            return Ok(process.clone());
+        }
+        let process = Process::spawn(&self.executable)?;
+        let manifest = process.handshake().await?;
+        if manifest != self.manifest {
+            return Err(DbError::unsupported(
+                "드라이버가 변경되었습니다. 다시 설치하세요",
+            ));
+        }
+        *slot = Some(process.clone());
+        Ok(process)
+    }
+
+    pub async fn connect_plugin(&self, cfg: &ConnectConfig) -> Result<PluginSession, DbError> {
+        let process = self.process().await?;
+        if let Some(secret) = cfg.secret.as_ref().filter(|s| !s.is_empty()) {
+            let mut secrets = process.secrets.lock().unwrap();
+            if !secrets.contains(secret) {
+                secrets.push(secret.clone());
+            }
+        }
+        let response = process
+            .call(
+                Request::Connect(cfg.clone()),
+                CancelToken::new(),
+                Duration::from_millis(cfg.connect_timeout_ms.saturating_add(3000)),
+            )
+            .await?;
+        let Reply::Connected { session } = response.reply else {
+            return Err(invalid_reply());
+        };
+        Ok(PluginSession {
+            process,
+            session,
+            closed: CancelToken::new(),
+        })
+    }
+}
+
+#[async_trait]
+impl Driver for PluginDriver {
+    fn manifest(&self) -> &DriverManifest {
+        &self.manifest
+    }
+    async fn connect(&self, cfg: &ConnectConfig) -> Result<Box<dyn Session>, DbError> {
+        Ok(Box::new(self.connect_plugin(cfg).await?))
+    }
+}
+
+struct Process {
+    child: Mutex<Option<Child>>,
+    input: AsyncMutex<ChildStdin>,
+    pending: Mutex<HashMap<u64, PendingResponse>>,
+    next_id: AtomicU64,
+    dead: CancelToken,
+    secrets: Mutex<Vec<String>>,
+}
+
+struct Probe(Arc<Process>);
+impl Drop for Probe {
+    fn drop(&mut self) {
+        self.0.fail();
+    }
+}
+
+struct Response {
+    reply: Reply,
+    results: Vec<ResultSet>,
+    first_chunk: Duration,
+}
+
+struct PendingResponse {
+    sender: mpsc::Sender<Message>,
+    bytes: usize,
+}
+impl PendingResponse {
+    fn add(&mut self, bytes: usize) -> bool {
+        self.bytes = self.bytes.saturating_add(bytes);
+        self.bytes <= MAX_RESPONSE
+    }
+}
+
+impl Process {
+    fn spawn(executable: &Path) -> Result<Arc<Self>, DbError> {
+        let mut command = Command::new(executable);
+        // Signing keys, AI credentials and debug secret stores belong to the host.
+        command.env_clear();
+        for name in [
+            "PATH",
+            "HOME",
+            "TMPDIR",
+            "TMP",
+            "TEMP",
+            "SystemRoot",
+            "LANG",
+            "LC_ALL",
+            "SSL_CERT_FILE",
+            "SSL_CERT_DIR",
+        ] {
+            if let Some(value) = std::env::var_os(name) {
+                command.env(name, value);
+            }
+        }
+        let mut child = command
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .kill_on_drop(true)
+            .spawn()
+            .map_err(|_| DbError::new(ErrorKind::Connection, "Cannot start driver executable"))?;
+        let input = child.stdin.take().ok_or_else(disconnected)?;
+        let mut output = child.stdout.take().ok_or_else(disconnected)?;
+        let mut stderr = child.stderr.take().ok_or_else(disconnected)?;
+        let process = Arc::new(Self {
+            child: Mutex::new(Some(child)),
+            input: AsyncMutex::new(input),
+            pending: Mutex::default(),
+            next_id: AtomicU64::new(1),
+            dead: CancelToken::new(),
+            secrets: Mutex::default(),
+        });
+        let weak = Arc::downgrade(&process);
+        tokio::spawn(async move {
+            loop {
+                let message = read_frame_with_size(&mut output).await;
+                let Some(process) = weak.upgrade() else {
+                    break;
+                };
+                match message {
+                    Ok(Some((
+                        message @ (Message::Result { .. }
+                        | Message::Error { .. }
+                        | Message::Chunk { .. }),
+                        size,
+                    ))) => {
+                        let id = match &message {
+                            Message::Result { id, .. }
+                            | Message::Error { id, .. }
+                            | Message::Chunk { id, .. } => *id,
+                            _ => unreachable!(),
+                        };
+                        let sender = {
+                            let mut pending = process.pending.lock().unwrap();
+                            pending.get_mut(&id).map(|pending| {
+                                if pending.add(size) {
+                                    Ok(pending.sender.clone())
+                                } else {
+                                    Err(())
+                                }
+                            })
+                        };
+                        if let Some(Ok(sender)) = sender {
+                            tokio::select! { _ = process.dead.cancelled() => break, _ = sender.send(message) => {} }
+                        } else if matches!(sender, Some(Err(()))) {
+                            process.fail();
+                            break;
+                        }
+                    }
+                    _ => {
+                        process.fail();
+                        break;
+                    }
+                }
+            }
+        });
+        let weak = Arc::downgrade(&process);
+        tokio::spawn(async move {
+            // Drop overlong lines rather than emitting a secret split across log chunks.
+            let mut line = Vec::new();
+            let mut overflow = false;
+            let mut bytes = [0; 1024];
+            loop {
+                let Ok(n) = stderr.read(&mut bytes).await else {
+                    break;
+                };
+                if n == 0 {
+                    break;
+                }
+                for &byte in &bytes[..n] {
+                    if byte == b'\n' {
+                        if !overflow {
+                            log_stderr(&weak, &line);
+                        }
+                        line.clear();
+                        overflow = false;
+                    } else if line.len() < 8192 {
+                        line.push(byte);
+                    } else {
+                        overflow = true;
+                    }
+                }
+            }
+            if !overflow && !line.is_empty() {
+                log_stderr(&weak, &line);
+            }
+        });
+        Ok(process)
+    }
+
+    fn fail(&self) {
+        self.dead.cancel();
+        self.pending.lock().unwrap().clear();
+        if let Some(child) = self.child.lock().unwrap().as_mut() {
+            let _ = child.start_kill();
+        }
+    }
+
+    async fn stop(&self) {
+        self.fail();
+        let child = self.child.lock().unwrap().take();
+        if let Some(mut child) = child {
+            let _ = child.kill().await;
+            let _ = child.wait().await;
+        }
+    }
+
+    async fn handshake(self: &Arc<Self>) -> Result<DriverManifest, DbError> {
+        let response = self
+            .call(
+                Request::Handshake { protocol: PROTOCOL },
+                CancelToken::new(),
+                HANDSHAKE_TIMEOUT,
+            )
+            .await?;
+        match response.reply {
+            Reply::Handshake {
+                protocol: PROTOCOL,
+                manifest,
+            } if !manifest.id.is_empty() => Ok(manifest),
+            _ => Err(DbError::unsupported(
+                "드라이버 업데이트 필요: incompatible protocol",
+            )),
+        }
+    }
+
+    async fn send(&self, message: &Message) -> Result<(), DbError> {
+        if self.dead.is_cancelled() {
+            return Err(disconnected());
+        }
+        let written = tokio::time::timeout(HANDSHAKE_TIMEOUT, async {
+            write_frame(&mut *self.input.lock().await, message).await
+        })
+        .await;
+        if !matches!(written, Ok(Ok(()))) {
+            self.fail();
+            return Err(disconnected());
+        }
+        Ok(())
+    }
+
+    async fn call(
+        self: &Arc<Self>,
+        request: Request,
+        cancel: CancelToken,
+        timeout: Duration,
+    ) -> Result<Response, DbError> {
+        self.call_with_sink(request, cancel, timeout, None).await
+    }
+
+    async fn call_with_sink(
+        self: &Arc<Self>,
+        request: Request,
+        cancel: CancelToken,
+        timeout: Duration,
+        sink: Option<&dyn ResultSink>,
+    ) -> Result<Response, DbError> {
+        if self.dead.is_cancelled() {
+            return Err(disconnected());
+        }
+        if cancel.is_cancelled() {
+            return Err(DbError::new(ErrorKind::Cancelled, "실행이 취소되었습니다"));
+        }
+        let started = Instant::now();
+        let id = self.next_id.fetch_add(1, Ordering::Relaxed);
+        let (sender, mut incoming) = mpsc::channel(8);
+        self.pending
+            .lock()
+            .unwrap()
+            .insert(id, PendingResponse { sender, bytes: 0 });
+        let mut guard = Pending {
+            process: Arc::downgrade(self),
+            id,
+            armed: true,
+        };
+        let deadline = tokio::time::sleep(timeout);
+        tokio::pin!(deadline);
+        let message = Message::Request { id, request };
+        tokio::select! {
+            result = self.send(&message) => result?,
+            _ = &mut deadline => { self.fail(); return Err(disconnected()); }
+        }
+        let mut cancelled = false;
+        let mut results = Vec::new();
+        let mut first_chunk = None;
+        let mut streaming = None;
+        loop {
+            tokio::select! {
+                biased;
+                _ = self.dead.cancelled() => return Err(disconnected()),
+                _ = cancel.cancelled(), if !cancelled => {
+                    cancelled = true;
+                    self.send(&Message::Cancel { cancel: id }).await?;
+                    deadline.as_mut().reset(tokio::time::Instant::now() + RESPONSE_GRACE);
+                }
+                _ = &mut deadline => {
+                    self.fail();
+                    return Err(DbError::new(ErrorKind::Connection, "드라이버 응답 시간이 초과되었습니다. 다시 연결하세요"));
+                }
+                message = incoming.recv() => match message {
+                    Some(Message::Result { result, .. }) => {
+                        guard.armed = false;
+                        self.pending.lock().unwrap().remove(&id);
+                        return Ok(Response { reply: result, results, first_chunk: first_chunk.unwrap_or_else(|| started.elapsed()) });
+                    }
+                    Some(Message::Error { error, .. }) => {
+                        guard.armed = false;
+                        self.pending.lock().unwrap().remove(&id);
+                        return Err(error);
+                    }
+                    Some(Message::Chunk { chunk, .. }) => {
+                        if let ExecuteChunk::Start { streaming: enabled, .. } = &chunk {
+                            if streaming.is_some_and(|old| old != *enabled) { self.fail(); return Err(invalid_reply()); }
+                            streaming = Some(*enabled);
+                        }
+                        if first_chunk.is_none() && !matches!(chunk, ExecuteChunk::Start { .. }) { first_chunk = Some(started.elapsed()); }
+                        let chunk = if streaming == Some(true) {
+                            if let Some(sink) = sink {
+                                match chunk {
+                                    ExecuteChunk::Rows { index, rows } => { sink.rows(index, rows)?; continue; }
+                                    chunk => { if let ExecuteChunk::Start { index, result, .. } = &chunk { sink.start(*index, result)?; } chunk }
+                                }
+                            } else { chunk }
+                        } else { chunk };
+                        if let Err(error) = chunk.append(&mut results) { self.fail(); return Err(error); }
+                    }
+                    _ => return Err(disconnected()),
+                }
+            }
+        }
+    }
+}
+
+fn log_stderr(process: &Weak<Process>, line: &[u8]) {
+    if let Some(process) = process.upgrade() {
+        let text = redact_stderr(line, &process.secrets.lock().unwrap());
+        tracing::warn!(target: "axdb::plugin_host", driver_stderr = %text);
+    }
+}
+
+fn redact_stderr(line: &[u8], secrets: &[String]) -> String {
+    let mut text = String::from_utf8_lossy(line).into_owned();
+    let mut secrets: Vec<&str> = secrets
+        .iter()
+        .flat_map(|s| s.lines())
+        .filter(|s| !s.is_empty())
+        .collect();
+    secrets.sort_by_key(|s| std::cmp::Reverse(s.len()));
+    for secret in secrets {
+        text = crate::storage::redact(&text, Some(secret));
+    }
+    text
+}
+
+struct Pending {
+    process: Weak<Process>,
+    id: u64,
+    armed: bool,
+}
+impl Drop for Pending {
+    fn drop(&mut self) {
+        if !self.armed {
+            return;
+        }
+        if let Some(process) = self.process.upgrade() {
+            process.pending.lock().unwrap().remove(&self.id);
+            let id = self.id;
+            if let Ok(runtime) = tokio::runtime::Handle::try_current() {
+                runtime.spawn(async move {
+                    let _ = process.send(&Message::Cancel { cancel: id }).await;
+                });
+            }
+        }
+    }
+}
+
+pub struct PluginSession {
+    process: Arc<Process>,
+    session: u64,
+    closed: CancelToken,
+}
+impl Drop for PluginSession {
+    fn drop(&mut self) {
+        if !self.closed.is_cancelled() {
+            self.closed.cancel();
+            let process = self.process.clone();
+            let session = self.session;
+            if let Ok(runtime) = tokio::runtime::Handle::try_current() {
+                runtime.spawn(async move {
+                    let _ = process
+                        .call(
+                            Request::Close { session },
+                            CancelToken::new(),
+                            Duration::from_secs(3),
+                        )
+                        .await;
+                });
+            }
+        }
+    }
+}
+impl PluginSession {
+    async fn call(
+        &self,
+        request: Request,
+        cancel: CancelToken,
+        timeout_ms: u64,
+    ) -> Result<Response, DbError> {
+        if self.closed.is_cancelled() {
+            return Err(disconnected());
+        }
+        self.process
+            .call(
+                request,
+                cancel,
+                Duration::from_millis(timeout_ms).saturating_add(RESPONSE_GRACE),
+            )
+            .await
+    }
+    /// Timing starts at IPC dispatch; used by the common in-process/plugin harness.
+    pub async fn execute_measured(
+        &self,
+        req: &ExecRequest,
+        cancel: CancelToken,
+    ) -> Result<(Vec<ResultSet>, Duration), DbError> {
+        let response = self
+            .call(
+                Request::Execute {
+                    session: self.session,
+                    req: req.clone(),
+                },
+                cancel,
+                req.timeout_ms,
+            )
+            .await?;
+        if !matches!(response.reply, Reply::Unit) {
+            return Err(invalid_reply());
+        }
+        Ok((response.results, response.first_chunk))
+    }
+}
+
+#[async_trait]
+impl Session for PluginSession {
+    async fn execute_stream(
+        &self,
+        req: &ExecRequest,
+        cancel: CancelToken,
+        sink: &dyn ResultSink,
+    ) -> Result<Vec<ResultSet>, DbError> {
+        if self.closed.is_cancelled() {
+            return Err(disconnected());
+        }
+        let response = self
+            .process
+            .call_with_sink(
+                Request::Execute {
+                    session: self.session,
+                    req: req.clone(),
+                },
+                cancel,
+                Duration::from_millis(req.timeout_ms).saturating_add(RESPONSE_GRACE),
+                Some(sink),
+            )
+            .await?;
+        if !matches!(response.reply, Reply::Unit) {
+            return Err(invalid_reply());
+        }
+        Ok(response.results)
+    }
+    async fn ping(&self) -> Result<(), DbError> {
+        match self
+            .call(
+                Request::Ping {
+                    session: self.session,
+                },
+                CancelToken::new(),
+                5000,
+            )
+            .await?
+            .reply
+        {
+            Reply::Unit => Ok(()),
+            _ => Err(invalid_reply()),
+        }
+    }
+    async fn server_info(&self) -> Result<String, DbError> {
+        match self
+            .call(
+                Request::ServerInfo {
+                    session: self.session,
+                },
+                CancelToken::new(),
+                5000,
+            )
+            .await?
+            .reply
+        {
+            Reply::Info(info) => Ok(info),
+            _ => Err(invalid_reply()),
+        }
+    }
+    async fn list_children(&self, parent: Option<&str>) -> Result<Vec<ExplorerNode>, DbError> {
+        match self
+            .call(
+                Request::ListChildren {
+                    session: self.session,
+                    parent: parent.map(str::to_owned),
+                },
+                CancelToken::new(),
+                30000,
+            )
+            .await?
+            .reply
+        {
+            Reply::Children(nodes) => Ok(nodes),
+            _ => Err(invalid_reply()),
+        }
+    }
+    async fn browse(&self, node_id: &str, page: PageRequest) -> Result<ResultSet, DbError> {
+        match self
+            .call(
+                Request::Browse {
+                    session: self.session,
+                    node_id: node_id.into(),
+                    page,
+                },
+                CancelToken::new(),
+                30000,
+            )
+            .await?
+            .reply
+        {
+            Reply::ResultSet(result) => Ok(result),
+            _ => Err(invalid_reply()),
+        }
+    }
+    async fn execute(
+        &self,
+        req: &ExecRequest,
+        cancel: CancelToken,
+    ) -> Result<Vec<ResultSet>, DbError> {
+        Ok(self.execute_measured(req, cancel).await?.0)
+    }
+    async fn expand(&self, element_id: &str, limit: u32) -> Result<ResultSet, DbError> {
+        match self
+            .call(
+                Request::Expand {
+                    session: self.session,
+                    element_id: element_id.into(),
+                    limit,
+                },
+                CancelToken::new(),
+                30000,
+            )
+            .await?
+            .reply
+        {
+            Reply::ResultSet(result) => Ok(result),
+            _ => Err(invalid_reply()),
+        }
+    }
+    async fn schema_graph(&self, scope: Option<&str>) -> Result<SchemaGraph, DbError> {
+        match self
+            .call(
+                Request::SchemaGraph {
+                    session: self.session,
+                    scope: scope.map(str::to_owned),
+                },
+                CancelToken::new(),
+                30000,
+            )
+            .await?
+            .reply
+        {
+            Reply::SchemaGraph(graph) => Ok(graph),
+            _ => Err(invalid_reply()),
+        }
+    }
+    async fn preview(
+        &self,
+        req: &ExecRequest,
+        cancel: CancelToken,
+    ) -> Result<ChangePreview, DbError> {
+        match self
+            .call(
+                Request::Preview {
+                    session: self.session,
+                    req: req.clone(),
+                },
+                cancel,
+                req.timeout_ms,
+            )
+            .await?
+            .reply
+        {
+            Reply::Preview(preview) => Ok(preview),
+            _ => Err(invalid_reply()),
+        }
+    }
+    async fn preview_edits(
+        &self,
+        req: &EditRequest,
+        cancel: CancelToken,
+    ) -> Result<ChangePreview, DbError> {
+        match self
+            .call(
+                Request::PreviewEdits {
+                    session: self.session,
+                    req: req.clone(),
+                },
+                cancel,
+                req.timeout_ms,
+            )
+            .await?
+            .reply
+        {
+            Reply::Preview(preview) => Ok(preview),
+            _ => Err(invalid_reply()),
+        }
+    }
+    async fn apply_edits(
+        &self,
+        req: &EditRequest,
+        cancel: CancelToken,
+    ) -> Result<EditResult, DbError> {
+        match self
+            .call(
+                Request::ApplyEdits {
+                    session: self.session,
+                    req: req.clone(),
+                },
+                cancel,
+                req.timeout_ms,
+            )
+            .await?
+            .reply
+        {
+            Reply::Edits(result) => Ok(result),
+            _ => Err(invalid_reply()),
+        }
+    }
+    async fn close(&self) {
+        if !self.closed.is_cancelled() {
+            let _ = self
+                .call(
+                    Request::Close {
+                        session: self.session,
+                    },
+                    CancelToken::new(),
+                    5000,
+                )
+                .await;
+            self.closed.cancel();
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sqlite() -> Option<PathBuf> {
+        std::env::var_os("AXDB_DRIVER_DIR").map(|p| {
+            PathBuf::from(p).join(format!(
+                "axdb-driver-sqlite{}",
+                std::env::consts::EXE_SUFFIX
+            ))
+        })
+    }
+    fn config() -> ConnectConfig {
+        ConnectConfig {
+            fields: std::collections::BTreeMap::from([("path".into(), ":memory:".into())]),
+            secret: None,
+            connect_timeout_ms: 2000,
+        }
+    }
+    fn request(text: &str) -> ExecRequest {
+        serde_json::from_value(serde_json::json!({"text":text})).unwrap()
+    }
+
+    #[tokio::test]
+    async fn multiplexes_sessions_and_restarts_after_crash_without_replaying_old_sessions() {
+        let Some(path) = sqlite() else {
+            return;
+        };
+        let driver = PluginDriver::load(path).await.unwrap();
+        assert!(
+            driver.process.lock().await.is_none(),
+            "probe does not keep a process alive"
+        );
+        let a = driver.connect_plugin(&config()).await.unwrap();
+        let b = driver.connect_plugin(&config()).await.unwrap();
+        assert!(Arc::ptr_eq(&a.process, &b.process));
+        assert_ne!(a.session, b.session);
+        a.execute(
+            &request("CREATE TABLE private(n); INSERT INTO private VALUES(1)"),
+            CancelToken::new(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            b.execute(&request("SELECT * FROM private"), CancelToken::new())
+                .await
+                .unwrap_err()
+                .kind,
+            ErrorKind::Query
+        );
+        let pid = a.process.child.lock().unwrap().as_ref().unwrap().id();
+        a.process
+            .child
+            .lock()
+            .unwrap()
+            .as_mut()
+            .unwrap()
+            .start_kill()
+            .unwrap();
+        tokio::time::timeout(Duration::from_secs(3), a.process.dead.cancelled())
+            .await
+            .unwrap();
+        assert_eq!(a.ping().await.unwrap_err().kind, ErrorKind::Connection);
+        assert_eq!(b.ping().await.unwrap_err().kind, ErrorKind::Connection);
+        let c = driver.connect_plugin(&config()).await.unwrap();
+        assert_ne!(pid, c.process.child.lock().unwrap().as_ref().unwrap().id());
+        c.ping().await.unwrap();
+        assert_eq!(a.ping().await.unwrap_err().kind, ErrorKind::Connection);
+        c.close().await;
+    }
+
+    #[tokio::test]
+    async fn cancellation_propagates_and_large_results_reassemble() {
+        let Some(path) = sqlite() else {
+            return;
+        };
+        let driver = PluginDriver::load(path).await.unwrap();
+        let session = driver.connect_plugin(&config()).await.unwrap();
+        let cancel = CancelToken::new();
+        let trigger = cancel.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(30)).await;
+            trigger.cancel();
+        });
+        assert_eq!(session.execute(&request("WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<100000000) SELECT sum(x) FROM n"), cancel).await.unwrap_err().kind, ErrorKind::Cancelled);
+        let mut req = request("WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<100000) SELECT x, '한글' FROM n");
+        req.row_limit = 100000;
+        let (result, first) = session
+            .execute_measured(&req, CancelToken::new())
+            .await
+            .unwrap();
+        assert_eq!(result[0].row_count, 100000);
+        let rows = &result[0].table.as_ref().unwrap().rows;
+        assert_eq!(rows.len(), 100000);
+        assert_eq!(rows[99999][0], Value::Int("100000".into()));
+        assert!(first > Duration::ZERO);
+        session.close().await;
+        assert_eq!(
+            session.ping().await.unwrap_err().kind,
+            ErrorKind::Connection
+        );
+    }
+
+    #[test]
+    fn stderr_redacts_overlapping_and_multiline_secrets() {
+        assert_eq!(
+            redact_stderr(
+                b"secret-long secret second",
+                &[
+                    "secret".into(),
+                    "secret-long".into(),
+                    "first\nsecond".into()
+                ]
+            ),
+            "*** *** ***"
+        );
+    }
+
+    #[test]
+    fn result_memory_budget_rejects_overflow() {
+        let (sender, _) = mpsc::channel(1);
+        let mut pending = PendingResponse { sender, bytes: 0 };
+        assert!(pending.add(MAX_RESPONSE));
+        assert!(!pending.add(1));
+        assert!(!pending.add(usize::MAX));
+    }
+
+    #[cfg(unix)]
+    fn script(body: &str) -> (tempfile::TempDir, PathBuf) {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("driver");
+        std::fs::write(&path, format!("#!/usr/bin/env python3\n{body}\n")).unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700)).unwrap();
+        (dir, path)
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn cancelling_handshake_reaps_probe_before_returning() {
+        let state = tempfile::tempdir().unwrap();
+        let precancelled = CancelToken::new();
+        precancelled.cancel();
+        assert_eq!(
+            PluginDriver::load_cancelable(state.path().join("must-not-start"), precancelled)
+                .await
+                .err()
+                .unwrap()
+                .kind,
+            ErrorKind::Cancelled
+        );
+        let pid_file = state.path().join("probe.pid");
+        let (_dir, path) = script(&format!(
+            "import os,time\nopen({:?},'w').write(str(os.getpid()))\ntime.sleep(30)",
+            pid_file.to_string_lossy()
+        ));
+        let cancel = CancelToken::new();
+        let token = cancel.clone();
+        let task = tokio::spawn(PluginDriver::load_cancelable(path, token));
+        let pid = tokio::time::timeout(Duration::from_secs(3), async {
+            loop {
+                if let Some(pid) = std::fs::read_to_string(&pid_file)
+                    .ok()
+                    .and_then(|s| s.parse::<u32>().ok())
+                {
+                    break pid.to_string();
+                }
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .unwrap();
+        cancel.cancel();
+        assert_eq!(
+            task.await.unwrap().err().unwrap().kind,
+            ErrorKind::Cancelled
+        );
+        let status = std::process::Command::new("ps")
+            .args(["-p", &pid])
+            .stdout(Stdio::null())
+            .status()
+            .unwrap();
+        assert!(
+            !status.success(),
+            "probe must be reaped before candidate deletion"
+        );
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn incompatible_protocol_is_rejected_and_silent_handshake_is_bounded() {
+        let manifest = driver_postgres::PostgresDriver::new().manifest().clone();
+        let bytes = encode(&Message::Result {
+            id: 1,
+            result: Reply::Handshake {
+                protocol: 2,
+                manifest,
+            },
+        })
+        .unwrap();
+        let mut frame = (bytes.len() as u32).to_be_bytes().to_vec();
+        frame.extend(bytes);
+        let hex: String = frame.iter().map(|b| format!("{b:02x}")).collect();
+        let (_dir, path) = script(&format!("import os,sys,time\nassert 'AXDB_TEST_PG' not in os.environ\nassert 'AXDB_DEV_SECRET_STORE' not in os.environ\nsys.stdout.buffer.write(bytes.fromhex('{hex}'))\nsys.stdout.buffer.flush()\ntime.sleep(30)"));
+        assert_eq!(
+            PluginDriver::load(path).await.err().unwrap().kind,
+            ErrorKind::Unsupported
+        );
+        let (_dir, path) = script("import time\ntime.sleep(30)");
+        let start = Instant::now();
+        assert_eq!(
+            PluginDriver::load(path).await.err().unwrap().kind,
+            ErrorKind::Connection
+        );
+        assert!(start.elapsed() < Duration::from_secs(5));
+    }
+}

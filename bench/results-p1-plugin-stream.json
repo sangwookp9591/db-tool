@@ -1,0 +1,85 @@
+{
+  "profile": "debug",
+  "boundary": "actual host LiveResults -> Tauri Channel; excludes browser paint",
+  "rows": 100000,
+  "pairs": [
+    {
+      "in_process": {
+        "first_ui_channel_ms": 3188.194792,
+        "total_ms": 5476.268292000001
+      },
+      "plugin": {
+        "first_ui_channel_ms": 1175.0841249999999,
+        "total_ms": 2585.2787080000003
+      }
+    },
+    {
+      "in_process": {
+        "first_ui_channel_ms": 1290.5188329999999,
+        "total_ms": 2526.014583
+      },
+      "plugin": {
+        "first_ui_channel_ms": 748.5480839999999,
+        "total_ms": 2167.281917
+      }
+    },
+    {
+      "in_process": {
+        "first_ui_channel_ms": 487.968833,
+        "total_ms": 1236.1932920000002
+      },
+      "plugin": {
+        "first_ui_channel_ms": 653.6265,
+        "total_ms": 1568.3259999999998
+      }
+    },
+    {
+      "in_process": {
+        "first_ui_channel_ms": 503.654833,
+        "total_ms": 1114.2757080000001
+      },
+      "plugin": {
+        "first_ui_channel_ms": 445.40079199999997,
+        "total_ms": 1126.967375
+      }
+    },
+    {
+      "in_process": {
+        "first_ui_channel_ms": 615.413167,
+        "total_ms": 1071.129417
+      },
+      "plugin": {
+        "first_ui_channel_ms": 531.625916,
+        "total_ms": 1455.889166
+      }
+    },
+    {
+      "in_process": {
+        "first_ui_channel_ms": 696.2779999999999,
+        "total_ms": 1828.077042
+      },
+      "plugin": {
+        "first_ui_channel_ms": 677.371834,
+        "total_ms": 2628.5976250000003
+      }
+    },
+    {
+      "in_process": {
+        "first_ui_channel_ms": 670.614542,
+        "total_ms": 1404.967334
+      },
+      "plugin": {
+        "first_ui_channel_ms": 688.749458,
+        "total_ms": 1503.079583
+      }
+    }
+  ],
+  "first_in_process_ms": 670.614542,
+  "first_plugin_ms": 677.371834,
+  "first_overhead_percent": 1.0076268223840668,
+  "first_budget_pass": true,
+  "total_in_process_ms": 1404.967334,
+  "total_plugin_ms": 1568.3259999999998,
+  "total_overhead_percent": 11.627221647560383,
+  "total_budget_pass": true
+}

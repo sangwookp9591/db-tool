@@ -1,0 +1,8 @@
+{
+  "pid": 87980,
+  "row_limit": 100000,
+  "completed_row_count": 100000,
+  "observed_seconds": 2.508173917000022,
+  "boundary": "native accessibility after UI Run; coarse automation timing, not latency benchmark",
+  "last_value_visible_after_filter": "100000"
+}

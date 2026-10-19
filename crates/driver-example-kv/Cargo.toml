@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+axdb-driver-sdk = { path = "../driver-sdk" }
 dbcore.workspace = true
 async-trait.workspace = true
 

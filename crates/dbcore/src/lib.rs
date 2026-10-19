@@ -1,7 +1,7 @@
 //! Shared, host-independent database contracts.
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, fmt, sync::Arc};
+use std::{collections::BTreeMap, fmt, sync::{Arc, RwLock}};
 pub use tokio_util::sync::CancellationToken as CancelToken;
 pub mod preview;
 pub mod filter;
@@ -152,6 +152,24 @@ pub trait Driver: Send + Sync {
 }
 #[async_trait]
 pub trait Session: Send + Sync {
+    /// Stream large tables to a sink; returned results retain metadata, not streamed rows.
+    async fn execute_stream(&self, req: &ExecRequest, cancel: CancelToken, sink: &dyn ResultSink) -> Result<Vec<ResultSet>, DbError> {
+        let mut results = self.execute(req, cancel.clone()).await?;
+        if streamable_tables(&results) {
+            for (index, result) in results.iter_mut().enumerate() {
+                let rows = result.table.as_mut().map(|t| std::mem::take(&mut t.rows)).unwrap_or_default();
+                sink.start(index, result)?;
+                let mut rows = rows.into_iter().peekable();
+                let mut first = true;
+                while rows.peek().is_some() {
+                    if cancel.is_cancelled() { return Err(DbError::new(ErrorKind::Cancelled, "실행이 취소되었습니다")); }
+                    sink.rows(index, rows.by_ref().take(if first { 200 } else { 2000 }).collect())?;
+                    first = false;
+                }
+            }
+        }
+        Ok(results)
+    }
     async fn preview_edits(
         &self,
         _req: &EditRequest,
@@ -187,6 +205,16 @@ pub trait Session: Send + Sync {
     ) -> Result<Vec<ResultSet>, DbError>;
     async fn expand(&self, element_id: &str, limit: u32) -> Result<ResultSet, DbError>;
     async fn close(&self);
+}
+
+pub trait ResultSink: Send + Sync {
+    fn start(&self, index: usize, result: &ResultSet) -> Result<(), DbError>;
+    fn rows(&self, index: usize, rows: Vec<Vec<Value>>) -> Result<(), DbError>;
+}
+
+pub fn streamable_tables(results: &[ResultSet]) -> bool {
+    results.iter().all(|r| r.graph.is_none() && r.documents.is_none())
+        && results.iter().any(|r| r.table.as_ref().is_some_and(|t| t.rows.len() > 2000))
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ExplorerNode {
@@ -433,20 +461,24 @@ impl fmt::Display for DbError {
 impl std::error::Error for DbError {}
 #[derive(Default)]
 pub struct Registry {
-    drivers: BTreeMap<String, Arc<dyn Driver>>,
+    drivers: RwLock<BTreeMap<String, Arc<dyn Driver>>>,
 }
 impl Registry {
     pub fn new() -> Self {
         Self::default()
     }
-    pub fn register(&mut self, driver: Arc<dyn Driver>) {
-        self.drivers.insert(driver.manifest().id.clone(), driver);
+    pub fn register(&self, driver: Arc<dyn Driver>) {
+        self.drivers.write().unwrap().insert(driver.manifest().id.clone(), driver);
+    }
+    pub fn unregister(&self, id: &str) {
+        self.drivers.write().unwrap().remove(id);
     }
     pub fn get(&self, id: &str) -> Option<Arc<dyn Driver>> {
-        self.drivers.get(id).cloned()
+        self.drivers.read().unwrap().get(id).cloned()
     }
     pub fn manifests(&self) -> Vec<DriverManifest> {
         self.drivers
+            .read().unwrap()
             .values()
             .map(|d| d.manifest().clone())
             .collect()

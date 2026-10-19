@@ -1,7 +1,7 @@
 # DB 드라이버 추가 가이드
 
 드라이버는 `dbcore`에만 의존하고 호스트와 UI를 참조하지 않는다. 실제 예제는
-`crates/driver-example-kv`이며 앱에는 등록하지 않는다. SQLite 구현은
+`crates/driver-example-kv`이며 메모리 전용 개발·계약 테스트 예제다. SQLite 구현은
 `crates/driver-sqlite`에서 파일 DB, blocking 실행, 취소와 읽기 전용 실행을 보여 준다.
 
 Redis 실제 서버 드라이버는 `crates/driver-redis`이며 SCAN 탐색과 자료형별 표, 드라이버 허용 목록 기반 read-only 실행을 제공한다.
@@ -14,19 +14,34 @@ Redis 실제 서버 드라이버는 `crates/driver-redis`이며 SCAN 탐색과 �
 4. `Driver::connect`에서 연결을 검증하고 `Box<dyn Session>`을 반환한다.
 5. `Session`의 ping, server_info, list_children, execute, close를 구현한다.
    지원하지 않는 browse/expand는 `DbError::unsupported`로 반환한다.
-6. 앱에서 사용하려면 `src-tauri/Cargo.toml`에 path 의존성을 추가하고
-   `src-tauri/src/drivers.rs`의 registry에 한 줄을 추가한다. UI 변경은 필요 없다.
-
-예제 KV를 앱에 추가할 경우:
-
-```toml
-# src-tauri/Cargo.toml
- driver-example-kv = { path = "../crates/driver-example-kv" }
-```
+6. 드라이버 crate에 `axdb-driver-sdk = { path = "../driver-sdk" }`를 추가하고
+   `src/bin/axdb-driver-<id>.rs` 진입점을 만든다. 앱 의존성이나 UI에는 드라이버를 추가하지 않는다.
 
 ```rust,ignore
-registry.register(Arc::new(driver_example_kv::KvDriver::new()));
+fn main() {
+    axdb_driver_sdk::serve(driver_example_kv::KvDriver::new());
+}
 ```
+
+```sh
+pnpm --dir ui build
+CARGO_TARGET_DIR=target-dev cargo build --workspace --bins
+CARGO_TARGET_DIR=target-dev TAURI_CONFIG='{"build":{"devUrl":null}}' \
+AXDB_DRIVER_DIR="$PWD/target-dev/debug" cargo run -p axdb
+```
+
+`AXDB_DRIVER_DIR`은 debug 빌드에서만 읽는다. 해당 디렉터리의 `axdb-driver-*` 실행 파일은
+핸드셰이크로 등록하고, 실제 DB 연결이 필요할 때 드라이버당 프로세스 하나를 지연 실행한다.
+설치 폴더도 개발 경로도 비어 있으면 앱의 드라이버 목록은 빈 목록이다.
+
+배포는 [ADR-0003](adr/0003-installable-drivers.md)의 `.axdriver` 계약을 따른다.
+`cargo xtask package-drivers`가 실행 파일과 플랫폼별 SHA-256을 manifest에 묶고 ed25519로 서명한다.
+서명 개인 키는 키체인 또는 환경 변수로만 전달하며 저장소에 넣지 않는다.
+macOS 실행 파일은 Developer ID 서명·공증을 별도로 마쳐야 한다.
+자세한 패키지·레지스트리 운영법은 [패키지 보고서](P2_PACKAGE_REPORT.md)를 참고한다.
+사용자는 앱의 드라이버 화면에서 서명된 패키지를 설치한다. 미확인 로컬 패키지는 경고와 명시적 동의가 필요하다.
+설치된 버전은 앱 데이터의 `drivers/<id>/<version>/`에 있고 `drivers/<id>/current.json`이 활성 버전을 가리킨다.
+시작 시에는 이 로컬 경로만 스캔하며 네트워크를 호출하지 않는다.
 
 `ConnectConfig.fields`의 값은 문자열이다. Bool도 `"true"`/`"false"`이다.
 필수 필드와 허용 값은 드라이버에서 다시 검증한다. secret 필드는 manifest에서
@@ -127,14 +142,36 @@ KV는 GET/SET/KEYS, limit, 탐색과 미지원 기능 거부를 검증한다.
 KV의 `KEYS pattern`은 정확한 키 또는 하나의 후행 `*`만 지원하며 다른 wildcard는 거부한다.
 메모리는 Driver 인스턴스 내 세션끼리 공유하고 프로세스 재시작 시 사라진다.
 
-## 외부 프로세스 플러그인(JSON-RPC)으로 옮기기
+## 외부 프로세스 플러그인 (protocol 1)
 
-Manifest, 요청, 결과, 탐색과 오류 계약은 serde 직렬화가 가능하다. `Driver/Session` trait
-자체를 직렬화하는 대신 호스트에 proxy Driver/Session을 두고 connect/execute/list_children
-등의 메서드를 JSON-RPC 요청으로 바꾼다. 외부 프로세스는 실제 연결을 소유한다.
-세션 ID와 실행 ID를 별도로 전달하고 cancel/close 메시지, 요청 크기 상한, 프로세스 종료 시
-pending 요청 실패, timeout과 인증 경계를 구현해야 한다. DB 비밀과 결과는 로그에 남기지
-않는다. 현재 저장소는 in-process 등록만 구현하며 외부 프로세스 로더를 제공하지 않는다.
+`axdb-driver-protocol`은 big-endian u32 길이와 MessagePack 본문으로 프레임을 만든다.
+요청은 `{id, method, params}`, 응답은 `{id, result}` 또는 `{id, error}`,
+실행 청크는 `{id, chunk}`, 취소는 `{cancel: id}`이다. 프레임 하나는 최대 16 MiB이며 host는 요청 하나의 전체 응답을 256 MiB로 제한한다.
+핸드셰이크의 `protocol`이 1이 아니면 업데이트 필요 오류로 거부한다.
+
+SDK는 `dbcore::Driver`를 받아 세션 ID로 여러 연결을 다중화한다. execute 결과는
+결과 메타데이터, 처음 200개와 이후 2,000개 단위의 행·문서·노드·관계 청크, 마지막 완료 응답 순서로 보낸다.
+16 MiB를 넘는 청크 묶음은 값 사이의 경계에서 더 작게 분할한다.
+현재 DB 드라이버의 `Session::execute`는 결과 전체를 반환하므로 SDK 청크 전송은 DB 실행이 끝난 뒤 시작한다.
+기본 구현이 있는 `Session::execute_stream`은 기존 드라이버 수정을 요구하지 않는다. `PluginSession`은 이를 재정의하여 큰 표의 행을 소유권으로 host sink에 넘기며, host는 전체 재조립을 기다리지 않고 기존 UI 채널로 전달한다. 작은 결과와 그래프·문서는 기존 direct invoke 경로를 쓴다.
+`Start.streaming`은 기본값 false인 선택 힌트다. 기존 host는 이 필드를 무시하고, 새 host도 힌트가 없는 기존 protocol 1 드라이버를 재조립 경로로 지원한다.
+메타데이터의 `row_count`, 정확한 값 태그, 편집 대상, 페이지·잘림 정보는 재조립 후에도 보존한다.
+한 셀이나 메타데이터가 프레임 상한을 넘으면 전송 실패로 연결을 종료하며 결과를 조용히 잘라내지 않는다.
+
+host의 `PluginDriver`/`PluginSession`은 같은 Driver/Session 트레이트를 구현한다.
+핸드셰이크와 pipe 쓰기는 3초 제한이며, 취소는 해당 요청의 CancelToken으로 전달한다.
+설치 관리자는 `PluginDriver::load_cancelable(path, token)`으로 탐색하고, 취소된 탐색 프로세스의 종료·회수를 기다린 뒤 후보 패키지를 제거한다.
+취소는 DB의 최대 3초 롤백 정리와 3초 전송 유예를 별도로 보장한다. 이 6초 안에 정리 응답을 하지 못하면 프로세스를 종료하고 해당 드라이버의
+기존 세션을 dead 처리한다. 크래시 후 새 연결은 프로세스를 다시 띄우며 기존 세션이나 쿼리를 재실행하지 않는다.
+
+stdout은 프레임 전용이다. 로그는 stderr로만 내보내고 비밀번호·토큰·SQL 원문을 로그에 넣지 않는다.
+host는 알려진 `ConnectConfig.secret`을 기존 redaction 함수로 가리고, 8 KiB를 넘는 stderr 줄은 폐기한다.
+비밀번호는 `ConnectConfig.secret`으로만 전달하며 argv·환경 변수·프로필 필드에 넣지 않는다.
+
+기존 실DB 계약 테스트 원문은 `src-tauri/tests/plugin_contracts.rs`에서도 재사용한다.
+테스트 전용 포트와 `AXDB_DRIVER_DIR`을 지정하고 `cargo test --workspace`를 실행하면
+in-process와 플러그인 경로를 모두 검증한다. 프로토콜·크래시·취소 테스트와
+`driver-postgres`의 `plugin_bench` 예제는 프레임 경계와 10만 행 IPC 비용을 확인한다.
 
 구현 API 참고: [rusqlite Connection](https://docs.rs/rusqlite/0.40.2/rusqlite/struct.Connection.html),
 [SQLite query_only](https://sqlite.org/pragma.html#pragma_query_only),

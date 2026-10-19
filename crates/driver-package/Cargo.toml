@@ -1,0 +1,16 @@
+[package]
+name = "axdb-driver-package"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow = "1"
+serde.workspace = true
+serde_json.workspace = true
+sha2 = "0.10.9"
+hex = "0.4"
+ed25519-dalek = "2.2"
+semver = "1"
+zip = { version = "9.0.5", default-features = false, features = ["deflate"] }
+tempfile = "3"

@@ -1,0 +1,54 @@
+{
+  "app_pid": 87980,
+  "sample_seconds": 10.00592287499967,
+  "load_average": [
+    14.31103515625,
+    34.16943359375,
+    50.56787109375
+  ],
+  "kind": "connected idle after E2E; RSS, not physical footprint",
+  "drivers": [
+    {
+      "driver": "axdb-driver-postgres",
+      "pid": 92162,
+      "rss_kib": 8800,
+      "cpu_seconds_delta": 0.0,
+      "cpu_percent": 0.0
+    },
+    {
+      "driver": "axdb-driver-neo4j",
+      "pid": 95210,
+      "rss_kib": 12128,
+      "cpu_seconds_delta": 0.0,
+      "cpu_percent": 0.0
+    },
+    {
+      "driver": "axdb-driver-sqlite",
+      "pid": 95212,
+      "rss_kib": 6512,
+      "cpu_seconds_delta": 0.0,
+      "cpu_percent": 0.0
+    },
+    {
+      "driver": "axdb-driver-mongodb",
+      "pid": 95213,
+      "rss_kib": 17152,
+      "cpu_seconds_delta": 0.009999999999999981,
+      "cpu_percent": 0.09994080630968598
+    },
+    {
+      "driver": "axdb-driver-redis",
+      "pid": 95224,
+      "rss_kib": 6288,
+      "cpu_seconds_delta": 0.0,
+      "cpu_percent": 0.0
+    },
+    {
+      "driver": "axdb-driver-example-kv",
+      "pid": 95225,
+      "rss_kib": 4864,
+      "cpu_seconds_delta": 0.0,
+      "cpu_percent": 0.0
+    }
+  ]
+}

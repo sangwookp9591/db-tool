@@ -1,0 +1,11 @@
+[package]
+name = "axdb-driver-protocol"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+dbcore.workspace = true
+serde.workspace = true
+tokio.workspace = true
+rmp-serde = "1.3"

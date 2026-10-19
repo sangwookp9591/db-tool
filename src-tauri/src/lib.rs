@@ -1,10 +1,14 @@
+pub mod driver_install;
 mod agent_bridge;
+mod onboarding;
 mod context;
 mod assistant;
 mod agent_dispatch;
 mod permissions;
 mod edits;
+mod export;
 pub mod drivers;
+pub mod plugin_host;
 pub mod storage;
 pub mod stream;
 mod viewer_bench;
@@ -45,7 +49,7 @@ pub struct Host {
 impl Host {
     pub fn new(paths: Paths) -> Self {
         Self {
-            registry: drivers::registry(),
+            registry: drivers::registry(&paths.data.join("drivers")),
             paths,
             sessions: Mutex::new(HashMap::new()),
             runs: Mutex::new(HashMap::new()),
@@ -422,7 +426,14 @@ async fn execute_impl(
     if req.read_only && !host.driver(&record.profile.driver_id)?.manifest().capabilities.read_only_exec { return Err(DbError::unsupported("이 드라이버는 읽기 전용 실행을 강제할 수 없습니다")); }
     req.row_limit = clamp_row_limit(req.row_limit);
     let started = Instant::now();
-    let future = record.session.execute(&req, run.token.clone());
+    let live = channel.as_ref().map(|channel| stream::LiveResults::new(channel.clone(), run.token.clone(), req.row_limit));
+    let future = async {
+        if let Some(sink) = live.as_ref() {
+            record.session.execute_stream(&req, run.token.clone(), sink).await
+        } else {
+            record.session.execute(&req, run.token.clone()).await
+        }
+    };
     tokio::pin!(future);
     let result =
         match tokio::time::timeout(Duration::from_millis(req.timeout_ms.max(1)), &mut future).await
@@ -458,9 +469,12 @@ async fn execute_impl(
     if host.history(entry).await.is_err() {
         tracing::error!("Could not save query history");
     }
-    // shortcut: drivers collect before host chunking; add a driver sink when database latency dominates first paint.
     if let Some(channel) = channel {
         let results = result?;
+        if let Some(sink) = live.as_ref().filter(|sink|sink.started() || results.is_empty()) {
+            sink.finish()?;
+            return Ok(vec![]);
+        }
         // WKWebView Channel delivery regressed graph/small results; preserve direct invoke for those measured cases.
         if results.iter().any(|r| r.graph.is_some()) || results.iter().all(|r| r.table.as_ref().is_none_or(|t| t.rows.len() <= 2000)) {
             return Ok(results);
@@ -564,6 +578,9 @@ fn file_logger(log: std::fs::File) -> impl tracing::Subscriber + Send + Sync {
 
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .manage(export::Exports::default())
+        .manage(driver_install::Installer::default())
         .on_page_load(|webview, payload| {
             if webview.label() == "main" && matches!(payload.event(), tauri::webview::PageLoadEvent::Started) {
                 if let (Some(bridge), Some(host)) = (webview.try_state::<agent_bridge::Bridge>(), webview.try_state::<Host>()) {
@@ -594,6 +611,12 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            export::export_save_dialog,
+            export::export_write,
+            export::export_reveal,
+            onboarding::onboarding_status,
+            onboarding::onboarding_complete,
+            onboarding::onboarding_mcp_config,
             context::context_get,
             context::context_error,
             assistant::ai_settings,
@@ -606,6 +629,12 @@ pub fn run() {
             assistant::ai_login_status,
             assistant::ai_logout,
             drivers_list,
+            driver_install::drivers_catalog,
+            driver_install::driver_install,
+            driver_install::driver_update,
+            driver_install::driver_remove,
+            driver_install::driver_cancel,
+            driver_install::driver_pick_file,
             profiles_list,
             profile_save,
             profile_delete,

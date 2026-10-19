@@ -1,0 +1,119 @@
+{
+  "recorded_at": "2026-10-19T13:04:25.307716+09:00",
+  "workspace": {
+    "command": "CARGO_TARGET_DIR=target-p1 AXDB_DRIVER_DIR=\"$PWD/target-p1/debug\" cargo test --workspace",
+    "passed": 156,
+    "failed": 0,
+    "ignored": [
+      "real Anthropic API",
+      "real OS keychain",
+      "P2 package HTTP lifecycle",
+      "manual paired benchmark (executed separately)"
+    ],
+    "conditional_tls_live_checks": "not run; TLS fixture env unset"
+  },
+  "focused_codec": {
+    "protocol": 5,
+    "sdk": 1,
+    "failed": 0
+  },
+  "clippy": {
+    "command": "cargo clippy --workspace --all-targets -- -D warnings",
+    "passed": true
+  },
+  "native": {
+    "bridge": [
+      21,
+      21
+    ],
+    "preview": [
+      5,
+      5
+    ],
+    "permissions": [
+      13,
+      13
+    ],
+    "empty_installed_mcp": {
+      "pid": 87981,
+      "drivers": [],
+      "no_driver_process": true,
+      "bridge_published": true
+    },
+    "large_query": {
+      "pid": 87980,
+      "row_limit": 100000,
+      "completed_row_count": 100000,
+      "observed_seconds": 2.508173917000022,
+      "boundary": "native accessibility after UI Run; coarse automation timing, not latency benchmark",
+      "last_value_visible_after_filter": "100000"
+    }
+  },
+  "performance": {
+    "ui_channel_profile": "debug",
+    "first_ui_channel_overhead_percent": 1.0076268223840668,
+    "complete_ui_channel_overhead_percent": 11.627221647560383,
+    "release_transport_complete_overhead_percent": -1.6999764379631022,
+    "browser_paint_comparison": "not measured",
+    "low_power_mode_at_final_validation": true
+  },
+  "artifacts": {
+    "axdb": {
+      "bytes": 61262328,
+      "sha256": "3e84f1c6256dcd3632bf0079e7880cab4c02b045a2264a91b431b389839fb99c"
+    },
+    "axdb-driver-mongodb": {
+      "bytes": 43141592,
+      "sha256": "fbd8aa5bfd20660965334adee73f900f680d877b410a8077c45a4e27cf34d4d8"
+    },
+    "axdb-driver-neo4j": {
+      "bytes": 25766048,
+      "sha256": "6aac611bb19eb98ecf294be2a1526e16833b363284fe06348f0de24cd5e612b0"
+    },
+    "axdb-driver-sqlite": {
+      "bytes": 14726928,
+      "sha256": "988595866dd78e7d0ca52c340e59c62f86fad74116bf1af5ea21b1a7bbd1c717"
+    },
+    "axdb-driver-redis": {
+      "bytes": 13294576,
+      "sha256": "36bafc7659cffe09981ed8ac09a1a82cdd5486a876af77016945147069618183"
+    },
+    "axdb-driver-postgres": {
+      "bytes": 15142232,
+      "sha256": "5e12280b2bd4c0a12080bf5c9b7fb53008c68d76e1b73d1a2914a4a75de8f6c9"
+    },
+    "axdb-driver-example-kv": {
+      "bytes": 10193016,
+      "sha256": "fdc35da711b39b85ff7087c69260d14dfb8df6789ac68e1f638ccca530e86985"
+    }
+  },
+  "app_size": {
+    "current_debug_bytes": 61262328,
+    "prior_target_d2_debug_bytes": 77701280,
+    "comparable_release_before_after": false
+  },
+  "git_start": {
+    "modified_tracked": 10,
+    "untracked_roots": 9
+  },
+  "commit_or_push": false,
+  "user_app_modified": false,
+  "git_end_snapshot": {
+    "modified_tracked": 32,
+    "untracked_roots": 87
+  },
+  "cleanup": {
+    "test_app_pid": 87980,
+    "driver_pids": [
+      92162,
+      95210,
+      95212,
+      95213,
+      95224,
+      95225
+    ],
+    "all_driver_processes_exited": true,
+    "user_app_or_other_servers_stopped": false,
+    "all_owned_runtime_processes_exited": true
+  }
+}

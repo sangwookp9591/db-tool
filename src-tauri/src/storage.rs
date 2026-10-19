@@ -227,7 +227,7 @@ mod tests {
     }
     #[test]
     fn profile_secrets_and_atomic_files() {
-        let driver = crate::drivers::registry().manifests().remove(0);
+        let driver = dbcore::Driver::manifest(&driver_postgres::PostgresDriver::new()).clone();
         let mut profile = Profile {
             id: "p".into(),
             name: "local".into(),

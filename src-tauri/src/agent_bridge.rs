@@ -61,6 +61,15 @@ impl Default for Bridge {
     }
 }
 impl Bridge {
+    pub(crate) async fn client_config(&self) -> Result<Value, DbError> {
+        let running = self.running.lock().await;
+        let running = running.as_ref().ok_or_else(|| DbError::query("먼저 MCP 브리지를 켜세요"))?;
+        let token = running.discovery["token"].as_str().ok_or_else(|| DbError::internal("Bridge token unavailable"))?;
+        if permissions::authenticate(&running.shared.config, token)?.is_none() {
+            return Err(DbError::query("로컬 토큰이 만료되었거나 폐기되었습니다. 클라이언트 패널에서 토큰을 발급하세요"));
+        }
+        Ok(json!({"mcpServers":{"axdb":{"type":"http","url":running.discovery["url"],"headers":{"Authorization":format!("Bearer {token}")}}}}))
+    }
     pub async fn update_local_token(&self,config:&std::path::Path,raw:&str)->Result<(),DbError> {
         if let Some(running)=self.running.lock().await.as_mut(){running.discovery["token"]=json!(raw);if *self.ready.borrow(){publish(config,&running.discovery)?;}}Ok(())
     }
@@ -175,7 +184,7 @@ pub async fn agent_bridge_ready(
 ) -> Result<(), DbError> {
     bridge.mark_ready(&host.paths.config).await
 }
-fn read_settings(config: &std::path::Path) -> Result<Value, DbError> {
+pub(crate) fn read_settings(config: &std::path::Path) -> Result<Value, DbError> {
     match std::fs::read(config.join("settings.json")) {
         Ok(data) => {
             let value: Value = serde_json::from_slice(&data)
