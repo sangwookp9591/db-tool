@@ -1,0 +1,79 @@
+{
+  "agent": {
+    "passed": true,
+    "screenshots": 10,
+    "viewports": [
+      "1100x850",
+      "960x600"
+    ],
+    "idleAnimations": 0,
+    "reducedMotionAnimations": 0,
+    "checks": [
+      "empty state",
+      "card edit and save",
+      "create client",
+      "mock bridge failure remains off",
+      "audit empty state",
+      "no horizontal overflow",
+      "footer visible",
+      "scroll snap none"
+    ],
+    "pageErrors": []
+  },
+  "illustration": {
+    "passed": true,
+    "lazyModulesAbsentAtStartup": true,
+    "checks": [
+      "offscreen does not animate",
+      "visible plays once",
+      "hidden cancels animations and timer",
+      "visible again does not replay",
+      "unmount cancels timer",
+      "reduced motion completed static frame"
+    ],
+    "pageErrors": []
+  },
+  "changelog": {
+    "passed": true,
+    "screenshots": 2,
+    "sections": 6,
+    "checks": [
+      "first launch once",
+      "repeat menu access",
+      "keyboard expand",
+      "full section body",
+      "HTML remains literal",
+      "javascript links blocked",
+      "safe link callback",
+      "960x600 overflow none",
+      "idle and reduced motion animations zero"
+    ],
+    "pageErrors": []
+  },
+  "environment": {
+    "mode": "isolated Vite mock + headless Chromium",
+    "native_app": false,
+    "real_database": false,
+    "commit_or_push": false
+  },
+  "typecheck": {
+    "command": "pnpm --dir ui exec tsc --noEmit",
+    "passed": true
+  },
+  "vitest": {
+    "initial_parallel": {
+      "passed": 130,
+      "failed": 3,
+      "files_passed": 31,
+      "files_failed": 2,
+      "failures": "onboarding 2 and BranchedMenu 1 timeout"
+    },
+    "final": {
+      "command": "pnpm --dir ui test --maxWorkers=1",
+      "files_passed": 33,
+      "tests_passed": 134,
+      "failed": 0,
+      "seconds": 52.64
+    }
+  }
+}

@@ -1,0 +1,178 @@
+{
+  "started": "2026-10-19T16:18:47.376256+09:00",
+  "gate": {
+    "label": "r2-v3-quiet-window",
+    "passed": true,
+    "threshold": 8,
+    "timeout_seconds": 3600,
+    "samples": [
+      {
+        "at": "2026-10-19T16:18:47.430944+09:00",
+        "load1": 3.44482421875,
+        "waited_seconds": 5.916001100558788e-06,
+        "ps_top_cpu": [
+          {
+            "pid": 171,
+            "ppid": 1,
+            "rss_kib": 83296,
+            "cpu_seconds": 11141.17,
+            "rolling_cpu_percent": 30.4,
+            "command": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+          },
+          {
+            "pid": 92705,
+            "ppid": 92566,
+            "rss_kib": 554704,
+            "cpu_seconds": 791.6,
+            "rolling_cpu_percent": 23.7,
+            "command": "/Applications/Aside.app/Contents/Frameworks/Aside Framework.framework/Versions/1.0.928.1/Helpers/Aside Helper (Renderer).app/Contents/MacOS/Aside Helper (Renderer)"
+          },
+          {
+            "pid": 92627,
+            "ppid": 92566,
+            "rss_kib": 164496,
+            "cpu_seconds": 992.06,
+            "rolling_cpu_percent": 20.8,
+            "command": "/Applications/Aside.app/Contents/Frameworks/Aside Framework.framework/Versions/1.0.928.1/Helpers/Aside Helper.app/Contents/MacOS/Aside Helper"
+          },
+          {
+            "pid": 86956,
+            "ppid": 20614,
+            "rss_kib": 24720,
+            "cpu_seconds": 0.07,
+            "rolling_cpu_percent": 14.4,
+            "command": "/opt/homebrew/Cellar/python@3.14/3.14.4/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python"
+          },
+          {
+            "pid": 16508,
+            "ppid": 16414,
+            "rss_kib": 503568,
+            "cpu_seconds": 5668.94,
+            "rolling_cpu_percent": 7.8,
+            "command": "/Applications/Orca.app/Contents/Frameworks/Orca Helper (Renderer).app/Contents/MacOS/Orca Helper (Renderer)"
+          },
+          {
+            "pid": 20614,
+            "ppid": 19878,
+            "rss_kib": 168096,
+            "cpu_seconds": 235.44,
+            "rolling_cpu_percent": 7.0,
+            "command": "codex"
+          },
+          {
+            "pid": 92566,
+            "ppid": 1,
+            "rss_kib": 298464,
+            "cpu_seconds": 394.5,
+            "rolling_cpu_percent": 5.5,
+            "command": "/Applications/Aside.app/Contents/MacOS/Aside"
+          },
+          {
+            "pid": 16414,
+            "ppid": 1,
+            "rss_kib": 246448,
+            "cpu_seconds": 2186.68,
+            "rolling_cpu_percent": 5.1,
+            "command": "/Applications/Orca.app/Contents/MacOS/Orca"
+          },
+          {
+            "pid": 16460,
+            "ppid": 16414,
+            "rss_kib": 91808,
+            "cpu_seconds": 2387.83,
+            "rolling_cpu_percent": 5.0,
+            "command": "/Applications/Orca.app/Contents/Frameworks/Orca Helper.app/Contents/MacOS/Orca Helper"
+          },
+          {
+            "pid": 1165,
+            "ppid": 1,
+            "rss_kib": 1276176,
+            "cpu_seconds": 2477.55,
+            "rolling_cpu_percent": 3.6,
+            "command": "/Applications/OrbStack.app/Contents/Frameworks/OrbStack Helper.app/Contents/MacOS/OrbStack Helper"
+          },
+          {
+            "pid": 846,
+            "ppid": 1,
+            "rss_kib": 14336,
+            "cpu_seconds": 287.0,
+            "rolling_cpu_percent": 2.3,
+            "command": "/usr/libexec/trustd"
+          },
+          {
+            "pid": 40927,
+            "ppid": 35207,
+            "rss_kib": 158240,
+            "cpu_seconds": 140.87,
+            "rolling_cpu_percent": 2.0,
+            "command": "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/155.0.8059.84/Helpers/Google Chrome Helper (Renderer).app/Contents/MacOS/Google Chrome Helper (Renderer)"
+          },
+          {
+            "pid": 92703,
+            "ppid": 92566,
+            "rss_kib": 283888,
+            "cpu_seconds": 196.12,
+            "rolling_cpu_percent": 2.0,
+            "command": "Aside Daemon"
+          },
+          {
+            "pid": 96132,
+            "ppid": 95094,
+            "rss_kib": 295472,
+            "cpu_seconds": 666.37,
+            "rolling_cpu_percent": 1.8,
+            "command": "claude"
+          },
+          {
+            "pid": 295,
+            "ppid": 1,
+            "rss_kib": 43088,
+            "cpu_seconds": 433.2,
+            "rolling_cpu_percent": 1.6,
+            "command": "/System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN"
+          },
+          {
+            "pid": 13842,
+            "ppid": 1,
+            "rss_kib": 107200,
+            "cpu_seconds": 135.92,
+            "rolling_cpu_percent": 1.5,
+            "command": "/Applications/Xcode.app/Contents/MacOS/Xcode"
+          },
+          {
+            "pid": 17231,
+            "ppid": 1,
+            "rss_kib": 150384,
+            "cpu_seconds": 717.38,
+            "rolling_cpu_percent": 1.5,
+            "command": "/Users/iron/Library/Application Support/orca/daemon-host/macos/terminal-host-499e9399663dd55819267db289c3952247e9f081/app.noindex/Orca Terminal Host.app/Contents/MacOS/orca-terminal-host"
+          },
+          {
+            "pid": 142,
+            "ppid": 1,
+            "rss_kib": 13136,
+            "cpu_seconds": 176.97,
+            "rolling_cpu_percent": 1.4,
+            "command": "/usr/libexec/opendirectoryd"
+          },
+          {
+            "pid": 81504,
+            "ppid": 80892,
+            "rss_kib": 225280,
+            "cpu_seconds": 47.04,
+            "rolling_cpu_percent": 1.3,
+            "command": "claude"
+          },
+          {
+            "pid": 144,
+            "ppid": 1,
+            "rss_kib": 8096,
+            "cpu_seconds": 249.6,
+            "rolling_cpu_percent": 1.2,
+            "command": "/System/Library/CoreServices/launchservicesd"
+          }
+        ]
+      }
+    ]
+  }
+}

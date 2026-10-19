@@ -3,7 +3,7 @@ export interface FieldSpec { key: string; label: string; kind: FieldKind; requir
 export type PreviewSupport = 'None' | 'Transactional' | 'DryRun';
 export interface Capabilities { explain?: boolean; lint?: boolean; schema_graph?: boolean; filtered_browse?: boolean; preview_changes?: PreviewSupport; read_only_exec?: boolean; cancel: 'None' | 'Abort' | 'Server'; timeout: boolean; params: boolean; transactions: boolean; paged_browse: boolean; graph_expand: boolean; multi_statement: boolean; edit_rows: boolean }
 export interface QueryLanguage { id: string; display: string; editor_mode: string; supports_params: boolean }
-export interface DriverManifest { id: string; display_name: string; paradigm: 'Relational' | 'Graph' | 'Document' | 'KeyValue'; query_language: QueryLanguage; connection_fields: FieldSpec[]; capabilities: Capabilities; default_query: string }
+export interface DriverManifest { id: string; icon_key?: string; display_name: string; paradigm: 'Relational' | 'Graph' | 'Document' | 'KeyValue'; query_language: QueryLanguage; connection_fields: FieldSpec[]; capabilities: Capabilities; default_query: string }
 export interface ConnectConfig { fields: Record<string, string>; secret: string | null; connect_timeout_ms: number }
 export type Icon = 'Folder' | 'Table' | 'Column' | 'Key' | 'Index' | 'Label' | 'Relationship' | 'Property' | 'Collection' | 'Database' | 'View' | 'Function';
 export type ActionKind = { OpenSchemaGraph: { scope: string | null } } | 'Browse' | { OpenQuery: { text: string } } | { Insert: { text: string } };

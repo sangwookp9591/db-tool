@@ -1,0 +1,12 @@
+.connect-heading{display:flex;align-items:center;gap:12px;margin:6px 0 18px}
+.connect-heading>svg,.connect-heading>img{width:30px;height:30px;object-fit:contain;color:var(--text-accent)}
+.connect-heading h3{margin:0;font-size:20px;letter-spacing:-.4px}
+.connect-steps{list-style:none;padding:18px 0;margin:20px 0;border-block:1px solid var(--border-subtle);display:flex;gap:16px;flex-wrap:wrap}
+.connect-steps li{display:flex;flex:1;min-width:120px;gap:7px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--text-muted)}
+.connect-steps li[data-active=true]{color:var(--text-primary)}
+.connect-steps .status-mark{width:auto;height:auto;display:inline-flex}
+.connect-steps .status-mark__label{white-space:nowrap}
+.connect-steps .ax-test-time{font-size:10px;font-variant-numeric:tabular-nums;color:var(--text-muted)}
+.connection-test-connect{margin-top:20px;padding:16px;border:1px solid var(--border-subtle);border-radius:var(--radius-lg);background:var(--surface-primary)}
+.connection-test-connect>p{color:var(--text-secondary);font-size:12px}
+@media(prefers-reduced-motion:reduce){.connect-steps .status-mark__ring{animation:none!important}.connect-steps .status-mark__glyph,.connect-steps .status-mark__check,.connect-steps .status-mark__cross{transition:none}}

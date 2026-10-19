@@ -1,0 +1,26 @@
+{
+  "source": "d07c12f",
+  "started": "2026-10-19T18:24:20.482938+09:00",
+  "command": [
+    "pnpm",
+    "dlx",
+    "@tauri-apps/cli@2",
+    "build",
+    "--ci",
+    "--bundles",
+    "app",
+    "--config",
+    "{\"bundle\": {\"createUpdaterArtifacts\": false}}"
+  ],
+  "target_dir": "/private/tmp/claude-501/-Users-iron-Project-psw-db-tool/1fe252ea-91ad-4737-8951-7e8f929f6ea0/scratchpad/r2-src/target",
+  "jobs": 4,
+  "notarization": false,
+  "virtual_table_sha256": "de5e508042c5982902d422606eab1f8fdfb13db4ae3b899ab83eaff4c08e9b23",
+  "resource_harness_sha256": "d05c566dc96a3c0a62329c76d64d35b0fa0292b1f568e0d3a2dd0d942ffbb5d5",
+  "product_changes": [
+    "ui/src/VirtualTable.tsx"
+  ],
+  "ui_tests": "parallel 112 passed, 1 onboarding timeout; isolated onboarding 10 passed; timeout unchanged",
+  "exit": 0,
+  "finished": "2026-10-19T18:29:07.567722+09:00"
+}

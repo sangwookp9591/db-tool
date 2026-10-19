@@ -13,11 +13,11 @@ try {
   assert.equal(await page.getByRole('button', { name: '드라이버 필요 · 설치', exact: true }).count(), 3);
   await page.getByTestId('add-connection').click();
   await page.getByTestId('driver-postgres').waitFor();
-  await page.screenshot({ path: '../docs/design-shots/drivers-available-midnight.png' });
-  await page.getByRole('button', { name: 'PostgreSQL 설치', exact: true }).click();
+  await page.screenshot({ path: '../docs/design-shots/drivers-v2-flow-available-midnight.png' });
+  await page.getByRole('button', { name: 'PostgreSQL · 설치 가능', exact: true }).click();
   await page.getByRole('progressbar', { name: '드라이버 설치 진행률' }).waitFor();
-  await page.screenshot({ path: '../docs/design-shots/drivers-progress-midnight.png' });
-  await page.getByRole('button', { name: 'PostgreSQL 삭제', exact: true }).waitFor();
+  await page.screenshot({ path: '../docs/design-shots/drivers-v2-flow-progress-midnight.png' });
+  await page.getByRole('button', { name: 'PostgreSQL · 설치됨', exact: true }).waitFor();
   assert.equal(await page.getByRole('button', { name: '드라이버 필요 · 설치', exact: true }).count(), 2);
   await page.getByRole('button', { name: '연결 추가', exact: true }).click();
   await page.getByRole('dialog', { name: 'Add connection', exact: true }).waitFor();
@@ -26,6 +26,7 @@ try {
   await page.getByRole('button', { name: 'Connect or disconnect 설치 후 연결' }).waitFor();
   await page.getByRole('button', { name: '드라이버', exact: true }).click();
   await page.getByRole('tab', { name: /설치됨/ }).click();
+  await page.getByRole('button', { name: 'PostgreSQL · 설치됨', exact: true }).click();
   await page.getByRole('button', { name: 'PostgreSQL 삭제', exact: true }).click();
   await page.getByRole('button', { name: '되돌리기', exact: true }).click();
   assert.equal(await page.getByRole('button', { name: 'PostgreSQL 삭제', exact: true }).count(), 1);
@@ -36,7 +37,7 @@ try {
   await page.getByLabel('드라이버 파일', { exact: true }).setInputFiles({ name: 'community.axdriver', mimeType: 'application/zip', buffer: Buffer.from('mock-only') });
   await page.getByRole('dialog', { name: '확인되지 않은 드라이버', exact: true }).waitFor();
   assert.equal(await page.getByRole('button', { name: '동의하고 설치' }).isDisabled(), true);
-  await page.screenshot({ path: '../docs/design-shots/drivers-unverified-midnight.png' });
+  await page.screenshot({ path: '../docs/design-shots/drivers-v2-flow-unverified-midnight.png' });
   await page.getByRole('button', { name: '취소', exact: true }).click();
   assert.equal(await page.getByTestId('driver-local-demo').count(), 0);
   await page.getByLabel('드라이버 파일', { exact: true }).setInputFiles({ name: 'community.axdriver', mimeType: 'application/zip', buffer: Buffer.from('mock-only') });
@@ -46,11 +47,11 @@ try {
   await page.getByTestId('driver-local-demo').waitFor();
   await page.waitForTimeout(600);
   assert.equal(await page.evaluate(() => document.getAnimations().filter(a => a.playState === 'running').length), 0);
-  await page.screenshot({ path: '../docs/design-shots/drivers-installed-midnight.png' });
+  await page.screenshot({ path: '../docs/design-shots/drivers-v2-flow-installed-midnight.png' });
   await page.evaluate(() => { document.documentElement.dataset.theme = 'daylight'; window.dispatchEvent(new Event('axdb-theme-change')); });
-  await page.screenshot({ path: '../docs/design-shots/drivers-installed-daylight.png' });
+  await page.screenshot({ path: '../docs/design-shots/drivers-v2-flow-installed-daylight.png' });
   await page.getByRole('tab', { name: '사용 가능', exact: true }).click();
-  await page.screenshot({ path: '../docs/design-shots/drivers-available-daylight.png' });
+  await page.screenshot({ path: '../docs/design-shots/drivers-v2-flow-available-daylight.png' });
   const overflow = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight }));
   assert.deepEqual(overflow, { width: 960, height: 600 });
   await page.emulateMedia({ reducedMotion: 'reduce' });

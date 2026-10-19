@@ -25,6 +25,7 @@ impl Neo4jDriver {
         Self {
             manifest: DriverManifest {
                 id: "neo4j".into(),
+                icon_key: Some("neo4j".into()),
                 display_name: "Neo4j".into(),
                 paradigm: Paradigm::Graph,
                 query_language: QueryLanguage {
@@ -355,6 +356,24 @@ impl NeoSession {
 }
 #[async_trait]
 impl Session for NeoSession {
+    async fn restore_options(&self)->Result<RestoreOptions,DbError>{
+        let edition=self.internal("CALL dbms.components() YIELD edition RETURN edition".into(),Default::default()).await?;
+        let enterprise=edition.table.is_some_and(|t|t.rows.iter().flatten().any(|v|matches!(v,Value::Text(s) if s.eq_ignore_ascii_case("enterprise"))));
+        Ok(RestoreOptions{overwrite:false,new_database:enterprise,guidance:if enterprise{"빈 대상에 복원한 뒤 검증하고 연결을 교체하세요. 기존 대상 덮어쓰기는 지원하지 않습니다."}else{"Community는 DB 한 개만 지원합니다. 별도 서버의 빈 DB에 연결하여 복원한 뒤 검증하고 연결을 교체하세요."}.into()})
+    }
+    async fn restore_database(&self,summary:&BackupSummary,source:&mut (dyn std::io::Read+Send),name:&str,cancel:CancelToken)->Result<(),DbError>{
+        validate_restore_database(name)?;
+        if !self.restore_options().await?.new_database{return Err(DbError::unsupported("Neo4j Community requires an empty database on a separate server"));}
+        administration::cancelled(&cancel)?;
+        let graph=neo4rs::Graph::connect(self.operation_config(3600000)).map_err(|e|self.error(e))?;
+        graph.run_on("system",query(&format!("CREATE DATABASE `{}` WAIT",name.replace('`',"``")))).await.map_err(|e|self.error(e))?;
+        let target=NeoSession{config:self.config.clone().with_database(name),secret:self.secret.clone(),closed:AtomicBool::new(false)};
+        let result=target.restore_stream(summary,source,false,cancel).await;
+        if result.as_ref().is_err_and(|e|e.kind!=ErrorKind::Connection){graph.run_on("system",query(&format!("DROP DATABASE `{}` WAIT",name.replace('`',"``")))).await.map_err(|_|DbError::new(ErrorKind::Connection,"New database cleanup could not be confirmed"))?;}
+        result
+    }
+    async fn backup_stream(&self,cancel:CancelToken,sink:&dyn BackupSink)->Result<BackupSummary,DbError>{self.stream_backup(cancel,sink).await}
+    async fn restore_stream(&self,summary:&BackupSummary,source:&mut (dyn std::io::Read+Send),overwrite:bool,cancel:CancelToken)->Result<(),DbError>{if summary.format=="neo4j-cypher-v1"{return self.native_restore(&legacy_backup(summary,source)?,overwrite,cancel).await;}self.stream_restore(summary,source,overwrite,cancel).await}
     async fn backup(&self,cancel:CancelToken)->Result<BackupData,DbError>{self.native_backup(cancel).await}
     async fn restore(&self,backup:&BackupData,overwrite:bool,cancel:CancelToken)->Result<(),DbError>{self.native_restore(backup,overwrite,cancel).await}
     async fn roles(&self)->Result<RolesSnapshot,DbError>{self.native_roles().await}
@@ -476,3 +495,4 @@ mod server_info_tests {
 
 mod management;
 mod administration;
+mod backup_stream;

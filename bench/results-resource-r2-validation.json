@@ -1,0 +1,44 @@
+{
+  "baseline_matrices": 5,
+  "baseline_samples": 40,
+  "ab_runs": 10,
+  "ab_individual_samples": 80,
+  "core_valid_pairs": {
+    "table-100000": 4,
+    "tabs-10": 4,
+    "tabs-closed-10": 4
+  },
+  "scroll_apps": 2,
+  "scroll_table_pairs": 24,
+  "product_candidate_reverted": true,
+  "owned_live_processes": [],
+  "artifacts": [
+    {
+      "app": "/private/tmp/claude-501/-Users-iron-Project-psw-db-tool/1fe252ea-91ad-4737-8951-7e8f929f6ea0/scratchpad/r2/AxDB-resource-bench-v3.app",
+      "sha256": "e3f2d1f3bef558326418db02379adf2c087ffc5124a53f1c2f94d1c4210192ce",
+      "signature_exit": 0
+    },
+    {
+      "app": "/private/tmp/claude-501/-Users-iron-Project-psw-db-tool/1fe252ea-91ad-4737-8951-7e8f929f6ea0/scratchpad/r2/AxDB-no-will-change.app",
+      "sha256": "56429f99baddc016a8a1e8e93fceb0b535273726b51db9b214c9dd92b356220c",
+      "signature_exit": 0
+    }
+  ],
+  "new_section_local_links_checked": 12,
+  "main_patch_checks": [
+    {
+      "patch": "bench/r2-delivery/collector-resource-opt.patch",
+      "exit": 0
+    },
+    {
+      "patch": "bench/r2-delivery/docs-resource-opt.patch",
+      "exit": 0
+    },
+    {
+      "patch": "bench/r2-delivery/reporter-resource-report.patch",
+      "exit": 0
+    }
+  ],
+  "verdict": "REJECTED",
+  "target_cleanup_verified": true
+}

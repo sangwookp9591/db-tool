@@ -11,6 +11,7 @@ fn fixture() -> (
     (
         Manifest {
             id: "sqlite".into(),
+            icon_key: None,
             name: "SQLite".into(),
             version: "1.0.0".into(),
             protocol: 1,
@@ -175,5 +176,73 @@ fn cancelled_validation_and_extraction_leave_no_candidate() {
             .unwrap()
             .count(),
         0
+    );
+}
+
+#[test]
+fn optional_icon_key_preserves_legacy_signatures_and_is_signed_when_present() {
+    let (mut manifest, binaries, key, trusted) = fixture();
+    let legacy = serde_json::to_vec(&manifest).unwrap();
+    assert!(!String::from_utf8_lossy(&legacy).contains("icon_key"));
+    let decoded: Manifest = serde_json::from_slice(&legacy).unwrap();
+    assert!(decoded.icon_key.is_none());
+    assert_eq!(serde_json::to_vec(&decoded).unwrap(), legacy);
+    manifest.icon_key = Some("sqlite".into());
+    let bytes = write_package(&manifest, &binaries, Some(&key)).unwrap();
+    assert_eq!(
+        read_package(&bytes, &trusted, false)
+            .unwrap()
+            .manifest
+            .icon_key
+            .as_deref(),
+        Some("sqlite")
+    );
+    let signature = sign(&serde_json::to_vec(&manifest).unwrap(), &key);
+    manifest.icon_key = Some("redis".into());
+    assert!(verify(
+        &serde_json::to_vec(&manifest).unwrap(),
+        &signature,
+        &trusted
+    )
+    .is_err());
+    let entry = CatalogEntry {
+        id: "sqlite".into(),
+        icon_key: None,
+        name: "SQLite".into(),
+        version: "1.0.0".into(),
+        description: String::new(),
+        paradigm: "Relational".into(),
+        homepage: String::new(),
+        license: "MIT".into(),
+        platforms: vec![TARGETS[0].into()],
+        url: package_url("sqlite", "1.0.0"),
+        size: 1,
+        sha256: sha256(b"x"),
+    };
+    let signed = SignedCatalog::new(
+        Catalog {
+            drivers: vec![entry],
+        },
+        &key,
+    )
+    .unwrap();
+    let legacy = serde_json::to_vec(&signed).unwrap();
+    assert!(!String::from_utf8_lossy(&legacy).contains("icon_key"));
+    let decoded: SignedCatalog = serde_json::from_slice(&legacy).unwrap();
+    assert!(decoded.verified(&trusted).is_ok());
+    let mut tampered = signed.clone();
+    tampered.catalog.drivers[0].icon_key = Some("sqlite".into());
+    assert!(tampered.verified(&trusted).is_err());
+    let mut catalog = signed.catalog;
+    catalog.drivers[0].icon_key = Some("sqlite".into());
+    assert_eq!(
+        SignedCatalog::new(catalog, &key)
+            .unwrap()
+            .verified(&trusted)
+            .unwrap()
+            .drivers[0]
+            .icon_key
+            .as_deref(),
+        Some("sqlite")
     );
 }

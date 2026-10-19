@@ -35,19 +35,15 @@ import WebKit
             do {
                 try await wait("!!document.querySelector('button[aria-label=\"드라이버\"]')")
                 _ = try await web.evaluateJavaScript("document.querySelector('button[aria-label=\"드라이버\"]').click()")
-                try await wait("document.querySelectorAll('.glass-icon-cell').length===5")
+                try await wait("document.querySelectorAll('.driver-tile-cell').length===6")
                 try await Task.sleep(nanoseconds: 2_000_000_000)
-                let gpu = try await web.evaluateJavaScript("document.querySelector('.glass-icons').dataset.gpu || 'unknown'")
                 for theme in ["midnight", "daylight"] {
                     _ = try await web.evaluateJavaScript("document.documentElement.dataset.theme='\(theme)';window.dispatchEvent(new Event('axdb-theme-change'))")
                     try await Task.sleep(nanoseconds: 300_000_000)
-                    try await shot("drivers-glass-wk-\(theme)")
+                    try await shot("drivers-v2-wk-\(theme)")
                 }
-                _ = try await web.evaluateJavaScript("document.querySelector('.glass-icons canvas').getContext('webgl2')?.getExtension('WEBGL_lose_context')?.loseContext()")
-                try await wait("document.querySelector('.glass-icons').dataset.gpu==='false'")
-                try await Task.sleep(nanoseconds: 300_000_000)
-                try await shot("drivers-glass-wk-fallback")
-                print("WKWebView PASS: mock preview, GPU=\(String(describing: gpu)), daylight/midnight snapshots, context-loss DOM fallback; no user app or DB access")
+                try await wait("document.querySelectorAll('.driver-gallery canvas').length===0")
+                print("WKWebView PASS: six mock WebP tiles, daylight/midnight snapshots, no glass canvas; no user app or DB access")
                 window.close(); NSApplication.shared.terminate(nil)
             } catch {
                 fputs("WKWebView FAIL: \(error)\n", stderr)

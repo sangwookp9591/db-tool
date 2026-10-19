@@ -11,9 +11,9 @@ const fields: DriverManifest['connection_fields'] = [
 ];
 const capabilities: DriverManifest['capabilities'] = { lint: true, import_rows: true, schema_snapshot: true, ddl_render: true, roles: true, backup: true, explain: true, schema_graph: true, preview_changes: 'DryRun', read_only_exec: true, cancel: 'Server', timeout: true, params: true, transactions: true, paged_browse: true, graph_expand: false, multi_statement: true, edit_rows: true };
 export const drivers: DriverManifest[] = [
-  { id: 'postgres', display_name: 'PostgreSQL · 데모', paradigm: 'Relational', query_language: { id: 'sql', display: 'SQL', editor_mode: 'sql', supports_params: true }, connection_fields: fields, capabilities, default_query: 'SELECT * FROM people;' },
-  { id: 'neo4j', display_name: '그래프 · 데모', paradigm: 'Graph', query_language: { id: 'cypher', display: 'Cypher', editor_mode: 'cypher', supports_params: true }, connection_fields: fields.map(f => f.key === 'port' ? { ...f, default: '7687' } : f), capabilities: { ...capabilities, edit_rows: false, cancel: 'Abort', graph_expand: true, multi_statement: false }, default_query: 'MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 100;' },
-  { id: 'mongodb', display_name: 'MongoDB · 데모', paradigm: 'Document', query_language: { id: 'json', display: 'JSON', editor_mode: 'json', supports_params: false }, connection_fields: [{key:'uri',label:'URI',kind:'Text',required:true,default:'mongodb://127.0.0.1:57017',secret:false,placeholder:null},{key:'database',label:'데이터베이스',kind:'Text',required:true,default:'axdb_test',secret:false,placeholder:null},...fields.filter(f=>['user','password','tls','tls_ca_file'].includes(f.key)),{key:'auth_source',label:'인증 데이터베이스',kind:'Text',required:false,default:'admin',secret:false,placeholder:null}], capabilities: { ...capabilities, lint: false, edit_rows: false, params: false, preview_changes: 'None' }, default_query: '{"find":"people","filter":{}}' }
+  { id: 'postgres', icon_key: 'postgres', display_name: 'PostgreSQL · 데모', paradigm: 'Relational', query_language: { id: 'sql', display: 'SQL', editor_mode: 'sql', supports_params: true }, connection_fields: fields, capabilities, default_query: 'SELECT * FROM people;' },
+  { id: 'neo4j', icon_key: 'neo4j', display_name: '그래프 · 데모', paradigm: 'Graph', query_language: { id: 'cypher', display: 'Cypher', editor_mode: 'cypher', supports_params: true }, connection_fields: fields.map(f => f.key === 'port' ? { ...f, default: '7687' } : f), capabilities: { ...capabilities, edit_rows: false, cancel: 'Abort', graph_expand: true, multi_statement: false }, default_query: 'MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 100;' },
+  { id: 'mongodb', icon_key: 'mongodb', display_name: 'MongoDB · 데모', paradigm: 'Document', query_language: { id: 'json', display: 'JSON', editor_mode: 'json', supports_params: false }, connection_fields: [{key:'uri',label:'URI',kind:'Text',required:true,default:'mongodb://127.0.0.1:57017',secret:false,placeholder:null},{key:'database',label:'데이터베이스',kind:'Text',required:true,default:'axdb_test',secret:false,placeholder:null},...fields.filter(f=>['user','password','tls','tls_ca_file'].includes(f.key)),{key:'auth_source',label:'인증 데이터베이스',kind:'Text',required:false,default:'admin',secret:false,placeholder:null}], capabilities: { ...capabilities, lint: false, edit_rows: false, params: false, preview_changes: 'None' }, default_query: '{"find":"people","filter":{}}' }
 ];
 let profiles: Profile[] = drivers.map((d, i) => ({ id: `demo-${i}`, name: ['Analytics sandbox', 'Graph playground', 'Document studio'][i], driver_id: d.id, fields: Object.fromEntries(d.connection_fields.filter(f => !f.secret).map(f => [f.key, f.default ?? ''])), save_secret: false }));
 const sessions = new Map<string, Profile>();
@@ -93,7 +93,7 @@ export async function mockInvoke<K extends keyof Commands>(command: K, args: Com
   if (ax.axMockCommands.includes(command)) return await ax.axMock(command,a) as Commands[K]['result'];
   let result: unknown;
   switch (command) {
-    case 'backup_create': case 'backup_status': case 'restore_preview': case 'restore_apply': case 'roles': case 'plan_grants': case 'grants_preview': case 'grants_apply': result=await administrationMock(command,a);break;
+    case 'backup_create_file': case 'restore_options': case 'restore_pick_file': case 'restore_file_preview': case 'restore_file_apply': case 'restore_file_discard': case 'backup_create': case 'backup_status': case 'restore_preview': case 'restore_apply': case 'roles': case 'plan_grants': case 'grants_preview': case 'grants_apply': result=await administrationMock(command,a);break;
     case 'explain_query': { session(a.sessionId as string); result = { op: 'Gather', target: null, est_rows: 100000, actual_rows: a.analyze ? 100000 : null, cost: 2100, children: [{ op: 'Parallel Seq Scan', target: 'people', est_rows: 1000, actual_rows: a.analyze ? 50000 : null, cost: 1800, children: [], warnings: ['전체 스캔입니다. 필터 조건과 인덱스 사용 가능성을 검토하세요.'] }], warnings: [] }; break; }
     case 'lint_query': { session(a.sessionId as string); const query = String(a.query); const star = query.indexOf('*'); result = star < 0 ? [] : [{ rule_id: 'select_star', start: star, end: star + 1, severity: 'warning', message: 'Select explicit columns', quick_fix: { title: 'Expand columns (demo)', edits: [{ start: star, end: star + 1, text: 'id, name, team_id' }] } }]; break; }
     case 'refactor_query': { session(a.sessionId as string); const query = String(a.query); const action = a.action as {kind:string}; if (action.kind === 'expand_star' && query.includes('*')) { const start = query.indexOf('*'); result = [{start,end:start+1,text:'id, name, team_id'}]; } else throw failure('Unsupported', 'Use the native SQL parser for this refactoring'); break; }
@@ -200,16 +200,18 @@ export function simulateAgentCalls(count: number, emit: (call: import('./contrac
 
 // Browser-only installation simulation. No package is downloaded or executed.
 drivers.push(
-  { ...drivers[0], id: 'sqlite', display_name: 'SQLite · 데모', connection_fields: [{ key: 'path', label: '데이터베이스 파일', kind: 'FilePath', required: true, default: ':memory:', secret: false, placeholder: null }] },
-  { ...drivers[0], id: 'redis', display_name: 'Redis · 데모', paradigm: 'KeyValue', connection_fields: fields.map(field => field.key === 'port' ? { ...field, default: '56379' } : field), capabilities: { ...capabilities, edit_rows: false, params: false, preview_changes: 'None' }, query_language: { id: 'redis', display: 'Redis', editor_mode: 'text', supports_params: false }, default_query: 'SCAN 0 COUNT 100' },
+  { ...drivers[0], id: 'mysql', icon_key: 'mysql', display_name: 'MySQL · 데모', connection_fields: fields.map(field => field.key === 'port' ? { ...field, default: '3306' } : field) },
+  { ...drivers[0], id: 'sqlite', icon_key: 'sqlite', display_name: 'SQLite · 데모', connection_fields: [{ key: 'path', label: '데이터베이스 파일', kind: 'FilePath', required: true, default: ':memory:', secret: false, placeholder: null }] },
+  { ...drivers[0], id: 'redis', icon_key: 'redis', display_name: 'Redis · 데모', paradigm: 'KeyValue', connection_fields: fields.map(field => field.key === 'port' ? { ...field, default: '56379' } : field), capabilities: { ...capabilities, edit_rows: false, params: false, preview_changes: 'None' }, query_language: { id: 'redis', display: 'Redis', editor_mode: 'text', supports_params: false }, default_query: 'SCAN 0 COUNT 100' },
 );
 const mockInstalledDrivers = new Map<string, string>();
 const mockCatalog: import('./drivers/api').CatalogDriver[] = [
-  { id: 'sqlite', name: 'SQLite', version: '1.0.0', paradigm: 'Relational', size: 3_800_000, description: '로컬 파일의 테이블을 탐색하고 SQL을 실행합니다.' },
-  { id: 'redis', name: 'Redis', version: '1.0.0', paradigm: 'KeyValue', size: 4_600_000, description: '키와 자료형을 탐색하고 Redis 명령을 실행합니다.' },
-  { id: 'postgres', name: 'PostgreSQL', version: '1.0.0', paradigm: 'Relational', size: 8_500_000, description: '스키마 탐색, SQL 실행과 안전한 데이터 편집을 지원합니다.' },
-  { id: 'neo4j', name: 'Neo4j', version: '1.0.0', paradigm: 'Graph', size: 6_200_000, description: 'Cypher로 노드와 관계를 조회하고 그래프를 탐색합니다.' },
-  { id: 'mongodb', name: 'MongoDB', version: '1.0.0', paradigm: 'Document', size: 10_800_000, description: '컬렉션과 문서를 탐색하고 JSON 쿼리를 실행합니다.' },
+  { id: 'sqlite', icon_key: 'sqlite', name: 'SQLite', version: '1.0.0', paradigm: 'Relational', size: 3_800_000, description: '로컬 파일의 테이블을 탐색하고 SQL을 실행합니다.' },
+  { id: 'redis', icon_key: 'redis', name: 'Redis', version: '1.0.0', paradigm: 'KeyValue', size: 4_600_000, description: '키와 자료형을 탐색하고 Redis 명령을 실행합니다.' },
+  { id: 'mysql', icon_key: 'mysql', name: 'MySQL', version: '1.0.0', paradigm: 'Relational', size: 8_000_000, description: '스키마 탐색, SQL 실행, 안전한 데이터 편집' },
+  { id: 'postgres', icon_key: 'postgres', name: 'PostgreSQL', version: '1.0.0', paradigm: 'Relational', size: 8_500_000, description: '스키마 탐색, SQL 실행과 안전한 데이터 편집을 지원합니다.' },
+  { id: 'neo4j', icon_key: 'neo4j', name: 'Neo4j', version: '1.0.0', paradigm: 'Graph', size: 6_200_000, description: 'Cypher로 노드와 관계를 조회하고 그래프를 탐색합니다.' },
+  { id: 'mongodb', icon_key: 'mongodb', name: 'MongoDB', version: '1.0.0', paradigm: 'Document', size: 10_800_000, description: '컬렉션과 문서를 탐색하고 JSON 쿼리를 실행합니다.' },
 ];
 let mockDriverOperation: { cancelled: boolean; committing: boolean } | null = null;
 const mockDriverFailures = new Set<string>();

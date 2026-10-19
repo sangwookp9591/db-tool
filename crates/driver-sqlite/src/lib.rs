@@ -2,6 +2,7 @@
 mod preview;
 mod edits;
 mod administration;
+mod backup_stream;
 mod schema;
 use async_trait::async_trait;
 use dbcore::*;
@@ -31,6 +32,7 @@ impl SqliteDriver {
         Self {
             manifest: DriverManifest {
                 id: "sqlite".into(),
+                icon_key: Some("sqlite".into()),
                 display_name: "SQLite".into(),
                 paradigm: Paradigm::Relational,
                 query_language: QueryLanguage {
@@ -260,6 +262,9 @@ impl SqliteSession {
 }
 #[async_trait]
 impl Session for SqliteSession {
+    async fn restore_options(&self)->Result<RestoreOptions,DbError>{Ok(RestoreOptions{overwrite:true,new_database:false,guidance:"Restore to an empty target; overwrite requires human confirmation".into()})}
+    async fn backup_stream(&self,cancel:CancelToken,sink:&dyn BackupSink)->Result<BackupSummary,DbError>{self.stream_backup(cancel,sink).await}
+    async fn restore_stream(&self,summary:&BackupSummary,source:&mut (dyn std::io::Read+Send),overwrite:bool,cancel:CancelToken)->Result<(),DbError>{self.stream_restore(summary,source,overwrite,cancel).await}
     async fn backup(&self,cancel:CancelToken)->Result<BackupData,DbError>{self.native_backup(cancel).await}
     async fn restore(&self,backup:&BackupData,overwrite:bool,cancel:CancelToken)->Result<(),DbError>{self.native_restore(backup,overwrite,cancel).await}
 

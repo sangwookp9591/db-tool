@@ -2,11 +2,13 @@
 extern crate driver_mongodb as real_mongodb;
 extern crate driver_neo4j as real_neo4j;
 extern crate driver_postgres as real_postgres;
+extern crate driver_mysql as real_mysql;
 extern crate driver_redis as real_redis;
 extern crate driver_sqlite as real_sqlite;
 extern crate self as driver_mongodb;
 extern crate self as driver_neo4j;
 extern crate self as driver_postgres;
+extern crate self as driver_mysql;
 extern crate self as driver_redis;
 extern crate self as driver_sqlite;
 use async_trait::async_trait;
@@ -59,6 +61,10 @@ macro_rules! proxy_driver {
     };
 }
 proxy_driver!(PostgresDriver, "postgres", real_postgres::PostgresDriver);
+proxy_driver!(MysqlDriver, "mysql", real_mysql::MysqlDriver);
+
+#[path = "../../crates/driver-mysql/tests/mysql.rs"]
+mod mysql_contract;
 proxy_driver!(Neo4jDriver, "neo4j", real_neo4j::Neo4jDriver);
 proxy_driver!(SqliteDriver, "sqlite", real_sqlite::SqliteDriver);
 proxy_driver!(MongoDriver, "mongodb", real_mongodb::MongoDriver);

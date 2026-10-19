@@ -1,0 +1,16 @@
+{
+  "status": "rejected-and-reverted",
+  "file": "ui/src/VirtualTable.tsx",
+  "change": "Remove only virtual row willChange: 'transform'; retain transform/position/layout/data",
+  "baseline_sha256": "2e38e9b9cc26b194cd26a2329a9687ed3b65c825de50b9104489d9818a0668a1",
+  "candidate_sha256": "de5e508042c5982902d422606eab1f8fdfb13db4ae3b899ab83eaff4c08e9b23",
+  "baseline_app": "/private/tmp/claude-501/-Users-iron-Project-psw-db-tool/1fe252ea-91ad-4737-8951-7e8f929f6ea0/scratchpad/r2/AxDB-resource-bench-v3.app",
+  "conditions": "same d07c12f source + resource harness, same signed drivers, new test configs, scale1, low power unchanged",
+  "verification": [
+    "paired baseline/candidate resource matrix 5 each; all functional/ownership/footprint/viewport checks",
+    "same native table-scroll scenarios in both apps",
+    "keep only reproducible memory gain beyond observed variance with no CPU/scroll regression; otherwise revert"
+  ],
+  "source": "https://www.w3.org/TR/css-will-change-1/#dont-spam-will-change-across-too-many-properties-or-elements",
+  "decision": "bench/results-resource-r2-decision.json"
+}

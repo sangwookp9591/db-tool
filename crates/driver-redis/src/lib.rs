@@ -39,6 +39,7 @@ impl RedisDriver {
         Self {
             manifest: DriverManifest {
                 id: "redis".into(),
+                icon_key: Some("redis".into()),
                 display_name: "Redis".into(),
                 paradigm: Paradigm::KeyValue,
                 query_language: QueryLanguage {

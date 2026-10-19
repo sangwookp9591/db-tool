@@ -1,5 +1,5 @@
 import type { ResultSet } from '../contract';
-import { unpackTable, type PackedTable } from './columnar';
+import { appendPacked, type PackedTable } from './columnar';
 export type StreamEvent = { kind: 'start'; index: number; result: ResultSet } | { kind: 'rows'; index: number; offset: number; table: PackedTable } | { kind: 'end'; index: number; result: Omit<ResultSet, 'table' | 'graph' | 'documents'> } | { kind: 'done' };
 export class ResultStream {
   results: ResultSet[] = [];
@@ -15,8 +15,7 @@ export class ResultStream {
     const result = this.results[event.index]; if (!result) throw new Error('Result stream has no metadata');
     if (event.kind === 'rows') {
       if (!result.table || result.table.rows.length !== event.offset) throw new Error('Out-of-order result rows');
-      const table = unpackTable(event.table); if (table.columns.length !== result.table.columns.length || result.table.rows.length + table.rows.length > 100000) throw new Error('Result stream row limit exceeded');
-      for (const row of table.rows) result.table.rows.push(row);
+      appendPacked(result.table, event.table);
       result.row_count = result.table.rows.length;
     } else Object.assign(result, event.result);
   }

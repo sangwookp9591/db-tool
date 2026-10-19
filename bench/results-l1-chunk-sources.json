@@ -1,0 +1,43 @@
+[
+  {
+    "file": "dist-RbPgJZf_.js",
+    "bytes": 41267,
+    "packages": [
+      "@codemirror/autocomplete",
+      "@codemirror/lang-sql",
+      "@lezer/lr"
+    ],
+    "source_count": 3
+  },
+  {
+    "file": "dist-js-B3TbZpHy.js",
+    "bytes": 1159,
+    "packages": [],
+    "source_count": 1
+  },
+  {
+    "file": "dist-bupg-MWX.js",
+    "bytes": 269793,
+    "packages": [
+      "@codemirror/language",
+      "@codemirror/state",
+      "@codemirror/streamparser",
+      "@codemirror/view",
+      "@lezer/common",
+      "@lezer/highlight"
+    ],
+    "source_count": 9
+  },
+  {
+    "file": "dist-js-3bJtzgCN.js",
+    "bytes": 165,
+    "packages": [],
+    "source_count": 1
+  },
+  {
+    "file": "dist-js-DBVGO9-Q.js",
+    "bytes": 159,
+    "packages": [],
+    "source_count": 1
+  }
+]

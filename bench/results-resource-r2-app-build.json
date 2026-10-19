@@ -1,0 +1,20 @@
+{
+  "source": "d07c12f",
+  "started": "2026-10-19T15:50:34.649088+09:00",
+  "command": [
+    "pnpm",
+    "dlx",
+    "@tauri-apps/cli@2",
+    "build",
+    "--ci",
+    "--bundles",
+    "app",
+    "--config",
+    "{\"bundle\": {\"createUpdaterArtifacts\": false}}"
+  ],
+  "target_dir": "/private/tmp/claude-501/-Users-iron-Project-psw-db-tool/1fe252ea-91ad-4737-8951-7e8f929f6ea0/scratchpad/r2-src/target",
+  "jobs": 4,
+  "notarization": false,
+  "exit": 0,
+  "finished": "2026-10-19T15:55:24.941454+09:00"
+}

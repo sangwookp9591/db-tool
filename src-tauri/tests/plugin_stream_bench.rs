@@ -1,7 +1,7 @@
 //! Manual paired timing at the real host -> UI Channel serialization boundary.
 use axdb::{
     plugin_host::PluginDriver,
-    stream::{LiveResults, StreamEvent},
+    stream::LiveResults,
 };
 use dbcore::*;
 use serde::Deserialize;
@@ -10,7 +10,7 @@ use std::{
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
-use tauri::ipc::{Channel, InvokeResponseBody};
+use tauri::ipc::{Channel, InvokeResponseBody, Response};
 
 #[derive(Deserialize)]
 struct EventSummary {
@@ -26,11 +26,11 @@ async fn measure(session: &dyn Session, req: &ExecRequest) -> serde_json::Value 
     let started = Instant::now();
     let received = Arc::new(Mutex::new((None::<Duration>, 0usize, false)));
     let events = received.clone();
-    let channel = Channel::<StreamEvent>::new(move |body| {
-        let InvokeResponseBody::Json(json) = body else {
-            panic!("expected UI JSON")
+    let channel = Channel::<Response>::new(move |body| {
+        let InvokeResponseBody::Raw(bytes) = body else {
+            panic!("expected raw MessagePack event")
         };
-        let event: EventSummary = serde_json::from_str(&json).unwrap();
+        let event: EventSummary = rmp_serde::from_slice(&bytes).unwrap();
         let mut state = events.lock().unwrap();
         if event.kind == "rows" {
             state.0.get_or_insert_with(|| started.elapsed());

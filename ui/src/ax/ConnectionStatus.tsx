@@ -1,4 +1,9 @@
-import {StatusMark} from '../ui/StatusMark';
+import { lazy, Suspense } from 'preact/compat';
+import type { ConnectStep } from '../ui/ConnectSteps';
+const ConnectSteps = lazy(() => import('../ui/ConnectSteps').then(m => ({ default: m.ConnectSteps })));
+import { DriverLogo } from '../drivers/DriverLogo';
+import type { DriverManifest } from '../contract';
+import type { ConnectionNetwork } from './connectionContract';
 import { useEffect, useState } from 'preact/hooks';
 import { listen } from '@tauri-apps/api/event';
 import { api, isMock } from '../api';
@@ -8,11 +13,18 @@ import { useAiReady } from './useAiReady';
 import { networkStatus, type ConnectionEvent } from './connectionContract';
 export type StageEvent=Extract<ConnectionEvent,{event:'stage'}>;
 const stageNames={dns:'DNS',ssh:'SSH 인증',tunnel:'터널',tls:'TLS',db_auth:'DB 인증',permissions:'권한 확인'};
-export function ConnectionTimeline({events}:{events:StageEvent[]}){
+export function ConnectionTimeline({events,manifest,network,running}:{events:StageEvent[];manifest:DriverManifest;network:ConnectionNetwork;running:boolean}){
  const [diagnosis,setDiagnosis]=useState(''),[busy,setBusy]=useState(false);
  const ready=useAiReady();
+ useEffect(()=>{if(running)setDiagnosis('');},[running]);
  async function diagnose(){setBusy(true);try{const result=await api('ai_diagnose_connection',{steps:events.filter(e=>e.status!=='running').map(e=>({stage:e.stage==='ssh'?'ssh_auth':e.stage,status:e.status==='passed'?'ok':e.status==='failed'?'failed':'skipped',elapsed_ms:e.elapsed_ms,error_code:safeCode(e.code)}))});setDiagnosis(result.text);}catch(e){setDiagnosis(String((e as Error).message??e));}finally{setBusy(false);}}
- return <section aria-label="단계별 연결 테스트"><ol class="ax-timeline">{(Object.keys(stageNames) as StageEvent['stage'][]).map(stage=>{const item=events.find(e=>e.stage===stage);return <li key={stage} data-status={item?.status??'waiting'}><span class="ax-timeline-dot" aria-label={item?.status==='passed'?'통과':item?.status==='failed'?'실패':item?.status==='skipped'?'생략':'대기'}><StatusMark status={item?.status==='passed'?'done':item?.status==='failed'?'failed':item?.status==='running'?'running':item?.status==='skipped'?'cancelled':'pending'} strike={false} size={16}/></span><div><strong>{stageNames[stage]}</strong>{item?.status==='failed'&&<p>{help(item.code)}</p>}{item?.status==='skipped'&&<small> · 해당 없음 / 미검증</small>}</div><span class="ax-test-time">{item?`${item.elapsed_ms} ms`:'대기'}</span></li>;})}</ol>{events.some(e=>e.status==='failed')&&<><Button morph={false} type="button" disabled={busy} onClick={()=>ready?void diagnose():window.dispatchEvent(new CustomEvent('ax:accounts'))}>{ready?'AI로 진단':'로그인 필요'}</Button><small>단계와 안전한 오류 코드만 전송합니다.</small></>}{diagnosis&&<p class="ax-note">{diagnosis}</p>}</section>;
+ const steps:ConnectStep[]=(Object.keys(stageNames) as StageEvent['stage'][]).flatMap(stage=>{
+   const item=events.find(e=>e.stage===stage);
+   if(item?.status==='skipped'||(!item&&((stage==='ssh'&&!network.ssh)||(stage==='tunnel'&&!network.ssh&&!network.proxy)||stage==='tls')))return [];
+   const status=item?.status==='passed'?'done':item?.status==='failed'?'failed':item?.status==='running'&&running&&!events.some(e=>e.status==='failed')?'running':'pending';
+   return [{id:stage,label:stageNames[stage],status,elapsedMs:item?.elapsed_ms,ariaLabel:status==='done'?'통과':status==='failed'?'실패':status==='running'?'진행 중':'대기'}];
+ });
+ return <section class="connection-test-connect" aria-label="단계별 연결 테스트"><div class="connect-heading"><DriverLogo iconKey={manifest.icon_key} paradigm={manifest.paradigm} size={30}/><h3>Connect with {manifest.display_name}</h3></div><p>연결 경로와 인증, 데이터베이스 접근 권한을 확인합니다.</p><Suspense fallback={null}><ConnectSteps label="연결 테스트 진행 단계" steps={steps}/></Suspense>{events.filter(e=>e.status==='failed').map(item=><p key={item.stage} role="alert">{stageNames[item.stage]} · {help(item.code)}</p>)}{events.some(e=>e.status==='failed')&&<><Button morph={false} type="button" disabled={busy} onClick={()=>ready?void diagnose():window.dispatchEvent(new CustomEvent('ax:accounts'))}>{ready?'AI로 진단':'로그인 필요'}</Button><small>단계와 안전한 오류 코드만 전송합니다.</small></>}{diagnosis&&<p class="ax-note">{diagnosis}</p>}</section>;
 }
 const codes=['dns_failed','connection_refused','timeout','host_key_unknown','host_key_mismatch','key_permissions','ssh_auth_failed','proxy_auth_failed','tls_failed','db_auth_failed','permission_denied','unsupported','unknown'];
 function safeCode(code:string|null){if(!code)return null;const normalized=code.toLowerCase();return codes.includes(normalized)?normalized:'unknown';}

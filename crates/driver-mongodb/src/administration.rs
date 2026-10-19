@@ -8,7 +8,7 @@ struct CollectionDump {
     ndjson: String,
 }
 impl MongoSession {
-    fn ensure_admin_open(&self) -> Result<(), DbError> {
+    pub(super) fn administration_open(&self) -> Result<(), DbError> {
         if self.closed.load(Ordering::Acquire) {
             Err(DbError::new(ErrorKind::Connection, "Session closed"))
         } else {
@@ -17,7 +17,7 @@ impl MongoSession {
     }
 
     pub(super) async fn native_backup(&self, cancel: CancelToken) -> Result<BackupData, DbError> {
-        self.ensure_admin_open()?;
+        self.administration_open()?;
         let mut collections = self
             .db()
             .list_collections()
@@ -84,7 +84,7 @@ impl MongoSession {
         overwrite: bool,
         cancel: CancelToken,
     ) -> Result<(), DbError> {
-        self.ensure_admin_open()?;
+        self.administration_open()?;
         backup.validate("mongodb-ndjson-v1")?;
         if overwrite {
             return Err(DbError::unsupported("MongoDB overwrite restore is disabled until atomic database replacement is available"));
@@ -186,7 +186,7 @@ impl MongoSession {
         result
     }
     pub(super) async fn native_roles(&self) -> Result<RolesSnapshot, DbError> {
-        self.ensure_admin_open()?;
+        self.administration_open()?;
         let users = self
             .db()
             .run_command(doc! {"usersInfo":1,"showCredentials":false})
@@ -306,7 +306,7 @@ impl MongoSession {
         changes: &[GrantChange],
         cancel: CancelToken,
     ) -> Result<(), DbError> {
-        self.ensure_admin_open()?;
+        self.administration_open()?;
         let plan = self.native_grants(changes)?;
         cancelled(&cancel)?;
         let json: serde_json::Value = serde_json::from_str(&plan.statements[0])
@@ -323,7 +323,7 @@ impl MongoSession {
         Ok(())
     }
 }
-fn cancelled(cancel: &CancelToken) -> Result<(), DbError> {
+pub(super) fn cancelled(cancel: &CancelToken) -> Result<(), DbError> {
     if cancel.is_cancelled() {
         Err(DbError::new(ErrorKind::Cancelled, "Operation cancelled"))
     } else {

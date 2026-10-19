@@ -8,7 +8,8 @@ import { api, isMock } from '../api';
 import { Dialog } from '../Dialog';
 import { createRegistry, type AgentHost } from './registry';
 import type { ChangePreview, ResultSet, AgentCall } from '../contract';
-import { ClientsPanel } from './ClientsPanel';
+import { lazy, Suspense } from 'preact/compat';
+const ClientsPanel = lazy(() => import('./ClientsPanel').then(m => ({ default: m.ClientsPanel })));
 import { callChipProps } from './callChip';
 import { expose, register } from './webmcp';
 const CHIP_VISIBLE_MS = 4000;
@@ -93,7 +94,7 @@ export function AgentPanel({ host, registrationKey, ready, queryPulse, openReque
   return <><span class={`agent-activity ${activity.running ? 'running' : ''}`} role="status" aria-label="에이전트 활동" data-testid="agent-activity">에이전트 활동 · {activity.total.toLocaleString()}{activity.running > 0 && ` · ${activity.running.toLocaleString()} 실행 중`}</span>
     <SpringCheck aria-label="Localhost MCP bridge" data-testid="agent-bridge-toggle" checked={enabled} onChange={value => { void api('agent_bridge_set', { enabled: value }).then(() => { setEnabled(value); setError(''); }).catch(e => setError(String(e))); }} label="MCP 브리지" />{error && <span role="alert">{error}</span>}
     <div className="agent-call-feed" role="group" aria-label="MCP activity">{latest && chipShown && <Button bare key={`${latest.id}:${latest.status}`} class="agent-call-feed__open" data-finished={latest.status !== 'running' || undefined} aria-label="Open agent activity" title="에이전트 활동 열기" onClick={() => setClientsOpen(true)}><CallChip size={18} radius={6} shake={0} {...callChipProps(latest, host.snapshot().profiles)} /></Button>}</div>
-    <Button morph={false} class="agent-rail-button" aria-label="에이전트 클라이언트" onClick={() => setClientsOpen(true)}><Bot /><span>에이전트 클라이언트</span></Button>{clientsOpen && <ClientsPanel calls={calls} bridgeReply={bridgeReply} activity={activity} queryPulse={queryPulse} approvalConnection={approval?.connection} sessions={host.snapshot().sessions} onProfileSelect={id => { setClientsOpen(false); onProfileSelect(id); }} profiles={host.snapshot().profiles} drivers={host.snapshot().drivers} onClose={() => setClientsOpen(false)} />}
+    <Button morph={false} class="agent-rail-button" aria-label="에이전트 클라이언트" onClick={() => setClientsOpen(true)}><Bot /><span>에이전트 클라이언트</span></Button><Suspense fallback={null}>{clientsOpen && <ClientsPanel calls={calls} bridgeReply={bridgeReply} activity={activity} queryPulse={queryPulse} approvalConnection={approval?.connection} sessions={host.snapshot().sessions} onProfileSelect={id => { setClientsOpen(false); onProfileSelect(id); }} profiles={host.snapshot().profiles} drivers={host.snapshot().drivers} onClose={() => setClientsOpen(false)} />}</Suspense>
     {approval && <Dialog label="에이전트 요청 승인" onClose={() => approval.finish(false)} footer={<><Button morph={false} aria-label="Approve agent query" data-testid="agent-approve" onClick={() => approval.finish(true)}>승인</Button><Button morph={false} autoFocus aria-label="Deny agent query" data-testid="agent-deny" onClick={() => approval.finish(false)}>거부</Button></>}><section class="profile-form" data-testid="agent-approval"><p>연결: {approval.connection}</p><pre>{approval.text}</pre>{approval.preview && <><p>변경 미리보기 · 아직 커밋하지 않았습니다</p><pre>{JSON.stringify(approval.preview, null, 2)}</pre></>}</section></Dialog>}
   </>;
 }

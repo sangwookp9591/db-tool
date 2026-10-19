@@ -5,20 +5,11 @@ import { SpringCheck } from '../ui/SpringCheck';
 import { Dialog } from '../Dialog';
 import { isMock } from '../api';
 import { normalizeError } from '../values';
-import { bridgeStatus, completeOnboarding, copyMcpConfig, onboardingStatus, setBridge, shouldShowOnboarding } from './host';
+import { bridgeStatus, completeOnboarding, copyMcpConfig, setBridge } from './host';
 import { Scene, scenes } from './scenes';
 import './onboarding.css';
 
-export function useOnboarding(ready: boolean, report: (error: unknown) => void) {
-  const [open, setOpen] = useState(false);
-  useEffect(() => {
-    if (!ready) return;
-    let alive = true;
-    void onboardingStatus().then(status => { if (alive && shouldShowOnboarding(status)) setOpen(true); }).catch(error => { if (alive) report(error); });
-    return () => { alive = false; };
-  }, [ready]);
-  return { open, show: () => setOpen(true), close: () => setOpen(false) };
-}
+export { useOnboarding } from './useOnboarding';
 
 interface Props { onClose:()=>void; onConnect:()=>void; onQuery:()=>void; onExplore:()=>void; onClients:()=>void; onAssistant:()=>void }
 export function Onboarding(props: Props) {

@@ -36,11 +36,11 @@ try {
         await page.waitForFunction(() => !document.querySelector('.drivers-skeleton') && !document.querySelector('.drivers-catalog-status button')?.disabled);
       } else {
         await page.getByTestId('driver-postgres').waitFor();
-        await page.waitForFunction(() => document.querySelector('.glass-icons')?.dataset.animating === 'false');
+        await page.waitForFunction(() => [...document.querySelectorAll('.driver-tile img')].every(image => image.complete));
       }
       await page.getByRole('heading', { name: '드라이버', exact: true }).click();
       assert.equal(await page.locator('.drivers-panel').evaluate(el => el.scrollWidth <= el.clientWidth), true);
-      await page.screenshot({ path: `../docs/design-shots/drivers-${offline ? 'offline' : 'tabs'}-${theme}.png` });
+      await page.screenshot({ path: `../docs/design-shots/drivers-v2-${offline ? 'offline' : 'tabs'}-${theme}.png` });
       await page.close();
     }
   }

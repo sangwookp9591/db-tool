@@ -1,0 +1,24 @@
+.ui-ti { --u: calc(100cqw / 600); position: relative; width: 100%; aspect-ratio: 600 / 340; overflow: hidden; container-type: inline-size; }
+.ui-ti .ui-ti-lines { position: absolute; inset: 0; width: 100%; height: 100%; }
+.ui-ti-line, .ui-ti-slot { fill: none; stroke: var(--border-strong); stroke-width: 2.4; stroke-linecap: round; }
+.ui-ti-line--dashed, .ui-ti-slot { stroke-dasharray: 6 7; opacity: 0; }
+.ui-ti-line--joined { stroke: var(--accent-success); }
+.ui-ti-node { position: absolute; width: calc(84 * var(--u)); height: calc(84 * var(--u)); margin: calc(-42 * var(--u)) 0 0 calc(-42 * var(--u)); padding: calc(5 * var(--u)); border: 1px solid var(--border-default); border-radius: 50%; background: var(--bg-elevated); box-shadow: var(--shadow); }
+.ui-ti-node--a { left: 20%; top: 46.76%; }
+.ui-ti-node--b { left: 50%; top: 30.88%; }
+.ui-ti-face { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%; background: var(--surface-secondary); color: var(--text-accent); }
+.ui-ti-face > svg, .ui-ti-face > .axdb-mark { width: 50%; height: 50%; }
+.ui-ti-node small { position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%); width: 135px; text-align: center; font-size: 11px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ui-ti-dot { position: absolute; right: 0; bottom: 0; width: calc(20 * var(--u)); height: calc(20 * var(--u)); border: calc(5 * var(--u)) solid var(--bg-elevated); border-radius: 50%; background: var(--accent-success); }
+.ui-ti-drag { position: absolute; left: 48.33%; top: 72.06%; }
+.ui-ti-node--c { left: 0; top: 0; }
+.ui-ti .ui-ti-cursor { position: absolute; left: calc(14 * var(--u)); top: calc(14 * var(--u)); width: calc(40 * var(--u)); height: calc(40 * var(--u)); fill: var(--text-primary); stroke: var(--bg-overlay); opacity: 0; }
+.ui-ti[data-playing=true] .ui-ti-drag { animation: ui-ti-drag 2.8s cubic-bezier(.7,0,.25,1); }
+.ui-ti[data-playing=true] .ui-ti-cursor { animation: ui-ti-cursor 2.8s ease-out; }
+.ui-ti[data-playing=true] .ui-ti-slot, .ui-ti[data-playing=true] .ui-ti-line--dashed { animation: ui-ti-slot 2.8s linear; }
+.ui-ti[data-playing=true] .ui-ti-line--joined, .ui-ti[data-playing=true] .ui-ti-node--c .ui-ti-dot { animation: ui-ti-join 2.8s ease-out; }
+@keyframes ui-ti-drag { 0%, 15% { transform: translate(calc(166 * var(--u)), calc(36 * var(--u))) scale(1.05); } 65%, 100% { transform: none; } }
+@keyframes ui-ti-cursor { 0%, 65% { opacity: 1; } 90%, 100% { opacity: 0; transform: translate(18px, 12px); } }
+@keyframes ui-ti-slot { 0%, 48% { opacity: 1; } 65%, 100% { opacity: 0; } }
+@keyframes ui-ti-join { 0%, 55% { opacity: 0; } 75%, 100% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .ui-ti * { animation: none !important; } }

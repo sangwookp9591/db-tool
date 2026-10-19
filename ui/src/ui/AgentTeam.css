@@ -1,0 +1,23 @@
+.ui-at { --u: calc(100cqw / 600); position: relative; width: 100%; aspect-ratio: 2 / 1; container-type: inline-size; overflow: hidden; }
+.ui-at .ui-at-lines { position: absolute; inset: 0; width: 100%; height: 100%; }
+.ui-at-lines path { fill: none; stroke: var(--border-strong); stroke-width: 2.4; stroke-linecap: round; stroke-dasharray: 6 7; }
+.ui-at-prompt { position: absolute; left: 50%; top: 9%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; width: 76%; height: 17%; padding: 0 8px 0 16px; border: 1px solid var(--border-default); border-radius: 999px; background: var(--bg-elevated); box-shadow: var(--shadow); }
+.ui-at-text { flex: 1; min-width: 0; overflow: hidden; font-size: clamp(9px, 2.25cqw, 13px); line-height: 1.4; white-space: nowrap; color: var(--text-primary); }
+.ui-at-send { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; color: var(--bg-overlay); background: var(--accent-primary); }
+.ui-at .ui-at-send svg { stroke: currentColor; width: 16px; height: 16px; }
+.ui-at-agent { position: absolute; top: 55%; display: flex; flex-direction: column; align-items: center; gap: 8px; transform: translateX(-50%); }
+.ui-at-node { position: relative; display: grid; place-items: center; width: calc(64 * var(--u)); height: calc(64 * var(--u)); border: 5px solid var(--bg-elevated); border-radius: 50%; background: var(--surface-secondary); box-shadow: 0 0 0 1px var(--border-default), var(--shadow); color: var(--text-accent); }
+.ui-at-node > svg { width: 45%; height: 45%; }
+.ui-at-dot { position: absolute; right: -3px; bottom: -3px; width: 14px; height: 14px; border: 3px solid var(--bg-elevated); border-radius: 50%; background: var(--accent-success); }
+.ui-at-role { display: flex; align-items: center; justify-content: center; gap: 5px; min-height: 27px; padding: 4px 8px; border: 1px solid var(--border-default); border-radius: 999px; background: var(--bg-elevated); box-shadow: var(--shadow); font-size: clamp(8px, 1.8cqw, 11px); color: var(--text-primary); white-space: nowrap; }
+.ui-at-role svg { width: 13px; height: 13px; color: var(--text-accent); }
+.ui-at-agent small { color: var(--text-muted); font-size: clamp(8px, 1.65cqw, 10px); white-space: nowrap; }
+.ui-at[data-playing=true] .ui-at-text { animation: ui-at-type 1.4s steps(26, end) both; }
+.ui-at[data-playing=true] .ui-at-send { animation: ui-at-send .38s 1.4s both; }
+.ui-at[data-playing=true] .ui-at .ui-at-lines { animation: ui-at-spread .7s 1.6s both; transform-origin: 50% 25%; }
+.ui-at[data-playing=true] .ui-at-agent { animation: ui-at-agent .5s calc(2s + var(--i) * .16s) both; }
+@keyframes ui-at-type { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes ui-at-send { 40% { transform: scale(.86); } }
+@keyframes ui-at-spread { from { opacity: 0; transform: scaleY(.1); } to { opacity: 1; transform: scaleY(1); } }
+@keyframes ui-at-agent { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@media (prefers-reduced-motion: reduce) { .ui-at * { animation: none !important; } }

@@ -514,3 +514,41 @@ ToastStack, SlidingIndicator and Skeleton are independently implemented after re
 The Button, SuggestionCard, ToolCall/ToolCallGroup and IntegrationBeam interactions were independently implemented in Preact from reference material supplied by the user. No original author attribution or third-party license was supplied for those references; none is invented here. Their source files identify the user-provided reference. Lucide icons retain the attribution above.
 
 The AxDB pixel-art database/orbit brand mark was supplied by the user. The coordinator prepared the local alpha mask, favicon and application icon assets. No remote image or font service is used.
+
+
+## User-provided Team Invite and Agent Team references
+
+`ui/src/ui/TeamInvite.tsx` and `AgentTeam.tsx` are Preact adaptations of the single-file UI examples supplied by the user (사용자 제공 UI 예제 기반). No original author or license attribution was included in those files; none is invented here. Styling uses AxDB theme tokens and local Lucide/AxDB marks instead of portrait images or service brand logos. Illustrations play once on visibility, settle when hidden, and respect reduced motion; React style hoisting and repeating animation loops are not retained.
+
+
+## User-provided Changelog Timeline reference
+
+`ui/src/ui/ChangelogTimeline.tsx` and `ChangelogTimeline.css` adapt the user-provided 21st.dev “changelog-timeline” component (demo credits: CCgather). The supplied source is `scratchpad/reactbits/changelog-timeline.tsx`; it includes no original license text, so no license or additional authorship is asserted here. React, Tailwind and shadcn tokens are replaced by Preact, plain BEM CSS and AxDB theme tokens; icons use lucide-preact. Pulse animations stop after three iterations, reduced motion disables motion, and the periodic clock is removed.
+
+
+## Database identification marks
+
+devicon (MIT) — DB logo WebP images rendered from the original SVGs in [v2.16.0](https://github.com/devicons/devicon/tree/v2.16.0/icons); PostgreSQL (Slonik), MySQL, MongoDB, Redis, SQLite, Neo4j and MariaDB names and logos remain their owners' trademarks and are used only to identify supported databases, without implying endorsement.
+
+```text
+The MIT License (MIT)
+
+Copyright (c) 2015 konpa
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```

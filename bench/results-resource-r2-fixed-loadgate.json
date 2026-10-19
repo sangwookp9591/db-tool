@@ -1,0 +1,178 @@
+{
+  "started": "2026-10-19T15:57:58.870254+09:00",
+  "gate": {
+    "label": "r2-fixed-quiet-window",
+    "passed": true,
+    "threshold": 8,
+    "timeout_seconds": 3600,
+    "samples": [
+      {
+        "at": "2026-10-19T15:57:58.923836+09:00",
+        "load1": 7.791015625,
+        "waited_seconds": 6.87500141793862e-06,
+        "ps_top_cpu": [
+          {
+            "pid": 16508,
+            "ppid": 16414,
+            "rss_kib": 587232,
+            "cpu_seconds": 5487.65,
+            "rolling_cpu_percent": 57.3,
+            "command": "/Applications/Orca.app/Contents/Frameworks/Orca Helper (Renderer).app/Contents/MacOS/Orca Helper (Renderer)"
+          },
+          {
+            "pid": 171,
+            "ppid": 1,
+            "rss_kib": 84128,
+            "cpu_seconds": 10681.03,
+            "rolling_cpu_percent": 22.1,
+            "command": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+          },
+          {
+            "pid": 16460,
+            "ppid": 16414,
+            "rss_kib": 117008,
+            "cpu_seconds": 2232.71,
+            "rolling_cpu_percent": 16.3,
+            "command": "/Applications/Orca.app/Contents/Frameworks/Orca Helper.app/Contents/MacOS/Orca Helper"
+          },
+          {
+            "pid": 16414,
+            "ppid": 1,
+            "rss_kib": 353744,
+            "cpu_seconds": 2121.3,
+            "rolling_cpu_percent": 11.5,
+            "command": "/Applications/Orca.app/Contents/MacOS/Orca"
+          },
+          {
+            "pid": 34696,
+            "ppid": 20614,
+            "rss_kib": 22048,
+            "cpu_seconds": 0.07,
+            "rolling_cpu_percent": 11.1,
+            "command": "/opt/homebrew/Cellar/python@3.14/3.14.4/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python"
+          },
+          {
+            "pid": 68049,
+            "ppid": 67534,
+            "rss_kib": 370768,
+            "cpu_seconds": 783.86,
+            "rolling_cpu_percent": 9.8,
+            "command": "claude"
+          },
+          {
+            "pid": 20614,
+            "ppid": 19878,
+            "rss_kib": 145664,
+            "cpu_seconds": 188.29,
+            "rolling_cpu_percent": 7.2,
+            "command": "codex"
+          },
+          {
+            "pid": 17231,
+            "ppid": 1,
+            "rss_kib": 163920,
+            "cpu_seconds": 695.26,
+            "rolling_cpu_percent": 3.7,
+            "command": "/Users/iron/Library/Application Support/orca/daemon-host/macos/terminal-host-499e9399663dd55819267db289c3952247e9f081/app.noindex/Orca Terminal Host.app/Contents/MacOS/orca-terminal-host"
+          },
+          {
+            "pid": 74498,
+            "ppid": 74024,
+            "rss_kib": 169904,
+            "cpu_seconds": 56.71,
+            "rolling_cpu_percent": 2.7,
+            "command": "codex"
+          },
+          {
+            "pid": 1165,
+            "ppid": 1,
+            "rss_kib": 838368,
+            "cpu_seconds": 2283.72,
+            "rolling_cpu_percent": 2.5,
+            "command": "/Applications/OrbStack.app/Contents/Frameworks/OrbStack Helper.app/Contents/MacOS/OrbStack Helper"
+          },
+          {
+            "pid": 142,
+            "ppid": 1,
+            "rss_kib": 13984,
+            "cpu_seconds": 173.46,
+            "rolling_cpu_percent": 2.4,
+            "command": "/usr/libexec/opendirectoryd"
+          },
+          {
+            "pid": 40927,
+            "ppid": 35207,
+            "rss_kib": 154384,
+            "cpu_seconds": 106.88,
+            "rolling_cpu_percent": 2.1,
+            "command": "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/155.0.8059.84/Helpers/Google Chrome Helper (Renderer).app/Contents/MacOS/Google Chrome Helper (Renderer)"
+          },
+          {
+            "pid": 166,
+            "ppid": 1,
+            "rss_kib": 3536,
+            "cpu_seconds": 152.16,
+            "rolling_cpu_percent": 1.8,
+            "command": "/usr/sbin/notifyd"
+          },
+          {
+            "pid": 1,
+            "ppid": 0,
+            "rss_kib": 18752,
+            "cpu_seconds": 336.5,
+            "rolling_cpu_percent": 1.5,
+            "command": "/sbin/launchd"
+          },
+          {
+            "pid": 165,
+            "ppid": 1,
+            "rss_kib": 18192,
+            "cpu_seconds": 268.0,
+            "rolling_cpu_percent": 1.4,
+            "command": "/usr/sbin/bluetoothd"
+          },
+          {
+            "pid": 96132,
+            "ppid": 95094,
+            "rss_kib": 292432,
+            "cpu_seconds": 650.75,
+            "rolling_cpu_percent": 1.3,
+            "command": "claude"
+          },
+          {
+            "pid": 100,
+            "ppid": 1,
+            "rss_kib": 22208,
+            "cpu_seconds": 223.81,
+            "rolling_cpu_percent": 1.0,
+            "command": "/usr/libexec/logd"
+          },
+          {
+            "pid": 35273,
+            "ppid": 35207,
+            "rss_kib": 64368,
+            "cpu_seconds": 2016.37,
+            "rolling_cpu_percent": 0.7,
+            "command": "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/155.0.8059.84/Helpers/Google Chrome Helper (GPU).app/Contents/MacOS/Google Chrome Helper (GPU)"
+          },
+          {
+            "pid": 382,
+            "ppid": 1,
+            "rss_kib": 3216,
+            "cpu_seconds": 160.05,
+            "rolling_cpu_percent": 0.6,
+            "command": "/usr/sbin/BTLEServer"
+          },
+          {
+            "pid": 846,
+            "ppid": 1,
+            "rss_kib": 14192,
+            "cpu_seconds": 276.07,
+            "rolling_cpu_percent": 0.6,
+            "command": "/usr/libexec/trustd"
+          }
+        ]
+      }
+    ]
+  }
+}

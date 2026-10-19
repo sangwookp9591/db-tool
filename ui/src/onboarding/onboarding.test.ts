@@ -8,7 +8,7 @@ let page: Page;
 let url: string;
 const capture = import.meta.env.VITE_ONBOARDING_SHOTS === '1';
 beforeAll(async () => {
-  server = await createServer({ configFile: false, server: { host: '127.0.0.1', port: 0, hmr: false }, logLevel: 'error' });
+  server = await createServer({ configFile: false, optimizeDeps: { rolldownOptions: { transform: { jsx: { runtime: 'automatic', importSource: 'preact' } } } }, cacheDir: `node_modules/.vite-onboarding-${crypto.randomUUID()}`, server: { host: '127.0.0.1', port: 0, hmr: false }, logLevel: 'error' });
   await server.listen(); url = server.resolvedUrls!.local[0];
   browser = await chromium.launch({ headless: true });
 }, 30000);

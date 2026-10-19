@@ -1,0 +1,19 @@
+{
+  "lazyAtStartup": true,
+  "idleAnimations": 0,
+  "halfRowPeek": {
+    "bottom": 615,
+    "mid": 615
+  },
+  "keyboardAndReducedMotion": true,
+  "updateVersionOnly": true,
+  "passed": true,
+  "pageErrors": [],
+  "screenshots": 6,
+  "dateDescending": true,
+  "monthDividers": true,
+  "htmlLiteral": true,
+  "unsafeLinksBlocked": true,
+  "safeLinkCallback": true,
+  "closedBodiesInert": true
+}

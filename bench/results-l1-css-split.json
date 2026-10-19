@@ -1,0 +1,13 @@
+{
+  "scope": "asset-only comparison: same current UI, result CSS eager versus deferred; no runtime claim",
+  "before": {
+    "bytes": 149593,
+    "gzip_bytes": 37743
+  },
+  "after": {
+    "bytes": 132195,
+    "gzip_bytes": 34786
+  },
+  "delta_bytes": -17398,
+  "delta_gzip_bytes": -2957
+}

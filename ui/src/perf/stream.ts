@@ -2,9 +2,12 @@ import { paintQueue } from './paintQueue';
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { api, isMock, type Commands } from '../api';
 import type { ResultSet } from '../contract';
+import { decodeMessagePack } from './msgpack';
 import { packTable } from './columnar';
 import { finish, painted, start } from './index';
 import { ResultStream, type StreamEvent } from './streamState';
+// A module-level handler cannot retain a completed query through a shared closure context.
+const discardEvent = () => {};
 export async function streamResults(results: ResultSet[], receive: (event: StreamEvent) => void) {
   for (const [index, result] of results.entries()) {
     const rows = result.table?.rows ?? [];
@@ -39,9 +42,11 @@ export async function executeQuery(args: Commands['execute']['args'], update: (r
     return firstRows;
   }, error => { failed = true; rejectDone(error); });
   const receive = receiver.push;
+  let onEvent: Channel<ArrayBuffer> | undefined;
   try {
     if (isMock) await streamResults(await api('execute', args), receive);
-    else { const onEvent = new Channel<StreamEvent>(); onEvent.onmessage = receive; const direct = await invoke<ResultSet[]>('execute_stream', { ...args, onEvent }); if (direct.length) { direct.forEach((result, index) => receive({ kind: 'start', index, result })); receive({ kind: 'done' }); } }
+    else { onEvent = new Channel<ArrayBuffer>(); onEvent.onmessage = bytes => { if (failed) return; try { receive(decodeMessagePack(bytes) as StreamEvent); } catch (error) { failed = true; rejectDone(error); } }; const direct = await invoke<ResultSet[]>('execute_stream', { ...args, onEvent }); if (direct.length) { direct.forEach((result, index) => receive({ kind: 'start', index, result })); receive({ kind: 'done' }); } }
     await done; receiver.dispose(); cancelAnimationFrame(frameId); flush(); return stream.results;
   } catch (error) { failed = true; receiver.dispose(); cancelAnimationFrame(frameId); throw error; }
+  finally { if (onEvent) { onEvent.onmessage = discardEvent; } }
 }

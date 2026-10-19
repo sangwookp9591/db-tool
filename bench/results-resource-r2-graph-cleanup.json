@@ -1,0 +1,20 @@
+{
+  "endpoint": "bolt://127.0.0.1:57687",
+  "labels": [
+    "ResourceP1_1792392152949",
+    "ResourceP1_1792393086915",
+    "ResourceP1_1792393655863",
+    "ResourceP1_1792394333302",
+    "ResourceP1_1792394678437",
+    "ResourceP1_1792394844032",
+    "ResourceP1_1792395545227",
+    "ResourceP1_1792395638360",
+    "ResourceP1_1792395731689",
+    "ResourceP1_1792395825035",
+    "ResourceP1_1792395918385",
+    "ResourceP1_1792396590625"
+  ],
+  "exit": 0,
+  "stdout": "remaining\n0\n",
+  "stderr": ""
+}

@@ -15,15 +15,20 @@ def stats(values):
     return dict(n=len(values), p50=statistics.median(values), p95=values[math.ceil(.95 * len(values)) - 1], min=values[0], max=values[-1])
 
 
-def summarize(path):
+def summarize(path, paired_points=False):
     raw = json.loads(path.read_text())
+    pointwise = paired_points or raw.get('load_policy', {}).get('unit') == 'point'
     groups = {}
     leaks = []
     excluded = []
     for run in raw['runs']:
         identity = dict(artifact=run['artifact'], workers=run['workers'])
+        if not pointwise and not run.get('paired_load_accepted', True):
+            excluded.extend(dict(**identity, repeat=run['repeat'], stage=s['stage'], iteration=s['iteration'], reason='paired-load gate') for s in run['samples'])
+            continue
+        quality = {(p['stage'], p['iteration']): p['accepted'] for p in raw.get('paired_load_quality', {}).get(str(run['repeat']), {}).get('points', [])}
         for sample in run['samples']:
-            if not sample['accepted']:
+            if not sample['accepted'] or pointwise and not quality.get((sample['stage'], sample['iteration']), False):
                 excluded.append(dict(**identity, repeat=run['repeat'], stage=sample['stage'], iteration=sample['iteration']))
                 continue
             if sample['iteration']:
@@ -60,6 +65,7 @@ def summarize(path):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('inputs', nargs='*', type=Path)
+    parser.add_argument('--paired-points', action='store_true', help='Apply recorded paired load checks separately to each measurement point')
     parser.add_argument('--self-check', action='store_true')
     args = parser.parse_args()
     if args.self_check:
@@ -78,4 +84,4 @@ if __name__ == '__main__':
         print('resource_report self-check passed')
     else:
         assert args.inputs, 'At least one resource result is required'
-        print(json.dumps([summarize(path) for path in args.inputs], indent=2))
+        print(json.dumps([summarize(path, args.paired_points) for path in args.inputs], indent=2))

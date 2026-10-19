@@ -12,7 +12,7 @@ try{for(const theme of ['midnight','daylight']){
  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
  await page.goto(base);await page.getByTestId('connect-connection').first().waitFor();
  assert.equal(await page.getByLabel('GitHub Star',{exact:true}).count(),0);
- await page.getByTestId('add-connection').click();await page.getByRole('button',{name:'PostgreSQL 설치',exact:true}).click();await page.getByRole('button',{name:'PostgreSQL 삭제',exact:true}).waitFor();
+ await page.getByTestId('add-connection').click();await page.getByRole('button',{name:'PostgreSQL · 설치 가능',exact:true}).click();await page.getByRole('button',{name:'PostgreSQL · 설치됨',exact:true}).waitFor();
  await page.getByTestId('connect-connection').first().click();
  const editor=page.locator('.query-tab:visible .cm-content');await editor.waitFor();await editor.fill('SELECT 42 AS preserved;');
  await page.locator('.statusbar').getByRole('button',{name:'연결 해제',exact:true}).click();

@@ -68,7 +68,7 @@ impl SqliteSession {
         .map_err(|_| DbError::internal("Restore worker failed"))?
     }
 }
-fn copy(source: &Connection, target: &mut Connection, cancel: &CancelToken) -> Result<(), DbError> {
+pub(super) fn copy(source: &Connection, target: &mut Connection, cancel: &CancelToken) -> Result<(), DbError> {
     let backup = Backup::new(source, target).map_err(sql_error)?;
     let started = Instant::now();
     loop {

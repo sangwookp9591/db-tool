@@ -1,3 +1,4 @@
+import { useCommandShortcut } from './useCommandShortcut';
 import { Button } from './Button';
 // Interaction reference: shadcn/ui Command (MIT), https://21st.dev/@shadcn/components/command; independent Preact implementation.
 import { useId, useLayoutEffect, useRef, useState } from 'preact/hooks';
@@ -29,15 +30,7 @@ export function CommandPalette({ open, onOpenChange, items, onIntent, ...accessi
   const enabled = visible.filter(item => !item.disabled);
   const current = enabled.find(item => item.id === selected) ?? enabled[0];
   const select = (item: CommandItem) => { if (!item.disabled) { onOpenChange(false); item.onSelect(); } };
-  useLayoutEffect(() => {
-    const key = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.isComposing || event.altKey || !(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'k') return;
-      if (!open && document.querySelector('dialog[open]')) return;
-      event.preventDefault(); onOpenChange(!open);
-    };
-    window.addEventListener('keydown', key);
-    return () => window.removeEventListener('keydown', key);
-  }, [open, onOpenChange]);
+  useCommandShortcut(open, onOpenChange);
   useLayoutEffect(() => { if (!open) { setQuery(''); setSelected(''); } }, [open]);
   useLayoutEffect(() => { list.current?.querySelector('[aria-selected=true]')?.scrollIntoView({ block: 'nearest' }); }, [current?.id]);
   if (!open) return null;

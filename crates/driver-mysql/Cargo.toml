@@ -1,0 +1,16 @@
+[package]
+name = "driver-mysql"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+axdb-driver-sdk = { path = "../driver-sdk" }
+dbcore.workspace = true
+async-trait.workspace = true
+serde_json = { workspace = true, features = ["raw_value"] }
+tokio.workspace = true
+mysql_async = { version = "0.37.1", default-features = false, features = ["minimal-rust", "rustls-tls", "ring", "tls12"] }
+sqlparser = { version = "0.63", features = ["visitor"] }
+
+rustls = { version = "0.23", default-features = false, features = ["ring"] }

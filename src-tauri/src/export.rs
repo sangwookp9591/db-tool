@@ -68,6 +68,11 @@ impl Exports {
         }
         Ok(grant)
     }
+    pub(crate) fn take_path(&self,token:&str,path:&Path)->Result<PathBuf,String>{
+        let grant=self.consume(token,path)?;
+        if selected_path(grant.path.clone())?!=grant.path{return Err("저장 폴더가 변경되었습니다".into());}
+        Ok(grant.path)
+    }
     fn write(&self, token: String, path: PathBuf, bytes: Vec<u8>) -> Result<(), String> {
         let mut grant = self.consume(&token, &path)?;
         if bytes.len() > 256 * 1024 * 1024 {

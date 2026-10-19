@@ -42,6 +42,8 @@ pub fn serve(driver: impl Driver + 'static) {
     }
 }
 
+struct Upload { session: u64, file: std::fs::File, summary: BackupSummary, overwrite: bool, new_database: Option<String>, touched: std::time::Instant }
+type Uploads = Arc<Mutex<HashMap<u64, Upload>>>;
 type Sessions = Arc<Mutex<HashMap<u64, Arc<dyn Session>>>>;
 
 pub async fn serve_io<R, W>(driver: Arc<dyn Driver>, mut input: R, mut output: W) -> io::Result<()>
@@ -68,11 +70,14 @@ where
         Ok::<_, io::Error>(())
     });
     let sessions: Sessions = Arc::default();
+    let uploads: Uploads = Arc::default();
     let mut pending = HashMap::<u64, CancelToken>::new();
     let mut tasks = JoinSet::new();
     let mut next_session = 1u64;
     let result = loop {
+        let expiry = uploads.lock().unwrap().values().map(|upload| tokio::time::Instant::from_std(upload.touched + std::time::Duration::from_secs(120))).min();
         tokio::select! {
+            _ = async { if let Some(deadline) = expiry { tokio::time::sleep_until(deadline).await; } else { std::future::pending::<()>().await; } } => { uploads.lock().unwrap().retain(|_,u|u.touched.elapsed() < std::time::Duration::from_secs(120)); }
             written = &mut writer => break written.map_err(io::Error::other)?,
             finished = tasks.join_next(), if !tasks.is_empty() => {
                 match finished {
@@ -94,11 +99,11 @@ where
                         }
                         let token = CancelToken::new();
                         pending.insert(id, token.clone());
-                        let driver = driver.clone(); let sessions = sessions.clone(); let tx = tx.clone();
+                        let driver = driver.clone(); let sessions = sessions.clone(); let tx = tx.clone(); let uploads = uploads.clone();
                         let session_id = next_session;
                         next_session = next_session.checked_add(1).ok_or_else(|| io::Error::other("Session id exhausted"))?;
                         tasks.spawn(async move {
-                            let result = dispatch(driver, &sessions, session_id, id, request, token, &tx).await;
+                            let result = dispatch(driver, &sessions, &uploads, session_id, id, request, token, &tx).await;
                             let message = match result { Ok(result) => Message::Result { id, result }, Err(error) => Message::Error { id, error } };
                             let _ = tx.send(message).await;
                             id
@@ -143,9 +148,11 @@ async fn write_message<W: AsyncWrite + Unpin>(writer: &mut W, message: Message) 
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn dispatch(
     driver: Arc<dyn Driver>,
     sessions: &Sessions,
+    uploads: &Uploads,
     next_session: u64,
     id: u64,
     request: Request,
@@ -271,6 +278,43 @@ async fn dispatch(
                     Ok(Reply::Import(session.import_rows_progress(&req,preview,cancel,&Progress{tx,id}).await?))
                 },
                 Request::ImportRows {req,preview,..} => Ok(Reply::Import(session.import_rows(&req,preview,cancel).await?)),
+                Request::RestoreOptions {..}=>Ok(Reply::RestoreOptions(session.restore_options().await?)),
+                Request::BackupStream {..} => {
+                    let output=BackupOutput{tx,id,buffer:tokio::sync::Mutex::new(Vec::with_capacity(BACKUP_CHUNK_BYTES))};
+                    let summary=session.backup_stream(cancel,&output).await?;output.flush().await?;Ok(Reply::BackupSummary(summary))
+                },
+                Request::RestoreStart {summary,overwrite,new_database,..} => {
+                    let mut uploads=uploads.lock().unwrap();
+                    if uploads.values().any(|u|u.session==session_id) { return Err(DbError::new(ErrorKind::Conflict,"A restore upload is already active")); }
+                    uploads.insert(id,Upload{session:session_id,file:tempfile::tempfile().map_err(|_|DbError::query("Cannot create private restore file"))?,summary,overwrite,new_database,touched:std::time::Instant::now()});
+                    Ok(Reply::Transfer(id))
+                },
+                Request::RestoreChunk {transfer,data,..} => {
+                    use std::io::Write;
+                    if data.data.len()>BACKUP_CHUNK_BYTES { return Err(DbError::query("Restore chunk exceeds 64 KiB")); }
+                    let mut uploads=uploads.lock().unwrap();
+                    let upload=uploads.get_mut(&transfer).filter(|u|u.session==session_id).ok_or_else(||DbError::query("Restore upload expired"))?;
+                    upload.file.write_all(&data.data).map_err(|_|DbError::query("Cannot stage restore chunk"))?;
+                    upload.touched=std::time::Instant::now();
+                    Ok(Reply::Unit)
+                },
+                Request::RestoreAbort {transfer,..} => {
+                    let mut uploads=uploads.lock().unwrap();
+                    if uploads.get(&transfer).is_some_and(|u|u.session==session_id) { uploads.remove(&transfer); }
+                    Ok(Reply::Unit)
+                },
+                Request::RestoreFinish {transfer,..} => {
+                    use std::io::{Seek,SeekFrom};
+                    let mut upload={let mut uploads=uploads.lock().unwrap();
+                        if uploads.get(&transfer).is_none_or(|u|u.session!=session_id) { return Err(DbError::query("Restore upload expired")); }
+                        uploads.remove(&transfer).unwrap()};
+                    upload.file.seek(SeekFrom::Start(0)).map_err(|_|DbError::query("Cannot rewind restore"))?;
+                    if let Some(name)=upload.new_database {
+                        if upload.overwrite{return Err(DbError::query("New database cannot overwrite"));}
+                        session.restore_database(&upload.summary,&mut upload.file,&name,cancel).await?;
+                    }else{session.restore_stream(&upload.summary,&mut upload.file,upload.overwrite,cancel).await?;}
+                    Ok(Reply::Unit)
+                },
                 Request::Backup {..} => Ok(Reply::Backup(session.backup(cancel).await?)),
                 Request::Restore {backup,overwrite,..} => {session.restore(&backup,overwrite,cancel).await?; Ok(Reply::Unit)},
                 Request::PreviewGrants {changes,..} => Ok(Reply::Grants(session.preview_grants(&changes,cancel).await?)),
@@ -278,6 +322,7 @@ async fn dispatch(
                 Request::Roles {..} => Ok(Reply::Roles(session.roles().await?)),
                 Request::PlanGrants {changes,..} => Ok(Reply::Grants(session.plan_grants(&changes).await?)),
                 Request::Close { .. } => {
+                    uploads.lock().unwrap().retain(|_,u|u.session!=session_id);
                     sessions.lock().unwrap().remove(&session_id);
                     session.close().await;
                     Ok(Reply::Unit)
@@ -324,6 +369,22 @@ struct Progress<'a>{tx:&'a mpsc::Sender<Message>,id:u64}
 #[async_trait::async_trait]
 impl ProgressSink for Progress<'_>{
     async fn progress(&self,completed:u64,total:u64)->Result<(),DbError>{send(self.tx,self.id,ExecuteChunk::Rows{index:0,rows:vec![vec![Value::Int(completed.to_string()),Value::Int(total.to_string())]]}).await}
+}
+
+struct BackupOutput<'a> {tx:&'a mpsc::Sender<Message>,id:u64,buffer:tokio::sync::Mutex<Vec<u8>>}
+impl BackupOutput<'_>{
+    async fn send(&self,data:Vec<u8>)->Result<(),DbError>{send(self.tx,self.id,ExecuteChunk::Backup{data:BackupData{format:String::new(),data,counts:vec![]}}).await}
+    async fn flush(&self)->Result<(),DbError>{let mut buffer=self.buffer.lock().await;if !buffer.is_empty(){self.send(std::mem::take(&mut *buffer)).await?;}Ok(())}
+}
+#[async_trait::async_trait]
+impl BackupSink for BackupOutput<'_> {
+    async fn write(&self, mut bytes:&[u8])->Result<(),DbError> {
+        let mut buffer=self.buffer.lock().await;
+        while !bytes.is_empty(){let len=(BACKUP_CHUNK_BYTES-buffer.len()).min(bytes.len());buffer.extend_from_slice(&bytes[..len]);bytes=&bytes[len..];
+            if buffer.len()==BACKUP_CHUNK_BYTES{self.send(std::mem::replace(&mut *buffer,Vec::with_capacity(BACKUP_CHUNK_BYTES))).await?;}
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]

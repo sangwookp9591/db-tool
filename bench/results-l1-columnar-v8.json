@@ -1,0 +1,11 @@
+{
+  "scope": "V8 heap only; not WKWebView footprint or native target acceptance",
+  "command": "pnpm --dir ui exec vitest run src/perf/columnar.measure.test.ts --execArgv=--expose-gc --silent=false --reporter=verbose",
+  "benchmark": "V8-column-ownership",
+  "rows": 100000,
+  "columns": 10,
+  "rowHeap": 53606992,
+  "columnHeap": 787560,
+  "rowMs": 23.177708999999993,
+  "columnMs": 0.4537920000000213
+}

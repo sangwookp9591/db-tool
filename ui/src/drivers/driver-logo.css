@@ -1,0 +1,4 @@
+.driver-logo{display:inline-flex;align-items:center;justify-content:center;flex:none;vertical-align:middle;border-radius:4px;overflow:hidden}
+.driver-logo[data-brand]{background:#f8fafc}
+.driver-logo>img{display:block;width:100%;height:100%;object-fit:contain}
+.driver-logo>svg{width:100%;height:100%}

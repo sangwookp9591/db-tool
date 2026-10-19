@@ -1,5 +1,6 @@
 pub mod net;
 mod management;
+pub mod backup_file;
 pub mod driver_install;
 mod agent_bridge;
 mod onboarding;
@@ -43,8 +44,9 @@ struct RunRecord {
 }
 pub struct Host {
     backup_statuses: Mutex<HashMap<String,management::BackupStatus>>,
+    restore_files: Mutex<HashMap<String,management::administration::files::Selected>>,
     network: Arc<net::State>,
-    registry: Registry,
+    registry: std::sync::LazyLock<Registry, Box<dyn FnOnce() -> Registry + Send + Sync>>,
     paths: Paths,
     sessions: Mutex<HashMap<String, Arc<SessionRecord>>>,
     runs: Mutex<HashMap<String, RunRecord>>,
@@ -56,10 +58,12 @@ pub struct Host {
 }
 impl Host {
     pub fn new(paths: Paths) -> Self {
+        let driver_root = paths.data.join("drivers");
         Self {
             network: Arc::new(net::State::default()),
             backup_statuses: Mutex::default(),
-            registry: drivers::registry(&paths.data.join("drivers")),
+            restore_files: Mutex::default(),
+            registry: std::sync::LazyLock::new(Box::new(move || drivers::registry(&driver_root))),
             paths,
             sessions: Mutex::new(HashMap::new()),
             runs: Mutex::new(HashMap::new()),
@@ -428,7 +432,7 @@ async fn execute_stream(
     session_id: String,
     run_id: String,
     req: ExecRequest,
-    on_event: tauri::ipc::Channel<stream::StreamEvent>,
+    on_event: tauri::ipc::Channel<tauri::ipc::Response>,
 ) -> CommandResult<Vec<ResultSet>> {
     execute_impl(
         &host,
@@ -458,7 +462,7 @@ async fn execute_impl(
     session_id: String,
     run_id: String,
     mut req: ExecRequest,
-    channel: Option<tauri::ipc::Channel<stream::StreamEvent>>,
+    channel: Option<tauri::ipc::Channel<tauri::ipc::Response>>,
     source: HistorySource,
 ) -> CommandResult<Vec<ResultSet>> {
     let record = host.session(&session_id)?;
@@ -732,6 +736,7 @@ pub fn run() {
             editor::explain_query,
             editor::lint_query,
             editor::refactor_query,
+            management::administration::files::backup_create_file, management::administration::files::restore_options, management::administration::files::restore_pick_file, management::administration::files::restore_file_preview, management::administration::files::restore_file_apply, management::administration::files::restore_file_discard,
             management::administration::backup_status, management::administration::backup_create, management::administration::restore_preview, management::administration::restore_apply,
             management::administration::roles, management::administration::plan_grants, management::administration::grants_preview, management::administration::grants_apply,
             management::import_plan,

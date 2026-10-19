@@ -1,0 +1,34 @@
+{
+  "results": [
+    {
+      "theme": "midnight",
+      "viewport": "960x600",
+      "visibleTiles": 6,
+      "tileSize": 52,
+      "skeletonGeometryMatches": true,
+      "loadingCLS": 0
+    },
+    {
+      "theme": "daylight",
+      "viewport": "960x600",
+      "visibleTiles": 6,
+      "tileSize": 52,
+      "skeletonGeometryMatches": true,
+      "loadingCLS": 0
+    }
+  ],
+  "errors": [],
+  "checked": [
+    "6 tiles in one row",
+    "matching skeleton geometry",
+    "zero initial catalog-loading CLS",
+    "112px WebP",
+    "no WebGL",
+    "keyboard tooltip and arrows",
+    "cancel",
+    "failure retry",
+    "delete undo",
+    "update action",
+    "touch long press without installation"
+  ]
+}

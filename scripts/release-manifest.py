@@ -26,8 +26,9 @@ def manifest(version, directory, notes):
             'signature': signature,
             'url': f'https://github.com/sangwookp9591/db-tool/releases/download/v{version}/{name}',
         }
-    # Tone tags ("## 제목 {good}") drive the in-app changelog; older updaters render notes raw, so strip them here.
-    text = re.sub(r'^(#{1,6} .*?)\s*\{(?:good|bad|neutral)\}\s*$', r'\1', pathlib.Path(notes).read_text(), flags=re.M)
+    # Strip in-app categories and date metadata for older updaters that render raw notes.
+    text = re.sub(r'^(#{1,6} .*?)\s*\{(?:new|improved|fixed|good|bad|neutral)\}\s*$', r'\1', pathlib.Path(notes).read_text(), flags=re.M)
+    text = re.sub(r'^<!--\s*date:\s*\d{4}-\d{2}-\d{2}\s*-->[ \t]*\r?\n?', '', text, flags=re.M)
     if not text.strip():
         raise ValueError('Release notes are empty')
     return {'version': version, 'notes': text, 'pub_date': datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00', 'Z'), 'platforms': platforms}

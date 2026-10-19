@@ -1,3 +1,4 @@
+import { textBatch } from './textBatch';
 import { ModelPicker } from './ModelPicker';
 import { SuggestionCard, type Suggestion } from '../ui/SuggestionCard';
 import { ToolCallGroup } from '../ui/ToolCall';
@@ -8,12 +9,13 @@ import { SpringCheck } from '../ui/SpringCheck';
 import { JellyRadio } from '../ui/JellyRadio';
 import { LatticeLoader } from '../ui/LatticeLoader';
 import { X, Sparkles } from 'lucide-preact';
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { Channel } from '@tauri-apps/api/core';
 import { api, isMock } from '../api';
 import { Dialog } from '../Dialog';
 import type { Table, DriverManifest, SchemaGraph } from '../contract';
 import { selectRows, type AiReply, type AiSettings, type WorkInput } from './types';
+const discardStream = () => {};
 export function AssistantPanel({ work, table, insert, undo, driver, close, open = true }: { open?:boolean; work: () => WorkInput | null; table: () => Table | undefined; insert: (session: string, text: string) => string | undefined; undo:(tabId:string)=>Promise<boolean>; driver:(session:string)=>DriverManifest|undefined; close: () => void }) {
   const [settings, setSettings] = useState<AiSettings>({ enabled: false, model: 'claude-opus-5-5', effort: 'medium', auth: 'api_key' });
   const [hasAnt, setHasAnt] = useState(false), [loggedIn, setLoggedIn] = useState(false), [loginUrl, setLoginUrl] = useState<string | null>(null), [code, setCode] = useState(''), [account, setAccount] = useState('');
@@ -26,6 +28,8 @@ export function AssistantPanel({ work, table, insert, undo, driver, close, open 
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [inserted, setInserted] = useState<{suggestionId:string;tabId:string}|null>(null);
   const [busyAction, setBusyAction] = useState('');
+  const releaseStream = useRef(discardStream);
+  useEffect(() => () => releaseStream.current(), []);
   useEffect(() => { if(!open)return; let alive = true; setReady(false); void api('ai_settings', {}).then(s => { if (alive) { setSettings(s.settings); setHasKey(s.has_key); setHasAnt(s.has_ant_cli); if(s.settings.auth==='chatgpt_login')setLoggedIn(!!s.accounts?.some(a=>a.logged_in)); setReady(true); } }).catch(e => { if (alive) setError(String(e.message ?? e)); }); return () => { alive = false; }; }, [open]);
   async function save(remove = false) {
     if(remove&&!window.confirm('저장된 API 키를 키체인에서 삭제할까요?'))return;
@@ -59,16 +63,19 @@ export function AssistantPanel({ work, table, insert, undo, driver, close, open 
     setError(''); setReply(null); setText('');
     const input = work(); if (!input) { setError('연결된 쿼리 탭을 먼저 여세요.'); return; }
     setBusyAction('request'); setBusy(true); setSession(input.session_id);
+    const batch = textBatch(setText); let channel: Channel<string> | undefined;
+    const release = () => { batch.dispose(); if (channel) channel.onmessage = discardStream; };
+    releaseStream.current = release;
     try {
       const selected = includeRows ? selectRows(table(), selection) : undefined;
       if (includeRows && !selected?.rows.length) throw new Error('전송할 행 번호를 선택하세요.');
-      const channel = new Channel<string>(); channel.onmessage = delta => setText(previous => previous + delta);
+      channel = new Channel<string>(batch.push);
       const result = await api('ai_request', { sessionId: input.session_id, scope: { ...input.scope, include_rows: includeRows, selected_rows: selected, masked_columns: masked.split(',').map(s => s.trim()).filter(Boolean) }, question, channel });
       setReply(result); setText(result.text);
       if (result.refused) setError('공급자가 요청을 거부했습니다. 질문을 수정해 주세요.');
       else if (result.stop_reason !== 'end_turn') setError(`응답이 완료되지 않았습니다 (${result.stop_reason}). 다시 요청하세요.`);
     } catch (e) { setError(String((e as Error).message ?? e)); }
-    finally { setBusy(false); }
+    finally { release(); releaseStream.current = discardStream; setBusy(false); }
   }
   useEffect(() => {
     let alive = true; setInserted(null);

@@ -1,0 +1,178 @@
+{
+  "started": "2026-10-19T16:07:30.083502+09:00",
+  "gate": {
+    "label": "r2-v2-quiet-window",
+    "passed": true,
+    "threshold": 8,
+    "timeout_seconds": 3600,
+    "samples": [
+      {
+        "at": "2026-10-19T16:07:30.138227+09:00",
+        "load1": 3.58740234375,
+        "waited_seconds": 6.0829988797195256e-06,
+        "ps_top_cpu": [
+          {
+            "pid": 171,
+            "ppid": 1,
+            "rss_kib": 86560,
+            "cpu_seconds": 10837.71,
+            "rolling_cpu_percent": 48.4,
+            "command": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+          },
+          {
+            "pid": 92627,
+            "ppid": 92566,
+            "rss_kib": 132624,
+            "cpu_seconds": 774.3,
+            "rolling_cpu_percent": 39.3,
+            "command": "/Applications/Aside.app/Contents/Frameworks/Aside Framework.framework/Versions/1.0.928.1/Helpers/Aside Helper.app/Contents/MacOS/Aside Helper"
+          },
+          {
+            "pid": 92705,
+            "ppid": 92566,
+            "rss_kib": 420512,
+            "cpu_seconds": 623.31,
+            "rolling_cpu_percent": 23.7,
+            "command": "/Applications/Aside.app/Contents/Frameworks/Aside Framework.framework/Versions/1.0.928.1/Helpers/Aside Helper (Renderer).app/Contents/MacOS/Aside Helper (Renderer)"
+          },
+          {
+            "pid": 16508,
+            "ppid": 16414,
+            "rss_kib": 471984,
+            "cpu_seconds": 5573.0,
+            "rolling_cpu_percent": 20.2,
+            "command": "/Applications/Orca.app/Contents/Frameworks/Orca Helper (Renderer).app/Contents/MacOS/Orca Helper (Renderer)"
+          },
+          {
+            "pid": 16460,
+            "ppid": 16414,
+            "rss_kib": 85312,
+            "cpu_seconds": 2302.47,
+            "rolling_cpu_percent": 15.1,
+            "command": "/Applications/Orca.app/Contents/Frameworks/Orca Helper.app/Contents/MacOS/Orca Helper"
+          },
+          {
+            "pid": 20614,
+            "ppid": 19878,
+            "rss_kib": 174336,
+            "cpu_seconds": 208.3,
+            "rolling_cpu_percent": 9.0,
+            "command": "codex"
+          },
+          {
+            "pid": 92566,
+            "ppid": 1,
+            "rss_kib": 264736,
+            "cpu_seconds": 315.95,
+            "rolling_cpu_percent": 7.7,
+            "command": "/Applications/Aside.app/Contents/MacOS/Aside"
+          },
+          {
+            "pid": 16414,
+            "ppid": 1,
+            "rss_kib": 222064,
+            "cpu_seconds": 2156.83,
+            "rolling_cpu_percent": 6.3,
+            "command": "/Applications/Orca.app/Contents/MacOS/Orca"
+          },
+          {
+            "pid": 1165,
+            "ppid": 1,
+            "rss_kib": 1153760,
+            "cpu_seconds": 2419.25,
+            "rolling_cpu_percent": 5.7,
+            "command": "/Applications/OrbStack.app/Contents/Frameworks/OrbStack Helper.app/Contents/MacOS/OrbStack Helper"
+          },
+          {
+            "pid": 68695,
+            "ppid": 20614,
+            "rss_kib": 24832,
+            "cpu_seconds": 0.07,
+            "rolling_cpu_percent": 5.4,
+            "command": "/opt/homebrew/Cellar/python@3.14/3.14.4/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python"
+          },
+          {
+            "pid": 96132,
+            "ppid": 95094,
+            "rss_kib": 352464,
+            "cpu_seconds": 660.26,
+            "rolling_cpu_percent": 3.7,
+            "command": "claude"
+          },
+          {
+            "pid": 295,
+            "ppid": 1,
+            "rss_kib": 43008,
+            "cpu_seconds": 422.18,
+            "rolling_cpu_percent": 2.4,
+            "command": "/System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN"
+          },
+          {
+            "pid": 40927,
+            "ppid": 35207,
+            "rss_kib": 153984,
+            "cpu_seconds": 120.04,
+            "rolling_cpu_percent": 2.1,
+            "command": "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/155.0.8059.84/Helpers/Google Chrome Helper (Renderer).app/Contents/MacOS/Google Chrome Helper (Renderer)"
+          },
+          {
+            "pid": 846,
+            "ppid": 1,
+            "rss_kib": 14496,
+            "cpu_seconds": 279.90999999999997,
+            "rolling_cpu_percent": 2.0,
+            "command": "/usr/libexec/trustd"
+          },
+          {
+            "pid": 142,
+            "ppid": 1,
+            "rss_kib": 11840,
+            "cpu_seconds": 175.06,
+            "rolling_cpu_percent": 1.9,
+            "command": "/usr/libexec/opendirectoryd"
+          },
+          {
+            "pid": 92703,
+            "ppid": 92566,
+            "rss_kib": 253904,
+            "cpu_seconds": 150.95,
+            "rolling_cpu_percent": 1.6,
+            "command": "Aside Daemon"
+          },
+          {
+            "pid": 13842,
+            "ppid": 1,
+            "rss_kib": 280304,
+            "cpu_seconds": 124.9,
+            "rolling_cpu_percent": 1.5,
+            "command": "/Applications/Xcode.app/Contents/MacOS/Xcode"
+          },
+          {
+            "pid": 166,
+            "ppid": 1,
+            "rss_kib": 3472,
+            "cpu_seconds": 153.81,
+            "rolling_cpu_percent": 1.3,
+            "command": "/usr/sbin/notifyd"
+          },
+          {
+            "pid": 17231,
+            "ppid": 1,
+            "rss_kib": 146656,
+            "cpu_seconds": 705.44,
+            "rolling_cpu_percent": 1.3,
+            "command": "/Users/iron/Library/Application Support/orca/daemon-host/macos/terminal-host-499e9399663dd55819267db289c3952247e9f081/app.noindex/Orca Terminal Host.app/Contents/MacOS/orca-terminal-host"
+          },
+          {
+            "pid": 24566,
+            "ppid": 20614,
+            "rss_kib": 25952,
+            "cpu_seconds": 2.45,
+            "rolling_cpu_percent": 1.1,
+            "command": "/opt/homebrew/Caskroom/codex/0.163.0/bin/codex-code-mode-host"
+          }
+        ]
+      }
+    ]
+  }
+}

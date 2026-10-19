@@ -131,6 +131,12 @@ pub enum Request {
     DdlRender { session: u64, diff: SnapshotDiff },
     ImportRowsProgress { session: u64, req: EditRequest, preview: bool },
     ImportRows { session: u64, req: EditRequest, preview: bool },
+    RestoreOptions { session: u64 },
+    BackupStream { session: u64 },
+    RestoreStart { session: u64, summary: BackupSummary, overwrite: bool, #[serde(default)] new_database: Option<String> },
+    RestoreChunk { session: u64, transfer: u64, data: BackupData },
+    RestoreFinish { session: u64, transfer: u64 },
+    RestoreAbort { session: u64, transfer: u64 },
     Backup { session: u64 },
     Restore { session: u64, backup: BackupData, overwrite: bool },
     PreviewGrants {session:u64,changes:Vec<GrantChange>},
@@ -164,6 +170,12 @@ impl Request {
             | Self::DdlRender {session,..}
             | Self::ImportRowsProgress {session,..}
             | Self::ImportRows {session,..}
+            | Self::RestoreOptions {session}
+            | Self::BackupStream {session}
+            | Self::RestoreStart {session,..}
+            | Self::RestoreChunk {session,..}
+            | Self::RestoreFinish {session,..}
+            | Self::RestoreAbort {session,..}
             | Self::Backup {session}
             | Self::Restore {session,..}
             | Self::PreviewGrants {session,..}
@@ -198,6 +210,9 @@ pub enum Reply {
     Import(ImportOutput),
     Migration(Vec<ResultSet>),
     Backup(BackupData),
+    BackupSummary(BackupSummary),
+    RestoreOptions(RestoreOptions),
+    Transfer(u64),
     Roles(RolesSnapshot),
     Grants(GrantPlan),
 }
@@ -205,6 +220,7 @@ pub enum Reply {
 #[derive(Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ExecuteChunk {
+    Backup { data: BackupData },
     Start {
         index: usize,
         result: Box<ResultSet>,
@@ -235,6 +251,7 @@ impl<'de> Deserialize<'de> for ExecuteChunk {
         #[serde(rename_all = "snake_case")]
         enum Kind {
             Start,
+            Backup,
             Rows,
             Documents,
             Nodes,
@@ -244,7 +261,9 @@ impl<'de> Deserialize<'de> for ExecuteChunk {
         struct Envelope {
             #[serde(rename = "type")]
             kind: Kind,
+            #[serde(default)]
             index: usize,
+            data: Option<BackupData>,
             result: Option<Box<ResultSet>>,
             rows: Option<Vec<Vec<Value>>>,
             documents: Option<Vec<Value>>,
@@ -254,6 +273,10 @@ impl<'de> Deserialize<'de> for ExecuteChunk {
             streaming: bool,
         }
         let e = Envelope::deserialize(deserializer)?;
+        if matches!(e.kind, Kind::Backup) {
+            return e.data.map(|data| Self::Backup { data }).ok_or_else(|| serde::de::Error::custom("Invalid backup chunk"));
+        }
+        if e.data.is_some() { return Err(serde::de::Error::custom("Unexpected backup data")); }
         match (e.kind, e.result, e.rows, e.documents, e.nodes, e.rels) {
             (Kind::Start, Some(result), None, None, None, None) => Ok(Self::Start {
                 index: e.index,
@@ -322,7 +345,7 @@ impl ExecuteChunk {
                     Self::Relationships { index, rels: b },
                 )
             }
-            Self::Start { .. } => return None,
+            Self::Start { .. } | Self::Backup { .. } => return None,
         })
     }
 

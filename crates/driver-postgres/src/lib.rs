@@ -63,6 +63,7 @@ impl PostgresDriver {
         Self {
             manifest: DriverManifest {
                 id: "postgres".into(),
+                icon_key: Some("postgres".into()),
                 display_name: "PostgreSQL".into(),
                 paradigm: Paradigm::Relational,
                 query_language: QueryLanguage {
@@ -606,6 +607,9 @@ impl Session for PgSession {
 
     async fn apply_grants(&self,changes:&[GrantChange],cancel:CancelToken)->Result<(),DbError>{let plan=self.native_grants(changes).await?;let req=ExecRequest{text:plan.statements.join(";\n"),params:Default::default(),read_only:false,row_limit:1,graph_node_limit:1,timeout_ms:30000,preview_sample_limit:1};self.migrate(&req,cancel).await?;Ok(())}
 
+    async fn restore_options(&self)->Result<RestoreOptions,DbError>{Ok(RestoreOptions{overwrite:true,new_database:false,guidance:"Restore to an empty target; overwrite requires human confirmation".into()})}
+    async fn backup_stream(&self,cancel:CancelToken,sink:&dyn BackupSink)->Result<BackupSummary,DbError>{self.stream_backup(cancel,sink).await}
+    async fn restore_stream(&self,summary:&BackupSummary,source:&mut (dyn std::io::Read+Send),overwrite:bool,cancel:CancelToken)->Result<(),DbError>{if summary.format=="postgres-copy-v1"{return self.native_restore(&legacy_backup(summary,source)?,overwrite,cancel).await;}self.stream_restore(summary,source,overwrite,cancel).await}
     async fn backup(&self,cancel:CancelToken)->Result<BackupData,DbError>{self.native_backup(cancel).await}
     async fn restore(&self,backup:&BackupData,overwrite:bool,cancel:CancelToken)->Result<(),DbError>{self.native_restore(backup,overwrite,cancel).await}
     async fn roles(&self)->Result<RolesSnapshot,DbError>{self.native_roles().await}
@@ -972,3 +976,4 @@ mod tests {
 
 mod management;
 mod administration;
+mod backup_stream;

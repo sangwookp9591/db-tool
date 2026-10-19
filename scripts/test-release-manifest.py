@@ -24,6 +24,12 @@ class ManifestTests(unittest.TestCase):
             self.assertEqual(result['platforms']['darwin-aarch64'], result['platforms']['darwin-x86_64'])
             self.assertEqual(result['notes'], notes.read_text())
             self.assertIn('/v0.2.0/', result['platforms']['windows-x86_64']['url'])
+            notes.write_text('<!-- date: 2026-10-19 -->\n# 릴리스\n' + ''.join(f'## 항목 {{{tag}}}\n- 내용\n' for tag in ['new', 'improved', 'fixed', 'good', 'neutral', 'bad']))
+            cleaned = module.manifest('0.2.0', root, notes)['notes']
+            self.assertEqual(cleaned, '# 릴리스\n' + '## 항목\n- 내용\n' * 6)
+            notes.write_text('<!-- date: 2026-10-19 -->\n')
+            with self.assertRaises(ValueError):
+                module.manifest('0.2.0', root, notes)
             (root / 'AxDB_0.2.0_x64-setup.exe.sig').write_text('')
             with self.assertRaises(ValueError):
                 module.manifest('0.2.0', root, notes)

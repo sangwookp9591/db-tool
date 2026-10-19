@@ -1,0 +1,17 @@
+{
+  "targets": [
+    {
+      "path": "/private/tmp/claude-501/-Users-iron-Project-psw-db-tool/1fe252ea-91ad-4737-8951-7e8f929f6ea0/scratchpad/r2-src/target",
+      "existed": true,
+      "deleted": true
+    },
+    {
+      "path": "/Users/iron/Project/psw/db-tool/target-r2",
+      "existed": true,
+      "deleted": true
+    }
+  ],
+  "original_target_untouched": true,
+  "original_dist_untouched": true,
+  "measurement_bundles_preserved": true
+}

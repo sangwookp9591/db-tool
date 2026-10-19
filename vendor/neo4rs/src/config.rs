@@ -144,6 +144,8 @@ pub struct Config {
 }
 
 impl Config {
+    /// Select a database on an operation-owned clone, preserving transport and authentication.
+    pub fn with_database(mut self,db:impl Into<Database>)->Self {self.db=Some(db.into());self}
     /// Override socket connect/read timeouts on an operation-owned clone.
     pub fn with_connection_timeout(mut self,timeout:Duration)->Self {
         self.connection_timeout=timeout;
@@ -400,6 +402,15 @@ mod tests {
         assert_eq!(initial.connection_timeout,Duration::from_millis(500));
         assert_eq!(operation.connection_timeout,Duration::from_secs(60));
         assert_eq!(initial.uri,operation.uri);assert_eq!(initial.user,operation.user);assert_eq!(initial.tls_config,operation.tls_config);
+    }
+
+    #[test]
+    fn database_clone_preserves_connection_settings(){
+        let initial=ConfigBuilder::default().uri("127.0.0.1:57687").user("test").password("test-only").db("neo4j").build().unwrap();
+        let target=initial.clone().with_database("restore_target");
+        assert_eq!(initial.db,Some("neo4j".into()));assert_eq!(target.db,Some("restore_target".into()));
+        assert_eq!(initial.uri,target.uri);assert_eq!(initial.user,target.user);assert!(initial.password==target.password);
+        assert_eq!(initial.tls_config,target.tls_config);assert_eq!(initial.connection_timeout,target.connection_timeout);
     }
 
     #[test]

@@ -217,3 +217,40 @@ in-process와 플러그인 경로를 모두 검증한다. 프로토콜·크래�
 구현 API 참고: [rusqlite Connection](https://docs.rs/rusqlite/0.40.2/rusqlite/struct.Connection.html),
 [SQLite query_only](https://sqlite.org/pragma.html#pragma_query_only),
 [SQLite interrupt](https://sqlite.org/c3ref/interrupt.html).
+
+## 새 DB 추가 실례: MySQL / MariaDB
+
+`crates/driver-mysql`은 `mysql_async`의 텍스트 프로토콜과 rustls로 구현한 설치형
+관계형 드라이버다(manifest id: `mysql`). workspace와 `xtask::IDS`에 추가하고 SDK
+진입점을 만들었으며, 앱의 Registry·네트워크·UI에 MySQL 분기를 추가하지 않는다.
+`tls_server_name` 힌트도 사용하므로 SSH/프록시의 로컬 포트와 원래 TLS 검증 이름을
+구분한다. 기본 TLS는 `verify-full`이고, 연결 폼의 CA 파일로 사설 CA를 지정할 수 있다.
+
+```sh
+CARGO_TARGET_DIR=target-m1 CARGO_BUILD_JOBS=4 cargo build --workspace --bins
+AXDB_TEST_MYSQL=1 AXDB_TEST_MARIADB=1 CARGO_TARGET_DIR=target-m1 \
+  CARGO_BUILD_JOBS=4 cargo test -p driver-mysql
+AXDB_DRIVER_DIR="$PWD/target-m1/debug" AXDB_TEST_MYSQL=1 AXDB_TEST_MARIADB=1 \
+  CARGO_TARGET_DIR=target-m1 CARGO_BUILD_JOBS=4 \
+  cargo test -p axdb --test plugin_contracts mysql_contract
+```
+
+테스트 플래그는 고정된 로컬 테스트 컨테이너(53306/53307, `axdb_test`)만 활성화한다.
+실제 서명 패키지 검증 → 임시 설치 → 일반 PluginDriver 핸드셰이크 → Registry 등록은
+`src-tauri/tests/mysql_package.rs`로 확인한다. 릴리스 패키지는 기존
+`cargo xtask package-drivers --driver mysql ...` 경로로 만들고 별도 릴리스한다.
+
+DECIMAL·UNSIGNED BIGINT·JSON은 원문을 보존한다. `:name`은 JSON 객체의 같은 이름,
+`?`는 `"1"`부터 연속된 숫자 키로 바인딩하며, 정밀한 값은 공통 tagged `Value`를 쓴다. DECIMAL은 지수 없는 소수 문자열이며,
+DateTimeTz 파라미터는 UTC 세션에서만 허용한다.
+새 연결은 UTC다. DATETIME은 타임존 없는 값이다. 일반 SQL의 TIMESTAMP는 세션 타임존
+값으로 표시하며, UTC가 보장되는 browse·읽기 전용 실행에서는 UTC offset을 붙인다.
+MariaDB의 JSON alias는 browse에서 SHOW CREATE의 JSON_VALID 제약으로 식별하며,
+일반 SQL 결과에서는 서버의 LONGTEXT 메타데이터에 따라 Text로 반환될 수 있다.
+
+MySQL DDL은 암묵적으로 커밋하므로 미리보기를 거부한다. 데이터 미리보기·행 편집·
+ANALYZE는 InnoDB 테이블만 허용하고 트리거·UDF를 거부하며, 열린 사용자 트랜잭션을
+먼저 끝내야 한다. 별도 연결에서 롤백하므로 임시 테이블과 세션 변수는 전달하지 않는다.
+가져오기는 기존 테이블에 최대 500행씩 INSERT하고 한 트랜잭션으로 적용한다.
+권한 변경은 GRANT/REVOKE 계획만 반환한다. 논리 백업은 W4b의 64 KiB byte 청크를
+사용하며 복원은 아직 지원하지 않는다. 상세 검증과 제한은 [M1 보고서](M1_MYSQL_REPORT.md)에 있다.

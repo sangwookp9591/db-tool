@@ -1,0 +1,46 @@
+======================================================================
+com.apple.WebKit.WebContent [99301]: 64-bit    Footprint: 166249504 B (16384 bytes per page)
+======================================================================
+
+      Dirty         Clean   Reclaimable    Regions    Category
+        ---           ---           ---        ---    ---
+ 74170368 B           0 B    19546112 B          7    WebKit Malloc
+ 51052544 B           0 B   137707520 B        165    Owned physical footprint (unmapped) (graphics)
+ 18612224 B           0 B       49152 B        546    WebAssembly Memory
+ 12124160 B           0 B     1458176 B        634    Malloc Small
+  2736128 B           0 B           0 B         15    Untagged
+  2506752 B           0 B       65536 B          3    JS JIT Generated Code
+  1406700 B           0 B           0 B        552    __DATA_DIRTY
+   849311 B           0 B           0 B        627    __DATA
+   738336 B           0 B           0 B          1    page table
+   573440 B           0 B           0 B         11    Malloc Metadata
+   393216 B           0 B           0 B         28    Stack
+   318501 B           0 B           0 B       1744    unused dyld shared cache area
+   262144 B           0 B           0 B          1    Malloc Tiny
+   191512 B           0 B           0 B        376    __AUTH
+    81920 B           0 B           0 B          4    App-Specific Tag 2
+    53176 B           0 B           0 B          4    __TPRO_CONST
+    49152 B           0 B           0 B          1    Untagged (graphics)
+    48000 B           0 B           0 B          1    __OBJC_RW
+    32768 B           0 B           0 B          2    ColorSync
+    16384 B           0 B           0 B          1    CoreServices
+    16384 B           0 B           0 B          1    OS Alloc Once
+    16384 B           0 B           0 B          1    Foundation
+        0 B    11517952 B           0 B         44    mapped file
+        0 B       32768 B           0 B          3    __LINKEDIT
+        0 B       32768 B           0 B        700    __TEXT
+        0 B       16384 B           0 B        620    __DATA_CONST
+        0 B           0 B           0 B          4    Image IO
+        0 B           0 B           0 B          1    __OBJC_RO
+        0 B           0 B           0 B          1    __FONT_DATA
+        0 B           0 B           0 B          1    Dyld Private Memory
+        0 B           0 B           0 B         76    Guard
+        0 B           0 B           0 B          1    __CTF
+        0 B           0 B           0 B        620    __AUTH_CONST
+        ---           ---           ---        ---    ---
+166249504 B    11599872 B   158826496 B       6798    TOTAL
+
+Auxiliary data:
+    phys_footprint: 166249504 B
+    phys_footprint_peak: 270615584 B
+

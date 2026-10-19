@@ -1,0 +1,31 @@
+{
+  "app": "/Users/iron/Project/psw/db-tool/target-l1/bench-apps/AxDB-observed-before-empty.app",
+  "binary_sha256": "d25d1418b4b44bdb41bd2a6cd2c10b58a033fd0021bf2f83b056948f7494e258",
+  "expected_binary_sha256": "d25d1418b4b44bdb41bd2a6cd2c10b58a033fd0021bf2f83b056948f7494e258",
+  "source_matches": {
+    "Cargo.toml": true,
+    "Cargo.lock": true,
+    "src-tauri/Cargo.toml": true,
+    "src-tauri/src/lib.rs": true,
+    "src-tauri/src/plugin_host.rs": true,
+    "src-tauri/src/stream.rs": true,
+    "crates/driver-sdk/src/lib.rs": true,
+    "ui/src/App.tsx": true,
+    "ui/src/perf/stream.ts": true,
+    "ui/src/perf/streamState.ts": true,
+    "ui/src/perf/columnar.ts": true,
+    "ui/src/perf/msgpack.ts": true,
+    "ui/src/perf/resource.ts": true,
+    "ui/src/VirtualTable.tsx": true,
+    "ui/src/ai/AssistantPanel.tsx": true,
+    "ui/src/style.css": true,
+    "ui/src/results.css": true,
+    "ui/src/perf/arrayView.ts": true,
+    "ui/src/GraphView.tsx": true
+  },
+  "build_receipt": "bench/results-l1-build-observed-before-empty.json",
+  "rejected_attempt": "bench/results-l1-build.json",
+  "rejection": "Empty-render diagnostic stopped at prepare-window; no measurable benefit; App hook and only its test removed",
+  "release_gate": "not passed: original startup+50MiB unmet",
+  "baseline020_arm64_binary_bytes": 17022976
+}

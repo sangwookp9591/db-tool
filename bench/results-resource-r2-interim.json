@@ -1,0 +1,457 @@
+{
+  "baseline_complete": true,
+  "valid_runs": 5,
+  "accepted_samples": 40,
+  "remaining_baseline_runs": 0,
+  "coverage": [
+    {
+      "source": "bench/results-resource-020-installed-scale1.json",
+      "source_repeat": 1,
+      "config": "/private/var/folders/_p/fy8jj5b95c38w41rttwnnll40000gn/T/axdb-resource-6mybozdi",
+      "host_pid": 36914,
+      "exit_verified": true,
+      "points": [
+        {
+          "stage": "startup",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 3.43017578125
+        },
+        {
+          "stage": "idle-10",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 3.59765625
+        },
+        {
+          "stage": "idle-60",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 3.32373046875
+        },
+        {
+          "stage": "table-100000",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 3.32373046875
+        },
+        {
+          "stage": "graph-300",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 3.21728515625
+        },
+        {
+          "stage": "tabs-10",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 3.11962890625
+        },
+        {
+          "stage": "tabs-closed",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 2.94970703125
+        },
+        {
+          "stage": "tabs-closed-10",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 2.88330078125
+        }
+      ]
+    },
+    {
+      "source": "bench/results-resource-020-installed-scale1.json",
+      "source_repeat": 2,
+      "config": "/private/var/folders/_p/fy8jj5b95c38w41rttwnnll40000gn/T/axdb-resource-orb8ova6",
+      "host_pid": 39556,
+      "exit_verified": true,
+      "points": [
+        {
+          "stage": "startup",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 2.75341796875
+        },
+        {
+          "stage": "idle-10",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 3.41357421875
+        },
+        {
+          "stage": "idle-60",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 3.2353515625
+        },
+        {
+          "stage": "table-100000",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 3.21630859375
+        },
+        {
+          "stage": "graph-300",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 3.03857421875
+        },
+        {
+          "stage": "tabs-10",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 3.275390625
+        },
+        {
+          "stage": "tabs-closed",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 3.5732421875
+        },
+        {
+          "stage": "tabs-closed-10",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 3.32421875
+        }
+      ]
+    },
+    {
+      "source": "bench/results-resource-020-installed-scale1.json",
+      "source_repeat": 3,
+      "config": "/private/var/folders/_p/fy8jj5b95c38w41rttwnnll40000gn/T/axdb-resource-gn2kmcyc",
+      "host_pid": 42213,
+      "exit_verified": true,
+      "points": [
+        {
+          "stage": "startup",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 3.2978515625
+        },
+        {
+          "stage": "idle-10",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 3.091796875
+        },
+        {
+          "stage": "idle-60",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 3.26318359375
+        },
+        {
+          "stage": "table-100000",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 3.08154296875
+        },
+        {
+          "stage": "graph-300",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 2.91455078125
+        },
+        {
+          "stage": "tabs-10",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 3.00146484375
+        },
+        {
+          "stage": "tabs-closed",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 3.00146484375
+        },
+        {
+          "stage": "tabs-closed-10",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 2.9140625
+        }
+      ]
+    },
+    {
+      "source": "bench/results-resource-020-installed-scale1.json",
+      "source_repeat": 4,
+      "config": "/private/var/folders/_p/fy8jj5b95c38w41rttwnnll40000gn/T/axdb-resource-kpfz7em1",
+      "host_pid": 45541,
+      "exit_verified": true,
+      "points": [
+        {
+          "stage": "startup",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 3.08056640625
+        },
+        {
+          "stage": "idle-10",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 2.76025390625
+        },
+        {
+          "stage": "idle-60",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 2.46484375
+        },
+        {
+          "stage": "table-100000",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 2.46484375
+        },
+        {
+          "stage": "graph-300",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 2.26708984375
+        },
+        {
+          "stage": "tabs-10",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 2.56591796875
+        },
+        {
+          "stage": "tabs-closed",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 2.8408203125
+        },
+        {
+          "stage": "tabs-closed-10",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 2.6376953125
+        }
+      ]
+    },
+    {
+      "source": "bench/results-resource-020-installed-scale1-supplement.json",
+      "source_repeat": 1,
+      "config": "/private/var/folders/_p/fy8jj5b95c38w41rttwnnll40000gn/T/axdb-resource-yleenqrh",
+      "host_pid": 86806,
+      "exit_verified": true,
+      "points": [
+        {
+          "stage": "startup",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 7.78662109375
+        },
+        {
+          "stage": "idle-10",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 7.12353515625
+        },
+        {
+          "stage": "idle-60",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 6.07080078125
+        },
+        {
+          "stage": "table-100000",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 6.07080078125
+        },
+        {
+          "stage": "graph-300",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 5.90478515625
+        },
+        {
+          "stage": "tabs-10",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 6.62353515625
+        },
+        {
+          "stage": "tabs-closed",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 6.4130859375
+        },
+        {
+          "stage": "tabs-closed-10",
+          "accepted": true,
+          "viewport": {
+            "height": 768,
+            "scale": 1,
+            "width": 1280
+          },
+          "load1": 5.89453125
+        }
+      ]
+    }
+  ],
+  "remaining_work": "Wait for W4b completion notification; build candidate; paired 5-run A/B; native scroll comparison; keep/revert; final report and target cleanup",
+  "report": "/private/tmp/claude-501/-Users-iron-Project-psw-db-tool/1fe252ea-91ad-4737-8951-7e8f929f6ea0/scratchpad/r2-src/docs/RESOURCE_OPT.md",
+  "raw": "/private/tmp/claude-501/-Users-iron-Project-psw-db-tool/1fe252ea-91ad-4737-8951-7e8f929f6ea0/scratchpad/r2-src/bench/results-resource-020-baseline-valid.json",
+  "summary": "/private/tmp/claude-501/-Users-iron-Project-psw-db-tool/1fe252ea-91ad-4737-8951-7e8f929f6ea0/scratchpad/r2-src/bench/results-resource-020-baseline-summary.json"
+}

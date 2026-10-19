@@ -1,3 +1,4 @@
+import { messagePackStats } from './msgpack';
 import { invoke } from '@tauri-apps/api/core';
 import { api } from '../api';
 import type { DriverManifest } from '../contract';
@@ -17,8 +18,11 @@ export async function resourceBench(leak: boolean) {
   let checkpoint = 0;
   const report: Record<string, unknown> = { target: 'resource', leak, userAgent: navigator.userAgent };
   async function sample(stage: string, iteration = 0) {
-    if (stage !== 'startup') { await frame(); await frame(); }
+    if (stage !== 'startup' && stage !== 'prepare-window') { await frame(); await frame(); }
     Object.assign(report, { checkpoint: ++checkpoint, stage, iteration, at: Date.now(), graphWorkers: readGraphProbes().length, viewport: { width: innerWidth, height: innerHeight, scale: devicePixelRatio } });
+    report.codec = { ...messagePackStats };
+    report.viewers = [...app.querySelectorAll<HTMLElement>('.virtual-scroll')].map(grid => ({ totalRows: grid.getAttribute('aria-rowcount'), renderedRows: grid.querySelector('.virtual-spacer')?.children.length ?? 0, width: grid.clientWidth, height: grid.clientHeight, hidden: !!grid.closest('[hidden]') }));
+    report.canvasPixels = [...app.querySelectorAll<HTMLCanvasElement>('canvas')].map(canvas => ({ width: canvas.width, height: canvas.height, hidden: !!canvas.closest('[hidden]') }));
     await invoke('viewer_bench_write', { report });
     await invoke('viewer_bench_checkpoint', { checkpoint });
   }
@@ -37,24 +41,37 @@ export async function resourceBench(leak: boolean) {
   let graphSession = '';
   const req = (text: string) => ({ text, params: {}, row_limit: 100000, graph_node_limit: 300, timeout_ms: 60000 });
   try {
+    await sample('prepare-window'); await frame(); await frame();
     await sample('startup'); await pause(Math.max(0, 10000 - performance.now())); await sample('idle-10');
     await pause(Math.max(0, 60000 - performance.now())); await sample('idle-60');
     const manifests = await api('drivers_list', {}), config = await invoke<BenchConfig>('viewer_bench_config');
+    async function control(element: HTMLInputElement | HTMLSelectElement | HTMLButtonElement | null | undefined, value: string) {
+      if (!element) throw new Error('Missing resource benchmark control');
+      if (element instanceof HTMLButtonElement) {
+        element.click(); await frame();
+        const list = document.getElementById(element.getAttribute('aria-controls') ?? '');
+        const option = [...(list?.querySelectorAll<HTMLElement>('[role=option]') ?? [])]
+          .find(option => option.querySelector('.glide-select__name')?.textContent?.trim() === value);
+        if (!option) throw new Error(`Missing resource benchmark option: ${value}`);
+        option.click(); await frame();
+        if (element.textContent?.trim() !== value) throw new Error('Resource benchmark selection did not update');
+      } else { input(element, value); await frame(); if (element.value !== value) throw new Error('Resource benchmark input did not update'); }
+    }
     async function connect(driver: DriverManifest, settings: BenchConnection) {
       const name = `P1 ${driver.paradigm}`;
       app.querySelector<HTMLButtonElement>('[aria-label="Add connection"]')!.click();
       await waitFor(() => !!app.querySelector('.profile-form form'));
       const form = app.querySelector<HTMLFormElement>('.profile-form form')!;
-      const field = (name: string) => [...form.querySelectorAll('label')].find(l => l.firstChild?.textContent?.trim().replace(/\s*\*$/, '') === name)?.querySelector<HTMLInputElement | HTMLSelectElement>('input,select');
-      input(field('Name')!, name); input(field('Driver')!, driver.id); await frame(); await frame();
-      for (const f of driver.connection_fields) if (f.secret || settings.fields[f.key] !== undefined) input(field(f.label)!, f.secret ? settings.secret : settings.fields[f.key]);
-      await frame(); form.querySelector<HTMLButtonElement>('[type=submit]')!.click();
+      const field = (name: string) => form.querySelector<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>(`[aria-label="${CSS.escape(name)}"]`) ?? [...form.querySelectorAll('label')].find(l => l.querySelector('.field-label')?.textContent?.trim() === name)?.querySelector<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>('input,select,[role=combobox]');
+      await control(field('Name'), name); await control(field('Driver'), driver.display_name); await frame(); await frame();
+      for (const f of driver.connection_fields) if (f.secret || settings.fields[f.key] !== undefined) await control(field(f.label), f.secret ? settings.secret : settings.fields[f.key]);
+      await frame(); form.requestSubmit();
       const connection = () => [...app.querySelectorAll<HTMLElement>('.connection')].find(c => c.querySelector('strong')?.textContent === name);
       await waitFor(() => !!connection()); connection()!.querySelector<HTMLButtonElement>('.connection-actions button')!.click();
       await waitFor(() => !!app.querySelector('input[type=password][autocomplete=off]'));
       const credential = app.querySelector<HTMLInputElement>('input[type=password][autocomplete=off]')!;
-      input(credential, settings.secret); await frame(); credential.closest('form')!.querySelector<HTMLButtonElement>('[type=submit]')!.click();
-      await waitFor(() => !!connection()!.querySelector('.tree-node'));
+      input(credential, settings.secret); await frame(); credential.closest('form')!.requestSubmit();
+      await waitFor(() => connection()!.hasAttribute('data-active') && !!app.querySelector('.explorer-region:not([hidden]) .tree-node'));
       const list = await window.axdb.agent!.callTool('list_connections', {}) as { id: string; name: string; session_id: string }[];
       const saved = list.find(c => c.name === name)!; profiles.push(saved.id); sessions.push(saved.session_id); return saved.session_id;
     }
@@ -74,7 +91,7 @@ export async function resourceBench(leak: boolean) {
       report.lastQuery = { rows: expected, wall_ms: performance.now() - since };
       await frame(); await frame();
       if (tab.querySelector('.db-error')) throw new Error(tab.querySelector('.db-error')!.textContent!);
-      await waitFor(() => Number(tab.querySelector('.result-status > span:nth-child(2) .metric-number')?.textContent?.replaceAll(',', '')) === expected);
+      await waitFor(() => tab.querySelector('.result-status [aria-label^="Rows:"]')?.getAttribute('aria-label') === `Rows: ${expected.toLocaleString()}`);
       if (!graph) {
         const grid = tab.querySelector('[role=grid][aria-label="Query results"]');
         if (Number(grid?.getAttribute('aria-rowcount')) !== expected + 1 || grid?.querySelector('[role=gridcell]')?.textContent !== (expected === 100000 ? '9007199254740994' : '1')) throw new Error('Loaded table rows or exact first value did not match the query');

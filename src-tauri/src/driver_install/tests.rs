@@ -6,6 +6,7 @@ fn fixture(binary: Vec<u8>, version: &str, key: Option<&SigningKey>) -> Vec<u8> 
     let path = format!("bin/{target}/axdb-driver-example-kv");
     let manifest = Manifest {
         id: "example-kv".into(),
+        icon_key: None,
         name: "Example KV (memory)".into(),
         version: version.into(),
         protocol: 1,
@@ -125,6 +126,7 @@ async fn http_catalog_install_handshake_rollback_update_remove() {
     let bytes = fixture(binary.clone(), "1.0.0", Some(&key));
     let entry = CatalogEntry {
         id: "example-kv".into(),
+        icon_key: None,
         name: "Example KV (memory)".into(),
         version: "1.0.0".into(),
         description: "fixture".into(),
@@ -475,6 +477,7 @@ fn catalog_cache_latency_and_disk_tamper_invalidation() {
             .into_iter()
             .map(|id| CatalogEntry {
                 id: id.into(),
+                icon_key: Some(id.into()),
                 name: id.into(),
                 version: "1.0.0".into(),
                 description: "fixture catalog entry".into(),
@@ -568,4 +571,68 @@ async fn resource_bench_install_signed_packages() {
         2
     );
     assert_eq!(registry.manifests().len(), 2);
+}
+
+#[tokio::test]
+async fn mysql_package_uses_generic_consent_activation_and_removal() {
+    let Some(source) = std::env::var_os("AXDB_MYSQL_PACKAGE_OUT") else {
+        return;
+    };
+    let source = std::path::PathBuf::from(source);
+    let root = tempfile::tempdir().unwrap();
+    let registry = Registry::new();
+    let installer = Installer::default();
+    let error = installer
+        .install(
+            root.path(),
+            &registry,
+            source.to_str().unwrap(),
+            false,
+            |_| {},
+        )
+        .await
+        .unwrap_err();
+    assert!(error.message.contains("explicit consent required"));
+    assert!(registry.manifests().is_empty());
+    let installed = installer
+        .install(
+            root.path(),
+            &registry,
+            source.to_str().unwrap(),
+            true,
+            |_| {},
+        )
+        .await
+        .unwrap();
+    assert_eq!(installed.id, "mysql");
+    assert!(marker(root.path(), "mysql").unwrap().is_some());
+    assert_eq!(registry.manifests()[0].icon_key.as_deref(), Some("mysql"));
+    if std::env::var_os("AXDB_TEST_MYSQL").is_some() {
+        let config = dbcore::ConnectConfig {
+            fields: std::collections::BTreeMap::from([
+                ("host".into(), "127.0.0.1".into()),
+                ("port".into(), "53306".into()),
+                ("user".into(), "root".into()),
+                ("database".into(), "axdb_test".into()),
+                ("sslmode".into(), "disable".into()),
+            ]),
+            secret: Some("testmysql".into()),
+            connect_timeout_ms: 5000,
+        };
+        let session = registry
+            .get("mysql")
+            .unwrap()
+            .connect(&config)
+            .await
+            .unwrap();
+        session.ping().await.unwrap();
+        session.close().await;
+        drop(session);
+    }
+    installer
+        .remove(root.path(), &registry, "mysql")
+        .await
+        .unwrap();
+    assert!(registry.manifests().is_empty());
+    assert!(marker(root.path(), "mysql").unwrap().is_none());
 }

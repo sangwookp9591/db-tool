@@ -15,7 +15,8 @@ impl KvDriver {
         Self {
             data: Arc::default(),
             manifest: DriverManifest {
-                id: "example-kv".into(), display_name: "Example KV (memory)".into(),
+                id: "example-kv".into(),
+                icon_key: None, display_name: "Example KV (memory)".into(),
                 paradigm: Paradigm::KeyValue,
                 query_language: QueryLanguage { id: "kv".into(), display: "KV commands".into(), editor_mode: "text".into(), supports_params: false },
                 connection_fields: vec![],

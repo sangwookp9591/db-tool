@@ -195,7 +195,7 @@ pub enum ErrorKind { Connection, Auth, Query, Timeout, Cancelled, Unsupported, I
 
 ## 결과 뷰어와 계측
 
-큰 표의 Channel 이벤트는 `start → rows* → end`를 결과 집합별로 보내고 마지막에 `done`으로 끝난다. 첫 청크는 200행, 이후 2,000행이며 컬럼별 공통 태그와 값 배열을 사용한다. 혼합 타입은 셀 태그를 유지하고 정수·decimal·JSON 원문은 문자열로 보존한다. UI는 결과 인덱스·행 offset·폭을 검증하고 rAF 단위로 반영한다. 호스트 청크 전송은 드라이버가 결과 수집을 끝낸 뒤 시작하므로 DB에서 첫 행을 받는 시점까지 스트리밍하는 계약은 아니다.
+큰 표는 `Channel<Response>`의 raw MessagePack 바이트로 `start → rows* → end`를 결과 집합별로 보내고 마지막에 `done`으로 끝난다. 작은 결과와 그래프의 직접 invoke 반환은 유지한다. 첫 청크는 200행, 이후 2,000행이며 컬럼별 공통 태그와 값 배열을 사용한다. 혼합 타입은 셀 태그를 유지하고 정수·decimal·JSON 원문은 문자열로 보존한다. UI는 결과 인덱스·행 offset·폭을 검증하고 rAF 단위로 반영한다. 동일 태그의 큰 열은 검증된 인코딩 버퍼와 scalar offset으로 보관하고 보이는 셀만 디코드한다. 수신한 열 청크는 그대로 보관하고, 기존 행 배열 인터페이스는 조회한 행만 셀 객체로 만드는 읽기 전용 Proxy로 제공한다. 정렬은 열 값을 직접 읽으며 완료·실패 시 Channel onmessage의 결과 참조를 끊는다. 호스트 청크 전송은 드라이버가 결과 수집을 끝낸 뒤 시작하므로 DB에서 첫 행을 받는 시점까지 스트리밍하는 계약은 아니다.
 
 표는 행·열을 가상화하고 보이는 셀만 포맷해 캐시한다. 정렬·필터는 로드된 원본 행을 복사하지 않고 인덱스 배열을 만든다. 그래프 레이아웃은 Worker에서 수렴시킨 뒤 Float32Array로 전달하고, Canvas는 입력·크기 변경·데이터 변경 때만 그린다. 기존 노드는 확장 시 고정하고 새 노드만 부모 근처에서 200ms 동안 이동한다. 숨긴 뷰와 비활성 탭은 유지하되 Worker와 렌더를 멈춘다. 첫 표시와 Reset은 fit-to-view이며, 다중·역방향 관계는 곡선으로 분리하고 작은 줌에서는 캡션·화살표를 생략한다.
 
@@ -205,11 +205,12 @@ pub enum ErrorKind { Connection, Auth, Query, Timeout, Cancelled, Unsupported, I
 
 드라이버는 독립 실행 파일이다. 호스트의 `PluginDriver`/`PluginSession`이 `dbcore::Driver`/`Session`을 구현해 RPC로 대리 호출하므로 UI·권한·미리보기·MCP·AI 계층은 드라이버가 프로세스 안인지 밖인지 모른다.
 
-- **실행 모델:** 드라이버당 프로세스 하나를 처음 연결할 때 지연 실행하고, 그 안에서 세션 ID로 여러 연결을 다중화한다. 설치만 한 드라이버는 프로세스를 띄우지 않는다.
-- **프로토콜(protocol 1):** big-endian u32 길이 + MessagePack 본문. 요청 `{id, method, params}`, 응답 `{id, result|error}`, 실행 청크 `{id, chunk}`, 취소 `{cancel: id}`. 프레임 하나는 최대 16 MiB, 요청 하나의 전체 응답은 최대 256 MiB이며 초과분을 조용히 잘라내지 않고 연결을 끊는다. 핸드셰이크의 `protocol`이 다르면 "드라이버 업데이트 필요"로 거부한다.
+- **실행 모델:** 로컬 드라이버 검색과 프로브는 Host 생성에서 제외하고 Registry를 처음 읽을 때 수행한다. 드라이버당 프로세스 하나를 처음 연결할 때 지연 실행하고, 그 안에서 세션 ID로 여러 연결을 다중화한다. 마지막 세션 종료 후 5분 단발 타이머로 프로세스를 종료하고 wait로 회수하며, 그 전에 연결하면 타이머를 취소한다. 다음 연결은 새 프로세스로 시작한다. 설치만 한 드라이버는 프로세스를 띄우지 않는다.
+- **프로토콜(protocol 1):** big-endian u32 길이 + MessagePack 본문. 요청 `{id, method, params}`, 응답 `{id, result|error}`, 실행 청크 `{id, chunk}`, 취소 `{cancel: id}`. 프레임 하나는 최대 16 MiB, 일반 요청 하나의 전체 응답은 최대 256 MiB이며 초과분을 조용히 잘라내지 않고 연결을 끊는다. `backup_stream`의 검증된 64 KiB 이하 byte 청크는 누적 응답 한도에서 제외하고, 8칸 채널과 파일 sink로 backpressure를 유지한다. 핸드셰이크의 `protocol`이 다르면 "드라이버 업데이트 필요"로 거부한다.
 - **스트리밍:** `Session::execute_stream`을 `PluginSession`이 재정의해 큰 표의 행을 처음 200행, 이후 2,000행 단위로 UI 채널에 바로 넘긴다. 현재 DB 드라이버의 `execute`는 결과를 모아서 반환하므로 청크 전송은 DB 실행이 끝난 뒤 시작한다.
 - **취소와 크래시:** 취소는 해당 요청의 `CancelToken`으로 전달한다. DB 롤백 정리 3초와 전송 유예 3초 안에 응답이 없으면 프로세스를 종료하고 그 드라이버의 세션을 dead로 표시한다. 다음 연결 때 프로세스를 다시 띄우며, 기존 세션이나 쿼리를 재실행하지 않는다. 다른 드라이버는 영향을 받지 않는다.
 - **비밀:** 비밀번호는 `ConnectConfig.secret`으로만 전달한다(argv·환경 변수·프로필에 넣지 않음). 드라이버 stderr는 호스트가 로그로 받으며 기존 redaction을 적용하고 8 KiB를 넘는 줄은 버린다. 자식 프로세스 환경에서 서명·AI·테스트 비밀은 제외한다.
+- **백업 파일 스트리밍:** `backup_create_file`은 저장 대화상자의 일회용 path/token으로만 쓴다. 드라이버 `backup_stream` → 기존 `{id,chunk}` envelope → 호스트 zstd writer가 전체 payload를 수집하지 않고 SHA-256을 계산하며, manifest는 `.axbackup` v2 trailer에 둔다. 취소·실패 시 옆의 임시 파일을 삭제하고 기존 파일을 보존한다. `restore_pick_file`은 선택한 일반 파일을 스트리밍 검증하여 비공개 익명 임시 파일에 고정하고 세션에 묶인 토큰만 UI에 반환한다. `restore_file_preview/apply`는 이 토큰·payload digest·overwrite·새 DB 이름에 묶인 일회용 승인 영수증을 쓰며, `restore_start/chunk/finish/abort` 선택 메서드로 64 KiB씩 전송한다. SDK도 익명 파일에 스테이징하고, 실패·취소·세션 종료·업로드 유휴 만료 시 정리한다. 기존 v1 파일과 bounded 단일-frame 메서드는 호환용으로 남긴다. `restore_options`가 덮어쓰기·새 DB 생성 가능 여부와 서버 제약을 제공하므로 UI는 driver-id로 분기하지 않는다.
 - **SDK:** `axdb_driver_sdk::serve(driver)` 한 줄이 프레임 읽기·쓰기, 세션 다중화, 취소 토큰 연결을 맡는다. 드라이버 프로세스도 앱과 같은 mimalloc 설정으로 해제한 메모리를 OS에 돌려준다.
 
 ## 드라이버 패키지와 설치 (`driver-package`, `driver_install`)

@@ -52,8 +52,13 @@ export function GraphView({ graph: initial, onGraphChange, sessionId, canExpand,
   function schedule() { if (!request.current && activeRef.current) request.current = requestAnimationFrame(() => { request.current = 0; draw.current(); }); }
   const extent=(nodes:LayoutNode[])=>schema ? nodes.flatMap(n=>[{x:n.x-120,y:n.y-boxHeight(n.id)/2},{x:n.x+120,y:n.y+boxHeight(n.id)/2}]) : nodes;
   function fit() { invalidate.current(); camera.current = fitGraph(extent(scene.current.nodes.filter(n => n.visible)), dimensions.current.width, dimensions.current.height); fitMode.current = true; schedule(); }
-  useEffect(() => registerGraphProbe(() => ({ frames: frames.current, ready: readyRef.current, positions: Float32Array.from(scene.current.nodes.filter(n => n.visible).flatMap(n => [n.x, n.y])) })), []);
-  useEffect(() => { alive.current = true; return () => { alive.current = false; worker.current?.terminate(); cancelAnimationFrame(request.current); }; }, []);
+  useLayoutEffect(() => registerGraphProbe(() => ({ frames: frames.current, ready: readyRef.current, positions: Float32Array.from(scene.current.nodes.filter(n => n.visible).flatMap(n => [n.x, n.y])) })), []);
+  useLayoutEffect(() => { alive.current = true; return () => {
+    alive.current = false; revision.current++;
+    if (worker.current) { worker.current.onmessage = null; worker.current.onerror = null; worker.current.terminate(); worker.current = null; }
+    cancelAnimationFrame(request.current);
+  }; }, []);
+  useLayoutEffect(() => { const owned = canvas.current!; return () => { owned.width = owned.height = 0; }; }, []);
   useLayoutEffect(() => { readyRef.current = false; setReady(false); setGraph(initial); setSelected(null); }, [initial]);
   useLayoutEffect(() => {
     const element = canvas.current!, display = element.getContext('2d')!;

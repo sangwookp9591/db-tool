@@ -7,10 +7,10 @@ struct Dump {
     #[serde(default)]
     bytes_params: Vec<(String, Vec<u8>)>,
 }
-fn ident(s: &str) -> String {
+pub(super) fn ident(s: &str) -> String {
     format!("`{}`", s.replace('`', "``"))
 }
-fn string(s: &str) -> String {
+pub(super) fn string(s: &str) -> String {
     format!(
         "'{}'",
         s.replace('\\', "\\\\")
@@ -31,7 +31,7 @@ fn literal(v: &Value) -> Result<String, DbError> {
     _=>return Err(DbError::unsupported("Native Cypher backup cannot round-trip this property type; no partial backup was produced"))
 })
 }
-fn raw_literal(v: &BoltType, params: &mut Vec<(String, Vec<u8>)>) -> Result<String, DbError> {
+pub(super) fn raw_literal(v: &BoltType, params: &mut Vec<(String, Vec<u8>)>) -> Result<String, DbError> {
     match v {
         BoltType::Bytes(b) => {
             let key = format!("bytes{}", params.len());
@@ -331,7 +331,7 @@ impl NeoSession {
         Ok(snapshot)
     }
 }
-fn cancelled(c: &CancelToken) -> Result<(), DbError> {
+pub(super) fn cancelled(c: &CancelToken) -> Result<(), DbError> {
     if c.is_cancelled() {
         Err(DbError::new(ErrorKind::Cancelled, "Operation cancelled"))
     } else {

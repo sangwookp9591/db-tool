@@ -1,0 +1,10 @@
+{
+  "source": "bench/results-resource-030-l1-pilot-strict8.json",
+  "source_sha256": "c6d3573b892033cc6136caca755d82b8cd82cf775716346a6fb84dccc2c97039",
+  "requested_scale": 1,
+  "observed_scales": [
+    2
+  ],
+  "requested_geometry_valid": false,
+  "scope": "Original accepted fields preserved; same Retina2 diagnostic pair only, not a scale1 baseline comparison"
+}

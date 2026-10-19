@@ -1,0 +1,254 @@
+{
+  "verdict": "REJECTED",
+  "reason": "No consistent aggregate charged-footprint reduction across the three core points; keep product behavior unchanged",
+  "core_memory": [
+    {
+      "stage": "table-100000",
+      "n": 4,
+      "baseline_rss": 608.1171875,
+      "candidate_rss": 609.5078125,
+      "baseline_footprint": 344.2153434753418,
+      "candidate_footprint": 351.277774810791
+    },
+    {
+      "stage": "tabs-10",
+      "n": 4,
+      "baseline_rss": 785.0546875,
+      "candidate_rss": 771.8203125,
+      "baseline_footprint": 534.6145133972168,
+      "candidate_footprint": 529.520809173584
+    },
+    {
+      "stage": "tabs-closed-10",
+      "n": 4,
+      "baseline_rss": 594.3671875,
+      "candidate_rss": 536.6171875,
+      "baseline_footprint": 441.809814453125,
+      "candidate_footprint": 444.2708206176758
+    }
+  ],
+  "scroll": [
+    {
+      "case": "table-1000-10-legacy",
+      "valid_pairs": 3,
+      "baseline_p95_ms": {
+        "n": 3,
+        "p50": 34,
+        "p95": 43,
+        "min": 34,
+        "max": 43
+      },
+      "candidate_p95_ms": {
+        "n": 3,
+        "p50": 34,
+        "p95": 56,
+        "min": 34,
+        "max": 56
+      },
+      "ratio": 1.0
+    },
+    {
+      "case": "table-1000-10-stream",
+      "valid_pairs": 3,
+      "baseline_p95_ms": {
+        "n": 3,
+        "p50": 34,
+        "p95": 35,
+        "min": 34,
+        "max": 35
+      },
+      "candidate_p95_ms": {
+        "n": 3,
+        "p50": 34,
+        "p95": 34,
+        "min": 34,
+        "max": 34
+      },
+      "ratio": 1.0
+    },
+    {
+      "case": "table-10000-10-legacy",
+      "valid_pairs": 3,
+      "baseline_p95_ms": {
+        "n": 3,
+        "p50": 34,
+        "p95": 34,
+        "min": 34,
+        "max": 34
+      },
+      "candidate_p95_ms": {
+        "n": 3,
+        "p50": 34,
+        "p95": 34,
+        "min": 34,
+        "max": 34
+      },
+      "ratio": 1.0
+    },
+    {
+      "case": "table-10000-10-stream",
+      "valid_pairs": 3,
+      "baseline_p95_ms": {
+        "n": 3,
+        "p50": 34,
+        "p95": 35,
+        "min": 34,
+        "max": 35
+      },
+      "candidate_p95_ms": {
+        "n": 3,
+        "p50": 34,
+        "p95": 34,
+        "min": 34,
+        "max": 34
+      },
+      "ratio": 1.0
+    },
+    {
+      "case": "table-10000-200-legacy",
+      "valid_pairs": 3,
+      "baseline_p95_ms": {
+        "n": 3,
+        "p50": 48,
+        "p95": 49,
+        "min": 47,
+        "max": 49
+      },
+      "candidate_p95_ms": {
+        "n": 3,
+        "p50": 34,
+        "p95": 34,
+        "min": 34,
+        "max": 34
+      },
+      "ratio": 0.7083333333333334
+    },
+    {
+      "case": "table-10000-200-stream",
+      "valid_pairs": 3,
+      "baseline_p95_ms": {
+        "n": 3,
+        "p50": 45,
+        "p95": 46,
+        "min": 44,
+        "max": 46
+      },
+      "candidate_p95_ms": {
+        "n": 3,
+        "p50": 35,
+        "p95": 48,
+        "min": 34,
+        "max": 48
+      },
+      "ratio": 0.7777777777777778
+    },
+    {
+      "case": "table-100000-10-legacy",
+      "valid_pairs": 3,
+      "baseline_p95_ms": {
+        "n": 3,
+        "p50": 34,
+        "p95": 34,
+        "min": 34,
+        "max": 34
+      },
+      "candidate_p95_ms": {
+        "n": 3,
+        "p50": 34,
+        "p95": 35,
+        "min": 34,
+        "max": 35
+      },
+      "ratio": 1.0
+    },
+    {
+      "case": "table-100000-10-stream",
+      "valid_pairs": 3,
+      "baseline_p95_ms": {
+        "n": 3,
+        "p50": 34,
+        "p95": 35,
+        "min": 34,
+        "max": 35
+      },
+      "candidate_p95_ms": {
+        "n": 3,
+        "p50": 34,
+        "p95": 34,
+        "min": 34,
+        "max": 34
+      },
+      "ratio": 1.0
+    }
+  ],
+  "ui_validation": "candidate parallel suite 112 passed / 1 onboarding timeout; focused onboarding 10 passed; original failure retained",
+  "baseline_runs": 5,
+  "baseline_samples": 40,
+  "ab_point_policy": {
+    "max_load": 14,
+    "max_difference": 3,
+    "minimum_pairs": 3
+  },
+  "raw_memory": "bench/results-resource-020-will-change-ab14.json",
+  "raw_scroll": "bench/results-resource-020-will-change-scroll.json",
+  "paired_core_differences": [
+    {
+      "stage": "table-100000",
+      "valid_pairs": 4,
+      "repeat_ids": [
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_minus_baseline_footprint_mib": {
+        "n": 4,
+        "p50": 1.609283447265625,
+        "p95": 19.609580993652344,
+        "min": -39.562477111816406,
+        "max": 19.609580993652344
+      },
+      "improved_pairs": 2,
+      "worse_pairs": 2
+    },
+    {
+      "stage": "tabs-10",
+      "valid_pairs": 4,
+      "repeat_ids": [
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_minus_baseline_footprint_mib": {
+        "n": 4,
+        "p50": -0.5546302795410156,
+        "p95": 6.4062957763671875,
+        "min": -15.625160217285156,
+        "max": 6.4062957763671875
+      },
+      "improved_pairs": 2,
+      "worse_pairs": 2
+    },
+    {
+      "stage": "tabs-closed-10",
+      "valid_pairs": 4,
+      "repeat_ids": [
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_minus_baseline_footprint_mib": {
+        "n": 4,
+        "p50": -3.3359146118164062,
+        "p95": 28.296920776367188,
+        "min": -52.781341552734375,
+        "max": 28.296920776367188
+      },
+      "improved_pairs": 2,
+      "worse_pairs": 2
+    }
+  ],
+  "secondary_observation": "Wide-table scroll frame p95 improved relatively, but this does not establish RAM or CPU-utilization savings; memory criterion was not met."
+}

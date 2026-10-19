@@ -64,13 +64,13 @@ let browser: Browser;
 let page: Page;
 let base: string;
 beforeAll(async () => {
-  server = await createServer({ configFile: false, server: { host: '127.0.0.1', port: 0, hmr: false }, logLevel: 'error' });
+  server = await createServer({ configFile: false, optimizeDeps: { rolldownOptions: { transform: { jsx: { runtime: 'automatic', importSource: 'preact' } } } }, cacheDir: `node_modules/.vite-branched-menu-${crypto.randomUUID()}`, server: { host: '127.0.0.1', port: 0, hmr: false }, logLevel: 'error' });
   await server.listen();
   base = server.resolvedUrls!.local[0];
   browser = await chromium.launch({ headless: true });
   page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 }, 30000);
-afterAll(async () => { await browser?.close(); await server?.close(); }, 30000);
+afterAll(async () => { await page?.goto('about:blank'); await browser?.close(); await server?.close(); }, 30000);
 
 describe('gallery BranchedMenu', () => {
   beforeEach(async () => { await page.goto(`${base}?gallery`); await page.getByTestId('bm-demo').waitFor(); }, 30000);
@@ -106,8 +106,8 @@ describe('sidebar explorer (mock app)', () => {
     await page.getByRole('button', { name: '드라이버', exact: true }).click();
     for (const name of ['Neo4j', 'PostgreSQL']) {
       await page.getByRole('tab', { name: '사용 가능', exact: true }).click();
-      await page.getByRole('button', { name: `${name} 설치`, exact: true }).click();
-      await page.getByRole('button', { name: `${name} 삭제`, exact: true }).waitFor();
+      await page.getByRole('button', { name: `${name} · 설치 가능`, exact: true }).click();
+      await page.getByRole('button', { name: `${name} · 설치됨`, exact: true }).waitFor();
     }
     await page.getByRole('button', { name: '드라이버 화면 닫기' }).click();
     const sidebar = await page.locator('.app').getAttribute('data-sidebar-open');
@@ -135,8 +135,18 @@ describe('sidebar explorer (mock app)', () => {
     await page.getByLabel('Expand people').waitFor();
     expect(await page.getByTestId('tree-item').count()).toBeGreaterThan(3);
     await page.getByLabel('Expand people').click();
-    await page.getByRole('button', { name: 'created_at', exact: true }).click();
-    expect(await page.locator('.bm-item[data-reach=to] [aria-current=true]').count()).toBe(1);
+    // A completed click is not a render barrier. Keep this deterministic under a deferred scheduler.
+    const originalScheduler = await page.evaluateHandle(() => window.queueMicrotask);
+    try {
+      await page.evaluate(() => { window.queueMicrotask = callback => { setTimeout(callback, 60); }; });
+      await page.getByRole('button', { name: 'created_at', exact: true }).click();
+      const activeRow = page.locator('.bm-item[data-reach=to] [aria-current=true]');
+      await activeRow.waitFor({ state: 'attached' });
+      expect(await activeRow.count()).toBe(1);
+    } finally {
+      await page.evaluate(original => { window.queueMicrotask = original; }, originalScheduler);
+      await originalScheduler.dispose();
+    }
     expect(await page.locator('.explorer .bm-root > .bm-item[data-section-active]').count()).toBe(1);
     // U4: the active card is pinned inside its list, and a column name wins over its type text.
     expect(await page.locator('.connection[data-active]').evaluate(el => getComputedStyle(el).position)).toBe('sticky');

@@ -15,3 +15,8 @@
 .update-settings { display: grid; gap: 8px; }
 .update-settings label { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .update-settings input { accent-color: var(--accent-primary); }
+
+
+.whats-new-dialog .dialog-shell { max-height: min(800px, calc(100vh - 48px)); }
+.whats-new-dialog .dialog-footer { justify-content: flex-end; }
+.whats-new-dialog .dialog-footer > button:last-child:not(.ax-button--brand) { background: var(--surface-secondary); color: var(--text-secondary); border-color: var(--border-default); }

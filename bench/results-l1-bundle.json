@@ -1,0 +1,99 @@
+{
+  "entry": "assets/index-BphXDyIy.js",
+  "entry_js": {
+    "bytes": 76405,
+    "gzip_bytes": 26381
+  },
+  "static_js": {
+    "bytes": 186715,
+    "gzip_bytes": 85519
+  },
+  "static_css": {
+    "bytes": 132195,
+    "gzip_bytes": 34786
+  },
+  "static_js_files": [
+    "assets/BranchedMenu-CZNh_ta9.js",
+    "assets/Button-CFejZ-Aq.js",
+    "assets/CallChip-5HSVNPzZ.js",
+    "assets/ConnectionStatus-BCjcws1A.js",
+    "assets/Dialog-BGoRmoEB.js",
+    "assets/DriverLogo-BJ234pY4.js",
+    "assets/ErrorBanner-DQ_pEzUc.js",
+    "assets/FuseButton-hG6JgfCG.js",
+    "assets/GlideSelect-4JcjtUeN.js",
+    "assets/IntegrationBeam-DuV0_eqx.js",
+    "assets/SlidingIndicator-DMKAYcSH.js",
+    "assets/SpringCheck-zAHMHVX7.js",
+    "assets/StarPrompt-CI4GRmUw.js",
+    "assets/ToastStack-BaZPA5Xk.js",
+    "assets/Tooltip-BEqv_loa.js",
+    "assets/api-0LHaK0pO.js",
+    "assets/bot-BajgaVUF.js",
+    "assets/callChip-CvUxR7Yl.js",
+    "assets/check-B8Up1lIJ.js",
+    "assets/chevron-down-79mUvaRk.js",
+    "assets/chevron-right-C__jBu7S.js",
+    "assets/compat-DxThTUP9.js",
+    "assets/connectionContract-DAPl8CBp.js",
+    "assets/copy-CTH0pVHN.js",
+    "assets/core-5A5Ti_Rw.js",
+    "assets/createLucideIcon-D6W2G0He.js",
+    "assets/database-CREe55Nh.js",
+    "assets/download-DGKnpHpr.js",
+    "assets/event-BcQWGMPP.js",
+    "assets/host-gjfoskoW.js",
+    "assets/index-BphXDyIy.js",
+    "assets/jsxRuntime-DQeWyI-g.js",
+    "assets/operations-CO4IQuIn.js",
+    "assets/pencil-ti15p4zZ.js",
+    "assets/perf-lxn6b6wn.js",
+    "assets/plug-zap-ncgr9bW5.js",
+    "assets/preload-helper-BLdHbfdN.js",
+    "assets/previewCopy-C2rjxDTv.js",
+    "assets/search-BGPGn10q.js",
+    "assets/share-2-DeWjY0ny.js",
+    "assets/shield-check-P4cRoF4N.js",
+    "assets/sparkles-Bdniy2nh.js",
+    "assets/table-2-CneH8x34.js",
+    "assets/terminal-BZwGJIQi.js",
+    "assets/useAiReady-B8pqGUhy.js",
+    "assets/useCommandShortcut-BUGYKWjE.js",
+    "assets/useOnboarding-BUHO4u5U.js",
+    "assets/useWhatsNew-nJzq8Q2Y.js",
+    "assets/values-CEWWfzCb.js"
+  ],
+  "static_css_files": [
+    "assets/BranchedMenu-DEExKVxW.css",
+    "assets/Button-DJCu_r4A.css",
+    "assets/CallChip-CKTN0lsu.css",
+    "assets/Dialog-68Y3dyle.css",
+    "assets/DriverLogo-InsbHxdo.css",
+    "assets/GlideSelect-2lLW2UU1.css",
+    "assets/index-p3eQ3pPA.css",
+    "assets/useWhatsNew--FpmHR0z.css"
+  ],
+  "gzip_implementation": "node:zlib default gzip",
+  "editor_chunks": [
+    {
+      "file": "assets/dist-RbPgJZf_.js",
+      "packages": [
+        "@codemirror/autocomplete",
+        "@codemirror/lang-sql",
+        "@lezer/lr"
+      ]
+    },
+    {
+      "file": "assets/dist-bupg-MWX.js",
+      "packages": [
+        "@codemirror/language",
+        "@codemirror/state",
+        "@codemirror/streamparser",
+        "@codemirror/view",
+        "@lezer/common",
+        "@lezer/highlight"
+      ]
+    }
+  ],
+  "codemirror_initial": false
+}

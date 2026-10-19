@@ -283,3 +283,133 @@ P1이 판단을 보류한 "쿼리 50회 후반 RSS +4.06MiB/회" 관측을 프�
 실제 최신 기능의 통합 E2E 최종 회귀 확인은 코디네이터 소관이다. 50회 쿼리 후반 RSS의 +4.06MiB/회 관측은 해결됐다고 표시하지 않는다. 할당자/원장/회수 지연과 실제 누수를 가르는 추가 allocation 진단은 이번 결과로 확정하지 못했다. macOS/WKWebView 결과이며 다른 OS·디바이스나 production 성능으로 확대하지 않는다.
 
 테스트 DB의 `ResourceP1_` 라벨 노드를 다시 조회해 잔여 0개를 확인했다. 마지막 기본 프로필 release 재빌드도 통과했으며 commit/push는 수행하지 않았다.
+
+## 0.2.0 설치형 드라이버 기준선
+
+최종 상태: **유효 기준선 5회/40개 표본과 A/B·native 스크롤 비교를 완료했다. `will-change` 제거는 RAM 개선이 재현되지 않아 미채택·원복했으며 제품 최적화 변경은 남기지 않았다.** 아래 준비 검증을 성능 개선으로 표시하지 않는다.
+
+측정 소스는 코디네이터가 릴리스 원본으로 확인한 `d07c12f`다. 제공된 0.2.0 universal 앱은 드라이버 설치형 UI와 번들 내부 `resource.ts`의 자동화가 맞지 않아 연결 단계에서 중단됐다. 별도 detached 작업 트리에서 **계측 스크립트만 보정한 d07c12f 빌드**를 만들며, 제품 코드는 그대로 둔다. 이 앱은 arm64 release / Developer ID 서명이고 공증·업데이터 아카이브는 만들지 않는다. 원래 universal 복사본, 사용자 앱, 메인 `target/`·`dist/`는 수정하지 않는다.
+
+실제 호스트 `Installer.install`을 호출하는 opt-in 테스트로 서명된 PostgreSQL·Neo4j 0.2.0 패키지를 먼저 격리 경로에 설치한다. 각 실행은 새 `AXDB_CONFIG_DIR`를 만들고 그 안의 `drivers`를 이 실제 설치 경로에 연결한다. 미검증 패키지 허용은 끈다. 패키지 서명·해시·압축 해제·실행 파일 handshake·등록을 통과한 실제 설치이며, 드라이버 디렉터리를 복사해 설치를 흉내 내지 않는다. [실제 설치 검증](../bench/results-resource-r2-install-smoke.json)은 1 passed였다. 설치 영수증의 성공 결과·도우미 SHA와 원 패키지/설치 manifest 일치를 검사하며, 앱의 서명·실행 파일 해시·handshake 검증도 유지한다. 반복 재설치 중 한 번 관측한 3초 handshake 초과는 별도 실패 자료로 남기고 제한을 늘리거나 재시도로 통과 처리하지 않았다. 테스트 DB는 PG `127.0.0.1:55432`, Neo4j `127.0.0.1:57687`만 사용한다.
+
+수집기는 호스트와 WebKit, 격리 설치 경로 아래 직접 자식 PG·Neo4j 프로세스를 분리한다. 앱/드라이버/전체 합계를 실행별로 구한 뒤 중앙값을 낸다. 드라이버가 필요한 단계에서 해당 PID를 관측하지 못하면 표본을 거절한다. CPU는 기존과 같이 10초~60초 사이의 누적 CPU 시간 차이다. RSS와 footprint를 합치지 않으며, 프로세스 합계가 공유 페이지 중복을 포함할 수 있다는 기존 한계도 유지한다.
+
+저전력 모드는 `lowpowermode=1`이다. 절대 처리 시간의 성능 판정은 하지 않는다. launch/작업 전 load ≤8 게이트를 유지하며 오염 표본을 정상 표본으로 바꾸지 않는다. 창은 측정 PID만 활성화하고 Retina 화면으로 옮긴다. `open`의 비동기 활성화 뒤 배율이 바뀌는 문제가 있어 실제 창 위치와 WebView `1280×768 / scale=2`를 [표시 진단](../bench/results-resource-r2-display-calibration.json)에서 확인했다. 그러나 반복 실행에서는 이동 명령 성공 뒤에도 WebView가 2→1로 돌아가는 사례가 있어 해당 표본을 거절했다. 코디네이터가 허용한 **1280×768 / scale=1 폴백**으로 일관된 5회 수집을 진행한다. 기존 기준선은 scale=2이므로 WebView 배킹 스토어 조건이 다르며 합계 차이를 그대로 최적화 성과로 해석할 수 없다. 창 준비 체크포인트 뒤 실제 viewport를 다시 기록하며 다른 앱 창·디스플레이 설정은 변경하지 않는다.
+
+계측 호환성 보정은 커스텀 GlideSelect 선택, aria-label/필드 래퍼 탐색, 외부 제출 버튼에 대응하는 `requestSubmit`, 연결 카드에서 분리된 탐색기 대기, 접근성 행 수 표시 확인으로 한정한다. 정상 입력·선택 값, 실제 10만 행/정확한 첫 값, 그래프 노드 수, 탭 닫기 뒤 worker 종료 검증을 유지한다. 기존 UI 테스트 113개와 두 Python self-check가 통과했으며 native 5회 완료 증거와 구분한다.
+
+준비 중 비활성 실행(RAF 정지), 원본 폼 선택자, 탐색기 위치, 행 수 표시 선택자에서 실패한 실행은 별도 원자료로 남기고 완료 기준선에서 제외한다. 이들 실행의 앱/드라이버 종료를 확인했다. 표시 진단도 성능 표본으로 집계하지 않는다.
+
+### 유효 5회 결과
+
+배율 1 폴백 기준으로 6회 실행 중 5회의 전체 매트릭스를 선택했다. 한 실행의 부하 초과/귀속 중복은 전체 실행 단위로 제외했고, 최초 4회와 독립 보충 1회를 원자료 참조와 함께 결합했다. **40/40 유효 표본, 실제 viewport 1280×768/1, 앱·드라이버 종료 5/5**를 확인했다. 첫 5회 원자료의 검증 실패를 지우거나 정상으로 바꾸지 않았다.
+
+각 셀은 RSS / footprint 중앙값(MiB)이다. 합계 RSS만 최소–최대도 표시한다. 합계는 실행별 합산 뒤 중앙값이므로 앱/드라이버 중앙값끼리 더한 값과 다를 수 있다. 기존 값은 배율 2여서 직접 개선율로 해석하지 않는다.
+
+| 조건 | 0.2.0 앱 | 드라이버 | 0.2.0 합계 RSS(범위) / footprint | 기존 합계(배율 2) |
+|---|---:|---:|---:|---:|
+| 시작 직후 | 266.6 / 142.1 | 0.0 / 0.0 | 266.6 (237.2–270.3) / 142.1 | 196.2 / 151.3 |
+| 10초 유휴 | 265.4 / 122.7 | 0.0 / 0.0 | 265.4 (213.3–269.0) / 122.7 | 200.0 / 87.2 |
+| 60초 유휴 | 259.8 / 115.1 | 0.0 / 0.0 | 259.8 (192.8–268.7) / 115.1 | 199.8 / 82.3 |
+| 10만 행 × 10열 | 389.9 / 316.4 | 231.9 / 20.0 | 621.8 (609.9–638.7) / 339.3 | 613.1 / 263.7 |
+| 300노드 그래프 | 442.2 / 352.1 | 243.5 / 25.8 | 684.9 (677.6–690.4) / 379.5 | 626.2 / 257.4 |
+| 탭 10개 | 580.2 / 489.3 | 269.0 / 21.2 | 853.3 (802.7–903.3) / 508.6 | 732.6 / 371.8 |
+| 모두 닫은 직후 | 583.6 / 472.7 | 267.3 / 21.2 | 856.7 (747.7–927.0) / 498.4 | 733.4 / 355.8 |
+| 닫은 뒤 10초 | 572.3 / 393.4 | 234.8 / 21.1 | 767.7 (631.8–932.0) / 428.2 | 732.5 / 326.7 |
+
+10초~60초의 유휴 CPU 합계는 중앙값 **0.180%** (0.040–0.760%, 5회)였다. 논리 코어 하나를 모두 쓰면 100%인 기준이며 하네스 폴링 부하를 포함한다. 이 유휴 구간은 아직 연결 전이므로 드라이버 프로세스가 0개다. 작업 후 1초 CPU 표본은 약 1% 단위 양자화 영향이 있어 처리 CPU나 작은 개선의 증거로 쓰지 않는다.
+
+[유효 원자료 결합](../bench/results-resource-020-baseline-valid.json.gz) · [프로세스별 집계](../bench/results-resource-020-baseline-summary.json) · [첫 5회와 오염 실행](../bench/results-resource-020-installed-scale1.json.gz) · [보충 1회](../bench/results-resource-020-installed-scale1-supplement.json) · [계측 전용 빌드와 소스 해시](../bench/results-resource-r2-baseline-build.json).
+
+### 개선 후보와 측정 근거
+
+확인한 큰 증가분은 WebContent/GPU 쪽이며, 드라이버 두 프로세스의 사용 후 footprint 합계는 약 21MiB였다. 탭 닫기 때 결과 참조·탭별 결과 맵을 지우는 코드와 graph worker 종료 검증이 이미 있다. 반복 쿼리의 RSS 고수위를 곧바로 도달 불가능 객체의 누수라고 단정하지 않는다. 연결은 탭을 닫아도 열린 상태이므로 그 시점에 드라이버를 강제로 종료하는 변경은 적용하지 않는다.
+
+가설은 가상 표 행마다 고정한 `will-change: transform` 힌트의 자원 비용이다. [W3C 명세](https://www.w3.org/TR/css-will-change-1/#dont-spam-will-change-across-too-many-properties-or-elements)는 힌트 남용의 자원 비용과 변경이 끝난 요소에서 최적화 자원을 회수할 필요를 설명하며, 실제 최적화 방식은 브라우저마다 다를 수 있다고 명시한다. 이 힌트는 이전 기준선 소스에도 있었으므로 설치형 구조 회귀의 원인으로 확정한 것이 아니다.
+
+후보는 `VirtualTable.tsx`의 행 힌트 한 속성만 제거하고 실제 transform·위치·크기·데이터·검증은 유지했다. 별도 서명 앱으로 비교했고, 아래 결과에 따라 **후보를 미채택하고 원래 소스로 되돌렸다.**
+
+### A/B 결과와 채택 판정
+
+독립 기준선 5회의 load ≤8 조건은 바꾸지 않았다. 사용자 Chrome/WindowServer 부하로 A/B 시작이 지연돼 코디네이터가 **A/B에만 load ≤14, 같은 지점의 짝 간 load 차이 ≤3**을 허용했다. 지점별 통과 짝만 사용하고 핵심 지점에 3쌍 이상이면 판정한다는 지시를 적용했다. 5회 교대/10앱의 개별 표본 80개와 종료 10/10은 통과했고, 부하 조건을 적용한 지점별 수는 아래와 같다.
+
+초기 수집기는 한 지점 탈락 때 회차 전체를 거절하는 최종 assert 때문에 비정상 종료를 기록했다. 그 원자료와 부정 플래그는 그대로 보존하며, 지점 단위라는 코디네이터의 명확화 뒤 `resource_report.py --paired-points`로 이미 기록된 개별 체크를 사용했다. 거절된 지점의 값을 정상으로 바꾸지 않았다.
+
+| 지점 | 계획 짝 | 유효 짝 |
+|---|---:|---:|
+| 시작 직후 | 5 | 5 |
+| 10초 유휴 | 5 | 4 |
+| 60초 유휴 | 5 | 4 |
+| 10만 행 | 5 | 4 |
+| 300노드 | 5 | 4 |
+| 탭 10개 | 5 | 4 |
+| 모두 닫은 직후 | 5 | 4 |
+| 닫은 뒤 10초 | 5 | 4 |
+
+핵심 지점의 합계 footprint(MiB)다. Δ는 같은 짝의 후보−기준 차이를 먼저 구한 뒤 중앙값을 낸 값이며, 음수면 후보가 작다.
+
+| 지점 | 유효 짝 | 기준 중앙값 | 후보 중앙값 | 짝 Δ 중앙값 (범위) | 개선/악화 짝 |
+|---|---:|---:|---:|---:|---:|
+| table-100000 | 4 | 344.2 | 351.3 | +1.6 (-39.6–+19.6) | 2/2 |
+| tabs-10 | 4 | 534.6 | 529.5 | -0.6 (-15.6–+6.4) | 2/2 |
+| tabs-closed-10 | 4 | 441.8 | 444.3 | -3.3 (-52.8–+28.3) | 2/2 |
+
+세 지점 모두 개선 2쌍/악화 2쌍으로 방향이 섞였다. 닫은 뒤 10초의 RSS 중앙값은 594.4→536.6MiB였지만 footprint는 441.8→444.3MiB여서 이를 RAM 절감의 확정 증거로 채택하지 않는다. 유휴 CPU 역시 작은 차이를 개선으로 판정하지 않았다.
+
+기존 native matrix의 표 스크롤 8개 시나리오×3회를 두 앱에서 비교했다. 24쌍 모두 부하 조건을 통과했고 각 앱의 전체 48개 native 시나리오·정리도 완료됐다. 아래 값은 각 시행의 프레임 p95를 모은 중앙값의 후보/기준 비율이며, 낮을수록 빠르다. 저전력 모드이므로 절대 프레임 시간 예산의 통과 판정은 하지 않는다.
+
+| 표 / 모드 | 유효 짝 | 후보/기준 프레임 p95 비율 |
+|---|---:|---:|
+| table-1000-10-legacy | 3 | 1.000 |
+| table-1000-10-stream | 3 | 1.000 |
+| table-10000-10-legacy | 3 | 1.000 |
+| table-10000-10-stream | 3 | 1.000 |
+| table-10000-200-legacy | 3 | 0.708 |
+| table-10000-200-stream | 3 | 0.778 |
+| table-100000-10-legacy | 3 | 1.000 |
+| table-100000-10-stream | 3 | 1.000 |
+
+넓은 1만 행×200열에서는 상대 스크롤 지표가 좋아졌지만, CPU 사용률 절감이나 요구된 핵심 구간의 RAM 절감이 입증된 것은 아니다. 이번 RAM 최적화 후보의 채택 조건을 충족하지 못해 원복했고, 이 부가 관측은 별도 UI 성능 연구 근거로만 남긴다.
+
+후보 UI 빌드는 통과했다. 전체 병렬 UI 검증은 **112 passed / 1 onboarding 5초 timeout**이었으며, 분리한 온보딩 파일은 시간 제한 변경 없이 **10 passed**였다. 실패한 전체 결과를 지우거나 전체 통과라고 표시하지 않는다. 기준 앱의 이전 UI 검증 113 passed, Python self-check, native 성능/기능 증거와 각각 구분한다.
+
+[A/B 원자료](../bench/results-resource-020-will-change-ab14.json.gz) · [지점 단위 집계](../bench/results-resource-020-will-change-ab14-summary.json) · [스크롤 원자료](../bench/results-resource-020-will-change-scroll.json) · [판정·짝별 차이](../bench/results-resource-r2-decision.json) · [폐기한 후보 패치](../bench/r2-candidates/discarded-will-change.patch).
+
+테스트 Neo4j의 측정 라벨 잔여 노드 0은 실제 조회로 확인했다. 앱/드라이버 측정 합계에는 DB 서버 프로세스는 포함하지 않는다. macOS의 고정 0.2.0 계측 빌드, 배율 1, 저전력 모드라는 범위를 넘어 다른 OS·배율·production 또는 현재 0.3.0 전체 E2E 성능으로 일반화하지 않는다. 콜드 재설치의 한 차례 handshake 초과는 이번 변경으로 해결했다고 표시하지 않는다.
+
+### 전달과 최종 확인
+
+[최종 데이터 감사](../bench/results-resource-r2-validation.json), [마지막 실제 Neo4j 정리 조회](../bench/results-resource-r2-final-graph-cleanup.json), [빌드 캐시 정리](../bench/results-resource-r2-target-cleanup.json)를 남겼다. 별도 작업 트리의 `target/`과 R2가 만든 메인 `target-r2/`만 삭제했고, 원본 `target/`·`dist/`는 수정하지 않았다. 측정 앱·설치 도우미 복사본은 `r2/`에 보존했다. 제품 후보는 원복됐고 commit/push는 하지 않았다.
+
+[후보 전체 UI 결과](../bench/results-resource-r2-candidate-ui-test.txt), [온보딩 분리 진단](../bench/results-resource-r2-candidate-onboarding-focused.txt), [기준 UI 결과](../bench/results-resource-r2-ui-v3-test.txt), [기준 release 빌드](../bench/results-resource-r2-app-v3-build.txt), [후보 release 빌드](../bench/results-resource-r2-will-change-build.txt)를 각각 보존한다. 측정 앱이 release임은 빌드·서명 기록으로 확인한다. 기존 native matrix의 `Tauri debug` 환경 라벨은 하드코딩된 문자열이므로 실제 빌드 모드의 증거로 사용하지 않는다.
+
+메인용 문서·수집기·집계기 패치는 `bench/r2-delivery/`에 남겼고 `git apply --check`로 적용 가능성을 확인했다. 메인의 `ui/src/perf/resource.ts`는 이미 측정한 계측 보정과 같아 덮어쓰지 않는다. 미채택 제품 패치는 재현용 `bench/r2-candidates/`에만 보존한다.
+
+## 0.3.0 경량화
+
+판정: 부분 개선, 최우선 `닫은 뒤 10초 ≤ 시작 + 50MiB` 목표 미달. 아래 native 비교는 1280×768/DPR2·load≤8의 한 쌍이며 위 R2 DPR1 기준선 중앙값과 직접 비교하지 않는다. 변경·실패·미수행 범위와 원자료는 [L1_REPORT](L1_REPORT.md)에 있다.
+
+| 지표 | 기준/같은 조건 0.2.0 | L1 |
+|---|---:|---:|
+| 진입 JS / gzip | 제공 179 / 59KB | 76,405 / 26,381 bytes |
+| 초기 정적 JS 전체 / gzip | 동등 측정 없음 | 186,715 / 85,519 bytes |
+| 초기 CSS / gzip | 제공 126 / 30KB | 132,195 / 34,786 bytes |
+| 결과 CSS 초기 로드 A/B / gzip | 현재 UI eager 149,593 / 37,743 bytes | 분리 132,195 / 34,786 bytes |
+| 바이너리 | 실제 R2 arm64 17,022,976 bytes | arm64 26,898,864 bytes; 크기 목표 미달 |
+| 시작→활성화 포함 2rAF | 4,094.6ms | 3,356.3ms; 정확한 first paint 아님 |
+| 시작 앱 footprint | 132.4MiB | 121.2MiB |
+| 10만 행 앱 footprint | 373.0MiB | 335.6MiB |
+| 탭 10개 앱 footprint | 636.6MiB | 496.3MiB |
+| 모두 닫고 10초 앱 footprint | 449.1MiB | 324.5MiB |
+| 닫고 10초 − 시작 | +316.8MiB | +203.3MiB; +50 미달 |
+| idle-60 앱 RSS / CPU | 197.8MiB / 0% | 251.4MiB / 0% |
+| 닫고 10초 앱 RSS / CPU | 647.3MiB / 0% | 507.4MiB / 0% |
+| 닫고 10초 드라이버 RSS / CPU | 218.2MiB / 0% | 170.3MiB / 0% |
+
+앱 footprint는 host+WebContent+GPU+Networking 합이며 드라이버는 별도다. RSS와 footprint를 혼동하지 않는다. CPU는 해당 구간 측정이며 타이머 0의 증거가 아니다. [native 원자료](../bench/results-resource-030-l1-lazy-column-retina2.json.gz), [계산 요약](../bench/results-l1-native-summary.json), [bundle](../bench/results-l1-bundle.json), [CSS A/B](../bench/results-l1-css-split.json).
+
+기능별 lazy import와 CSS 분리, raw MessagePack Channel, 인코딩 열 직접 조회와 지연 셀 디코드, 완료 콜백 해제, graph Worker/canvas 수명 버그 수정, Registry 지연 초기화, 드라이버 5분 단발 종료와 wait, restore 만료 단발 타이머, AI 텍스트 50ms 묶음을 적용했다. V8 추가 보유 힙 53,606,992→787,560 bytes는 native 메모리가 아닌 행 객체 비용 비교다. 실제 SQLite 강제 idle 경계의 RSS 8,432KiB→0은 실제 5분 대기 증거가 아니다.
+
+vmmap 진단에서 결과 DOM/canvas는 제거됐고 WebContent의 WebKit Malloc이 가장 큰 잔여 영역이었다. 메모리 압력 모의 요청은 권한 오류로 거부되어 회수 가능한 캐시인지 확정하지 못했다. 마지막 idle 빈 렌더 실험은 수집 준비 단계에서 실패해 효과를 입증하지 못했고 되돌렸다. 해당 진단들은 성능 accepted에서 제외했다.
+
+최신 집중 19검사·tsc, workspace 269검사/6 ignored, clippy -D warnings 및 Python self-check는 통과했다. 최신 전체 UI는 sidebar paging timeout 1건이 남아 코디네이터가 통합을 담당한다. PG 진정한 스트리밍/MCP byte cap은 L2 인계, release 프로필·전체 자식 수명·숨김 CPU·반복 native와 +50MiB 달성은 미완료다. 최종 아티팩트는 [영수증](../bench/results-l1-final-artifact.json)의 보관 앱이며 canonical bundle은 폐기 실험 빌드다. 릴리스 통과를 주장하지 않는다.

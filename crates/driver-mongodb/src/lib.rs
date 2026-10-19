@@ -45,6 +45,7 @@ impl MongoDriver {
         Self {
             manifest: DriverManifest {
                 id: "mongodb".into(),
+                icon_key: Some("mongodb".into()),
                 display_name: "MongoDB".into(),
                 paradigm: Paradigm::Document,
                 query_language: QueryLanguage {
@@ -462,6 +463,14 @@ impl Drop for CursorCleanup {
 
 #[async_trait]
 impl Session for MongoSession {
+    async fn restore_options(&self)->Result<RestoreOptions,DbError>{Ok(RestoreOptions{overwrite:false,new_database:true,guidance:"빈 대상에 복원한 뒤 행 수와 인덱스를 확인하고 연결을 교체하세요. 기존 대상 덮어쓰기는 지원하지 않습니다.".into()})}
+    async fn restore_database(&self,summary:&BackupSummary,source:&mut (dyn std::io::Read+Send),name:&str,cancel:CancelToken)->Result<(),DbError>{
+        validate_restore_database(name)?;
+        if self.client.list_database_names().await.map_err(|e|self.error(e))?.iter().any(|db|db==name){return Err(DbError::new(ErrorKind::Conflict,"New restore database already exists"));}
+        let target=MongoSession{database:name.into(),..self.clone()};target.restore_stream(summary,source,false,cancel).await
+    }
+    async fn backup_stream(&self,cancel:CancelToken,sink:&dyn BackupSink)->Result<BackupSummary,DbError>{self.stream_backup(cancel,sink).await}
+    async fn restore_stream(&self,summary:&BackupSummary,source:&mut (dyn std::io::Read+Send),overwrite:bool,cancel:CancelToken)->Result<(),DbError>{if summary.format=="mongodb-ndjson-v1"{return self.native_restore(&legacy_backup(summary,source)?,overwrite,cancel).await;}self.stream_restore(summary,source,overwrite,cancel).await}
     async fn backup(&self,cancel:CancelToken)->Result<BackupData,DbError>{self.native_backup(cancel).await}
     async fn restore(&self,backup:&BackupData,overwrite:bool,cancel:CancelToken)->Result<(),DbError>{self.native_restore(backup,overwrite,cancel).await}
     async fn roles(&self)->Result<RolesSnapshot,DbError>{self.native_roles().await}
@@ -990,3 +999,4 @@ mod tests;
 
 mod management;
 mod administration;
+mod backup_stream;

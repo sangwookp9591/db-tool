@@ -18,6 +18,7 @@ use tokio::{
     sync::{mpsc, Mutex as AsyncMutex},
 };
 
+const DRIVER_IDLE_TIMEOUT: Duration = Duration::from_secs(5 * 60);
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(3);
 // Driver rollback may consume three seconds before its final response can cross the pipe.
 const CLEANUP_GRACE: Duration = Duration::from_secs(3);
@@ -72,24 +73,29 @@ impl PluginDriver {
         })
     }
 
-    async fn process(&self) -> Result<Arc<Process>, DbError> {
+    async fn process(&self) -> Result<SessionLease, DbError> {
         let mut slot = self.process.lock().await;
-        if let Some(process) = slot.as_ref().filter(|p| !p.dead.is_cancelled()) {
-            return Ok(process.clone());
+        if let Some(lease) = slot.as_ref().and_then(Process::reserve) {
+            return Ok(lease);
         }
         let process = Process::spawn(&self.executable)?;
-        let manifest = process.handshake().await?;
+        let manifest = match process.handshake().await {
+            Ok(manifest) => manifest,
+            Err(error) => { process.stop().await; return Err(error); }
+        };
         if manifest != self.manifest {
+            process.stop().await;
             return Err(DbError::unsupported(
                 "드라이버가 변경되었습니다. 다시 설치하세요",
             ));
         }
         *slot = Some(process.clone());
-        Ok(process)
+        process.reserve().ok_or_else(disconnected)
     }
 
     pub async fn connect_plugin(&self, cfg: &ConnectConfig) -> Result<PluginSession, DbError> {
-        let process = self.process().await?;
+        let lease = self.process().await?;
+        let process = lease.0.clone();
         if let Some(secret) = cfg.secret.as_ref().filter(|s| !s.is_empty()) {
             let mut secrets = process.secrets.lock().unwrap();
             if !secrets.contains(secret) {
@@ -107,6 +113,7 @@ impl PluginDriver {
             return Err(invalid_reply());
         };
         Ok(PluginSession {
+            lease: Mutex::new(Some(lease)),
             process,
             session,
             closed: CancelToken::new(),
@@ -124,13 +131,40 @@ impl Driver for PluginDriver {
     }
 }
 
+#[derive(Default)]
+struct SessionCount { active: usize, generation: u64, idle: Option<tokio::task::AbortHandle> }
+struct SessionLease(Arc<Process>);
+impl Drop for SessionLease {
+    fn drop(&mut self) {
+        let mut sessions = self.0.sessions.lock().unwrap();
+        sessions.active -= 1;
+        if sessions.active != 0 || self.0.dead.is_cancelled() { return; }
+        let generation = sessions.generation;
+        let weak = Arc::downgrade(&self.0);
+        let deadline = tokio::time::Instant::now() + DRIVER_IDLE_TIMEOUT;
+        if let Ok(runtime) = tokio::runtime::Handle::try_current() {
+            sessions.idle = Some(runtime.spawn(async move {
+                tokio::time::sleep_until(deadline).await;
+                if let Some(process) = weak.upgrade().filter(|process| process.expire_idle(generation)) {
+                    process.stop().await;
+                }
+            }).abort_handle());
+        }
+    }
+}
 struct Process {
+    sessions: Mutex<SessionCount>,
+    reaped: CancelToken,
     child: Mutex<Option<Child>>,
     input: AsyncMutex<ChildStdin>,
     pending: Mutex<HashMap<u64, PendingResponse>>,
     next_id: AtomicU64,
     dead: CancelToken,
     secrets: Mutex<Vec<String>>,
+}
+
+impl Drop for Process {
+    fn drop(&mut self) { self.fail(); }
 }
 
 struct Probe(Arc<Process>);
@@ -149,8 +183,17 @@ struct Response {
 struct PendingResponse {
     sender: mpsc::Sender<Message>,
     bytes: usize,
+    backup_stream: bool,
 }
 impl PendingResponse {
+    fn admit(&mut self,message:&Message,bytes:usize)->bool {
+        if self.backup_stream {
+            if let Message::Chunk{chunk:ExecuteChunk::Backup{data},..}=message {
+                return data.data.len()<=BACKUP_CHUNK_BYTES && data.format.is_empty() && data.counts.is_empty() && bytes<=BACKUP_CHUNK_BYTES.div_ceil(3)*4+1024;
+            }
+        }
+        self.add(bytes)
+    }
     fn add(&mut self, bytes: usize) -> bool {
         self.bytes = self.bytes.saturating_add(bytes);
         self.bytes <= MAX_RESPONSE
@@ -189,6 +232,8 @@ impl Process {
         let mut output = child.stdout.take().ok_or_else(disconnected)?;
         let mut stderr = child.stderr.take().ok_or_else(disconnected)?;
         let process = Arc::new(Self {
+            sessions: Mutex::default(),
+            reaped: CancelToken::new(),
             child: Mutex::new(Some(child)),
             input: AsyncMutex::new(input),
             pending: Mutex::default(),
@@ -219,7 +264,7 @@ impl Process {
                         let sender = {
                             let mut pending = process.pending.lock().unwrap();
                             pending.get_mut(&id).map(|pending| {
-                                if pending.add(size) {
+                                if pending.admit(&message,size) {
                                     Ok(pending.sender.clone())
                                 } else {
                                     Err(())
@@ -274,21 +319,42 @@ impl Process {
         Ok(process)
     }
 
+    fn reserve(self: &Arc<Self>) -> Option<SessionLease> {
+        let mut sessions = self.sessions.lock().unwrap();
+        if self.dead.is_cancelled() { return None; }
+        if let Some(idle) = sessions.idle.take() { idle.abort(); }
+        sessions.active += 1;
+        sessions.generation = sessions.generation.wrapping_add(1);
+        Some(SessionLease(self.clone()))
+    }
+
+    fn expire_idle(&self, generation: u64) -> bool {
+        let mut sessions = self.sessions.lock().unwrap();
+        if sessions.active != 0 || sessions.generation != generation || self.dead.is_cancelled() { return false; }
+        sessions.idle.take();
+        // Mark dead while holding the same lock as reserve; a concurrent connect must spawn a fresh process.
+        self.dead.cancel();
+        drop(sessions);
+        self.fail();
+        true
+    }
+
     fn fail(&self) {
         self.dead.cancel();
+        if let Some(idle) = self.sessions.lock().unwrap().idle.take() { idle.abort(); }
         self.pending.lock().unwrap().clear();
-        if let Some(child) = self.child.lock().unwrap().as_mut() {
+        if let Some(mut child) = self.child.lock().unwrap().take() {
             let _ = child.start_kill();
+            let reaped = self.reaped.clone();
+            if let Ok(runtime) = tokio::runtime::Handle::try_current() {
+                runtime.spawn(async move { let _ = child.wait().await; reaped.cancel(); });
+            }
         }
     }
 
     async fn stop(&self) {
         self.fail();
-        let child = self.child.lock().unwrap().take();
-        if let Some(mut child) = child {
-            let _ = child.kill().await;
-            let _ = child.wait().await;
-        }
+        self.reaped.cancelled().await;
     }
 
     async fn handshake(self: &Arc<Self>) -> Result<DriverManifest, DbError> {
@@ -341,6 +407,13 @@ impl Process {
         timeout: Duration,
         sink: Option<&dyn ResultSink>,
     ) -> Result<Response, DbError> {
+        self.call_with_sinks(request,cancel,timeout,sink,None).await
+    }
+
+    async fn call_with_sinks(
+        self: &Arc<Self>, request: Request, cancel: CancelToken, timeout: Duration,
+        sink: Option<&dyn ResultSink>, backup_sink: Option<&dyn BackupSink>,
+    ) -> Result<Response, DbError> {
         if self.dead.is_cancelled() {
             return Err(disconnected());
         }
@@ -353,7 +426,7 @@ impl Process {
         self.pending
             .lock()
             .unwrap()
-            .insert(id, PendingResponse { sender, bytes: 0 });
+            .insert(id, PendingResponse { sender, bytes: 0, backup_stream:matches!(request,Request::BackupStream{..}) });
         let mut guard = Pending {
             process: Arc::downgrade(self),
             id,
@@ -395,6 +468,12 @@ impl Process {
                         return Err(error);
                     }
                     Some(Message::Chunk { chunk, .. }) => {
+                        if let ExecuteChunk::Backup{data}=&chunk {
+                            let target=backup_sink.ok_or_else(invalid_reply)?;
+                            if data.data.len()>BACKUP_CHUNK_BYTES {self.fail();return Err(invalid_reply());}
+                            if !cancelled {target.write(&data.data).await?;}
+                            continue;
+                        }
                         if let ExecuteChunk::Start { streaming: enabled, .. } = &chunk {
                             if streaming.is_some_and(|old| old != *enabled) { self.fail(); return Err(invalid_reply()); }
                             streaming = Some(*enabled);
@@ -461,6 +540,7 @@ impl Drop for Pending {
 }
 
 pub struct PluginSession {
+    lease: Mutex<Option<SessionLease>>,
     process: Arc<Process>,
     session: u64,
     closed: CancelToken,
@@ -503,6 +583,23 @@ impl PluginSession {
             )
             .await
     }
+    async fn upload_restore(&self,summary:&BackupSummary,source:&mut (dyn std::io::Read+Send),overwrite:bool,new_database:Option<String>,cancel:CancelToken)->Result<(),DbError> {
+        let response=self.call(Request::RestoreStart{session:self.session,summary:summary.clone(),overwrite,new_database},cancel.clone(),30000).await?;
+        let Reply::Transfer(transfer)=response.reply else{return Err(invalid_reply());};
+        let work=async {
+            let mut data=vec![0;BACKUP_CHUNK_BYTES];
+            loop {
+                if cancel.is_cancelled(){return Err(DbError::new(ErrorKind::Cancelled,"Restore cancelled"));}
+                let len=source.read(&mut data).map_err(|_|DbError::query("Cannot read restore file"))?;
+                if len==0 {break;}
+                let response=self.call(Request::RestoreChunk{session:self.session,transfer,data:BackupData{format:String::new(),data:data[..len].to_vec(),counts:vec![]}},cancel.clone(),30000).await?;
+                if !matches!(response.reply,Reply::Unit){return Err(invalid_reply());}
+            }
+            match self.call(Request::RestoreFinish{session:self.session,transfer},cancel.clone(),3600000).await?.reply {Reply::Unit=>Ok(()),_=>Err(invalid_reply())}
+        }.await;
+        if work.is_err(){let _=self.call(Request::RestoreAbort{session:self.session,transfer},CancelToken::new(),3000).await;}
+        work
+    }
     /// Timing starts at IPC dispatch; used by the common in-process/plugin harness.
     pub async fn execute_measured(
         &self,
@@ -541,6 +638,14 @@ impl Session for PluginSession {
 
     async fn apply_grants(&self,changes:&[GrantChange],cancel:CancelToken)->Result<(),DbError>{match self.call(Request::ApplyGrants{session:self.session,changes:changes.to_vec()},cancel,30000).await?.reply{Reply::Unit=>Ok(()),_=>Err(invalid_reply())}}
 
+    async fn backup_stream(&self,cancel:CancelToken,sink:&dyn BackupSink)->Result<BackupSummary,DbError> {
+        match self.process.call_with_sinks(Request::BackupStream{session:self.session},cancel,Duration::from_secs(3600),None,Some(sink)).await?.reply {
+            Reply::BackupSummary(summary)=>Ok(summary),_=>Err(invalid_reply())
+        }
+    }
+    async fn restore_options(&self)->Result<RestoreOptions,DbError>{match self.call(Request::RestoreOptions{session:self.session},CancelToken::new(),30000).await?.reply{Reply::RestoreOptions(o)=>Ok(o),_=>Err(invalid_reply())}}
+    async fn restore_database(&self,summary:&BackupSummary,source:&mut (dyn std::io::Read+Send),name:&str,cancel:CancelToken)->Result<(),DbError>{validate_restore_database(name)?;self.upload_restore(summary,source,false,Some(name.into()),cancel).await}
+    async fn restore_stream(&self,summary:&BackupSummary,source:&mut (dyn std::io::Read+Send),overwrite:bool,cancel:CancelToken)->Result<(),DbError>{self.upload_restore(summary,source,overwrite,None,cancel).await}
     async fn backup(&self,cancel:CancelToken)->Result<BackupData,DbError>{ match self.call(Request::Backup{session:self.session},cancel,3600000).await?.reply{Reply::Backup(b)=>Ok(b),_=>Err(invalid_reply())} }
     async fn restore(&self,backup:&BackupData,overwrite:bool,cancel:CancelToken)->Result<(),DbError>{ match self.call(Request::Restore{session:self.session,backup:backup.clone(),overwrite},cancel,3600000).await?.reply{Reply::Unit=>Ok(()),_=>Err(invalid_reply())} }
     async fn roles(&self)->Result<RolesSnapshot,DbError>{ match self.call(Request::Roles{session:self.session},CancelToken::new(),30000).await?.reply{Reply::Roles(r)=>Ok(r),_=>Err(invalid_reply())} }
@@ -776,6 +881,7 @@ impl Session for PluginSession {
                 )
                 .await;
             self.closed.cancel();
+            self.lease.lock().unwrap().take();
         }
     }
 }
@@ -908,10 +1014,24 @@ mod tests {
     #[test]
     fn result_memory_budget_rejects_overflow() {
         let (sender, _) = mpsc::channel(1);
-        let mut pending = PendingResponse { sender, bytes: 0 };
+        let mut pending = PendingResponse { sender, bytes: 0, backup_stream:false };
         assert!(pending.add(MAX_RESPONSE));
         assert!(!pending.add(1));
         assert!(!pending.add(usize::MAX));
+    }
+
+    #[test]
+    fn only_bounded_backup_chunks_bypass_the_aggregate_response_budget() {
+        let (sender,_) = mpsc::channel(1);
+        let mut pending=PendingResponse{sender,bytes:MAX_RESPONSE,backup_stream:true};
+        let chunk=|len|Message::Chunk{id:1,chunk:ExecuteChunk::Backup{data:BackupData{format:String::new(),data:vec![0;len],counts:vec![]}}};
+        assert!(pending.admit(&chunk(BACKUP_CHUNK_BYTES),BACKUP_CHUNK_BYTES.div_ceil(3)*4+128));
+        assert_eq!(pending.bytes,MAX_RESPONSE);
+        let oversized=chunk(BACKUP_CHUNK_BYTES+1);
+        assert!(!pending.admit(&oversized,encode(&oversized).unwrap().len()));
+        assert!(!pending.admit(&chunk(1),MAX_FRAME));
+        pending.backup_stream=false;
+        assert!(!pending.admit(&chunk(1),100));
     }
 
     #[cfg(unix)]
@@ -922,6 +1042,40 @@ mod tests {
         std::fs::write(&path, format!("#!/usr/bin/env python3\n{body}\n")).unwrap();
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700)).unwrap();
         (dir, path)
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn idle_shutdown_protects_live_sessions_invalidates_stale_deadlines_and_reaps() {
+        let Some(path) = sqlite() else { eprintln!("AXDB_DRIVER_DIR unset: real idle lifecycle check not run"); return; };
+        let driver = PluginDriver::load(path).await.unwrap();
+        let first = driver.connect_plugin(&config()).await.unwrap();
+        let process = first.process.clone();
+        let pid = process.child.lock().unwrap().as_ref().unwrap().id().unwrap();
+        let generation = process.sessions.lock().unwrap().generation;
+        assert!(!process.expire_idle(generation), "live session must survive");
+        first.close().await;
+        assert!(process.sessions.lock().unwrap().idle.is_some());
+        let second = driver.connect_plugin(&config()).await.unwrap();
+        assert!(Arc::ptr_eq(&process, &second.process));
+        assert!(process.sessions.lock().unwrap().idle.is_none(), "reuse cancels idle timer");
+        second.close().await;
+        assert!(!process.expire_idle(generation), "stale deadline must not stop a reused process");
+        let rss = Command::new("/bin/ps").args(["-p", &pid.to_string(), "-o", "rss="]).output().await.unwrap();
+        let rss_kib: u64 = std::str::from_utf8(&rss.stdout).unwrap().trim().parse().unwrap();
+        let generation = process.sessions.lock().unwrap().generation;
+        assert!(process.expire_idle(generation));
+        process.stop().await;
+        assert!(process.reserve().is_none());
+        let status = Command::new("/bin/ps").args(["-p", &pid.to_string(), "-o", "pid="]).output().await.unwrap();
+        assert!(status.stdout.is_empty(), "terminated driver must be reaped");
+        let fresh = driver.connect_plugin(&config()).await.unwrap();
+        assert!(!Arc::ptr_eq(&process, &fresh.process));
+        fresh.ping().await.unwrap();
+        fresh.close().await;
+        fresh.process.stop().await;
+        let default_idle_seconds = DRIVER_IDLE_TIMEOUT.as_secs();
+        eprintln!("{{\"benchmark\":\"sqlite-idle-expiry-boundary\",\"before_rss_kib\":{rss_kib},\"after_rss_kib\":0,\"default_idle_seconds\":{default_idle_seconds},\"real_five_minute_wait\":false}}");
     }
 
     #[cfg(unix)]

@@ -1,0 +1,9 @@
+
+ RUN  v5.0.4 /private/tmp/claude-501/-Users-iron-Project-psw-db-tool/1fe252ea-91ad-4737-8951-7e8f929f6ea0/scratchpad/r2-src/ui
+
+
+ Test Files  1 passed (1)
+      Tests  10 passed (10)
+   Start at  18:23:39
+   Duration  19.42s (tests 98%, import 2%)
+

@@ -1,0 +1,52 @@
+{
+  "physical_footprint": [
+    {
+      "pid": 26272,
+      "exit_code": 0,
+      "output": "======================================================================\naxdb-driver-mysql [26272]: 64-bit    Footprint: 17859064 B (16384 bytes per page)\n======================================================================\n\nAuxiliary data:\n    phys_footprint: 17859064 B\n    phys_footprint_peak: 73155064 B\n\n",
+      "error": ""
+    }
+  ],
+  "database": "MySQL 8.4 test container",
+  "profile": "debug",
+  "rows": 100000,
+  "boundary": "Session ResultSink first row chunk; DB collects before first chunk; excludes UI paint",
+  "samples": [
+    {
+      "in_process": {
+        "first_rows_ms": 383.08237499999996,
+        "total_ms": 390.470125
+      },
+      "plugin": {
+        "first_rows_ms": 429.40825,
+        "total_ms": 757.0779170000001
+      }
+    },
+    {
+      "in_process": {
+        "first_rows_ms": 336.405834,
+        "total_ms": 343.755
+      },
+      "plugin": {
+        "first_rows_ms": 419.846541,
+        "total_ms": 678.7435830000001
+      }
+    },
+    {
+      "in_process": {
+        "first_rows_ms": 334.2425,
+        "total_ms": 341.086958
+      },
+      "plugin": {
+        "first_rows_ms": 416.92033299999997,
+        "total_ms": 674.537125
+      }
+    }
+  ],
+  "driver_processes_after_fetch": [
+    {
+      "pid": 26272,
+      "rss_kib": 94352
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "exit": 0,
+  "scope": "debug SQLite plugin, forced expiry boundary, not a real five-minute timer wait",
+  "helper_sha256": "d151ce0411261912d167821cce36ea9aa1ca4adf90e2ba3a636f5ad198c44a89",
+  "result": {
+    "benchmark": "sqlite-idle-expiry-boundary",
+    "before_rss_kib": 8432,
+    "after_rss_kib": 0,
+    "default_idle_seconds": 300,
+    "real_five_minute_wait": false
+  },
+  "passed": true
+}

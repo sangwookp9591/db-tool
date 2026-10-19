@@ -5,7 +5,7 @@ import { api, isMock } from '../api';
 import type { DriverManifest } from '../contract';
 
 export interface CatalogDriver {
-  id: string; name: string; version: string; description: string;
+  id: string; icon_key?: string; name: string; version: string; description: string;
   paradigm: DriverManifest['paradigm']; size: number; installed_version?: string | null;
   homepage?: string; license?: string; platforms?: string[]; url?: string; sha256?: string;
 }
@@ -52,7 +52,7 @@ async function acceptCatalog(catalog: Catalog) {
     if (state.catalog !== catalog) return;
     publish({ catalog: { ...catalog, drivers: [...catalog.drivers, ...missing.map(item => {
       const manifest = manifests.find(driver => driver.id === item.id);
-      return { id: item.id, name: manifest?.display_name ?? item.id, version: item.version, installed_version: item.version, size: 0, description: '파일에서 설치한 드라이버입니다.', paradigm: manifest?.paradigm ?? 'Relational' as const };
+      return { id: item.id, name: manifest?.display_name ?? item.id, icon_key: manifest?.icon_key, version: item.version, installed_version: item.version, size: 0, description: '파일에서 설치한 드라이버입니다.', paradigm: manifest?.paradigm ?? 'Relational' as const };
     })] } });
   } catch (error) { publish({ error: driverError(error) }); }
 }

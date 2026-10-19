@@ -13,6 +13,7 @@ const SERVICE: &str = "axdb-driver-signing";
 const ACCOUNT: &str = "release-ed25519";
 const IDS: &[(&str, &str, &str)] = &[
     ("postgres", "PostgreSQL", "Relational"),
+    ("mysql", "MySQL / MariaDB", "Relational"),
     ("neo4j", "Neo4j", "Graph"),
     ("sqlite", "SQLite", "Relational"),
     ("mongodb", "MongoDB", "Document"),
@@ -139,6 +140,7 @@ fn package_drivers(args: &[String]) -> Result<()> {
             .context("Unknown driver")?;
         let mut manifest = Manifest {
             id: id.clone(),
+            icon_key: Some(id.clone()),
             name: name.to_string(),
             version: version.clone(),
             protocol: 1,
@@ -262,6 +264,7 @@ fn package_drivers(args: &[String]) -> Result<()> {
         std::fs::write(out.join(format!("{id}-{version}.axdriver")), &bytes)?;
         catalog.drivers.push(CatalogEntry {
             id: id.clone(),
+            icon_key: manifest.icon_key.clone(),
             name: name.to_string(),
             version: version.clone(),
             description: manifest.description,

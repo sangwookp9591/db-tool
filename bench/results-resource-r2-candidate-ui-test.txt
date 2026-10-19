@@ -1,0 +1,34 @@
+
+> axdb-ui@0.2.0 test /private/tmp/claude-501/-Users-iron-Project-psw-db-tool/1fe252ea-91ad-4737-8951-7e8f929f6ea0/scratchpad/r2-src/ui
+> vitest run
+
+
+ RUN  v5.0.4 /private/tmp/claude-501/-Users-iron-Project-psw-db-tool/1fe252ea-91ad-4737-8951-7e8f929f6ea0/scratchpad/r2-src/ui
+
+(node:96779) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ❯ src/onboarding/onboarding.test.ts (10 tests | 1 failed) 25642ms
+   × navigates by keyboard and persists skipping for the mock session 6516ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/onboarding/onboarding.test.ts > navigates by keyboard and persists skipping for the mock session
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ src/onboarding/onboarding.test.ts:28:1
+     26| }
+     27|
+     28| it('navigates by keyboard and persists skipping for the mock session',…
+       | ^
+     29|   await page.goto(`${url}?onboarding`);
+     30|   const dialog = page.getByRole('dialog', { name: 'AxDB 사용법' });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 22 passed (23)
+      Tests  1 failed | 112 passed (113)
+   Start at  18:21:38
+   Duration  27.13s (tests 87%, import 11%, transform 2%)
+
+ ELIFECYCLE  Test failed. See above for more details.

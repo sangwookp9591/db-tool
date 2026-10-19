@@ -1,7 +1,7 @@
 use dbcore::{CancelToken, Column, DbError, ErrorKind, ResultSet, Table, Value};
 use serde::Serialize;
 use serde_json::Value as Json;
-use tauri::ipc::Channel;
+use tauri::ipc::{Channel, Response};
 
 #[derive(Debug, Serialize)]
 pub struct PackedColumn {
@@ -113,14 +113,19 @@ pub enum StreamEvent {
     },
     Done,
 }
-fn send(channel: &Channel<StreamEvent>, event: StreamEvent) -> Result<(), DbError> {
+fn send(channel: &Channel<Response>, event: StreamEvent) -> Result<(), DbError> {
+    let bytes = rmp_serde::to_vec_named(&event)
+        .map_err(|_| DbError::internal("Cannot encode result frame"))?;
+    if bytes.len() > 16 * 1024 * 1024 {
+        return Err(DbError::internal("Result frame too large"));
+    }
     channel
-        .send(event)
+        .send(Response::new(bytes))
         .map_err(|_| DbError::new(ErrorKind::Cancelled, "Result receiver closed"))
 }
 pub async fn send_results(
     results: Vec<ResultSet>,
-    channel: &Channel<StreamEvent>,
+    channel: &Channel<Response>,
     cancel: &CancelToken,
 ) -> Result<(), DbError> {
     for (index, mut result) in results.into_iter().enumerate() {
@@ -190,13 +195,13 @@ struct CurrentResult {
 }
 
 pub struct LiveResults {
-    channel: Channel<StreamEvent>,
+    channel: Channel<Response>,
     current: std::sync::Mutex<Option<CurrentResult>>,
     cancel: CancelToken,
     row_limit: usize,
 }
 impl LiveResults {
-    pub fn new(channel: Channel<StreamEvent>, cancel: CancelToken, row_limit: u32) -> Self {
+    pub fn new(channel: Channel<Response>, cancel: CancelToken, row_limit: u32) -> Self {
         Self {
             channel,
             current: std::sync::Mutex::new(None),
@@ -331,13 +336,13 @@ mod tests {
         let events = std::sync::Arc::new(std::sync::Mutex::new(Vec::<Json>::new()));
         let received = events.clone();
         let channel = Channel::new(move |body| {
-            let tauri::ipc::InvokeResponseBody::Json(text) = body else {
-                panic!("expected JSON event")
+            let tauri::ipc::InvokeResponseBody::Raw(bytes) = body else {
+                panic!("expected raw MessagePack event")
             };
             received
                 .lock()
                 .unwrap()
-                .push(serde_json::from_str(&text).unwrap());
+                .push(rmp_serde::from_slice::<Json>(&bytes).unwrap());
             Ok(())
         });
         let stream = LiveResults::new(channel, CancelToken::new(), 2);
@@ -369,13 +374,13 @@ mod tests {
         let events2 = std::sync::Arc::new(std::sync::Mutex::new(Vec::<Json>::new()));
         let received = events2.clone();
         let channel = Channel::new(move |body| {
-            let tauri::ipc::InvokeResponseBody::Json(text) = body else {
+            let tauri::ipc::InvokeResponseBody::Raw(bytes) = body else {
                 panic!()
             };
             received
                 .lock()
                 .unwrap()
-                .push(serde_json::from_str(&text).unwrap());
+                .push(rmp_serde::from_slice::<Json>(&bytes).unwrap());
             Ok(())
         });
         let stream = LiveResults::new(channel, CancelToken::new(), 2);

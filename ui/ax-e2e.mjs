@@ -16,8 +16,8 @@ try {
   const previewPlan=async()=>{await page.getByRole('button',{name:'미리보기',exact:true}).click();await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(button=>button.textContent?.trim()==='검토한 계획 적용'&&!button.disabled));};
   const shot=async name=>{assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`${name}: horizontal overflow`);assert.equal(await page.evaluate(()=>document.getAnimations().filter(animation=>animation.playState==='running'&&animation.effect?.getTiming().iterations===Infinity).length),0,`${name}: idle repeating animation`);await page.screenshot({path:`${output}ax-${name}-${theme}.png`});};
   await page.getByTestId('add-connection').click();
-  await page.getByRole('button',{name:'PostgreSQL 설치',exact:true}).click();
-  await page.getByRole('button',{name:'PostgreSQL 삭제',exact:true}).waitFor();
+  await page.getByRole('button',{name:'PostgreSQL · 설치 가능',exact:true}).click();
+  await page.getByRole('button',{name:'PostgreSQL · 설치됨',exact:true}).waitFor();
   await page.getByTestId('add-connection').click();
   await page.getByRole('textbox',{name:'Name',exact:true}).fill('UI test connection');
   await page.getByRole('button',{name:'3. 인증',exact:true}).click();await page.getByLabel('DB 인증',{exact:true}).selectOption('iam_aws');assert.equal(await page.getByLabel('리전 (선택)',{exact:true}).evaluate(input=>input.required),false);await shot('connection-iam');await page.getByLabel('DB 인증',{exact:true}).selectOption('password');

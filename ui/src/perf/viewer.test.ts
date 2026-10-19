@@ -90,3 +90,23 @@ it('fits dense edge bounds without exceeding the JavaScript argument limit', () 
   const fit = fitGraph(points, 1440, 1000);
   expect(Number.isFinite(fit.x) && Number.isFinite(fit.y) && Number.isFinite(fit.scale)).toBe(true);
 });
+
+import { appendPacked, tableCell } from './columnar';
+import { serializeTable } from '../export';
+import { selectRows } from '../ai/types';
+it('keeps column chunks lazy while preserving exact cells, sorting, filtering, exports and AI selection', () => {
+  const source = fixtureTable(100, 2), target = { columns: source.columns, rows: [] as typeof source.rows };
+  source.rows[22][0] = { t: 'Null' };
+  source.rows[40][1] = { t: 'Json', v: '{"nested":[1,true,null]}' };
+  appendPacked(target, packTable({ ...source, rows: source.rows.slice(0, 25) }));
+  appendPacked(target, packTable({ ...source, rows: source.rows.slice(25) }));
+  expect(target.rows.length).toBe(100); expect(target.rows[100]).toBeUndefined();
+  expect(target.rows.slice()).toEqual(source.rows);
+  expect(tableCell(target, 40, 1)).toEqual(source.rows[40][1]);
+  expect([...tableIndex(target, '', 0, true)]).toEqual([...tableIndex(source, '', 0, true)]);
+  expect([...tableIndex(target, 'row 3')]).toEqual([...tableIndex(source, 'row 3')]);
+  for (const format of ['CSV', 'JSON', 'Markdown'] as const) expect(serializeTable(target, format, false)).toEqual(serializeTable(source, format, false));
+  expect(selectRows(target, '40,2')).toEqual(selectRows(source, '40,2'));
+  expect(() => target.rows.push(source.rows[0])).toThrow();
+  expect(target.rows).toHaveLength(100);
+});

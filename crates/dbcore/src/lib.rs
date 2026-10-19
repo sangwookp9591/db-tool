@@ -15,6 +15,8 @@ pub use operation::{Operation, OperationKind, OperationRisk};
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct DriverManifest {
     pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon_key: Option<String>,
     pub display_name: String,
     pub paradigm: Paradigm,
     pub query_language: QueryLanguage,
@@ -183,6 +185,10 @@ pub trait Session: Send + Sync {
 
     async fn apply_grants(&self, _changes:&[GrantChange], _cancel:CancelToken)->Result<(),DbError>{Err(DbError::unsupported("Grant application unsupported"))}
 
+    async fn restore_options(&self)->Result<RestoreOptions,DbError>{Ok(RestoreOptions::default())}
+    async fn restore_database(&self,_summary:&BackupSummary,_source:&mut (dyn std::io::Read+Send),_name:&str,_cancel:CancelToken)->Result<(),DbError>{Err(DbError::unsupported("Create a separate empty target and restore there"))}
+    async fn backup_stream(&self, _cancel: CancelToken, _sink: &dyn BackupSink) -> Result<BackupSummary, DbError> { Err(DbError::unsupported("Streaming backup requires a driver update")) }
+    async fn restore_stream(&self, _summary: &BackupSummary, _source: &mut (dyn std::io::Read + Send), _overwrite: bool, _cancel: CancelToken) -> Result<(), DbError> { Err(DbError::unsupported("Streaming restore requires a driver update")) }
     async fn backup(&self, _cancel: CancelToken) -> Result<BackupData, DbError> { Err(DbError::unsupported("Backup unsupported")) }
     async fn restore(&self, _backup: &BackupData, _overwrite: bool, _cancel: CancelToken) -> Result<(), DbError> { Err(DbError::unsupported("Restore unsupported")) }
     async fn roles(&self) -> Result<RolesSnapshot, DbError> { Err(DbError::unsupported("Roles unsupported")) }

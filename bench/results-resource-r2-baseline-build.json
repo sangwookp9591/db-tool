@@ -1,0 +1,29 @@
+{
+  "source": "d07c12f",
+  "started": "2026-10-19T16:14:00.187845+09:00",
+  "command": [
+    "pnpm",
+    "dlx",
+    "@tauri-apps/cli@2",
+    "build",
+    "--ci",
+    "--bundles",
+    "app",
+    "--config",
+    "{\"bundle\": {\"createUpdaterArtifacts\": false}}"
+  ],
+  "target_dir": "/private/tmp/claude-501/-Users-iron-Project-psw-db-tool/1fe252ea-91ad-4737-8951-7e8f929f6ea0/scratchpad/r2-src/target",
+  "jobs": 4,
+  "notarization": false,
+  "exit": 0,
+  "finished": "2026-10-19T16:17:25.794158+09:00",
+  "source_commit": "d07c12f80aeacb277f54a0730123d33172a3e163",
+  "resource_harness_sha256": "d05c566dc96a3c0a62329c76d64d35b0fa0292b1f568e0d3a2dd0d942ffbb5d5",
+  "collector_sha256": "b52984e46ed520e89015ed433fc8896e70d32170493294389034ec497bd5d25d",
+  "app": {
+    "app": "/private/tmp/claude-501/-Users-iron-Project-psw-db-tool/1fe252ea-91ad-4737-8951-7e8f929f6ea0/scratchpad/r2/AxDB-resource-bench-v3.app",
+    "sha256": "e3f2d1f3bef558326418db02379adf2c087ffc5124a53f1c2f94d1c4210192ce",
+    "binary_bytes": 17022976
+  },
+  "product_diff_before_candidate": []
+}

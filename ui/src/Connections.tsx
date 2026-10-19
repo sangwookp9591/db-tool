@@ -1,20 +1,16 @@
-import { Channel } from '@tauri-apps/api/core';
-import { NetworkFields, IamFields } from './ax/ConnectionNetwork';
-import { ConnectionTimeline, type StageEvent } from './ax/ConnectionStatus';
-import type { ConnectionNetwork, ConnectionAuth, ConnectionSecrets, ConnectionEvent } from './ax/connectionContract';
+import { DriverLogo } from './drivers/DriverLogo';
+import { lazy, Suspense } from 'preact/compat';
+const ProfileForm = lazy(() => import('./ProfileForm').then(m => ({ default: m.ProfileForm })));
 import { DriverRequired, openDrivers } from './drivers/DriverRequired';
 import './sidebar.css';
 import { loadSidebarPreferences, sidebarRatio, SIDEBAR_STORAGE_KEY } from './sidebar';
 import { Button } from './ui/Button';
 import { SpotlightCard } from './ui/SpotlightCard';
-import { SpringCheck } from './ui/SpringCheck';
 import { FuseButton } from './ui/FuseButton';
-import { Check, Database, Share2, FileJson, KeyRound, Plus, X, Search, MoreHorizontal, PlugZap, Unplug, Pencil, FlaskConical, Trash2, ChevronRight, ChevronDown, Minus, RefreshCw, Folder, Table2, Columns3, Key, ListFilter, Layers, Network, FileCode2 } from 'lucide-preact';
+import { Database, Plus, X, Search, MoreHorizontal, PlugZap, Unplug, Pencil, FlaskConical, ChevronRight, ChevronDown, Minus, RefreshCw, Folder, Table2, Columns3, Key, ListFilter, Layers, Network, FileCode2 } from 'lucide-preact';
 import { useEffect, useId, useRef, useState } from 'preact/hooks';
 import type { DriverManifest, Profile, ExplorerNode, NodeAction } from './contract';
 import { api, isMock } from './api';
-import { Dialog } from './Dialog';
-import { GlideSelect } from './ui/GlideSelect';
 import { Skeleton } from './ui/Skeleton';
 import { BranchGroup, BranchItem, reachIndex, reachState, toggleOpen, treeKey } from './ui/BranchedMenu';
 interface Props { editRequest?: {id:string;sequence:number} | null; onNodes?: (profileId: string, nodes: ExplorerNode[]) => void; addRequest?: number; drivers: DriverManifest[]; profiles: Profile[]; sessions: Record<string, string>; dead: Set<string>; onProfiles: () => Promise<void>; onConnect: (profile: Profile, secret?: string | null) => Promise<void>; onDisconnect: (profile: Profile) => Promise<void>; onQuery: (profile: Profile, text?: string) => void; onAction: (profile: Profile, node: ExplorerNode, action: NodeAction) => void; onError: (error: unknown, profileId?: string) => void }
@@ -58,9 +54,8 @@ export function Connections(props: Props) {
     <div class="sidebar-section-body" id={`${sectionId}-connections`} hidden={view.connectionsCollapsed}><div class="connection-search"><Search /><input aria-label="Search connections" placeholder="연결 검색…" value={search} onInput={e => setSearch(e.currentTarget.value)} /><kbd>⌘ K</kbd></div><Button bare class="sidebar-compact" aria-pressed={view.compact} onClick={() => setView(v => ({ ...v, compact: !v.compact }))}>컴팩트 보기</Button>
     <div class="connection-list" ref={list} onScroll={() => { closeMenus(); listEdges(); }}>{props.profiles.filter(profile => `${profile.name} ${props.drivers.find(d => d.id === profile.driver_id)?.display_name ?? ''}`.toLocaleLowerCase().includes(search.toLocaleLowerCase())).sort((a, b) => Number(b.id === activeId) - Number(a.id === activeId)).map(profile => {
       const manifest = props.drivers.find(d => d.id === profile.driver_id);
-      const Tile = manifest?.paradigm === 'Graph' ? Share2 : manifest?.paradigm === 'Document' ? FileJson : manifest?.paradigm === 'KeyValue' ? KeyRound : Database;
       const connected = !!props.sessions[profile.id] && !props.dead.has(profile.id);
-      return <section class="connection" data-paradigm={manifest?.paradigm} data-active={connected && activeId === profile.id ? '' : undefined} key={profile.id} onClick={() => { if (connected) setFocusId(profile.id); }} onFocusIn={() => { if (connected) setFocusId(profile.id); }}><SpotlightCard><div class="connection-heading"><div class="connection-tile"><Tile /></div><div class="connection-info"><div class="connection-name"><strong title={profile.name}>{profile.name}</strong><span class={`status-dot ${connected ? 'connected' : ''}`} title={connected ? '연결됨' : '연결 끊김'} /></div><small>{manifest?.display_name ?? profile.driver_id}{profile.access_mode === 'read_only' && ' · 읽기 전용'}</small></div>
+      return <section class="connection" data-paradigm={manifest?.paradigm} data-active={connected && activeId === profile.id ? '' : undefined} key={profile.id} onClick={() => { if (connected) setFocusId(profile.id); }} onFocusIn={() => { if (connected) setFocusId(profile.id); }}><SpotlightCard><div class="connection-heading"><div class="connection-tile"><DriverLogo iconKey={manifest?.icon_key} paradigm={manifest?.paradigm} size={24} /></div><div class="connection-info"><div class="connection-name"><strong title={profile.name}>{profile.name}</strong><span class={`status-dot ${connected ? 'connected' : ''}`} title={connected ? '연결됨' : '연결 끊김'} /></div><small>{manifest?.display_name ?? profile.driver_id}{profile.access_mode === 'read_only' && ' · 읽기 전용'}</small></div>
         <div class="connection-actions"><Button morph={false} class="connect-button" title={busy === profile.id ? '작업 중…' : connected ? '연결 해제' : '연결하기'} aria-label={`Connect or disconnect ${profile.name}`} data-testid="connect-connection" disabled={!!busy || !manifest} onClick={() => void task(profile.id, () => connected ? props.onDisconnect(profile) : props.onConnect(profile).then(() => setFocusId(profile.id)))}>{connected ? <Unplug /> : <PlugZap />}</Button><details onToggle={placeMenu}><summary aria-label={`Connection actions for ${profile.name}`} title="연결 작업"><MoreHorizontal /></summary><div class="connection-menu"><Button morph={false} disabled={!!busy||!manifest} onClick={e=>{e.currentTarget.closest('details')?.removeAttribute('open');void task(profile.id,()=>connected?props.onDisconnect(profile):props.onConnect(profile));}}>{connected?'연결 해제':'연결하기'}</Button><Button morph={false} onClick={e => { e.currentTarget.closest('details')?.removeAttribute('open'); if (manifest) setEditing(profile); else openDrivers(profile.driver_id); }}><Pencil />편집</Button><Button morph={false} aria-label={`Test ${profile.name}`} data-testid="test-connection" disabled={!!busy || !manifest} onClick={e => { e.currentTarget.closest('details')?.removeAttribute('open'); if (!isMock && !profile.save_secret && manifest?.connection_fields.some(f => f.secret)) setEditing(profile); else void task(profile.id, async () => setNotice(await api('connection_test', { profile, secret: null }))); }}><FlaskConical />테스트</Button><FuseButton pending={pendingDelete === profile.id} onPendingChange={pending => setPendingDelete(pending ? profile.id : null)} onUndo={() => {}} unmountAction="cancel" disabled={!!busy} aria-label={`Delete ${profile.name}`} label="삭제" doneLabel="삭제 예약" undoLabel="실행 취소" onCommit={() => void task(profile.id, async () => { if (props.sessions[profile.id]) await props.onDisconnect(profile); await api("profile_delete", { profileId: profile.id }); await props.onProfiles(); })} /></div></details></div></div>{!manifest && <DriverRequired driverId={profile.driver_id} />}</SpotlightCard>
 
       </section>;
@@ -80,65 +75,8 @@ export function Connections(props: Props) {
     </div></section></div>
     {!props.profiles.length && <div class="sidebar-empty"><Database /><p>연결을 추가해 시작하세요.</p><Button morph={false} onClick={addConnection}><Plus />연결 추가</Button></div>}
     {notice && <div class="notice" role="status">{notice}<Button morph={false} aria-label="Dismiss connection test" onClick={() => setNotice('')}><X /></Button></div>}
-    {editing && <ProfileForm key={editing === 'new' ? 'new' : editing.id} profile={editing === 'new' ? undefined : editing} drivers={props.drivers} onClose={() => setEditing(null)} onSaved={async () => { await props.onProfiles(); setEditing(null); }} onError={props.onError} />}
+    <Suspense fallback={null}>{editing && <ProfileForm key={editing === 'new' ? 'new' : editing.id} profile={editing === 'new' ? undefined : editing} drivers={props.drivers} onClose={() => setEditing(null)} onSaved={async () => { await props.onProfiles(); setEditing(null); }} onError={props.onError} />}</Suspense>
   </aside>;
-}
-function ProfileForm({ profile, drivers, onClose, onSaved, onError }: { profile?: Profile; drivers: DriverManifest[]; onClose: () => void; onSaved: () => Promise<void>; onError: (error: unknown) => void }) {
-  const [driverId, setDriverId] = useState(profile?.driver_id ?? drivers[0]?.id ?? '');
-  const profileId = useRef(profile?.id ?? crypto.randomUUID());
-  const [step,setStep]=useState(0),[paste,setPaste]=useState('');
-  const [network,setNetwork]=useState<ConnectionNetwork>(profile?.network??{}),[auth,setAuth]=useState<ConnectionAuth>(profile?.auth??{kind:'password'}),[networkSecrets,setNetworkSecrets]=useState<ConnectionSecrets>({}),[stages,setStages]=useState<StageEvent[]>([]);
-  const manifest = drivers.find(d => d.id === driverId);
-  const defaults = (d?: DriverManifest) => Object.fromEntries(d?.connection_fields.filter(f => !f.secret).map(f => [f.key, f.default ?? '']) ?? []);
-  const [name, setName] = useState(profile?.name ?? '');
-  const [fields, setFields] = useState(profile?.fields ?? defaults(manifest));
-  const [secrets, setSecrets] = useState<Record<string, string>>({});
-  const [accessMode, setAccessMode] = useState<Profile['access_mode']>(profile?.access_mode ?? 'read_write');
-  const [hasStoredSecret,setHasStoredSecret]=useState(!!profile?.save_secret);
-  const [saveSecret, setSaveSecret] = useState(profile?.save_secret ?? false);
-  const [busy, setBusy] = useState(false);
-  const [pendingAction, setPendingAction] = useState<'test'|'save'|null>(null);
-  const [testStatus, setTestStatus] = useState<'idle'|'success'|'error'>('idle');
-  const [notice, setNotice] = useState('');
-  const form = useRef<HTMLFormElement>(null);
-  const formId = useId();
-  function clearDraft() {
-    form.current?.querySelectorAll('input').forEach(input => { input.value = ''; input.checked = false; });
-    for (const key of Object.keys(secrets)) delete secrets[key];
-    setNetworkSecrets({}); setPaste(''); setSecrets({}); setName(''); setFields({}); setSaveSecret(false); setNotice('');
-  }
-  function close() { clearDraft(); onClose(); }
-
-  const draft = (): Profile => ({ id: profileId.current, network, auth, name: name.trim(), driver_id: driverId, fields: Object.fromEntries(Object.entries(fields).filter(([key]) => !manifest?.connection_fields.some(f => f.key === key && f.secret))), save_secret: saveSecret, access_mode: manifest?.capabilities.read_only_exec ? accessMode : 'read_write' });
-  // shortcut: host accepts one secret field; extend the host contract before supporting multiple credentials.
-  const secret = () => Object.values(secrets).find(Boolean) ?? null;
-  async function submit(test: boolean) {
-    if (!manifest) return;
-    setBusy(true); setPendingAction(test?'test':'save'); setNotice('');
-    try { if(Object.keys(networkSecrets).length){await api('connection_credentials_save',{profileId:profileId.current,secrets:networkSecrets});setNetworkSecrets({});} if (test) { setStages([]); const onEvent = isMock ? {onmessage: (_event: ConnectionEvent) => {}} as Channel<ConnectionEvent> : new Channel<ConnectionEvent>(); onEvent.onmessage=event=>{if(event.event==='stage')setStages(previous=>[...previous.filter(item=>item.stage!==event.stage),event]);}; setNotice(await api('connection_test_steps', { profile: draft(), secret: secret(), onEvent })); setTestStatus('success'); } else { await api('profile_save', { profile: draft(), secret: secret() }); clearDraft(); await onSaved(); } }
-    catch (error) { if(test)setTestStatus('error'); onError(error); } finally { setBusy(false); setPendingAction(null); }
-  }
-  const group = (field: import('./contract').FieldSpec) => field.secret || /^(user|username|password|auth.*|credential.*)$/i.test(field.key) ? 'Authentication' : /tls|ssl|cert|ca_file|timeout|socket|option/i.test(field.key) ? 'Advanced' : 'Connection';
-  function fieldControl(field: import('./contract').FieldSpec) {
-    const accessibleLabel = connectionFieldAriaLabel(field.key, field.label);
-    const title = <span class="field-label">{field.label}{field.required && <span class="required-dot" aria-label="Required" />}</span>;
-    if (field.kind === 'Bool' && !field.secret) return <SpringCheck key={field.key} checked={fields[field.key] === 'true'} onChange={checked => setFields(f => ({...f,[field.key]:String(checked)}))} label={field.label} aria-label={accessibleLabel} />;
-    return <label key={field.key} class={/^(host|port)$/.test(field.key) ? 'field-half' : ''}>{title}{typeof field.kind === 'object' && !field.secret ? <GlideSelect ariaLabel={accessibleLabel} name={field.key} required={field.required} value={fields[field.key] ?? ''} options={[...(!field.default ? [{ value: '', label: '선택…' }] : []), ...field.kind.Select.options]} onChange={value => setFields(f => ({ ...f, [field.key]: value }))} /> : <FieldInput field={field} existing={!!profile||hasStoredSecret} value={field.secret ? secrets[field.key] ?? '' : fields[field.key] ?? ''} onInput={e => { const value = e.currentTarget.value; if (field.secret) setSecrets(s => ({ ...s, [field.key]: value })); else setFields(f => ({ ...f, [field.key]: value })); }} />}</label>;
-  }
-  return <Dialog closeDisabled={busy} className="connection-dialog" title={profile ? "연결 편집" : "연결 추가"} label={profile ? 'Edit connection' : 'Add connection'} closeLabel="Close connection form" onClose={close} footer={<><Button morph loading={pendingAction==='test'} aria-label="Test connection" data-testid="test-connection-form" type="button" disabled={busy || !manifest} onClick={() => { if (form.current?.reportValidity()) void submit(true); }}><FlaskConical />연결 테스트</Button>{testStatus!=='idle'&&<span class="ax-test-status" data-status={testStatus} role="status">{testStatus==='success'?<Check aria-hidden="true"/>:null}{testStatus==='success'?'테스트 통과':'테스트 실패'}</span>}<span class="toolbar-spacer" /><Button morph={false} type="button" disabled={busy} onClick={close}>취소</Button><Button morph variant="brand" loading={pendingAction==='save'} form={formId} type="submit" disabled={busy || !manifest}>저장</Button></>}>
-    <section class="profile-form connection-form"><nav class="ax-steps" aria-label="연결 설정 단계">{['기본','네트워크','인증','고급'].map((name,index)=><Button bare key={name} type="button" aria-label={`${index+1}. ${name}`} data-done={testStatus==='success'} aria-current={step===index?'step':undefined} onClick={()=>setStep(index)}><span class="ax-step-number" aria-hidden="true">{testStatus==='success'?<Check/>:index+1}</span><span>{name}</span></Button>)}</nav><form onInvalidCapture={e=>{const details=(e.target as HTMLElement).closest('details');if(details){details.open=true;setStep(Array.from(form.current?.querySelectorAll('.field-group')??[]).indexOf(details));}}} onInput={()=>setTestStatus('idle')} onChange={()=>setTestStatus('idle')} id={formId} ref={form} autoComplete="off" onSubmit={e => { e.preventDefault(); void submit(false); }}>
-      <fieldset class="ax-form-fields" disabled={busy}><details class="field-group" open={step===0}><summary onClick={()=>setStep(0)}><ChevronRight />기본 연결</summary><label class="ax-field">스마트 붙여넣기<input aria-label="스마트 붙여넣기" type="password" autoComplete="off" value={paste} placeholder="연결 URL, JDBC, psql 명령, SSH Host" onInput={e=>setPaste(e.currentTarget.value)}/></label><Button morph={false} type="button" disabled={!paste.trim()||busy} onClick={()=>{const input=paste;setPaste('');setBusy(true);void api('connection_parse',{input,profileId:profileId.current}).then(parsed=>{const driver=drivers.find(d=>d.id===parsed.driver_id);if(!driver)throw new Error('먼저 해당 드라이버를 설치하세요.');if(profile&&profile.driver_id!==parsed.driver_id)throw new Error('기존 연결과 다른 드라이버입니다. 새 연결을 만드세요.');setDriverId(parsed.driver_id);setFields({...defaults(driver),...parsed.fields});setNetwork(parsed.network??{});setSecrets({});if(parsed.has_secret){setSaveSecret(true);setHasStoredSecret(true);}setNotice(parsed.has_secret?'연결 정보를 채웠습니다. 비밀번호는 키체인으로 이동했습니다.':'연결 정보를 채웠습니다.');}).catch(onError).finally(()=>setBusy(false));}}>안전하게 채우기</Button><div class="field-grid">
-        <label><span class="field-label">이름<span class="required-dot" aria-label="Required" /></span><input aria-label="Name" required autoFocus value={name} onInput={e => setName(e.currentTarget.value)} /></label>
-        <label><span class="field-label">드라이버</span><GlideSelect ariaLabel="Driver" disabled={!!profile} value={driverId} options={drivers.map(d => ({ value: d.id, label: d.display_name }))} onChange={id => { setDriverId(id); setHasStoredSecret(false); setAccessMode('read_write'); setFields(defaults(drivers.find(d => d.id === id))); setSecrets({}); }} /></label>
-        {manifest?.connection_fields.filter(field => group(field) === 'Connection').map(fieldControl)}
-      </div></details>
-      <details class="field-group" open={step===1}><summary onClick={()=>setStep(1)}><ChevronRight />네트워크</summary><NetworkFields network={network} onNetwork={setNetwork} secrets={networkSecrets} onSecrets={setNetworkSecrets}/></details>
-      {<details class="field-group" open={step===2}><summary onClick={()=>setStep(2)}><ChevronRight />인증</summary><IamFields auth={auth} onChange={setAuth}/><div class="field-grid">{manifest?.connection_fields.filter(field => group(field) === 'Authentication').map(fieldControl)}{manifest?.connection_fields.some(f => f.secret) && <SpringCheck checked={saveSecret} onChange={setSaveSecret} label="키체인에 저장" />}</div></details>}
-      <details class="field-group" open={step===3}><summary onClick={()=>setStep(3)}><ChevronRight />고급 설정</summary><div class="field-grid">{manifest?.connection_fields.filter(field => group(field) === 'Advanced').map(fieldControl)}{manifest?.capabilities.read_only_exec && <label><span class="field-label">접근 모드</span><GlideSelect ariaLabel="Connection access mode" name="access_mode" value={accessMode} options={[{ value: 'read_write', label: '읽기 / 쓰기' }, { value: 'read_only', label: '읽기 전용' }]} onChange={value => setAccessMode(value as Profile['access_mode'])} /></label>}</div></details>
-      <div class="ax-inline"><Button morph={false} type="button" disabled={step===0} onClick={()=>setStep(n=>n-1)}>이전 단계</Button><Button morph={false} type="button" disabled={step===3} onClick={()=>setStep(n=>n+1)}>다음 단계</Button></div></fieldset>{stages.length>0&&<ConnectionTimeline events={stages}/>}
-      {notice && <p role="status">{notice}</p>}
-    </form></section>
-  </Dialog>;
 }
 const GROUP_PAGE = 300;
 function Explorer({ sessionId, manifest, onAction, onError, onNodes }: { onNodes?: (nodes: ExplorerNode[]) => void; sessionId: string; manifest: DriverManifest; onAction: (node: ExplorerNode, action: NodeAction) => void; onError: (error: unknown) => void }) {
@@ -200,16 +138,6 @@ function Explorer({ sessionId, manifest, onAction, onError, onNodes }: { onNodes
     })}{more > 0 && <BranchItem last row={<Button bare class="tree-more" aria-label={`Show more in ${byId.get(parentId)?.label ?? 'explorer'}`} onClick={() => setLimits(l => ({ ...l, [parentId]: limit + GROUP_PAGE }))}>+{more} 더 보기</Button>} />}</>;
   }
   return <div class="explorer"><div class="toolbar"><input value={filter} onInput={e => setFilter(e.currentTarget.value)} placeholder="탐색 항목 필터" aria-label="Filter explorer" /><Button morph={false} onClick={() => setVersion(v => v + 1)} aria-label="Refresh explorer"><RefreshCw /></Button></div><div class="explorer-scroll" ref={tree} onKeyDown={onKeyDown}>{loading.has('$root') ? <p>불러오는 중…</p> : <div class="bm-root">{render(children.$root ?? [], 0, '$root')}</div>}</div>{menu && <div class="context-menu" role="menu" style={{ left: `${menu.x}px`, top: `${menu.y}px` }}>{actions(menu.node).map(action => <Button morph={false} role="menuitem" key={action.id} onClick={() => { run(menu.node, action); setMenu(null); }}>{action.label}</Button>)}</div>}</div>;
-}
-
-function connectionFieldAriaLabel(key: string, fallback: string) {
-  return ({ host: 'Host', port: 'Port', database: 'Database', user: 'User', username: 'Username', password: 'Password', uri: 'URI', authSource: 'Authentication database', auth_source: 'Authentication database', sslmode: 'TLS mode', tls: 'TLS', sslrootcert: 'TLS CA file', tlsCAFile: 'TLS CA file', tls_ca_file: 'TLS CA file', path: 'Database file', read_only_open: 'Open read-only', db: 'db' } as Record<string, string>)[key] ?? fallback;
-}
-function FieldInput({ field, existing, value, onInput }: { field: import('./contract').FieldSpec; existing: boolean; value: string; onInput: (e: InputEvent & { currentTarget: HTMLInputElement }) => void }) {
-  const attrs = { 'aria-label': connectionFieldAriaLabel(field.key, field.label), value, onInput, required: field.required && !(existing && field.secret), placeholder: existing && field.secret ? '비워 두면 저장된 값을 유지합니다' : field.placeholder ?? '' };
-  if (field.secret || field.kind === 'Password') return <input {...attrs} type="password" autoComplete="new-password" />;
-  if (field.kind === 'Number') return <input {...attrs} type="number" />;
-  return <input {...attrs} type="text" autoComplete="off" />;
 }
 
 function ExplorerIcon({ icon }: { icon: ExplorerNode['icon'] }) {

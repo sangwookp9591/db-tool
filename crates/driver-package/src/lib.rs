@@ -130,6 +130,8 @@ pub struct Platform {
 #[serde(deny_unknown_fields)]
 pub struct Manifest {
     pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon_key: Option<String>,
     pub name: String,
     pub version: String,
     pub protocol: u32,
@@ -175,6 +177,8 @@ impl Manifest {
 #[serde(deny_unknown_fields)]
 pub struct CatalogEntry {
     pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon_key: Option<String>,
     pub name: String,
     pub version: String,
     pub description: String,

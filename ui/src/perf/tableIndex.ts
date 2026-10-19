@@ -1,4 +1,5 @@
 import type { Table, Value } from '../contract';
+import { tableCell } from './columnar';
 import { valueText } from '../values';
 function decimalOrder(a: string, b: string): number {
   function parts(text: string) {
@@ -25,7 +26,7 @@ function compare(a: Value, b: Value) {
 }
 export function tableIndex(table: Table, filter: string, column = -1, descending = false): Uint32Array {
   const query = filter.trim().toLocaleLowerCase();
-  const indices = Array.from({ length: table.rows.length }, (_, i) => i).filter(i => !query || table.rows[i].some(v => valueText(v).toLocaleLowerCase().includes(query)));
-  if (column >= 0 && column < table.columns.length) indices.sort((a, b) => (descending ? -1 : 1) * compare(table.rows[a][column], table.rows[b][column]) || a - b);
+  const indices = Array.from({ length: table.rows.length }, (_, i) => i).filter(i => !query || table.columns.some((_, c) => valueText(tableCell(table, i, c)).toLocaleLowerCase().includes(query)));
+  if (column >= 0 && column < table.columns.length) indices.sort((a, b) => (descending ? -1 : 1) * compare(tableCell(table, a, column), tableCell(table, b, column)) || a - b);
   return Uint32Array.from(indices);
 }

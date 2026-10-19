@@ -1,4 +1,5 @@
 use super::*;
+pub(crate) mod files;
 use sha2::{Digest, Sha256};
 use std::io::Read;
 const MAGIC: &[u8] = b"AXBACKUP\x01";
@@ -383,6 +384,10 @@ mod tests {
     use super::*;
     #[test]
     fn archive_roundtrip_and_tamper_rejection() {
+        let writer=crate::backup_file::ArchiveWriter::new(tempfile::tempfile().unwrap()).unwrap();
+        assert!(writer.finish(BackupSummary::default()).is_err());
+        let writer=crate::backup_file::ArchiveWriter::new(tempfile::tempfile().unwrap()).unwrap();
+        assert!(writer.finish(BackupSummary{format:"test".into(),counts:vec![(String::new(),0);50001],warnings:vec![]}).is_err());
         let b = BackupData {
             format: "test".into(),
             data: b"sensitive row data".to_vec(),
@@ -395,6 +400,10 @@ mod tests {
         bytes[pos] = b'!';
         assert!(decode(&bytes).is_err());
         assert!(decode(b"AXBACKUP").is_err());
+        let dir=tempfile::tempdir().unwrap();let path=dir.path().join("legacy.axbackup");
+        std::fs::write(&path,encode(&b).unwrap().bytes).unwrap();
+        let staged=crate::backup_file::stage(&mut std::fs::File::open(&path).unwrap(),&CancelToken::new()).unwrap();
+        assert_eq!(staged.manifest.version,1);assert_eq!(staged.manifest.bytes,b.data.len() as u64);
     }
     #[tokio::test]
     async fn restore_requires_exact_one_use_preview_human_approval_and_name() {
@@ -513,6 +522,20 @@ mod tests {
         )
         .await
         .unwrap();
+        struct Progress;
+        #[async_trait::async_trait] impl ProgressSink for Progress {async fn progress(&self,_:u64,_:u64)->Result<(),DbError>{Ok(())}}
+        let path=dir.path().join("stream.axbackup");
+        crate::backup_file::create(&*source,&path,CancelToken::new(),&Progress).await.unwrap();
+        let staged=crate::backup_file::stage(&mut std::fs::File::open(&path).unwrap(),&CancelToken::new()).unwrap();
+        app.state::<Host>().restore_files.lock().unwrap().insert("selected-file".into(),files::Selected{staged,session:"s".into(),created:Instant::now()});
+        assert!(files::restore_file_apply(app.handle().clone(),app.state(),"s".into(),"file-no-preview".into(),"selected-file".into(),true,None,true,Some("restore target".into())).await.is_err());
+        assert!(files::restore_file_preview(app.state(),"s".into(),"selected-file".into(),false,Some("newdb".into())).await.is_err());
+        files::restore_file_preview(app.state(),"s".into(),"selected-file".into(),true,None).await.unwrap();
+        assert!(files::restore_file_apply(app.handle().clone(),app.state(),"s".into(),"file-no-human".into(),"selected-file".into(),true,None,false,Some("restore target".into())).await.is_err());
+        assert!(files::restore_file_apply(app.handle().clone(),app.state(),"s".into(),"file-wrong-name".into(),"selected-file".into(),true,None,true,Some("wrong".into())).await.is_err());
+        assert!(files::restore_file_apply(app.handle().clone(),app.state(),"s".into(),"file-changed-target".into(),"selected-file".into(),false,None,true,None).await.is_err());
+        files::restore_file_apply(app.handle().clone(),app.state(),"s".into(),"file-approved".into(),"selected-file".into(),true,None,true,Some("restore target".into())).await.unwrap();
+        assert!(files::restore_file_apply(app.handle().clone(),app.state(),"s".into(),"file-replay".into(),"selected-file".into(),true,None,true,Some("restore target".into())).await.is_err());
         source.close().await;
         app.state::<Host>()
             .session("s")

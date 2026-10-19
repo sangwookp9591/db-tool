@@ -1,0 +1,15 @@
+
+> axdb-ui@0.2.0 test /private/tmp/claude-501/-Users-iron-Project-psw-db-tool/1fe252ea-91ad-4737-8951-7e8f929f6ea0/scratchpad/r2-src/ui
+> vitest run
+
+
+ RUN  v5.0.4 /private/tmp/claude-501/-Users-iron-Project-psw-db-tool/1fe252ea-91ad-4737-8951-7e8f929f6ea0/scratchpad/r2-src/ui
+
+(node:75920) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+ Test Files  23 passed (23)
+      Tests  113 passed (113)
+   Start at  16:12:05
+   Duration  20.70s (tests 91%, import 8%, transform 1%)
+
