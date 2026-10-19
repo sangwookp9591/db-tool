@@ -1,0 +1,41 @@
+[
+  {
+    "name": "host",
+    "command": [
+      "cargo",
+      "test",
+      "-p",
+      "axdb"
+    ],
+    "exit": 0,
+    "seconds": 127.79194504200132
+  },
+  {
+    "name": "clippy",
+    "command": [
+      "cargo",
+      "clippy",
+      "-p",
+      "axdb",
+      "--all-targets",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "exit": 0,
+    "seconds": 62.60145841699705
+  },
+  {
+    "name": "tsc-probe",
+    "command": [
+      "pnpm",
+      "--dir",
+      "target-m4/source/ui",
+      "exec",
+      "tsc",
+      "--noEmit"
+    ],
+    "exit": 0,
+    "seconds": 1.029194250004366
+  }
+]

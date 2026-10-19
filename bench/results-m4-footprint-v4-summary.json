@@ -1,0 +1,43 @@
+{
+  "runs": [
+    {
+      "index": 0,
+      "mode": "replace",
+      "status": "failed",
+      "footprint_mib": {
+        "startup": 139.40975189208984,
+        "idle-10": 135.97222900390625,
+        "idle-60": 129.03472900390625,
+        "table-100000": 335.03504943847656,
+        "graph-300": 434.6289596557617,
+        "tabs-10": 488.14479064941406,
+        "tabs-closed": 496.62918853759766,
+        "tabs-closed-10": 338.51981353759766,
+        "recycled-ready": 161.44109344482422
+      },
+      "bridge_requests": 0,
+      "bridge_failed": 0,
+      "exit_verified": true,
+      "activation_2raf_ms": null,
+      "restoration": {
+        "sessions": true,
+        "tabs": 0,
+        "theme": "daylight",
+        "reload_ready_ms": 368,
+        "snapshot": true
+      },
+      "ready_delta_mib": {
+        "startup": 22.031341552734375,
+        "idle-10": 25.46886444091797,
+        "idle-60": 32.40636444091797
+      },
+      "ready_point_plus_50": {
+        "startup": true,
+        "idle-10": true,
+        "idle-60": true
+      },
+      "full_scenario_valid": false
+    }
+  ],
+  "pairs": []
+}

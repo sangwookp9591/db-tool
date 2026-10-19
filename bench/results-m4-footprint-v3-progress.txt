@@ -1,0 +1,41 @@
+control startup 199.2 True
+control idle-10 126.3 True
+control idle-60 119.4 True
+control table-100000 324.2 True
+control graph-300 453.0 True
+control tabs-10 519.2 True
+control tabs-closed 458.7 True
+control tabs-closed-10 366.1 True
+control recycled-ready 339.0 True
+control recycled-10 227.8 True
+control activated 284.1 True
+reload startup 130.1 True
+reload idle-10 130.4 True
+reload idle-60 125.3 True
+reload table-100000 332.0 True
+reload graph-300 425.5 True
+reload tabs-10 491.6 True
+reload tabs-closed 495.9 True
+reload tabs-closed-10 414.6 True
+reload recycled-ready 291.6 True
+reload recycled-10 266.1 True
+reload activated 333.2 True
+replace startup 128.9 True
+replace idle-10 133.2 True
+replace idle-60 122.9 True
+replace table-100000 323.5 True
+replace graph-300 427.7 True
+replace tabs-10 473.0 True
+replace tabs-closed 436.0 True
+replace tabs-closed-10 343.4 True
+replace recycled-ready 159.7 True
+replace recycled-10 134.8 True
+replace activated 220.0 True
+Traceback (most recent call last):
+  File "/Users/iron/Project/psw/db-tool/bench/m4_memory.py", line 179, in <module>
+    main(args)
+    ~~~~^^^^^^
+  File "/Users/iron/Project/psw/db-tool/bench/m4_memory.py", line 110, in main
+    assert row['placement']['moved'], 'Retina placement failed'
+           ~~~~~~~~~~~~~~~~^^^^^^^^^
+AssertionError: Retina placement failed

@@ -1,0 +1,138 @@
+{
+  "base_commit": "020d43414e4260fc00f9523d19ca16b691e5c285",
+  "variants": {
+    "v3": {
+      "patch": "bench/m4-prototype-v3.patch",
+      "patch_sha256": "90cdea25b982e2ca35f807f5b711175b9f5316755e10cb9c8e3a2e365534e680",
+      "source_sha256": {
+        "src-tauri/Cargo.toml": "9a7cca6359356c3f0e5d7ee286558cb135d916bca06e310e600f7b3cfe986cf2",
+        "src-tauri/src/lib.rs": "e3b5da4dfecbb57cde05f15bff48b5c5a94aa87e203763cdebaf7d9a6b8f0afc",
+        "src-tauri/src/m4_probe.rs": "c2e99296f77b4164840097f1b133468f50ad2777ce1943b2b4544558776608dd",
+        "ui/src/App.tsx": "86f729ea77ee8f3e682ae8b647ee2b3fd510eea687704794fd9b1e9a0a574ee7",
+        "ui/src/perf/resource.ts": "050d4deceb99777d729344a579e8ce82c52c5cd29ac8c5f174102c884b00a524"
+      },
+      "binary_sha256": "554ea20dbde9d55f93a469046c85108c9f9f539cede44f1b2def2363079fb6c3"
+    },
+    "v4": {
+      "patch": "bench/m4-prototype.patch",
+      "patch_sha256": "0c6cee8cc4b7342f75d8cc2c6aca2410d404b6fbd42158bcaf76ea100345008e",
+      "source_sha256": {
+        "src-tauri/Cargo.toml": "9a7cca6359356c3f0e5d7ee286558cb135d916bca06e310e600f7b3cfe986cf2",
+        "src-tauri/src/lib.rs": "e3b5da4dfecbb57cde05f15bff48b5c5a94aa87e203763cdebaf7d9a6b8f0afc",
+        "src-tauri/src/m4_probe.rs": "f383873a2b5d544e1f1bb099affc0c5516b708faa4287a2e318a6b3dd6417a18",
+        "ui/src/App.tsx": "86f729ea77ee8f3e682ae8b647ee2b3fd510eea687704794fd9b1e9a0a574ee7",
+        "ui/src/perf/resource.ts": "2db0492ec51b2a7e0cb239e20e154cb8ac28e7b3fda149bd4a2cd580f5198b36"
+      },
+      "binary_sha256": "00d09ef0c1ba536b9fd1576906c9e38b967e0813feb16d95bc79077ec8b453ff"
+    }
+  },
+  "driver_receipt": "bench/results-m3-install.json",
+  "rejected_pilot_test_fixture_cleanup": {
+    "fixture": "ResourceP1_1792428664380",
+    "deleted": true,
+    "app_exit_verified": true
+  },
+  "diagnostic_activation": {
+    "run": "footprint-v3",
+    "index": 3,
+    "before": "prepare-window",
+    "after": "prepare-window",
+    "external_activation": true,
+    "exclude_following_timing": true,
+    "mode": "control",
+    "note": "No activation was injected into the completed replacement run; command overlapped next control preparation."
+  },
+  "validation": [
+    {
+      "name": "host",
+      "command": [
+        "cargo",
+        "test",
+        "-p",
+        "axdb"
+      ],
+      "exit": 0,
+      "seconds": 127.79194504200132
+    },
+    {
+      "name": "clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "-p",
+        "axdb",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit": 0,
+      "seconds": 62.60145841699705
+    },
+    {
+      "name": "tsc-probe",
+      "command": [
+        "pnpm",
+        "--dir",
+        "target-m4/source/ui",
+        "exec",
+        "tsc",
+        "--noEmit"
+      ],
+      "exit": 0,
+      "seconds": 1.029194250004366
+    }
+  ],
+  "host_test_totals": {
+    "passed": 195,
+    "failed": 0,
+    "ignored": 7
+  },
+  "main_ui": {
+    "test_command": "pnpm --dir ui test",
+    "passed": 146,
+    "skipped": 1,
+    "test_exit": 0,
+    "tsc_command": "pnpm --dir ui exec tsc --noEmit",
+    "tsc_exit": 0,
+    "source_changed": false
+  },
+  "installed_driver_sha256": {
+    "postgres/0.2.0/bin/aarch64-apple-darwin/axdb-driver-postgres": "b65799b641a271f9604579e4d12fbc14b82d913807aeb421fb3d65d59433a713",
+    "neo4j/0.2.0/bin/aarch64-apple-darwin/axdb-driver-neo4j": "3de87b3b89d2b128f389e4e003758d16405766f8c5b5df009a491f1f8d2c78a2"
+  },
+  "tools_sha256": {
+    "bench/m4_memory.py": "b68da2936df81b2fbb004ccf2551fd3603c287726f4b12b1d3bad33d27c94d2e",
+    "bench/m4_summary.py": "3e88b4a5b8ea13ecf0253932e3906df4a824d205316b649c14140ab42d47069e",
+    "bench/resource_opt.py": "ceae664b60ee2c64eded9684d5ad2d0cdcd9ba4f058ee5b65f88abcac631a6a0"
+  },
+  "orphan_probe_cleanup": {
+    "pid": 16302,
+    "command": "/Users/iron/Project/psw/db-tool/target-m4/M4Probe.app/Contents/MacOS/axdb",
+    "parent_pid": 1,
+    "reason": "extra instance following diagnostic LaunchServices activation",
+    "terminated": true
+  },
+  "measured_collector_sha256": "c8c2d5168df8003ad08d7bc3942c9ff0236d4a1b34b4293e193ce7b21657d7ae",
+  "collector_pid_fix": {
+    "patch": "bench/m4-collector-pid.patch",
+    "note": "applied after measurements; PID-only native calibration passed without database work",
+    "validation": "bench/results-m4-pid-activation.json"
+  },
+  "final_cleanup": {
+    "owned_graph_fixture_labels": [
+      "ResourceP1_1792428664380",
+      "ResourceP1_1792429002540",
+      "ResourceP1_1792429236128",
+      "ResourceP1_1792429288743",
+      "ResourceP1_1792429521761",
+      "ResourceP1_1792429754995",
+      "ResourceP1_1792430254520",
+      "ResourceP1_1792430701228",
+      "ResourceP1_1792430934006"
+    ],
+    "remaining_nodes": 0,
+    "owned_native_processes": 0,
+    "recorded_driver_processes_remaining": 0
+  }
+}

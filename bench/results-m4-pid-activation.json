@@ -1,0 +1,30 @@
+{
+  "method": "verified PID only; no LaunchServices launch",
+  "config": "/private/var/folders/_p/fy8jj5b95c38w41rttwnnll40000gn/T/axdb-resource-m4-calibration-2qmxstym",
+  "host_pid": 63681,
+  "placement": {
+    "moved": true,
+    "screens": [
+      {
+        "scale": 2,
+        "x": 0,
+        "y": 65,
+        "width": 1512,
+        "height": 884,
+        "primaryHeight": 982
+      }
+    ],
+    "requested_scale": 2,
+    "position": [
+      10,
+      43
+    ],
+    "exit": 0,
+    "stdout": "10, 43, 1280, 800\n",
+    "stderr": ""
+  },
+  "stage": "prepare-window",
+  "database_work_started": false,
+  "duplicate_instance": false,
+  "exit_verified": true
+}

@@ -1,0 +1,21 @@
+control startup 123.8 True
+control idle-10 120.3 True
+control idle-60 113.0 True
+control table-100000 335.1 True
+control graph-300 440.7 True
+control tabs-10 479.2 True
+control tabs-closed 471.0 True
+control tabs-closed-10 377.3 True
+control recycled-ready 562.8 True
+control recycled-10 566.6 True
+control activated 586.4 True
+reload startup 203.4 True
+reload idle-10 131.6 True
+Traceback (most recent call last):
+  File "/Users/iron/Project/psw/db-tool/bench/m4_memory.py", line 177, in <module>
+    main(args)
+    ~~~~^^^^^^
+  File "/Users/iron/Project/psw/db-tool/bench/m4_memory.py", line 103, in main
+    time.sleep(.05)
+    ~~~~~~~~~~^^^^^
+KeyboardInterrupt

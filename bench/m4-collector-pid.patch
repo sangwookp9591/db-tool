@@ -1,0 +1,56 @@
+--- a/bench/m4_memory.py
++++ b/bench/m4_memory.py
+@@ -25,6 +25,18 @@
+ 
+ def total(point):
+     return sum(p['phys_footprint_bytes'] or 0 for p in point['processes'] if p['role'] in r2.ROLES) / 1024**2
++
++
++def activate_existing(bundle, pid):
++    expected = str(bundle/'Contents/MacOS/axdb')
++    assert r2.processes().get(pid, {}).get('command') == expected, 'Only the launched probe PID may be activated'
++    script = '''on run argv
++tell application "System Events"
++    set frontmost of (first application process whose unix id = (item 1 of argv as integer)) to true
++end tell
++end run'''
++    subprocess.run(['osascript', '-e', script, str(pid)], check=True, capture_output=True)
++    return r2.place_window(pid, 2)
+ 
+ 
+ def bridge_probe(discovery, stop, rows):
+@@ -106,7 +118,7 @@
+                     seen = state['checkpoint']
+                     stage = state['stage']
+                     if stage == 'prepare-window':
+-                        row['placement'] = r2.activate_window(bundle, app.pid, 2)
++                        row['placement'] = activate_existing(bundle, app.pid)
+                         assert row['placement']['moved'], 'Retina placement failed'
+                     if stage.startswith('prepare-'):
+                         assert r2.gate(stage, threshold=14)['passed']
+@@ -165,6 +177,7 @@
+     parser.add_argument('--self-check', action='store_true')
+     args = parser.parse_args()
+     if args.self_check:
++        from unittest.mock import patch
+         point = dict(load_before=10, ownership_count_check=True, role_counts={'WebContent': 1}, footprint_exit=0,
+                      processes=[dict(role='host', phys_footprint_bytes=1024**2), dict(role='driver-postgres', phys_footprint_bytes=1024**3)])
+         viewport = dict(width=1280, height=768, scale=2)
+@@ -173,6 +186,17 @@
+         assert not accepted({**point, 'role_counts': {'WebContent': 2}}, viewport)
+         assert not accepted(point, {**viewport, 'scale': 1})
+         assert not accepted({**point, 'processes': [dict(phys_footprint_bytes=None)]}, viewport)
++        with patch.object(r2, 'processes', return_value={1: dict(command='/unrelated/app')}), patch.object(subprocess, 'run') as launch:
++            try:
++                activate_existing(Path('/probe.app'), 1)
++            except AssertionError:
++                pass
++            else:
++                raise AssertionError('Unrelated PID accepted')
++            launch.assert_not_called()
++        with patch.object(r2, 'processes', return_value={1: dict(command='/probe.app/Contents/MacOS/axdb')}), patch.object(subprocess, 'run') as launch, patch.object(r2, 'place_window', return_value=dict(moved=True)):
++            assert activate_existing(Path('/probe.app'), 1)['moved']
++            assert launch.call_args.args[0][0] == 'osascript' and launch.call_args.args[0][-1] == '1'
+         print('M4 accounting self-check passed; no app launched')
+     else:
+         assert args.app and args.drivers and args.name

@@ -1,0 +1,11 @@
+{
+  "run": "footprint-v4",
+  "index": 0,
+  "before": "recycled-ready",
+  "stalled_seconds": 179.32732725143433,
+  "bridge_latency_ms": 48.95754199969815,
+  "after": "recycled-ready",
+  "error": "Hidden native wait exceeded 15 seconds",
+  "external_activation": false,
+  "single_read_request": true
+}

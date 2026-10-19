@@ -1,0 +1,173 @@
+--- a/src-tauri/Cargo.toml
++++ b/src-tauri/Cargo.toml
+@@ -38,7 +38,7 @@
+ tokio.workspace = true
+ tokio-util.workspace = true
+ mimalloc = { version = "=0.1.52", default-features = false }
+-tauri = { version = "2", features = [] }
++tauri = { version = "2", features = ["unstable"] }
+ tauri-plugin-dialog = "2.8.3"
+ tauri-plugin-updater = "2"
+ tauri-plugin-process = "2"
+--- a/src-tauri/src/lib.rs
++++ b/src-tauri/src/lib.rs
+@@ -1,3 +1,4 @@
++mod m4_probe;
+ pub mod net;
+ mod management;
+ pub mod backup_file;
+@@ -671,6 +672,7 @@
+             Ok(())
+         })
+         .invoke_handler(tauri::generate_handler![
++            m4_probe::m4_probe,
+             net::connection_parse,
+             net::connection_test_steps,
+             net::connection_host_key_confirm,
+@@ -768,7 +770,7 @@
+             permissions::agent_audit_list,
+             permissions::agent_approve_write
+         ])
+-        .build(tauri::generate_context!())
++        .build({ let mut context = tauri::generate_context!(); context.config_mut().app.windows[0].data_store_identifier = Some([109,52,119,101,98,107,105,116,109,101,109,111,114,121,1,9]); context })
+         .expect("Failed to build axdb")
+         .run(|app, event| {
+             if matches!(event, tauri::RunEvent::Exit) {
+--- /dev/null
++++ b/src-tauri/src/m4_probe.rs
+@@ -0,0 +1,61 @@
++//! Measurement only: this module is never linked into the product.
++use crate::{viewer_bench, CommandResult, DbError, Host};
++use serde_json::{json, Value};
++use std::sync::Mutex;
++use tauri::Manager;
++static SNAPSHOT: Mutex<Option<Value>> = Mutex::new(None);
++fn enabled(app: &tauri::AppHandle) -> CommandResult<()> {
++    if viewer_bench::viewer_bench_enabled() && app.config().identifier == "dev.axdb.m4probe" { Ok(()) }
++    else { Err(DbError::unsupported("Isolated M4 probe only")) }
++}
++#[tauri::command]
++pub async fn m4_probe(app: tauri::AppHandle, action: String, value: Option<Value>) -> CommandResult<Value> {
++    enabled(&app)?;
++    match action.as_str() {
++        "get" => Ok(SNAPSHOT.lock().unwrap().clone().unwrap_or(Value::Null)),
++        "mode" => Ok(json!(std::env::var("AXDB_M4_MODE").unwrap_or_else(|_| "control".into()))),
++        "activate" => {
++            let window = app.get_window("main").ok_or_else(|| DbError::internal("No main window"))?;
++            let since = std::time::Instant::now();
++            window.show().map_err(|_| DbError::internal("Cannot show probe"))?;
++            window.set_focus().map_err(|_| DbError::internal("Cannot focus probe"))?;
++            Ok(json!({"native_ms":since.elapsed().as_secs_f64()*1000.0}))
++        }
++        "arm" => {
++            let state = value.ok_or_else(|| DbError::query("Snapshot required"))?;
++            if state["ui"]["tabs"].as_array().is_none_or(|tabs| !tabs.is_empty()) || !app.state::<Host>().runs.lock().unwrap().is_empty() {
++                return Err(DbError::query("Probe still has tabs or running operations"));
++            }
++            *SNAPSHOT.lock().unwrap() = Some(state);
++            app.get_window("main").unwrap().hide().map_err(|_| DbError::internal("Cannot hide probe"))?;
++            tauri::async_runtime::spawn(async move {
++                tokio::time::sleep(std::time::Duration::from_secs(120)).await;
++                let result = recycle(&app);
++                if let Err(error) = result { let _ = crate::storage::write_private(&app.state::<Host>().paths.config.join("m4-error.json"), &serde_json::to_vec(&error).unwrap()); }
++            });
++            Ok(Value::Null)
++        }
++        _ => Err(DbError::query("Unknown probe action")),
++    }
++}
++fn recycle(app: &tauri::AppHandle) -> CommandResult<()> {
++    let window = app.get_window("main").ok_or_else(|| DbError::internal("No main window"))?;
++    if window.is_visible().unwrap_or(true) || window.is_focused().unwrap_or(true) || !app.state::<Host>().runs.lock().unwrap().is_empty() {
++        return Err(DbError::query("Probe became active or busy; recycle aborted"));
++    }
++    let mode = std::env::var("AXDB_M4_MODE").unwrap_or_default();
++    let started = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis();
++    SNAPSHOT.lock().unwrap().as_mut().unwrap()["recycle_at"] = json!(started);
++    if mode == "control" { return Ok(()); }
++    app.state::<crate::agent_bridge::Bridge>().loading(&app.state::<Host>().paths.config);
++    if mode == "reload" {
++        app.get_webview_window("main").ok_or_else(|| DbError::internal("No main webview window"))?.reload().map_err(|_| DbError::internal("Reload failed"))?;
++    } else if mode == "replace" {
++        app.get_webview("main").ok_or_else(|| DbError::internal("No main webview"))?.close().map_err(|_| DbError::internal("Close failed"))?;
++        let config = app.config().app.windows[0].clone();
++        let builder = tauri::webview::WebviewBuilder::from_config(&config);
++        let size = window.inner_size().map_err(|_| DbError::internal("No window size"))?;
++        window.add_child(builder, tauri::PhysicalPosition::new(0, 0), size).map_err(|_| DbError::internal("Replacement failed"))?;
++    } else { return Err(DbError::query("Invalid M4 mode")); }
++    Ok(())
++}
+--- a/ui/src/App.tsx
++++ b/ui/src/App.tsx
+@@ -1,3 +1,4 @@
++import { invoke as m4invoke } from '@tauri-apps/api/core';
+ import { DriverLogo } from './drivers/DriverLogo';
+ import { useCommandShortcut } from './ui/useCommandShortcut';
+ const PulseHeart = lazy(() => import('./ui/PulseHeart').then(m => ({ default: m.PulseHeart })));
+@@ -106,11 +107,15 @@
+   // One surface per error: connection-level errors get the global banner, everything else a persistent toast. Errors raised inside a tab (reportInTab) are shown by that tab's own banner.
+   function report(e: unknown, profileId?: string) { const normalized = normalizeError(e); if (normalized.kind === 'Connection') { setError(normalized); errorProfile.current = profileId ?? null; } else notify(normalized.message, "error"); if (normalized.kind === 'Connection' && profileId) setDead(previous => new Set([...previous, profileId])); }
+   function reportInTab(e: unknown, profileId: string) { if (normalizeError(e).kind === 'Connection') report(e, profileId); }
++  (window as any).__m4snapshot = () => ({ sessions:sessionsRef.current, serverInfo, sidebarOpen, sidebarWidth, historyOpen, graphLimit, theme, tabs:tabsRef.current.map(t=>({...t,text:t.text})) });
+   async function refreshProfiles() { setProfiles(await api('profiles_list', {})); }
+   async function refreshHistory() { try { setHistory(await api('history_list', { limit: 100 })); } catch (e) { report(e); } }
+   async function load() {
+     setLoaded(false); setError(null);
+-    try { const [d, p, h] = await Promise.all([api('drivers_list', {}), api('profiles_list', {}), api('history_list', { limit: 100 })]); setDrivers(d); setProfiles(p); setHistory(h); }
++    try { const [d, p, h] = await Promise.all([api('drivers_list', {}), api('profiles_list', {}), api('history_list', { limit: 100 })]); setDrivers(d); setProfiles(p); setHistory(h);
++      const saved = await m4invoke<any>('m4_probe', {action:'get',value:null});
++      if(saved?.ui) { const u=saved.ui; sessionsRef.current=u.sessions; setSessions(u.sessions); setServerInfo(u.serverInfo); setSidebarOpen(u.sidebarOpen); setSidebarWidth(u.sidebarWidth); setHistoryOpen(u.historyOpen); setGraphLimit(u.graphLimit); }
++    }
+     catch (e) { report(e); } finally { setLoaded(true); }
+   }
+   useEffect(() => { void load(); }, []);
+--- a/ui/src/perf/resource.ts
++++ b/ui/src/perf/resource.ts
+@@ -15,6 +15,8 @@
+   element.value = value; element.dispatchEvent(new Event('input', { bubbles: true })); element.dispatchEvent(new Event('change', { bubbles: true }));
+ }
+ export async function resourceBench(leak: boolean) {
++  const m4saved = await invoke<any>('m4_probe',{action:'get',value:null});
++  if(m4saved) { await m4resume(m4saved); return; }
+   let checkpoint = 0;
+   const report: Record<string, unknown> = { target: 'resource', leak, userAgent: navigator.userAgent };
+   async function sample(stage: string, iteration = 0) {
+@@ -113,6 +115,12 @@
+     while (app.querySelectorAll('.workspace-tab').length < 10) { await open(tableSession, 'SELECT i FROM generate_series(1,1000) i'); await run(1000); }
+     app.querySelector<HTMLButtonElement>('.workspace-tab [role=tab]')!.click(); await frame(); await frame(); await run(100000);
+     await sample('tabs-10'); await sample('prepare-close'); const closedAt = performance.now(); await close(); await sample('tabs-closed'); await pause(Math.max(0, closedAt + 10000 - performance.now())); await sample('tabs-closed-10');
++    report.m4 = true;
++    const ui=(window as any).__m4snapshot();
++    await invoke('m4_probe',{action:'arm',value:{report,ui,profiles,sessions,label,graphSession,checkpoint}});
++    const mode=await invoke<string>('m4_probe',{action:'mode',value:null});
++    if(mode==='control') { await pause(120100); await m4resume(await invoke('m4_probe',{action:'get',value:null})); }
++    await new Promise(()=>{});
+     if (leak) {
+       await sample('prepare-repeat-query');
+       await open(tableSession, sql);
+@@ -134,3 +142,25 @@
+     await invoke('viewer_bench_write', { report });
+   }
+ }
++
++async function m4resume(saved:any) {
++  const report=saved.report;
++  let checkpoint=saved.checkpoint;
++  const sample=async(stage:string)=>{ Object.assign(report,{stage,checkpoint:++checkpoint,viewport:{width:innerWidth,height:innerHeight,scale:devicePixelRatio}});await invoke('viewer_bench_write',{report});await invoke('viewer_bench_checkpoint',{checkpoint}); };
++  try {
++    await waitFor(()=>!!window.axdb?.agent && document.querySelectorAll('.connection .status-dot.connected').length===saved.sessions.length);
++    report.restoration={sessions:JSON.stringify((window as any).__m4snapshot().sessions)===JSON.stringify(saved.ui.sessions),tabs:document.querySelectorAll('.workspace-tab').length,theme:document.documentElement.dataset.theme,reload_ready_ms:Date.now()-saved.recycle_at};
++    const current=(window as any).__m4snapshot();
++    report.restoration.snapshot=Object.keys(saved.ui).every(key=>JSON.stringify(current[key])===JSON.stringify(saved.ui[key]));
++    if(!report.restoration.sessions || !report.restoration.snapshot || report.restoration.tabs!==0) throw new Error('M4 workspace snapshot did not restore');
++    for(const sessionId of saved.sessions) await api('session_info',{sessionId});
++    await sample('recycled-ready'); await pause(10000); await sample('recycled-10');
++    const since=performance.now();await invoke('m4_probe',{action:'activate',value:null});await frame();await frame();report.activation_2raf_ms=performance.now()-since;
++    await sample('activated');
++    await api('execute',{sessionId:saved.graphSession,runId:crypto.randomUUID(),req:{text:`MATCH (n:${saved.label}) DETACH DELETE n`,params:{},row_limit:100000,graph_node_limit:300,timeout_ms:60000}});
++    for(const sessionId of saved.sessions) await api('session_close',{sessionId});
++    for(const profileId of saved.profiles) await api('profile_delete',{profileId});
++    report.complete=true;
++  } catch(error) {report.complete=false;report.error=error instanceof Error?error.message:String(error);}
++  await invoke('viewer_bench_write',{report});
++}

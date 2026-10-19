@@ -466,3 +466,11 @@ SwipeRow의 최초 effect cleanup이 actions/icon VNode를 통해 과거 App과 
 Native는 격리된 dev/debug=0 앱, 1280×768/DPR2, load≤14와 짝 차이≤3의 **지점별** 판정이다. raw 전체 쌍의 제외 플래그를 수정하지 않았으며 startup 등 실패 지점은 따로 제외했다. 두 앱의 모든 프로세스 종료를 확인했다. JS 참조 제거는 재현됐지만 일관된 native 감소·엔진 내부 원인·release 결과는 확정하지 않는다. host 194 passed/7 ignored, clippy -D warnings, 최신 UI 146 passed/1 skipped, tsc를 통과했다.
 
 [M3 보고서](M3_REPORT.md) · [소유 경로·크기·검증](M3_RETAINERS.md) · [Chromium 영수증](../bench/results-m3-artifacts.json) · [Native 5쌍 집계](../bench/results-m3-native-summary.json).
+
+## M4: 안전 시점 WebView 재활용 평가 (2026-10-20)
+
+**제품 미채택.** 같은 native 창의 WebView 교체는 WebContent PID를 바꾸고 앱 footprint를 시작 +30.8MiB / +22.0MiB로 낮춰 두 준비 완료 지점에서 +50MiB 목표에 들어왔다. 호스트 세션과 저장한 UI 스냅숏도 유지했다. 그러나 조용한 숨김 상태에서 후속 비동기 대기가 103.8초 / 177.3초로 지연돼, 비활성 상태에서 안정적으로 끝난다는 조건은 통과하지 못했다. reload는 같은 PID를 유지했고 추가 10초 뒤 시작 +136.0MiB로 목표에 미달했다.
+
+MCP 읽기 부하 진단은 별도 비점수 회차다. reload/교체 각각 840건, 실패 0건이었지만 이 부하 자체가 호출 기록 UI와 footprint에 영향을 주므로 무부하 R2/L1 점수에 합치지 않는다. cold GPU가 높은 시작값, 교체 뒤 실제 103.8초가 걸린 '10초' 표본과 진단 활성화가 겹친 대조군의 창 배치 실패도 분리했다. 첫 페인트 무지연이나 깜빡임 부재를 검증한 결과가 아니다.
+
+제품 소스와 설정은 변경하지 않았다. 전용 dev/debug=0 앱과 target-m4만 사용했다. 호스트 195 passed / 7 ignored, clippy -D warnings, 제품 UI 146 passed / 1 skipped, 제품/실험 tsc는 통과했으나 조용한 교체 native E2E는 실패했다. [M4 보고서](M4_REPORT.md) · [상세 판정·재현](M4_WEBVIEW_RECYCLE.md) · [v3 짝 집계](../bench/results-m4-footprint-v3-summary.json) · [v4 진행 실패](../bench/results-m4-footprint-v4.json) · [MCP 진단](../bench/results-m4-bridge-v4.json) · [검증 명세](../bench/results-m4-validation.json).

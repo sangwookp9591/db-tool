@@ -1,0 +1,17 @@
+replace startup 139.4 True
+replace idle-10 136.0 True
+replace idle-60 129.0 True
+replace table-100000 335.0 True
+replace graph-300 434.6 True
+replace tabs-10 488.1 True
+replace tabs-closed 496.6 True
+replace tabs-closed-10 338.5 True
+replace recycled-ready 161.4 True
+Traceback (most recent call last):
+  File "/Users/iron/Project/psw/db-tool/bench/m4_memory.py", line 179, in <module>
+    main(args)
+    ~~~~^^^^^^
+  File "/Users/iron/Project/psw/db-tool/bench/m4_memory.py", line 100, in main
+    assert state['complete'], state.get('error')
+           ~~~~~^^^^^^^^^^^^
+AssertionError: Hidden native wait exceeded 15 seconds

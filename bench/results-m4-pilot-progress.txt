@@ -1,0 +1,16 @@
+control startup 125.8 True
+control idle-10 123.9 True
+control idle-60 117.1 True
+control table-100000 338.7 True
+control graph-300 433.6 True
+control tabs-10 480.9 True
+control tabs-closed 477.1 True
+control tabs-closed-10 378.1 True
+Traceback (most recent call last):
+  File "/Users/iron/Project/psw/db-tool/bench/m4_memory.py", line 177, in <module>
+    main(args)
+    ~~~~^^^^^^
+  File "/Users/iron/Project/psw/db-tool/bench/m4_memory.py", line 99, in main
+    assert state['complete'], state.get('error')
+           ~~~~~^^^^^^^^^^^^
+AssertionError: Resource benchmark UI timeout

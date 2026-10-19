@@ -1,0 +1,111 @@
+{
+  "runs": [
+    {
+      "index": 0,
+      "mode": "reload",
+      "status": "complete",
+      "footprint_mib": {
+        "startup": 127.28463745117188,
+        "idle-10": 125.00338745117188,
+        "idle-60": 118.06588745117188,
+        "table-100000": 323.94136810302734,
+        "graph-300": 430.0196304321289,
+        "tabs-10": 470.19173431396484,
+        "tabs-closed": 431.05110931396484,
+        "tabs-closed-10": 335.37923431396484,
+        "recycled-ready": 382.6605987548828,
+        "recycled-10": 370.0512237548828,
+        "activated": 391.1605987548828
+      },
+      "bridge_requests": 840,
+      "bridge_failed": 0,
+      "exit_verified": true,
+      "activation_2raf_ms": 106,
+      "restoration": {
+        "sessions": true,
+        "tabs": 0,
+        "theme": "daylight",
+        "reload_ready_ms": 143,
+        "snapshot": true
+      },
+      "ten_second_stage_valid": true,
+      "post_ready_wait_seconds": 12.172746541000379,
+      "ready_delta_mib": {
+        "startup": 255.37596130371094,
+        "idle-10": 257.65721130371094,
+        "idle-60": 264.59471130371094
+      },
+      "ready_point_plus_50": {
+        "startup": false,
+        "idle-10": false,
+        "idle-60": false
+      },
+      "full_scenario_valid": true,
+      "delta_mib": {
+        "startup": 242.76658630371094,
+        "idle-10": 245.04783630371094,
+        "idle-60": 251.98533630371094
+      },
+      "plus_50_valid": {
+        "startup": false,
+        "idle-10": false,
+        "idle-60": false
+      },
+      "webcontent_pid_changed": false
+    },
+    {
+      "index": 1,
+      "mode": "replace",
+      "status": "complete",
+      "footprint_mib": {
+        "startup": 193.37857055664062,
+        "idle-10": 132.44107055664062,
+        "idle-60": 122.65982055664062,
+        "table-100000": 323.1758346557617,
+        "graph-300": 443.1916198730469,
+        "tabs-10": 481.3324737548828,
+        "tabs-closed": 477.4418487548828,
+        "tabs-closed-10": 416.6293487548828,
+        "recycled-ready": 220.58187866210938,
+        "recycled-10": 200.61315155029297,
+        "activated": 244.03507232666016
+      },
+      "bridge_requests": 840,
+      "bridge_failed": 0,
+      "exit_verified": true,
+      "activation_2raf_ms": 93,
+      "restoration": {
+        "sessions": true,
+        "tabs": 0,
+        "theme": "daylight",
+        "reload_ready_ms": 392,
+        "snapshot": true
+      },
+      "ten_second_stage_valid": true,
+      "post_ready_wait_seconds": 12.002540666995628,
+      "ready_delta_mib": {
+        "startup": 27.20330810546875,
+        "idle-10": 88.14080810546875,
+        "idle-60": 97.92205810546875
+      },
+      "ready_point_plus_50": {
+        "startup": true,
+        "idle-10": false,
+        "idle-60": false
+      },
+      "full_scenario_valid": true,
+      "delta_mib": {
+        "startup": 7.234580993652344,
+        "idle-10": 68.17208099365234,
+        "idle-60": 77.95333099365234
+      },
+      "plus_50_valid": {
+        "startup": true,
+        "idle-10": false,
+        "idle-60": false
+      },
+      "webcontent_pid_changed": true
+    }
+  ],
+  "pairs": []
+}

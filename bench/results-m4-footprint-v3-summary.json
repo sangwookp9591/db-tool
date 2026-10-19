@@ -1,0 +1,365 @@
+{
+  "runs": [
+    {
+      "index": 0,
+      "mode": "control",
+      "status": "complete",
+      "footprint_mib": {
+        "startup": 199.23789978027344,
+        "idle-10": 126.28477478027344,
+        "idle-60": 119.36289978027344,
+        "table-100000": 324.17576599121094,
+        "graph-300": 453.0353012084961,
+        "tabs-10": 519.1917572021484,
+        "tabs-closed": 458.72300720214844,
+        "tabs-closed-10": 366.08238220214844,
+        "recycled-ready": 338.98815155029297,
+        "recycled-10": 227.83192443847656,
+        "activated": 284.12889099121094
+      },
+      "bridge_requests": 0,
+      "bridge_failed": 0,
+      "exit_verified": true,
+      "activation_2raf_ms": 101,
+      "restoration": {
+        "sessions": true,
+        "tabs": 0,
+        "theme": "daylight",
+        "reload_ready_ms": 299,
+        "snapshot": true
+      },
+      "ten_second_stage_valid": true,
+      "post_ready_wait_seconds": 12.197228874996654,
+      "ready_delta_mib": {
+        "startup": 139.75025177001953,
+        "idle-10": 212.70337677001953,
+        "idle-60": 219.62525177001953
+      },
+      "ready_point_plus_50": {
+        "startup": false,
+        "idle-10": false,
+        "idle-60": false
+      },
+      "full_scenario_valid": true,
+      "delta_mib": {
+        "startup": 28.594024658203125,
+        "idle-10": 101.54714965820312,
+        "idle-60": 108.46902465820312
+      },
+      "plus_50_valid": {
+        "startup": true,
+        "idle-10": false,
+        "idle-60": false
+      },
+      "webcontent_pid_changed": false
+    },
+    {
+      "index": 1,
+      "mode": "reload",
+      "status": "complete",
+      "footprint_mib": {
+        "startup": 130.12850189208984,
+        "idle-10": 130.39412689208984,
+        "idle-60": 125.25350189208984,
+        "table-100000": 331.95701599121094,
+        "graph-300": 425.4883575439453,
+        "tabs-10": 491.62923431396484,
+        "tabs-closed": 495.94173431396484,
+        "tabs-closed-10": 414.61360931396484,
+        "recycled-ready": 291.55106353759766,
+        "recycled-10": 266.06668853759766,
+        "activated": 333.17608642578125
+      },
+      "bridge_requests": 0,
+      "bridge_failed": 0,
+      "exit_verified": true,
+      "activation_2raf_ms": 90,
+      "restoration": {
+        "sessions": true,
+        "tabs": 0,
+        "theme": "daylight",
+        "reload_ready_ms": 129,
+        "snapshot": true
+      },
+      "ten_second_stage_valid": true,
+      "post_ready_wait_seconds": 12.240795333003916,
+      "ready_delta_mib": {
+        "startup": 161.4225616455078,
+        "idle-10": 161.1569366455078,
+        "idle-60": 166.2975616455078
+      },
+      "ready_point_plus_50": {
+        "startup": false,
+        "idle-10": false,
+        "idle-60": false
+      },
+      "full_scenario_valid": true,
+      "delta_mib": {
+        "startup": 135.9381866455078,
+        "idle-10": 135.6725616455078,
+        "idle-60": 140.8131866455078
+      },
+      "plus_50_valid": {
+        "startup": false,
+        "idle-10": false,
+        "idle-60": false
+      },
+      "webcontent_pid_changed": false
+    },
+    {
+      "index": 2,
+      "mode": "replace",
+      "status": "complete",
+      "footprint_mib": {
+        "startup": 128.92544555664062,
+        "idle-10": 133.19107055664062,
+        "idle-60": 122.86292266845703,
+        "table-100000": 323.53516387939453,
+        "graph-300": 427.7071762084961,
+        "tabs-10": 472.95738220214844,
+        "tabs-closed": 435.95738220214844,
+        "tabs-closed-10": 343.42613220214844,
+        "recycled-ready": 159.7067413330078,
+        "recycled-10": 134.8004913330078,
+        "activated": 220.0192642211914
+      },
+      "bridge_requests": 0,
+      "bridge_failed": 0,
+      "exit_verified": true,
+      "activation_2raf_ms": 242,
+      "restoration": {
+        "sessions": true,
+        "tabs": 0,
+        "theme": "daylight",
+        "reload_ready_ms": 382,
+        "snapshot": true
+      },
+      "ten_second_stage_valid": false,
+      "post_ready_wait_seconds": 103.87675991599826,
+      "ready_delta_mib": {
+        "startup": 30.781295776367188,
+        "idle-10": 26.515670776367188,
+        "idle-60": 36.84381866455078
+      },
+      "ready_point_plus_50": {
+        "startup": true,
+        "idle-10": true,
+        "idle-60": true
+      },
+      "full_scenario_valid": false,
+      "delta_mib": {
+        "startup": 5.8750457763671875,
+        "idle-10": 1.6094207763671875,
+        "idle-60": 11.937568664550781
+      },
+      "plus_50_valid": {
+        "startup": false,
+        "idle-10": false,
+        "idle-60": false
+      },
+      "webcontent_pid_changed": true
+    },
+    {
+      "index": 3,
+      "mode": "control",
+      "status": "failed",
+      "footprint_mib": {},
+      "bridge_requests": 0,
+      "bridge_failed": 0,
+      "exit_verified": true,
+      "activation_2raf_ms": null,
+      "restoration": null,
+      "full_scenario_valid": false
+    }
+  ],
+  "pairs": [
+    {
+      "control": 0,
+      "candidate": 1,
+      "points": [
+        {
+          "stage": "startup",
+          "load_delta": 0.904296875,
+          "accepted": true,
+          "control_mib": 199.23789978027344,
+          "candidate_mib": 130.12850189208984,
+          "delta_mib": -69.1093978881836
+        },
+        {
+          "stage": "idle-10",
+          "load_delta": 0.0498046875,
+          "accepted": true,
+          "control_mib": 126.28477478027344,
+          "candidate_mib": 130.39412689208984,
+          "delta_mib": 4.109352111816406
+        },
+        {
+          "stage": "idle-60",
+          "load_delta": 1.08349609375,
+          "accepted": true,
+          "control_mib": 119.36289978027344,
+          "candidate_mib": 125.25350189208984,
+          "delta_mib": 5.890602111816406
+        },
+        {
+          "stage": "table-100000",
+          "load_delta": 0.51611328125,
+          "accepted": true,
+          "control_mib": 324.17576599121094,
+          "candidate_mib": 331.95701599121094,
+          "delta_mib": 7.78125
+        },
+        {
+          "stage": "graph-300",
+          "load_delta": 0.71484375,
+          "accepted": true,
+          "control_mib": 453.0353012084961,
+          "candidate_mib": 425.4883575439453,
+          "delta_mib": -27.54694366455078
+        },
+        {
+          "stage": "tabs-10",
+          "load_delta": 0.8974609375,
+          "accepted": true,
+          "control_mib": 519.1917572021484,
+          "candidate_mib": 491.62923431396484,
+          "delta_mib": -27.562522888183594
+        },
+        {
+          "stage": "tabs-closed",
+          "load_delta": 0.82568359375,
+          "accepted": true,
+          "control_mib": 458.72300720214844,
+          "candidate_mib": 495.94173431396484,
+          "delta_mib": 37.218727111816406
+        },
+        {
+          "stage": "tabs-closed-10",
+          "load_delta": 1.3203125,
+          "accepted": true,
+          "control_mib": 366.08238220214844,
+          "candidate_mib": 414.61360931396484,
+          "delta_mib": 48.531227111816406
+        },
+        {
+          "stage": "recycled-ready",
+          "load_delta": 1.30859375,
+          "accepted": true,
+          "control_mib": 338.98815155029297,
+          "candidate_mib": 291.55106353759766,
+          "delta_mib": -47.43708801269531
+        },
+        {
+          "stage": "recycled-10",
+          "load_delta": 1.33251953125,
+          "accepted": true,
+          "control_mib": 227.83192443847656,
+          "candidate_mib": 266.06668853759766,
+          "delta_mib": 38.234764099121094
+        },
+        {
+          "stage": "activated",
+          "load_delta": 1.33251953125,
+          "accepted": true,
+          "control_mib": 284.12889099121094,
+          "candidate_mib": 333.17608642578125,
+          "delta_mib": 49.04719543457031
+        }
+      ]
+    },
+    {
+      "control": 0,
+      "candidate": 2,
+      "points": [
+        {
+          "stage": "startup",
+          "load_delta": 2.26904296875,
+          "accepted": true,
+          "control_mib": 199.23789978027344,
+          "candidate_mib": 128.92544555664062,
+          "delta_mib": -70.31245422363281
+        },
+        {
+          "stage": "idle-10",
+          "load_delta": 1.52685546875,
+          "accepted": true,
+          "control_mib": 126.28477478027344,
+          "candidate_mib": 133.19107055664062,
+          "delta_mib": 6.9062957763671875
+        },
+        {
+          "stage": "idle-60",
+          "load_delta": 0.89306640625,
+          "accepted": true,
+          "control_mib": 119.36289978027344,
+          "candidate_mib": 122.86292266845703,
+          "delta_mib": 3.5000228881835938
+        },
+        {
+          "stage": "table-100000",
+          "load_delta": 0.94580078125,
+          "accepted": true,
+          "control_mib": 324.17576599121094,
+          "candidate_mib": 323.53516387939453,
+          "delta_mib": -0.6406021118164062
+        },
+        {
+          "stage": "graph-300",
+          "load_delta": 0.82275390625,
+          "accepted": true,
+          "control_mib": 453.0353012084961,
+          "candidate_mib": 427.7071762084961,
+          "delta_mib": -25.328125
+        },
+        {
+          "stage": "tabs-10",
+          "load_delta": 0.89306640625,
+          "accepted": true,
+          "control_mib": 519.1917572021484,
+          "candidate_mib": 472.95738220214844,
+          "delta_mib": -46.234375
+        },
+        {
+          "stage": "tabs-closed",
+          "load_delta": 0.7763671875,
+          "accepted": true,
+          "control_mib": 458.72300720214844,
+          "candidate_mib": 435.95738220214844,
+          "delta_mib": -22.765625
+        },
+        {
+          "stage": "tabs-closed-10",
+          "load_delta": 1.3583984375,
+          "accepted": true,
+          "control_mib": 366.08238220214844,
+          "candidate_mib": 343.42613220214844,
+          "delta_mib": -22.65625
+        },
+        {
+          "stage": "recycled-ready",
+          "load_delta": 2.46630859375,
+          "accepted": true,
+          "control_mib": 338.98815155029297,
+          "candidate_mib": 159.7067413330078,
+          "delta_mib": -179.28141021728516
+        },
+        {
+          "stage": "recycled-10",
+          "load_delta": 1.41064453125,
+          "accepted": false,
+          "control_mib": 227.83192443847656,
+          "candidate_mib": 134.8004913330078,
+          "delta_mib": -93.03143310546875
+        },
+        {
+          "stage": "activated",
+          "load_delta": 1.41064453125,
+          "accepted": false,
+          "control_mib": 284.12889099121094,
+          "candidate_mib": 220.0192642211914,
+          "delta_mib": -64.10962677001953
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "reason": "hidden replacement did not progress after ready checkpoint",
+  "stage": "recycled-ready",
+  "stalled_seconds": 31.964071035385132,
+  "checkpoint": 14,
+  "ack": "abort",
+  "stop_method": "collector observed UI failure and exited; no interrupt was sent",
+  "error": "Hidden native wait exceeded 15 seconds",
+  "exit_verified": true
+}
