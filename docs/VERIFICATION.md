@@ -16,7 +16,7 @@
 | 5 | 세 번째 DB를 실제 연결 가능한 플러그인으로 추가 | 충족 | SQLite, 커밋 `3e09c82` |
 | 6 | 공통 UI의 DB별 조건문을 늘리지 않음 | 충족 | `3e09c82`의 diff에서 `ui/`, `dbcore`, 기존 드라이버 변경 0. UI 소스의 DB id 문자열 비교 grep 0건 |
 | 7 | 새 DB 플러그인 개발 방법과 최소 예제 | 충족 | [PLUGIN_GUIDE.md](PLUGIN_GUIDE.md), `crates/driver-example-kv`(컴파일·테스트됨, 앱에는 미등록) |
-| 8 | 실행·빌드 방법, 검증 결과, 성능, 한계 | 이 문서와 README | 성능 비교는 5절 |
+| 8 | 실행·빌드 방법, 검증 결과, 성능, 한계 | 이 문서와 README | 성능은 5절 |
 
 ## 2. 타입과 결과 표시 (실제 앱)
 
@@ -85,31 +85,11 @@
 - Connect(연결과 첫 트리 표시 포함)는 p50 134ms다.
 - +/선택 단계의 IPC는 0회다.
 
-**Tabularis 0.28.0과의 비교([COMPARE.md](../bench/COMPARE.md), 부하 게이트 통과 표본만)**
-- big 쿼리 첫 행: 221ms 대 163ms. 기본 행 수가 500 대 1,000으로 달라 처리량 비교로 일반화하지 않는다.
-- 결과 표시 후 footprint: 428 대 187MB
-- **동일 한도 비교(W9, 조건마다 5쌍, 40개 표본 모두 유효):**
-  - 생성 쿼리 100,000행: 첫 행 549 대 332ms, footprint 974 대 255MiB, CPU 217 대 73%. 전체 결과 수 표시는 549 대 551ms로 비슷하다.
-  - 1,000행: 첫 행 214 대 159ms, footprint 432 대 178MiB
-  - 자세한 내용은 [COMPARE.md](../bench/COMPARE.md#생성-쿼리와-동일-한도-비교-w9-2026-10-16)
-- 60초 유휴 RSS: 278 대 198MiB
-- 60초 유휴 footprint: 140 대 81MiB
-- 유휴 CPU: 둘 다 0.1% 미만
-- `.app` 크기: 32.1 대 11.9MiB
-
 **메모리 최적화([RESOURCE_OPT.md](RESOURCE_OPT.md))**
 - 같은 10만 행 쿼리를 50회 반복할 때 host footprint가 계속 늘었다. 원인을 macOS 시스템 malloc의 빈 페이지 보존으로 확인했다(살아 있는 힙은 11MB).
 - mimalloc을 purge 즉시 모드로 적용했다. 50회 후 host footprint는 696 → 63MiB, 앱 전체 footprint는 1,466 → 383MiB가 됐다.
 - 대가는 유휴 host +4MiB다. 처리 시간과 유휴 CPU는 같았다.
 - 측정했지만 이득이 일관되지 않아 적용하지 않은 것: Tokio worker 2·4개, secure mimalloc, opt-level s/z, 결과 보조 참조 해제
-
-**"Choose a database"가 느린 이유(Tabularis)**
-- 이 문구는 Tabularis `NewConnectionModal.tsx`에 있다. 모달은 `fetch_plugin_registry`를 거친다.
-  - 원격 목록 API(실측 1.8~1.9초, 68KB)를 받는다.
-  - 플러그인 20개의 상세를 8개씩 병렬로 요청한다(각 0.4~1.7초).
-  - 레거시 `registry.json`을 병합한다.
-  - 이 과정 때문에 표시까지 약 3~5초가 걸린다. 내장 PG 드라이버가 deprecated라 `postgresql` 플러그인 다운로드 경로도 탄다.
-- AxDB는 로컬 레지스트리를 쓰고 원격 호출이 없다. `drivers_list`는 warm 상태에서 1ms다.
 
 ## 6. 남은 한계
 
@@ -142,7 +122,7 @@
     - PG·Mongo 실제 DB 테스트: `rosetta error: invalid gdt selector`로 중단됐다. x86 Wine을 Rosetta로 실행할 때의 에뮬레이터 한계로 보인다. 실제 Windows에서 확인해야 한다.
     - 처음 Neo4j가 실패한 원인은 디스크 부족 때 테스트 Neo4j 컨테이너가 비정상 종료(Exited 134)된 것이었다. Wine 안에서 일반 TCP 연결조차 거부되는 것으로 확인했고, 컨테이너를 재시작하자 원래의 3초 연결 제한으로 통과했다.
   - Linux는 Docker `rust:1.94-bookworm`(aarch64, host 네트워크)에서 최종 트리로 확인했다. release 빌드에 성공했고, 실제 PG·Neo4j·Mongo·SQLite·Redis와 TLS 컨테이너 3개에 연결한 전체 테스트가 **80/80 통과**했다. Linux GUI 화면은 띄우지 않았다.
-- 외부 프로세스(JSON-RPC) 플러그인은 구현하지 않았다(ADR-0001). 드라이버는 컴파일 시 등록한다.
+- 이 문서의 측정과 E2E는 드라이버를 앱에 내장하던 0.1.x 기준이다. 0.2.0은 드라이버를 외부 프로세스로 분리한 설치형 구조([ADR-0003](adr/0003-installable-drivers.md))이며, 분리 비용과 플러그인 경로의 실DB 계약 테스트는 [P1 보고서](P1_PLUGIN_REPORT.md)에 있다.
 - 키체인: GUI 쓰기 경로는 실제 OS 키체인 왕복 테스트(`real_os_keychain_roundtrip`, 명시 실행)로 대신 검증했다. E2E는 debug 전용 `AXDB_DEV_SECRET_STORE`를 썼고, 이 경로는 release에서 컴파일되지 않는다. 배포하려면 코드 서명이 필요하다.
 - timestamptz는 서버 세션 TZ 기준 원문으로 표시한다.
 - MongoDB 관계는 FK가 아니라 샘플(최대 200문서) 기반 추론이다(`inferred_reference`, 뷰 `$lookup`은 `view_lookup`). 컬렉션이 100개를 넘으면 ERD 요청을 거부한다.
@@ -167,7 +147,7 @@
 | 4 권한·읽기 전용 | 에이전트 읽기 전용 + 승인 (재사용) | **연결별 read_only**(host 강제), **클라이언트별 권한 프로필**(A1) | permissions-e2e 13/13 |
 | 5 MCP 권한 | 단일 토큰 브리지 (재사용) | **범위 토큰**(해시 저장), 연결별 none/read/preview/write_with_approval, 허용 도구, 감사 로그, 회전·폐기 | 13/13 + 외부 에이전트 시나리오 |
 | 6 AI 지원 | 없음 | **맥락 MCP 도구 3종**, 선택 기능 Anthropic 도우미(기본 꺼짐, 생성 쿼리는 실행하지 않음)(AI1/AI1b) | [시나리오](../bench/results-ai-agent-scenario.md). 실제 API 호출은 미검증 |
-| 7 성능·보안·리소스 | W4·W8 (재사용) | **host 메모리 보존 문제 해결(mimalloc purge 0)**, 연결 추가 흐름 분해, Tabularis 유휴 재비교 | 5절 |
+| 7 성능·보안·리소스 | W4·W8 (재사용) | **host 메모리 보존 문제 해결(mimalloc purge 0)**, 연결 추가 흐름 분해 | 5절 |
 | 7 보안: TLS | 미검증 | **PG `sslmode=require`가 자체 서명 서버에 연결하지 못하던 결함 수정**(libpq 의미로 변경). `verify-ca`/`verify-full`과 `sslrootcert` 추가. Neo4j `+ssc`와 CA 파일, Mongo `tls`/`tlsCAFile` 필드 추가. Rustls provider panic 수정(M2) | TLS 전용 컨테이너 3개에서 모드별 성공/실패 매트릭스와 `pg_stat_ssl` 확인 |
 | 7 정확성 | — | **PG 미리보기가 다른 세션의 동시 DDL에 영향받던 결함 수정**(다른 세션 임시 스키마 제외, savepoint 재시도). 재현 후 회귀 테스트 추가(수정 전 실패, 수정 후 통과). **PG 취소 뒤 드라이버가 연 트랜잭션이 중단 상태로 남던 경로 수정**(drain 단계 25P02에서 ROLLBACK) | 재현: 동시 DDL 중 스냅숏 300회에서 오류 10회 이상, 수정 후 0 |
 | 7 플랫폼 | macOS만 | Linux(Docker aarch64) release 빌드와 실제 DB·TLS 테스트 80/80. **Windows 빌드를 막던 icon.ico 누락 수정**, Windows exe 크로스 빌드 + Wine 부분 실행 | 6절 |

@@ -57,7 +57,7 @@
   },
   "cleanup": {
     "spawned_idle_host_pids_exited": true,
-    "tabularis_settings_restored": true,
+    "reference_settings_restored": true,
     "preserved_settings_backups_remaining": 0,
     "remaining_test_neo4j_p1_nodes": 0,
     "neo4j_verification": "MATCH nodes whose label starts ResourceP1_: count = 0"

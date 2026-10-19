@@ -5,15 +5,23 @@
 ```
 Cargo workspace
   crates/dbcore            계약: Driver/Session trait, Manifest, Value, ResultSet, Explorer, Error, Registry
-  crates/driver-postgres   tokio-postgres
-  crates/driver-neo4j      neo4rs (Bolt)
-  crates/driver-sqlite     rusqlite (세 번째 DB: 확장성 검증용)
-  src-tauri                호스트: 프로필/키체인/세션/실행/이력/로그, Tauri commands
-ui/                        Vite + Preact + TypeScript, CodeMirror 6, 가상 테이블, 캔버스 그래프
+  crates/driver-protocol   드라이버 프로세스 프로토콜 (길이 접두사 + MessagePack 프레임)
+  crates/driver-sdk        axdb_driver_sdk::serve(driver): Driver를 플러그인 실행 파일로 만든다
+  crates/driver-package    .axdriver 패키지, 서명된 목록(index.json): 생성·검증·안전한 압축 해제
+  crates/driver-postgres   tokio-postgres          ┐
+  crates/driver-neo4j      neo4rs (Bolt)           │ 각각 src/bin/axdb-driver-<id>.rs 진입점으로
+  crates/driver-sqlite     rusqlite                │ axdb-driver-<id> 실행 파일을 만든다
+  crates/driver-mongodb    mongodb                 │
+  crates/driver-redis      redis                   ┘
+  crates/driver-example-kv 메모리 전용 최소 예제(계약 테스트용)
+  xtask                    cargo xtask package-drivers / gen-signing-key
+  src-tauri                호스트: 프로필/키체인, plugin_host, driver_install, 세션/실행/이력/로그, 미리보기, 권한, MCP 브리지, AI, 내보내기, 업데이터
+ui/                        Vite + Preact + TypeScript, CodeMirror 6, 가상 테이블, 캔버스 그래프, 온보딩, 드라이버 화면
+scripts/                   release.sh(앱 릴리스), publish-drivers.sh(드라이버 업로드), release-manifest.py(latest.json)
 bench/                     측정 스크립트와 결과
 ```
 
-의존 방향은 `driver-* → dbcore ← src-tauri`이다. 호스트와 UI는 개별 드라이버 crate를 알지 못한다. 유일한 예외는 `src-tauri/src/drivers.rs`의 등록 목록이다.
+의존 방향은 `driver-* → dbcore`, `driver-* → driver-sdk → driver-protocol → dbcore`, `src-tauri → driver-protocol, driver-package, dbcore`이다. **호스트는 드라이버 crate에 의존하지 않는다.** 실제 DB 드라이버 crate는 호스트의 dev-dependency로만 있고 계약 테스트에서만 쓴다. 앱은 드라이버 없이 배포되며, 드라이버는 설치된 실행 파일을 자식 프로세스로 띄워 쓴다([ADR-0003](adr/0003-installable-drivers.md)).
 
 ## 원칙
 
@@ -154,7 +162,6 @@ pub enum ErrorKind { Connection, Auth, Query, Timeout, Cancelled, Unsupported, I
 
 | command | 역할 |
 |---|---|
-| `drivers_list` | 등록된 manifest 목록 |
 | `profiles_list / profile_save / profile_delete` | `profiles.json`에는 secret 필드를 **제외**하고 저장한다. secret은 OS 키체인(`keyring`, service=`axdb`, account=`profile:{id}`)에 둔다 |
 | `connection_test(profile, secret?)` | 연결 → `ping` → `server_info` → 닫기 |
 | `session_open(profile_id) → session_id` / `session_close` | 여러 연결을 동시에 연다 |
@@ -170,6 +177,18 @@ pub enum ErrorKind { Connection, Auth, Query, Timeout, Cancelled, Unsupported, I
 | `expand(session_id, element_id, limit)` | |
 | `history_list(limit)` | `history.jsonl`: 시각, 프로필명, 쿼리 텍스트, 소요 시간, 행 수, 오류 요약. 파라미터 값과 secret은 기록하지 않는다 |
 
+### 드라이버·업데이트·내보내기 명령
+
+| command | 역할 |
+|---|---|
+| `drivers_list` | **설치된** 드라이버의 manifest 목록(설치 폴더와 debug 전용 `AXDB_DRIVER_DIR`) |
+| `drivers_catalog` | 캐시된 서명 목록과 설치 상태를 즉시 반환하고, 백그라운드에서 `index.json` 하나만 ETag로 갱신한 뒤 `drivers-catalog-updated` 이벤트를 보낸다 |
+| `driver_install({source, allowUnverified?, onProgress})` | 카탈로그 id 또는 로컬 `.axdriver` 경로로 설치. `onProgress` 채널에 `download → verify → signature → extract → handshake → register → complete` 단계와 bytes, 전송 속도를 보낸다 |
+| `driver_update / driver_remove / driver_pick_file / driver_cancel` | 업데이트, 삭제(열린 세션이 있으면 거부), 파일 선택, 진행 중 설치 취소(커밋을 시작한 뒤에는 거부) |
+| `updater_settings / updater_configure` | 업데이트 자동 확인 토글과 건너뛴 버전(`settings.json`의 `updater`) |
+| `onboarding_status / onboarding_complete / onboarding_mcp_config` | 첫 실행 안내 상태와 MCP 클라이언트 설정 JSON |
+| `export_save_dialog / export_write / export_reveal` | 저장 대화상자에서 고른 경로에 묶인 일회용 토큰으로만 파일을 쓴다. 대상 symlink는 거부하고 임시 파일 → rename으로 저장한다 |
+
 세션 오류 중 `ErrorKind::Connection`(네트워크 끊김 등)이 나면 호스트는 세션을 dead로 표시한다. UI는 재연결 버튼을 보여 준다.
 
 로그는 `tracing`을 쓴다. 연결 필드 중 secret인 것, 연결 URI, 파라미터 값은 로그에 남기지 않는다. 검증 스크립트가 로그와 설정 파일을 grep해 이를 확인한다.
@@ -182,9 +201,34 @@ pub enum ErrorKind { Connection, Auth, Query, Timeout, Cancelled, Unsupported, I
 
 `window.axdb.perf`는 최대 2,000개 측정값과 `marks/clear/run`을 제공하며 `get_perf_metrics` 에이전트 도구는 읽기만 한다. 실제 DB 벤치는 `AXDB_BENCH=1`일 때만 동적으로 로드하고 테스트 접속값은 `bench/fixtures.json`에서 호스트가 검증해 제공한다. 일반 앱에는 벤치가 자동 실행되지 않는다. 원자료와 측정의 한계는 [VIEWER_PERF.md](../bench/VIEWER_PERF.md)에 있다.
 
+## 드라이버 프로세스 (`plugin_host`, `driver-protocol`, `driver-sdk`)
+
+드라이버는 독립 실행 파일이다. 호스트의 `PluginDriver`/`PluginSession`이 `dbcore::Driver`/`Session`을 구현해 RPC로 대리 호출하므로 UI·권한·미리보기·MCP·AI 계층은 드라이버가 프로세스 안인지 밖인지 모른다.
+
+- **실행 모델:** 드라이버당 프로세스 하나를 처음 연결할 때 지연 실행하고, 그 안에서 세션 ID로 여러 연결을 다중화한다. 설치만 한 드라이버는 프로세스를 띄우지 않는다.
+- **프로토콜(protocol 1):** big-endian u32 길이 + MessagePack 본문. 요청 `{id, method, params}`, 응답 `{id, result|error}`, 실행 청크 `{id, chunk}`, 취소 `{cancel: id}`. 프레임 하나는 최대 16 MiB, 요청 하나의 전체 응답은 최대 256 MiB이며 초과분을 조용히 잘라내지 않고 연결을 끊는다. 핸드셰이크의 `protocol`이 다르면 "드라이버 업데이트 필요"로 거부한다.
+- **스트리밍:** `Session::execute_stream`을 `PluginSession`이 재정의해 큰 표의 행을 처음 200행, 이후 2,000행 단위로 UI 채널에 바로 넘긴다. 현재 DB 드라이버의 `execute`는 결과를 모아서 반환하므로 청크 전송은 DB 실행이 끝난 뒤 시작한다.
+- **취소와 크래시:** 취소는 해당 요청의 `CancelToken`으로 전달한다. DB 롤백 정리 3초와 전송 유예 3초 안에 응답이 없으면 프로세스를 종료하고 그 드라이버의 세션을 dead로 표시한다. 다음 연결 때 프로세스를 다시 띄우며, 기존 세션이나 쿼리를 재실행하지 않는다. 다른 드라이버는 영향을 받지 않는다.
+- **비밀:** 비밀번호는 `ConnectConfig.secret`으로만 전달한다(argv·환경 변수·프로필에 넣지 않음). 드라이버 stderr는 호스트가 로그로 받으며 기존 redaction을 적용하고 8 KiB를 넘는 줄은 버린다. 자식 프로세스 환경에서 서명·AI·테스트 비밀은 제외한다.
+- **SDK:** `axdb_driver_sdk::serve(driver)` 한 줄이 프레임 읽기·쓰기, 세션 다중화, 취소 토큰 연결을 맡는다. 드라이버 프로세스도 앱과 같은 mimalloc 설정으로 해제한 메모리를 OS에 돌려준다.
+
+## 드라이버 패키지와 설치 (`driver-package`, `driver_install`)
+
+- **`.axdriver`:** zip. `manifest.json`(id, name, version, protocol, description, paradigm, homepage, license, 플랫폼별 경로와 sha256), `bin/<target-triple>/<exe>`, `manifest.sig`(manifest의 Ed25519 서명). 대상 플랫폼은 `aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-pc-windows-msvc`, `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`다.
+- **신뢰:** 앱에 공식 공개 키를 내장한다(테스트와 키 교체용으로 `AXDB_OFFICIAL_DRIVER_PUBLIC_KEY`, `AXDB_PREVIOUS_DRIVER_PUBLIC_KEY`로 덮어쓸 수 있다). 서명이 없거나 알 수 없는 키인 로컬 패키지는 사용자가 명시적으로 동의해야 설치된다.
+- **레지스트리:** 서명된 단일 `index.json`을 GitHub Releases의 `drivers-index` 릴리스에 둔다. 패키지는 `drivers-<id>-v<버전>` 릴리스의 `<id>-<버전>.axdriver`다. 드라이버 릴리스는 `--latest=false`로 만들어 `releases/latest`가 앱 릴리스를 가리키게 유지한다.
+- **앱 시작 시 네트워크 호출은 없다.** 설치된 드라이버는 앱 데이터의 `drivers/<id>/<version>/`에서만 읽고, `drivers/<id>/current.json`이 활성 버전을 가리킨다. 드라이버 화면을 열면 캐시한 목록을 바로 보여 주고 `index.json` 하나만 ETag로 갱신한다.
+- **설치 단계:** 다운로드 → 패키지 해시 → manifest 서명과 실행 파일 해시 → 임시 폴더에 압축 해제 → 폴더 rename(원자적) → `PluginDriver::load_cancelable` 핸드셰이크(manifest의 id·이름·paradigm 일치 확인) → 활성 표시 → Registry 등록. 활성화 전에는 기존 버전이 그대로 동작한다. 이전 버전은 롤백용으로 1개만 보관한다.
+- **한도:** 운영 환경에서는 HTTPS만 허용하고 리다이렉트 3회, 요청 90초, 패키지 256 MiB, 압축 해제 후 512 MiB, 목록 2 MiB로 제한한다. 경로 탈출, 중복·예상 밖 항목, symlink, 특수 파일은 거부한다.
+- **빌드와 서명:** `cargo xtask package-drivers`가 대상별 크로스 빌드, (macOS) Developer ID 서명·공증, 패키지, Ed25519 서명, `index.json` 생성을 맡는다. 서명 개인 키는 키체인(`axdb-driver-signing`)이나 `AXDB_DRIVER_SIGNING_KEY`로만 받는다. `scripts/publish-drivers.sh`가 검증한 산출물을 올린다.
+
+## 앱 업데이트 (`updater`)
+
+Tauri updater로 서명된 업데이트를 받는다. 공개 키는 `src-tauri/tauri.conf.json`에 있고 피드는 `https://github.com/sangwookp9591/db-tool/releases/latest/download/latest.json`이다. 시작 10초 뒤 유휴 시점과 이후 24시간마다 자동 확인하며(`settings.json`의 `updater.auto_check`, 기본 true), debug 빌드·`AXDB_BENCH`·`AXDB_AGENT_BRIDGE=1` 실행에서는 자동 확인을 하지 않는다. 설치와 다시 시작은 사용자가 버튼을 눌렀을 때만 진행한다. 릴리스 산출물과 `latest.json`은 `scripts/release.sh`가 만든다([RELEASE_SIGNING.md](RELEASE_SIGNING.md)).
+
 ## 새 DB 추가 절차
 
-[PLUGIN_GUIDE.md](PLUGIN_GUIDE.md)를 참고한다. crate를 하나 만들고 `Driver`를 구현한 뒤 `src-tauri/src/drivers.rs`에 한 줄을 추가한다. **UI는 수정하지 않는다.**
+[PLUGIN_GUIDE.md](PLUGIN_GUIDE.md)를 참고한다. crate를 하나 만들고 `Driver`를 구현한 뒤 `src/bin/axdb-driver-<id>.rs`에서 `axdb_driver_sdk::serve`를 호출한다. 호스트와 **UI는 수정하지 않는다.** 공식 패키지로 배포하려면 `xtask`의 드라이버 목록에도 항목을 추가한다.
 
 ### 변경 미리보기 경계
 

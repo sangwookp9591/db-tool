@@ -1,8 +1,16 @@
 # DB 드라이버 추가 가이드
 
-드라이버는 `dbcore`에만 의존하고 호스트와 UI를 참조하지 않는다. 실제 예제는
-`crates/driver-example-kv`이며 메모리 전용 개발·계약 테스트 예제다. SQLite 구현은
-`crates/driver-sqlite`에서 파일 DB, blocking 실행, 취소와 읽기 전용 실행을 보여 준다.
+드라이버는 `dbcore`와 `axdb-driver-sdk`에만 의존하고 호스트와 UI를 참조하지 않는다. 앱은 드라이버를 내장하지 않는다. 드라이버는 **독립 실행 파일**로 빌드해 `.axdriver` 패키지로 서명·배포하고, 사용자가 앱의 드라이버 화면에서 설치한다([ADR-0003](adr/0003-installable-drivers.md)).
+
+전체 흐름은 다음과 같다.
+
+1. **crate 작성:** `dbcore::Driver`/`Session`을 구현한다(아래 "계약과 등록").
+2. **SDK로 실행 파일 만들기:** `src/bin/axdb-driver-<id>.rs`에서 `axdb_driver_sdk::serve(driver)`를 호출한다.
+3. **개발 중 실행:** `AXDB_DRIVER_DIR`로 빌드한 실행 파일을 앱에 등록해 시험한다.
+4. **패키지·서명:** `cargo xtask package-drivers`가 빌드하고 `.axdriver`와 서명된 `index.json`을 만든다("패키지와 서명").
+5. **설치:** 앱의 드라이버 화면에서 카탈로그로, 또는 **파일에서 설치**로 로컬 `.axdriver`를 설치한다.
+
+실제 예제는 `crates/driver-example-kv`이며 메모리 전용 개발·계약 테스트 예제다. SQLite 구현은 `crates/driver-sqlite`에서 파일 DB, blocking 실행, 취소와 읽기 전용 실행을 보여 준다.
 
 Redis 실제 서버 드라이버는 `crates/driver-redis`이며 SCAN 탐색과 자료형별 표, 드라이버 허용 목록 기반 read-only 실행을 제공한다.
 
@@ -16,12 +24,18 @@ Redis 실제 서버 드라이버는 `crates/driver-redis`이며 SCAN 탐색과 �
    지원하지 않는 browse/expand는 `DbError::unsupported`로 반환한다.
 6. 드라이버 crate에 `axdb-driver-sdk = { path = "../driver-sdk" }`를 추가하고
    `src/bin/axdb-driver-<id>.rs` 진입점을 만든다. 앱 의존성이나 UI에는 드라이버를 추가하지 않는다.
+   실행 파일 이름은 반드시 `axdb-driver-<id>`(Windows는 `.exe`)여야 한다.
 
 ```rust,ignore
 fn main() {
     axdb_driver_sdk::serve(driver_example_kv::KvDriver::new());
 }
 ```
+
+`serve`는 프레임 읽기·쓰기, 세션 ID 다중화, 취소 토큰 연결을 맡고 앱과 같은 mimalloc 설정으로
+해제한 메모리를 OS에 돌려준다. stdout은 프레임 전용이므로 드라이버 코드는 stdout에 쓰지 않는다.
+
+## 개발 중 실행
 
 ```sh
 pnpm --dir ui build
@@ -34,14 +48,41 @@ AXDB_DRIVER_DIR="$PWD/target-dev/debug" cargo run -p axdb
 핸드셰이크로 등록하고, 실제 DB 연결이 필요할 때 드라이버당 프로세스 하나를 지연 실행한다.
 설치 폴더도 개발 경로도 비어 있으면 앱의 드라이버 목록은 빈 목록이다.
 
-배포는 [ADR-0003](adr/0003-installable-drivers.md)의 `.axdriver` 계약을 따른다.
-`cargo xtask package-drivers`가 실행 파일과 플랫폼별 SHA-256을 manifest에 묶고 ed25519로 서명한다.
-서명 개인 키는 키체인 또는 환경 변수로만 전달하며 저장소에 넣지 않는다.
-macOS 실행 파일은 Developer ID 서명·공증을 별도로 마쳐야 한다.
-자세한 패키지·레지스트리 운영법은 [패키지 보고서](P2_PACKAGE_REPORT.md)를 참고한다.
-사용자는 앱의 드라이버 화면에서 서명된 패키지를 설치한다. 미확인 로컬 패키지는 경고와 명시적 동의가 필요하다.
-설치된 버전은 앱 데이터의 `drivers/<id>/<version>/`에 있고 `drivers/<id>/current.json`이 활성 버전을 가리킨다.
-시작 시에는 이 로컬 경로만 스캔하며 네트워크를 호출하지 않는다.
+## 패키지와 서명
+
+1. 공식 패키지에 포함하려면 `xtask/src/main.rs`의 `IDS`에 `(id, 표시 이름, paradigm)`을 추가한다.
+   paradigm은 `Relational`, `Graph`, `Document`, `KeyValue` 중 하나다.
+2. 서명 키를 준비한다. macOS에서는 `cargo xtask gen-signing-key`가 키체인(서비스 `axdb-driver-signing`)에
+   Ed25519 키를 만들고 공개 키를 출력한다(이미 있으면 거부). 다른 환경에서는 `AXDB_DRIVER_SIGNING_KEY`에
+   32바이트 시드의 hex를 넣는다. 개인 키는 저장소에 넣지 않는다.
+3. 패키지를 만든다.
+
+```sh
+CARGO_TARGET_DIR=target-p2 cargo xtask package-drivers \
+  --target aarch64-apple-darwin --target x86_64-apple-darwin \
+  --driver <id> --version 0.1.0 --out dist/drivers
+```
+
+   `--target`은 `aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-pc-windows-msvc`,
+   `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu` 중에서 여러 번 지정한다. Windows는 `cargo xwin`으로
+   크로스 빌드하고, Linux를 macOS에서 빌드하려면 `--linux-docker`를 쓴다. `--driver`를 생략하면 `IDS` 전체를 만든다.
+   macOS 실행 파일은 `APPLE_SIGNING_IDENTITY`가 있으면 Developer ID로 서명하고 `--notarize`로 공증한다.
+4. 결과는 `dist/drivers/<id>-<version>.axdriver`와 서명된 `index.json`이다. `.axdriver`는 zip이며
+   `manifest.json`(id, 버전, protocol, 플랫폼별 경로와 sha256), `bin/<target-triple>/<exe>`, `manifest.sig`를 담는다.
+   xtask는 만든 패키지를 같은 키로 다시 검증한 뒤에야 내보낸다.
+5. 올리려면 `scripts/publish-drivers.sh [dist/drivers]`를 쓴다. 무결성을 모두 확인한 뒤 `drivers-<id>-v<버전>`
+   릴리스와 `drivers-index` 릴리스를 만들며 `--latest=false`로 앱 릴리스의 `releases/latest`를 건드리지 않는다.
+   릴리스 승인 뒤에만 실행한다.
+
+## 설치와 신뢰
+
+- 앱은 공식 공개 키로 서명한 패키지만 검증된 드라이버로 취급한다. 다른 키로 서명했거나 서명이 없는 로컬 패키지는
+  드라이버 화면의 **파일에서 설치**에서 "확인되지 않은 드라이버" 경고를 확인하고 명시적으로 동의해야 설치된다.
+  앱을 빌드할 때 `AXDB_OFFICIAL_DRIVER_PUBLIC_KEY`를 지정하면 그 키를 공식 키로 신뢰한다(테스트·키 교체용).
+- 설치는 다운로드 → SHA-256 → 서명 → 임시 폴더 압축 해제 → rename → 핸드셰이크 → 등록 순서이며
+  설치된 버전은 앱 데이터의 `drivers/<id>/<version>/`, 활성 버전은 `drivers/<id>/current.json`이 가리킨다.
+  시작 시에는 이 로컬 경로만 스캔하며 네트워크를 호출하지 않는다.
+- 자세한 패키지·레지스트리 운영법은 [패키지 보고서](P2_PACKAGE_REPORT.md)를 참고한다.
 
 `ConnectConfig.fields`의 값은 문자열이다. Bool도 `"true"`/`"false"`이다.
 필수 필드와 허용 값은 드라이버에서 다시 검증한다. secret 필드는 manifest에서

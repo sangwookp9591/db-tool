@@ -3,7 +3,7 @@
 AxDB는 "가볍고 빠른 다중 DB 작업대"다. 화면은 개발자 도구답게 조밀하고 조용해야 한다. 동작이 생길 때만 반응하고, 상태는 색과 형태로 정확히 구분한다. 장식이 데이터보다 앞서지 않는다.
 
 출처 기록
-- 토큰 이름, 의미 규칙, 레시피 구조: **Tabularis 0.28.0 `DESIGN.md`와 테마 체계(Apache-2.0)**를 가져와 고쳐 썼다. 값과 컴포넌트는 AxDB 브랜드에 맞게 바꿨다. 고지는 `THIRD_PARTY_NOTICES.md`에 둔다.
+- 토큰 이름, 의미 규칙, 레시피 구조: `THIRD_PARTY_NOTICES.md`에 고지한 외부 디자인 규약(Apache-2.0)을 바탕으로 고쳐 썼다. 값과 컴포넌트는 AxDB 브랜드에 맞게 바꿨다.
 - 마이크로 인터랙션 9종: **React Bits(MIT + Commons Clause)**의 JellyRadio, SwipeRow, CometDial, WakeSlider, CodeSlots, LatticeLoader, BorderGlow, SpringCheck, FuseButton 동작을 참고해 Preact와 CSS로 이식했다. 컴포넌트를 따로 재배포하지 않는다. 고지는 같은 파일에 둔다.
 
 ## 1. 원칙
@@ -15,7 +15,7 @@ AxDB는 "가볍고 빠른 다중 DB 작업대"다. 화면은 개발자 도구답
 
 ## 2. 토큰
 
-이름은 Tabularis 규약을 따른다. 컴포넌트는 토큰만 쓰고, hex 리터럴은 `ui/src/theme.css`에만 둔다.
+이름은 의미 기반 규약(`--bg-*`, `--surface-*`, `--text-*` 등)을 따른다. 컴포넌트는 토큰만 쓰고, hex 리터럴은 `ui/src/theme.css`에만 둔다.
 
 | 의도 | 변수 | Midnight(다크, 기본) | Daylight(라이트) |
 |---|---|---|---|

@@ -1,53 +1,41 @@
-# ADR-0001: Tabularis 포크 대신 독립 구현 (동일 스택, 다형 결과 계약)
+# ADR-0001: 독립 설계 (Tauri 2 + Rust, 다형 결과 계약)
 
-- 상태: 채택 (2026-10-15)
+- 상태: 채택 (2026-10-15). "드라이버는 컴파일 시 등록" 부분은 [ADR-0003](0003-installable-drivers.md)이 대체했다.
 - 결정자: 코디네이터 (Opus 5.5)
 
-## 조사한 사실 (소스 직접 확인)
+## 배경
 
-Tabularis `ba22659` (2026-10-14, v0.28.0), `scratchpad/ref/tabularis`:
+요구사항은 관계형·그래프·문서·키-값 DB를 각자의 모양 그대로 보여 주는 가벼운 데스크톱 DB 툴이다. 모든 DB를 SQL과 표 모델에 억지로 맞추지 않아야 하고, 새 DB를 붙일 때 공통 UI를 고치지 않아야 한다.
 
-| 항목 | 확인 내용 | 근거 |
+## 결정
+
+처음부터 독립 설계로 만든다. 핵심 계약은 둘이다.
+
+1. **다형 결과 계약:** 한 결과(`ResultSet`)가 표·그래프·문서·메시지를 동시에 담을 수 있다. UI는 결과에 실제로 들어 있는 뷰만 보여 준다. 모든 값은 타입 태그가 붙은 `Value`이고, 정수·decimal·JSON 원문은 문자열로 보내 정밀도를 지킨다.
+2. **드라이버가 정의하는 범용 탐색 트리:** 노드 종류, 아이콘, 동작(`Browse`, `OpenQuery`, `OpenSchemaGraph` 등)을 드라이버가 선언한다. 공통 UI는 드라이버 id로 분기하지 않고 manifest의 `capabilities`, `connection_fields`, `query_language`만 본다.
+
+계약의 세부는 [ARCHITECTURE.md](../ARCHITECTURE.md)에 있다.
+
+## 선택한 스택
+
+| 영역 | 선택 | 이유 |
 |---|---|---|
-| 라이선스 | Apache-2.0 | `LICENSE` |
-| 스택 | Tauri 2 + Rust(sqlx, tokio-postgres) + React 19 + Monaco | `package.json`, `src-tauri/Cargo.toml` |
-| 규모 | Rust 84,954줄(270파일), TS/TSX 108,284줄(588파일) | `wc -l` |
-| AI 기능 | AI Rust 4,720줄, MCP 2,386줄, AI 관련 TS 약 5,200줄 | `ai*.rs`, `mcp/` |
-| 드라이버 계약 | `DatabaseDriver` trait, 메서드 약 70개(대부분 테이블/뷰/루틴/트리거/DDL) | `src-tauri/src/drivers/driver_trait.rs:343-1115` |
-| 결과 모델 | `QueryResult { columns: Vec<String>, rows: Vec<Vec<Value>>, … additional_results }` — **표 하나뿐**, 컬럼 타입 정보 없음 | `src-tauri/src/models.rs:507-524` |
-| 기능 선언 | `DriverCapabilities` bool 플래그 + `SqlDialect`(SQL 변형만) | `driver_trait.rs:33-181` |
-| 외부 플러그인 | 줄 단위 JSON-RPC over stdio, `.tabularium` manifest. Neo4j/그래프/MongoDB 플러그인 없음 | `plugins/PLUGIN_GUIDE.md`, `plugins/registry.json` |
-| UI 하드코딩 | 드라이버 문자열 직접 비교 42곳(`NewConnectionModal` 9, `TriggerEditorModal` 8 …) | grep |
-| 취소 | tokio task abort. DB 서버 쪽 취소 없음 | `commands.rs:81-119` |
-| 문서/코드 불일치 | 가이드 예제의 `total_count` 필드를 호스트가 역직렬화하지 못함 (추정: 예제를 따르면 실패) | `PLUGIN_GUIDE.md:1118` vs `plugins/driver.rs:1199` |
-
-Neo4j Browser (`neo4j/neo4j-browser`): **GPL-3.0**. 코드를 재사용하면 앱 전체가 GPL이 되므로 코드는 가져오지 않고 동작(그래프/표 전환, 이웃 확장, 결과 한도)만 참고한다.
-
-## 판단
-
-**포크했을 때 얻는 것:** 완성된 SQL 클라이언트 UI, keyring 연동, JSON-RPC 플러그인 호스트.
-
-**포크했을 때 치르는 비용:**
-1. 결과 모델이 표 하나라서, 그래프/문서/키-값 결과를 넣으려면 `QueryResult`, TS 타입, 결과 뷰, 내보내기, 노트북, AI 컨텍스트 등 표를 가정하는 코어 전반을 고쳐야 한다. 플러그인 추가만으로 끝나지 않는다.
-2. 탐색 트리가 database → schema → table/view/routine 계층에 묶여 있다. 라벨·관계 타입·키 공간은 "가짜 테이블"로 위장해야 한다. 요구사항의 "모든 DB를 SQL·테이블 모델에 억지로 맞추지 않는다"에 정면으로 어긋난다.
-3. 경량·빠른 실행이 목표인데 약 19만 줄과 AI/MCP/노트북/k8s 터널 등을 함께 유지해야 한다. 빼내려면 그만큼 수정량이 커진다.
-4. 업스트림은 하루 단위로 활발히 바뀐다. 코어 결과 모델을 바꾼 포크는 사실상 병합할 수 없게 된다.
-
-**결정:** Tabularis와 같은 스택(Tauri 2 + Rust)으로 **독립 구현**한다. Tabularis의 설계 중 검증된 아이디어(기능 플래그로 UI 제어, keyring 저장, 연결 단위 작업 abort)는 **동작 참고**로만 쓰고 코드는 복사하지 않는다. 새로 정의할 핵심은 둘이다.
-- DB 유형별로 다른 결과를 담는 **다형 결과 계약**: 표 / 그래프 / 문서 / 메시지를 동시에 담을 수 있다.
-- **드라이버가 정의하는 범용 탐색 트리**: 노드 종류와 동작을 드라이버가 선언한다.
+| 셸 | Tauri 2 + Rust | 작은 설치 파일과 낮은 유휴 자원 |
+| 프런트엔드 | Preact, CodeMirror 6, 직접 만든 가상 표와 Canvas 그래프 | 가벼운 번들. 그래프 배치 계산만 d3-force(ISC)를 쓴다 |
+| 자격 증명 | OS 키체인(`keyring`) | 비밀번호와 토큰을 파일에 남기지 않는다 |
+| 취소 | 실행마다 `run_id`와 `CancelToken`, 서버 취소를 지원하는 드라이버는 서버에 취소 요청 | 연결 단위가 아니라 실행 단위로 중단한다 |
 
 ## 결과
 
-- 프런트엔드는 Monaco 대신 CodeMirror 6을, React 대신 Preact를 쓴다. 가벼운 실행을 위한 선택이다.
-- 표 가상화와 그래프 캔버스 렌더러는 직접 작성한다. 그래프 배치 계산만 d3-force(ISC)를 쓴다.
-- 외부 프로세스 플러그인(JSON-RPC)은 1차 범위에서 제외한다. 드라이버는 같은 워크스페이스의 Rust crate로 만들고 등록 한 줄로 추가한다. 계약 타입이 serde 직렬화 가능하므로 나중에 프로세스 경계로 옮길 수 있다.
+- 새 DB는 `Driver`/`Session` 트레이트를 구현하는 crate 하나로 붙고, `ui/`와 `crates/dbcore`는 바뀌지 않는다. MongoDB·Redis·SQLite 추가로 이를 확인했다([VERIFICATION.md](../VERIFICATION.md)).
+- 계약 타입이 serde 직렬화 가능하므로 드라이버를 프로세스 경계 밖으로 옮길 수 있다. 이 가능성이 ADR-0003의 설치형 드라이버가 되었다.
+- 표 가상화와 그래프 캔버스 렌더러를 직접 유지해야 한다.
 
-## 재사용 / 참고 기록
+## 재사용 기록
 
 | 출처 | 라이선스 | 구분 | 내용 |
 |---|---|---|---|
-| Tabularis | Apache-2.0 | 동작 참고 | 기능 플래그로 UI 분기, keyring crate로 자격 증명 보관, 실행 중 작업 abort |
-| Neo4j Browser | GPL-3.0 | 동작 참고만 (코드 미사용) | 그래프/표 결과 전환, 노드 더블클릭 시 이웃 확장, 초기 표시 노드 한도 |
-| Beekeeper Studio / DbGate | GPL-3.0 / GPL-3.0 | 미사용 | — |
 | neo4rs 0.9.0-rc.10 | MIT | 코드 재사용(vendored, 패치) | fields 순서 노출 getter 추가; Bolt RUN 헤더와 0행 컬럼 순서 보존 |
+| d3-force | ISC | 의존성 | 그래프 배치 계산 |
+
+그 밖의 외부 자료는 [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md)에 있다.

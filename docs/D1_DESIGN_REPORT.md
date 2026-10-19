@@ -74,6 +74,6 @@ JS gzip은 **171,534→199,196 bytes**, 증가 **27,662 bytes(27.0KiB)**로 40KB
 
 로고가 포함된 네이티브 14장은 `native-{empty,pg-table,neo4j-graph,mongo-documents,erd,connection,ai}-{midnight,daylight}.png`다. 실제 테스트 DB 화면이며 Mongo는 m1 fixture를 사용했다. 브라우저 대응 화면, 명령 팔레트·이력·Beam·AI 제안 카드와 1024px 모달 위/아래 캡처도 [design-shots](design-shots/)에 있다. [브라우저](design-shots/browser-checks.json), [표](design-shots/table-check.json), [AI 삽입·수정 후 Undo·footer 저장](design-shots/ai-integration-checks.json), [모션](design-shots/integration-checks.json) 증거를 분리했다.
 
-이전의 흰 Tabularis 캡처는 유효한 빈 화면으로 취급하지 않고 교체했다. `TABULARIS_DATA_DIR`로 격리한 0.28.0의 [연결 화면](design-shots/tabularis-empty.png)과 [PG 설정](design-shots/tabularis-connection.png)을 직접 확인했다. 연결·테스트·저장 동작은 하지 않았다. 원래 설정·연결·플러그인 7개 파일의 해시는 그대로다. [복원 확인](design-shots/tabularis-restore.json).
+이전의 흰 참고 캡처는 유효한 빈 화면으로 취급하지 않고 교체했다. 참고 앱의 원래 설정 파일 해시가 그대로임을 확인했다.
 
 시작 시 이미 24개 추적 파일이 수정되어 있었고 이를 보존해 이어갔다. D2/D3 컴포넌트와 코디네이터 로고 작업을 함께 사용했으며 그 작업을 D1 단독 성과로 계산하지 않는다. 사용자 DB 접속, commit/push는 없었다. 테스트 앱·소유 dev/preview 서버·임시 사본은 정리하고, 검증 로그·스크린샷·결과 .app만 보존한다. **남은 수용 판단은 cold 50ms, 시작 지연 증가와 전체 .app 3MiB 해석**이다.

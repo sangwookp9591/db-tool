@@ -3,7 +3,7 @@
 이 작업은 반드시 끝까지 완료한다. 합리적인 가정으로 계속 진행하고, 결정한 내용은 마지막 보고에 적는다. 사용자 지시가 skill 지침보다 우선한다.
 
 ## 목적
-`docs/STATUS-v2.md` 1절의 결정을 실행한다: 문서 DB를 실제 서버로 붙여 확장 구조를 검증한다. **기준은 PostgreSQL과 Neo4j 구현이다.** 패턴은 `crates/driver-postgres`와 `crates/driver-neo4j`를 참고한다.
+`docs/STATUS.md` 1절의 결정을 실행한다: 문서 DB를 실제 서버로 붙여 확장 구조를 검증한다. **기준은 PostgreSQL과 Neo4j 구현이다.** 패턴은 `crates/driver-postgres`와 `crates/driver-neo4j`를 참고한다.
 
 ## Change
 1. **`crates/driver-mongodb`:** 공식 `mongodb` Rust 드라이버 최신 안정판을 쓴다. 버전은 context7이나 crates.io로 확인한다.

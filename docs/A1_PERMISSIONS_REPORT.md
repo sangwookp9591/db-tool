@@ -64,4 +64,4 @@
 추가로 `bench/agent-bridge-smoke.mjs`의 승인 만료 fixture를 새 미리보기 단계에 맞췄다. A1 소유 변경은 권한 모듈·브리지·호스트/저장소·설정/배지·관련 테스트/문서이다. `Cargo.lock`은 axdb의 sha2 의존 항목만 A1이며 나머지 신규 MongoDB 의존성 변경을 보존했다. `src-tauri/src/lib.rs`, `ui/src/{App,QueryTab,api,contract}`, `crates/driver-postgres/src/lib.rs`의 V1 변경을 보존했고, V1의 새 `NavigationTab.tsx`에는 readOnly prop 전달만 추가했다. 시작 시 이미 있던 M1/P1/W8 변경과 작업 중 추가된 다른 파일은 A1 완료에 포함하지 않는다. git commit은 하지 않았다.
 
 
-시작 상태는 HEAD `568f43e`에 이미 `Cargo.lock`, `Cargo.toml`, `docs/tasks/W8-compare-bench.md`, `ui/src/perf/resource.ts` 수정과 비교 측정/MongoDB 미추적 파일이 있는 상태였다. 작업 중 코디네이터가 W8을 `c56feae`로 커밋했고, A1 자체는 커밋하지 않았다. A1 변경 22개 경로 외의 M1/P1/V1 변경은 그대로 남아 있다.
+시작 상태는 HEAD `568f43e`에 이미 `Cargo.lock`, `Cargo.toml`, `ui/src/perf/resource.ts` 수정과 측정 스크립트/MongoDB 미추적 파일이 있는 상태였다. 작업 중 코디네이터가 W8을 `c56feae`로 커밋했고, A1 자체는 커밋하지 않았다. A1 변경 22개 경로 외의 M1/P1/V1 변경은 그대로 남아 있다.
