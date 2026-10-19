@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 # Run only after release approval. This script does not generate or read private keys.
+# Driver releases are created with --latest=false: releases/latest must stay the app release, because the
+# app updater (latest/download/latest.json) and the portfolio install buttons both resolve through it.
 artifact_dir="${1:-dist/drivers}"
 python3 - "$artifact_dir" <<'PY'
 import hashlib, json, pathlib, subprocess, sys
@@ -23,10 +25,10 @@ for driver in index['catalog']['drivers']:
 for tag, path in assets:
     exists = subprocess.run(['gh', 'release', 'view', tag, '--repo', repo], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
     if not exists:
-        subprocess.run(['gh', 'release', 'create', tag, '--repo', repo, '--title', tag, '--notes', 'Signed AxDB driver package'], check=True)
+        subprocess.run(['gh', 'release', 'create', tag, '--repo', repo, '--title', tag, '--notes', 'Signed AxDB driver package', '--latest=false'], check=True)
     subprocess.run(['gh', 'release', 'upload', tag, str(path), '--repo', repo], check=True)
 tag = 'drivers-index'
 if subprocess.run(['gh', 'release', 'view', tag, '--repo', repo], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode:
-    subprocess.run(['gh', 'release', 'create', tag, '--repo', repo, '--title', 'AxDB driver catalog', '--notes', 'Signed driver catalog'], check=True)
+    subprocess.run(['gh', 'release', 'create', tag, '--repo', repo, '--title', 'AxDB driver catalog', '--notes', 'Signed driver catalog', '--latest=false'], check=True)
 subprocess.run(['gh', 'release', 'upload', tag, str(root / 'index.json'), '--repo', repo, '--clobber'], check=True)
 PY
