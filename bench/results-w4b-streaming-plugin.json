@@ -4,14 +4,14 @@
   "large_payload_bytes": 166193029,
   "large_table_physical_bytes": 164110336,
   "small": {
-    "host_peak_rss_bytes": 35946496,
-    "driver_peak_rss_bytes": 18644992,
-    "driver_pid": 42738
+    "host_peak_rss_bytes": 31539200,
+    "driver_peak_rss_bytes": 17842176,
+    "driver_pid": 42347
   },
   "large": {
-    "host_peak_rss_bytes": 36110336,
-    "driver_peak_rss_bytes": 20725760,
-    "driver_pid": 42738
+    "host_peak_rss_bytes": 32014336,
+    "driver_peak_rss_bytes": 19922944,
+    "driver_pid": 42347
   },
   "checked": [
     "e2e.big 250000 rows",

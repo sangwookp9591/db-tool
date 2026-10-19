@@ -1,0 +1,57 @@
+{
+  "boundary": "driver stdio to a decoding consumer; excludes host/UI",
+  "profile": "debug",
+  "memory": "proc_pid_rusage RUSAGE_INFO_V2 sampled every 2ms; sampled maxima, not exact OS high-water marks",
+  "limit": "100000 per result unchanged; 1000000 total uses ten result sets",
+  "groups": [
+    {
+      "rows": 100000,
+      "mode": "legacy",
+      "pairs": 3,
+      "peak_rss_bytes": 246104064,
+      "peak_footprint_bytes": 233177784,
+      "first_chunk_ms": 865.747584,
+      "total_ms": 2052.2873339999996
+    },
+    {
+      "rows": 100000,
+      "mode": "incremental",
+      "pairs": 3,
+      "peak_rss_bytes": 46776320,
+      "peak_footprint_bytes": 19907112,
+      "first_chunk_ms": 16.739,
+      "total_ms": 1203.792542
+    },
+    {
+      "rows": 1000000,
+      "mode": "legacy",
+      "pairs": 3,
+      "peak_rss_bytes": 2302738432,
+      "peak_footprint_bytes": 2290829448,
+      "first_chunk_ms": 8632.782834,
+      "total_ms": 20459.956250000003
+    },
+    {
+      "rows": 1000000,
+      "mode": "incremental",
+      "pairs": 3,
+      "peak_rss_bytes": 48889856,
+      "peak_footprint_bytes": 28131904,
+      "first_chunk_ms": 18.852,
+      "total_ms": 12886.2905
+    }
+  ],
+  "slow_consumer": {
+    "mode": "incremental",
+    "rows": 1000000,
+    "result_sets": 10,
+    "slow_consumer": true,
+    "start_rss_bytes": 12812288,
+    "peak_rss_bytes": 53444608,
+    "start_footprint_bytes": 3703312,
+    "peak_footprint_bytes": 31818304,
+    "memory_samples": 6853,
+    "first_chunk_ms": 18.357708,
+    "total_ms": 19920.522957999998
+  }
+}

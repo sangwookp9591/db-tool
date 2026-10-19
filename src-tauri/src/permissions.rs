@@ -14,6 +14,7 @@ pub const TOOLS: &[&str] = &[
     "close_connection",
     "explore",
     "run_query",
+    "get_result_page",
     "preview_changes",
     "explain_query",
     "lint_query",
@@ -52,10 +53,16 @@ pub struct AgentClient {
     pub connections: BTreeMap<String, Permission>,
     pub allowed_tools: Vec<String>,
     pub max_rows: u32,
+    #[serde(default = "default_result_rows")]
+    pub max_result_rows: u32,
+    #[serde(default = "default_result_bytes")]
+    pub max_result_bytes: usize,
     pub expires_at: Option<String>,
     #[serde(default)]
     pub revoked: bool,
 }
+pub fn default_result_rows() -> u32 { 200 }
+pub fn default_result_bytes() -> usize { crate::agent_bridge::results::DEFAULT_BYTES }
 impl AgentClient {
     pub fn permission(&self, id: &str) -> Permission {
         self.connections
@@ -75,7 +82,7 @@ impl AgentClient {
             })
     }
     pub fn view(&self) -> Value {
-        json!({"id":self.id,"name":self.name,"connections":self.connections,"allowed_tools":self.allowed_tools,"max_rows":self.max_rows,"expires_at":self.expires_at,"revoked":self.revoked})
+        json!({"id":self.id,"name":self.name,"connections":self.connections,"allowed_tools":self.allowed_tools,"max_rows":self.max_rows,"max_result_rows":self.max_result_rows,"max_result_bytes":self.max_result_bytes,"expires_at":self.expires_at,"revoked":self.revoked})
     }
 }
 pub fn hash(text: &str) -> String {
@@ -121,6 +128,8 @@ pub fn migrate_local(config: &Path, raw: &str) -> Result<(), DbError> {
             connections: BTreeMap::new(),
             allowed_tools: TOOLS.iter().map(|s| s.to_string()).collect(),
             max_rows: 1000,
+            max_result_rows: default_result_rows(),
+            max_result_bytes: default_result_bytes(),
             expires_at: None,
             revoked: false,
         });
@@ -199,6 +208,9 @@ pub fn audit(
     decision: &str,
     text: Option<&str>,
 ) -> Result<(), DbError> {
+    audit_result(host, client, tool, profile, decision, text, None)
+}
+pub fn audit_result(host: &Host, client: &AgentClient, tool: &str, profile: Option<&str>, decision: &str, text: Option<&str>, truncated: Option<bool>) -> Result<(), DbError> {
     let _guard = host
         .agent_storage
         .lock()
@@ -212,7 +224,7 @@ pub fn audit(
     };
     let profiles = storage::read_profiles(&host.paths.config.join("profiles.json"))?;
     let profile = profile.filter(|id| profiles.iter().any(|p| p.id == *id));
-    let entry = json!({"timestamp":time::OffsetDateTime::now_utc().format(&time::format_description::well_known::Rfc3339).unwrap_or_default(),"client_id":client.id,"tool":tool,"connection_id":profile,"decision":decision,"statement_hash":text.map(hash)});
+    let entry = json!({"timestamp":time::OffsetDateTime::now_utc().format(&time::format_description::well_known::Rfc3339).unwrap_or_default(),"client_id":client.id,"tool":tool,"connection_id":profile,"decision":decision,"statement_hash":text.map(hash),"truncated":truncated});
     writeln!(file, "{entry}")
         .and_then(|_| file.flush())
         .map_err(|_| DbError::internal("Cannot write agent audit log"))
@@ -224,6 +236,10 @@ pub struct ClientInput {
     pub connections: BTreeMap<String, Permission>,
     pub allowed_tools: Vec<String>,
     pub max_rows: u32,
+    #[serde(default = "default_result_rows")]
+    pub max_result_rows: u32,
+    #[serde(default = "default_result_bytes")]
+    pub max_result_bytes: usize,
     pub expires_at: Option<String>,
 }
 #[tauri::command]
@@ -240,6 +256,8 @@ pub fn agent_client_save(
 ) -> Result<Value, DbError> {
     if input.name.trim().is_empty()
         || !(1..=1000).contains(&input.max_rows)
+        || !(1..=1000).contains(&input.max_result_rows)
+        || !(8192..=1024*1024).contains(&input.max_result_bytes)
         || input
             .allowed_tools
             .iter()
@@ -269,6 +287,8 @@ pub fn agent_client_save(
             connections: BTreeMap::new(),
             allowed_tools: vec![],
             max_rows: 200,
+            max_result_rows: default_result_rows(),
+            max_result_bytes: default_result_bytes(),
             expires_at: None,
             revoked: false,
             token_hash: String::new(),
@@ -297,6 +317,9 @@ pub fn agent_client_save(
     client.connections = input.connections;
     client.allowed_tools = input.allowed_tools;
     client.max_rows = input.max_rows;
+    client.max_result_rows = input.max_result_rows;
+    client.max_result_bytes = input.max_result_bytes;
+    host.agent_results.clear_client(&client.id);
     client.expires_at = input.expires_at;
     let raw = fresh.then(token);
     if let Some(raw) = raw.as_ref() {
@@ -319,6 +342,7 @@ pub fn agent_client_revoke(host: tauri::State<'_, Host>, client_id: String) -> R
         .find(|c| c.id == client_id)
         .ok_or_else(|| DbError::query("클라이언트를 찾을 수 없습니다"))?;
     client.revoked = true;
+    host.agent_results.clear_client(&client_id);
     save(&host.paths.config, &clients)
 }
 #[tauri::command]
@@ -338,6 +362,7 @@ pub async fn agent_client_rotate(
             .iter_mut()
             .find(|c| c.id == client_id)
             .ok_or_else(|| DbError::query("클라이언트를 찾을 수 없습니다"))?;
+        host.agent_results.clear_client(&client_id);
         set_token(client, &raw);
         client.revoked = false;
         save(&host.paths.config, &clients)?;
@@ -415,6 +440,18 @@ pub fn agent_approve_write(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn legacy_clients_default_to_bounded_model_results() {
+        let mut value=serde_json::to_value(client(Permission::Read)).unwrap();
+        value.as_object_mut().unwrap().remove("max_result_rows");
+        value.as_object_mut().unwrap().remove("max_result_bytes");
+        let client:AgentClient=serde_json::from_value(value).unwrap();
+        assert_eq!(client.max_result_rows,200);
+        assert_eq!(client.max_result_bytes,256*1024);
+        let input:ClientInput=serde_json::from_value(json!({"name":"legacy","connections":{},"allowed_tools":[],"max_rows":3})).unwrap();
+        assert_eq!(input.max_result_rows,200);
+        assert_eq!(input.max_result_bytes,256*1024);
+    }
     fn client(permission: Permission) -> AgentClient {
         AgentClient {
             id: "test".into(),
@@ -424,6 +461,8 @@ mod tests {
             connections: BTreeMap::from([("p".into(), permission)]),
             allowed_tools: TOOLS.iter().map(|s| s.to_string()).collect(),
             max_rows: 3,
+            max_result_rows: default_result_rows(),
+            max_result_bytes: default_result_bytes(),
             expires_at: None,
             revoked: false,
         }

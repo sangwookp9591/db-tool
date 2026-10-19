@@ -1,0 +1,182 @@
+{
+  "base": "90b06e0",
+  "start_status": "clean",
+  "target": "target-l2",
+  "build_jobs": 6,
+  "recorded_at": "2026-10-19T14:23:49.201688+00:00",
+  "checks": [
+    {
+      "command": "cargo build --workspace --bins",
+      "status": "passed",
+      "log_sha256": "ff7eb8f6ecd54ee0b26f4e2ea5df81fac32e3897c13b33a379c0a7956eb6e946"
+    },
+    {
+      "command": "cargo test -p driver-postgres -p driver-mysql -p axdb-driver-sdk -p axdb-driver-protocol -p dbcore",
+      "status": "passed",
+      "log_sha256": "6d04a2d1354a9b3cd10d0449d880fc7c1d3181cc29eaea1b78a8d473757436e9",
+      "counts": {
+        "passed": 52,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "command": "cargo test -p axdb --lib agent_bridge",
+      "status": "passed",
+      "log_sha256": "6430cfc976bf92e6aea20f48585ab33636ae2e39a05c8cbf35336ac7ed51a161",
+      "counts": {
+        "passed": 10,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "command": "cargo test -p axdb --lib stream::tests",
+      "status": "passed",
+      "log_sha256": "344409242f2e573c52b2d75598102c9bcc803b7766a20eaa9de8c321429b8869",
+      "counts": {
+        "passed": 3,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "command": "cargo test -p axdb --test streaming_compat",
+      "status": "passed",
+      "log_sha256": "78f2be30584d396a4385c78383b198c1b30b0a8d1e898092f0fd64b9ad0374c5",
+      "counts": {
+        "passed": 8,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "command": "cargo test -p axdb --lib legacy_clients_default_to_bounded_model_results",
+      "status": "passed",
+      "log_sha256": "624f160cc37c878d9782d3901e4c574deec0ccf959862a87bd21f2a0933807a0",
+      "counts": {
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "command": "cargo test -p axdb --lib result_page_rejects_invalid_offsets_and_limits",
+      "status": "passed",
+      "log_sha256": "0858bc367c3ab3caf6f13e556b8bac0f108a6a83750da5cdaefa71bdeeccc4b4",
+      "counts": {
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "command": "cargo test -p axdb --test plugin_contracts mongo_schema::real_mongodb_schema_graph -- --exact --test-threads=1",
+      "status": "passed",
+      "log_sha256": "32fbeb0240fe4ba50d90686169b06abbb9334441018374e6e1d2d9216752380a",
+      "counts": {
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0
+      }
+    },
+    {
+      "command": "cargo clippy --workspace --all-targets -- -D warnings",
+      "status": "passed",
+      "log_sha256": "8774cf06b86f72785ffb6f7f7f906625a86459634253f713b73489d2e703b96e"
+    },
+    {
+      "command": "pnpm --dir ui exec tsc --noEmit",
+      "status": "passed",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "command": "pnpm --dir ui test",
+      "status": "passed",
+      "log_sha256": "b07b8b81bceb5e079f56af9486ea6e8a58ffb84d0fc20595ba475e656336e0cf",
+      "counts": {
+        "passed": 144,
+        "skipped": 1
+      }
+    }
+  ],
+  "broader_failures": [
+    {
+      "run": "workspace-tests",
+      "status": "failed",
+      "description": "Initial Mongo URI did not match repository fixture contract",
+      "log_sha256": "2587813090ab7b46d5e3f185ca64cbbf510387edad478390b3c27e885b821354"
+    },
+    {
+      "run": "workspace-tests-final",
+      "status": "failed",
+      "description": "Parallel plugin Mongo schema test observed collections being created by another contract in the same executable",
+      "log_sha256": "2eb883dd77b3158cb74690b20aec375613fe194cd13511202a9e320924c0d436"
+    },
+    {
+      "run": "driver-tests",
+      "status": "failed",
+      "description": "Subsequent Mongo management snapshot encountered the view left by the failed schema fixture",
+      "log_sha256": "306afadc58780e43b0102bdec9b9561343a6a11b04b01e84339518e3daa428d4"
+    },
+    {
+      "run": "host-final",
+      "status": "failed",
+      "description": "Subsequent Mongo context budget assertion encountered the large sampled collection left by the failed schema fixture",
+      "log_sha256": "085e0566ac822dd3c41fb9455e6bc9880a9f4b6d08029c0e462e2fa9c186110c"
+    },
+    {
+      "run": "agent-env-failure",
+      "status": "failed",
+      "description": "Headless HTTP fixture lacked a registry driver without AXDB_DRIVER_DIR; fixed by explicit native PG registration",
+      "log_sha256": "5c8a687344425421182661b537b87146b683d7b280f55fae32312a35b7108528"
+    }
+  ],
+  "cleanup": {
+    "own_failed_mongo_prefix": "axdbt_6ad624a985ba30c2f4e0d685_",
+    "namespaces_removed": 5,
+    "other_fixture_data_not_deleted": true
+  },
+  "old_protocol_fixture": {
+    "commit": "d07c12f",
+    "sha256": "3879c358366e8b8fc00fc40cfc009abd35b428fbd06ccdbe25097a758f7be8fc",
+    "exact_source_match": true
+  },
+  "source_sha256": {
+    "crates/dbcore/src/lib.rs": "1392b70f4158b78e92965bcf1f005f82cb1dcfd9526e9f5d39f985023c4bfdd5",
+    "crates/driver-example-kv/src/lib.rs": "a0ab29781b31815a46f4fb7f828e9ab17a068e234b9421bdeef67760f635d23a",
+    "crates/driver-mongodb/src/lib.rs": "b6ed27a7c33630602942e4e0ffbe31ffd70ca6f4aa57b98d7fbe382ee1c2b81d",
+    "crates/driver-mysql/src/lib.rs": "7a827947eb4bf98722689d1a4da366afd98aa928e283b32d6783bc0691e1f1e7",
+    "crates/driver-neo4j/src/lib.rs": "9c37a374e96d967e34215d5155a7bba2daca239f67a65d5edd6d9721eb5239a6",
+    "crates/driver-postgres/src/lib.rs": "bfa28ddbeb48ea0a8595ffccc31a5c01790c256d09a6594fa8ace3cd37f0e4e5",
+    "crates/driver-protocol/src/lib.rs": "56daa75c487041e2197fe658407f0626e988f5580eab6414741b5ff18ae060ba",
+    "crates/driver-redis/src/lib.rs": "53a0459ae52fb1568eb0cf4865e1325551b58df9df791e0856c27d65590b02c8",
+    "crates/driver-sdk/src/lib.rs": "11e80498cea331e99f4a5f0ac8c9d730fdab8fb9eac21a74c3a4227e25509cef",
+    "crates/driver-sqlite/src/lib.rs": "1461452df369ca1d60579fade5e941e7492f8543e7320565dc53bc1cc10c4e38",
+    "src-tauri/src/agent_bridge.rs": "8e76e5e06f98985d4032e9cd953dcc2f46240edc880735d322288bd11c37f6df",
+    "src-tauri/src/agent_dispatch.rs": "25bbb69cf47dd8b2f58eee52f833a5b4a18609074e5213028bcf8528518485b0",
+    "src-tauri/src/lib.rs": "3d4539ac0141ba2908eeacb01656ddd33b02aaabcf39b7adb2f0d85d233a5970",
+    "src-tauri/src/permissions.rs": "08c48d887ffc2a516908b1616ac5e35820ff7898f47e4017f1cac624cf4d99ec",
+    "src-tauri/src/plugin_host.rs": "faa46116384de0bf5bd785a28719e0068c663ed2d467f5d43a40a5ccd621d084",
+    "src-tauri/src/stream.rs": "a6daa40a78d3a4f9b7fb14fd073ff5b93211a068bf25d9a962a50130cd6ebb42",
+    "ui/src/agent/ClientsPanel.tsx": "29460c7ebd60987e573a5150f1b985414457c4dd2b457e9e901a36919e75273d",
+    "ui/src/contract.ts": "71bc109489f2b41dd3de3f721984cdbc9a6616e68e2c0313083803c39b3c89fe",
+    "crates/driver-postgres/src/query_stream.rs": "7264df1780ebf455625916c503fb99d3f6ce1651afaf00f75b7ddcaae439f6d6",
+    "crates/driver-postgres/tests/streaming.rs": "c418264096eb104894342c161b6c8c6e013fa392f39a9c6d170e1c2864bcf107",
+    "src-tauri/src/agent_results.rs": "74f98c960955f73a14697cdfa022adcb2d28d32dc9964539166547a873d4e252",
+    "src-tauri/src/agent_results_e2e.rs": "9491bd24d5646204108cff4c13f15edf1fff1878a16d5cf082e4ba5c3f774ec6",
+    "src-tauri/tests/fixtures/protocol_v0_2_0.rs": "3879c358366e8b8fc00fc40cfc009abd35b428fbd06ccdbe25097a758f7be8fc",
+    "src-tauri/tests/streaming_compat.rs": "261d6752ff8678213ef61bb6ce4e7c2b3bca4aa305ebd3eae25f940ef5459600",
+    "src-tauri/tests/streaming_memory.rs": "4904961fd4b0e4d5c53576a6af3acc11808821d362858d25b98e7ccced79207c"
+  },
+  "limits": {
+    "gui_or_user_app_touched": false,
+    "user_database_or_ssh_used": false,
+    "commit_or_push": false,
+    "true_mysql_streaming": "deferred",
+    "native_app_mcp_e2e": "not run; headless HTTP test uses a UI transport fixture",
+    "real_ten_minute_idle_wait": "not run; idle expiry boundary forced in unit test",
+    "full_workspace": "failed; not claimed green after focused checks",
+    "performance": "driver-only debug, three alternating pairs, 1M total is ten 100k result sets, no load gate"
+  }
+}

@@ -192,6 +192,7 @@ struct CurrentResult {
     offset: usize,
     metadata: Json,
     expected: Option<u64>,
+    pending: bool,
 }
 
 pub struct LiveResults {
@@ -214,7 +215,7 @@ impl LiveResults {
     }
     pub fn finish(&self) -> Result<(), DbError> {
         if let Some(result) = self.current.lock().unwrap().take() {
-            if result.expected.is_some_and(|n| n != result.offset as u64) {
+            if result.pending || result.expected.is_some_and(|n| n != result.offset as u64) {
                 return Err(DbError::internal("Incomplete driver row stream"));
             }
             send(
@@ -229,6 +230,24 @@ impl LiveResults {
     }
 }
 impl dbcore::ResultSink for LiveResults {
+    fn start_pending(&self, index: usize, result: &ResultSet) -> Result<(), DbError> {
+        self.start(index, result)?;
+        let mut current = self.current.lock().unwrap();
+        let current = current.as_mut().unwrap();
+        current.expected = None;
+        current.pending = true;
+        Ok(())
+    }
+    fn end(&self, index: usize, result: &ResultSet) -> Result<(), DbError> {
+        let mut current = self.current.lock().unwrap();
+        let current = current.as_mut().filter(|r| r.index == index && r.pending && r.offset as u64 == result.row_count).ok_or_else(|| DbError::internal("Invalid final result metadata"))?;
+        let mut metadata = serde_json::to_value(result).map_err(|_| DbError::internal("Cannot encode result metadata"))?;
+        for key in ["table", "graph", "documents"] { metadata.as_object_mut().unwrap().remove(key); }
+        current.metadata = metadata;
+        current.pending = false;
+        current.expected = Some(result.row_count);
+        Ok(())
+    }
     fn start(&self, index: usize, result: &ResultSet) -> Result<(), DbError> {
         if self.cancel.is_cancelled() {
             return Err(DbError::new(ErrorKind::Cancelled, "실행이 취소되었습니다"));
@@ -241,7 +260,7 @@ impl dbcore::ResultSink for LiveResults {
             return Err(DbError::internal("Invalid table stream metadata"));
         }
         if let Some(previous) = current.take() {
-            if previous
+            if previous.pending || previous
                 .expected
                 .is_some_and(|n| n != previous.offset as u64)
             {
@@ -295,6 +314,7 @@ impl dbcore::ResultSink for LiveResults {
             offset: 0,
             metadata,
             expected: result.table.as_ref().map(|_| result.row_count),
+            pending: false,
         });
         Ok(())
     }
@@ -402,6 +422,24 @@ mod tests {
         );
         assert_eq!(events[1]["table"]["data"][0]["tag"], "Int");
         assert_eq!(events[2]["result"]["row_count"], 2);
+    }
+    #[test]
+    fn pending_metadata_requires_matching_end_before_completion() {
+        let channel = Channel::new(|_| Ok(()));
+        let stream = LiveResults::new(channel, CancelToken::new(), 2);
+        let mut result = ResultSet { table: Some(Table { columns: vec![Column { name: "n".into(), type_name: "int8".into() }], rows: vec![] }), ..Default::default() };
+        stream.start_pending(0, &result).unwrap();
+        stream.rows(0, vec![vec![Value::Int("1".into())]]).unwrap();
+        assert!(stream.end(0, &result).is_err());
+        result.row_count = 1;
+        result.elapsed_ms = 17;
+        result.truncated = true;
+        stream.end(0, &result).unwrap();
+        assert!(stream.end(0, &result).is_err());
+        stream.finish().unwrap();
+        let stream = LiveResults::new(Channel::new(|_| Ok(())), CancelToken::new(), 2);
+        stream.start_pending(0, &result).unwrap();
+        assert!(stream.finish().is_err());
     }
     #[test]
     fn packs_exact_and_mixed_cells() {

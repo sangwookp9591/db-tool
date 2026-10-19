@@ -21,6 +21,7 @@ impl KvDriver {
                 query_language: QueryLanguage { id: "kv".into(), display: "KV commands".into(), editor_mode: "text".into(), supports_params: false },
                 connection_fields: vec![],
                 capabilities: Capabilities {
+                    execute_stream: false,
                     backup: false, roles: false,
                     import_rows: false, schema_snapshot: false, ddl_render: false,
                     explain: false,

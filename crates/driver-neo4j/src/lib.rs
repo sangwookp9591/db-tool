@@ -59,6 +59,7 @@ impl Neo4jDriver {
                 })
                 .collect(),
                 capabilities: Capabilities {
+                    execute_stream: false,
                     backup: true, roles: true,
                     import_rows: true, schema_snapshot: true, ddl_render: true,
                     explain: true,

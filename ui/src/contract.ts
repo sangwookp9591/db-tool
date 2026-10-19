@@ -1,7 +1,7 @@
 export type FieldKind = 'Text' | 'Number' | 'Password' | 'FilePath' | 'Bool' | { Select: { options: string[] } };
 export interface FieldSpec { key: string; label: string; kind: FieldKind; required: boolean; default: string | null; secret: boolean; placeholder: string | null }
 export type PreviewSupport = 'None' | 'Transactional' | 'DryRun';
-export interface Capabilities { explain?: boolean; lint?: boolean; schema_graph?: boolean; filtered_browse?: boolean; preview_changes?: PreviewSupport; read_only_exec?: boolean; cancel: 'None' | 'Abort' | 'Server'; timeout: boolean; params: boolean; transactions: boolean; paged_browse: boolean; graph_expand: boolean; multi_statement: boolean; edit_rows: boolean }
+export interface Capabilities { execute_stream?: boolean; explain?: boolean; lint?: boolean; schema_graph?: boolean; filtered_browse?: boolean; preview_changes?: PreviewSupport; read_only_exec?: boolean; cancel: 'None' | 'Abort' | 'Server'; timeout: boolean; params: boolean; transactions: boolean; paged_browse: boolean; graph_expand: boolean; multi_statement: boolean; edit_rows: boolean }
 export interface QueryLanguage { id: string; display: string; editor_mode: string; supports_params: boolean }
 export interface DriverManifest { id: string; icon_key?: string; display_name: string; paradigm: 'Relational' | 'Graph' | 'Document' | 'KeyValue'; query_language: QueryLanguage; connection_fields: FieldSpec[]; capabilities: Capabilities; default_query: string }
 export interface ConnectConfig { fields: Record<string, string>; secret: string | null; connect_timeout_ms: number }
@@ -42,7 +42,7 @@ export interface SchemaGraph { entities: SchemaEntity[]; relations: SchemaRelati
 export interface BrowseTarget { nodeId: string; title: string; filter?: [string, Value][] }
 
 export type AgentPermission = 'none' | 'read' | 'preview' | 'write_with_approval';
-export interface AgentClient { id: string; name: string; connections: Record<string, AgentPermission>; allowed_tools: string[]; max_rows: number; expires_at: string | null; revoked: boolean }
+export interface AgentClient { id: string; name: string; connections: Record<string, AgentPermission>; allowed_tools: string[]; max_rows: number; max_result_rows?: number; max_result_bytes?: number; expires_at: string | null; revoked: boolean }
 export interface AgentAudit { timestamp: string; client_id: string; tool: string; connection_id: string | null; decision: string; statement_hash: string | null }
 
 export interface AgentCall { id: string; name: string; client_id: string; connection_id: string | null; status: 'running' | 'success' | 'error'; decision?: 'allowed' | 'denied' | 'approved' | null; duration_ms?: number; row_count?: number | null; startedAt?: number }

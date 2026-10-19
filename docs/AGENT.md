@@ -1,6 +1,6 @@
 # Agent interface
 
-The app exposes automation tools and does not call an LLM. Tool definitions live only in `ui/src/agent/registry.ts`; WebMCP, JavaScript automation, and the optional desktop MCP bridge use this registry. UI decisions use manifest capabilities, never database IDs.
+The app exposes automation tools and does not call an LLM. Common tool definitions live in `ui/src/agent/registry.ts`; WebMCP and JavaScript automation use this registry. The desktop MCP bridge adds the host-owned `get_result_page` tool. UI decisions use manifest capabilities, never database IDs.
 
 ## Tools and schemas
 
@@ -14,6 +14,7 @@ All inputs are JSON objects. Unknown top-level keys, missing required fields, wr
 | `close_connection` | `session_id` | Cancels its runs, closes its session and visible tabs |
 | `explore` | `session_id`, optional `parent` | One level of explorer children |
 | `run_query` | `session_id`, `text`, optional `params`, `row_limit` (1–1000), `timeout_ms` (1–3600000), `read_only` | Executes with read-only default true and explicit approval when required |
+| `get_result_page` (desktop MCP) | `session_id`, `result_id`, optional `offset` (items, default 0), `limit` (1–1000), `byte_offset` (original JSON bytes) | Reads a cached result without running SQL; current client, token, tool and connection permissions are checked again |
 | `get_history` | optional `limit` (1–1000, default 100) | Recent entries, with `source: ui/agent`; excludes parameter values |
 | `get_perf_metrics` | `{}` | Bounded viewer timing metrics in milliseconds (W4 integration) |
 | `get_ui_state` | `{}` | Open connections, active tab connection and current editor text, last result summary |
@@ -33,7 +34,7 @@ const result = await window.axdb.agent.callTool('run_query', {
 });
 ```
 
-`run_query`, `browse`, and `expand_node` return `{results: [...]}`. Errors return `{error: {kind, message}}`. Row counts describe the underlying result; `truncated` signals omitted content. Returned table rows, graph nodes and documents are each capped at 200 across the response; graph relations are filtered to retained endpoints and capped at 200 per result. Typed `Value` tags and integer/decimal/JSON strings are preserved. This is a count limit, not a byte limit on individual values.
+`run_query`, `browse`, and `expand_node` return `{results: [...]}`. Errors return `{error: {kind, message}}`. Row counts describe the underlying result; `truncated` signals omitted content. Returned table rows, graph nodes and documents are each capped at 200 across the response; graph relations are filtered to retained endpoints and capped at 200 per result. Typed `Value` tags and integer/decimal/JSON strings are preserved. The browser registry retains this count-only contract. Desktop MCP additionally caps the structured tool value at `max_result_rows` (default 200, configurable 1–1000) and `max_result_bytes` (default 256 KiB, configurable 8–1024 KiB) before UI forwarding and response encoding. `max_rows` remains the database fetch limit. The bounded value is represented in both MCP text and structured content, so the JSON-RPC wire envelope can be larger than the structured-value budget.
 
 ## WebMCP
 
@@ -110,3 +111,14 @@ See [A1_PERMISSIONS_REPORT.md](A1_PERMISSIONS_REPORT.md) for the threat model, e
 ```sh
 AXDB_CONFIG_DIR=/absolute/private/test-config AXDB_APP_PID=<candidate-process-pid> node bench/permissions-e2e.mjs
 ```
+
+
+## Desktop MCP saved result pages (L2)
+
+When the host omits result items or oversized cells, it returns top-level `truncated`, `result_id`, `next_offset`, and `total_items`. Row counts inside each result still describe the original DB result. The memory LRU allows at most 32 handles and a conservative 32 MiB budget including estimated JSON heap and reserved JSON encoding bytes; allocator overhead is separate. An entire result too large for this cache returns `result_id: null` and `result_handle_unavailable: "cache_size_limit"`. This is explicit data omission, not a durable export.
+
+Call `get_result_page` with the same `session_id` and returned `result_id`, then advance by `next_offset`. Offsets count table rows, documents and graph items across the original response. Each page obeys the current client's item and byte budgets. A cell too large for a typed row page is omitted whole and its item index appears in `omitted_items`; typed cells are never partially replaced. To recover the exact original JSON, start with `byte_offset: 0`, concatenate each `data` fragment, and follow `next_byte_offset` until null. Fragments end on UTF-8 boundaries and do not execute SQL. Do not interpret an individual fragment as standalone JSON.
+
+Handles are bound to client ID, token hash, connection profile and open database session. Each access rechecks current permissions and the live session. Handles expire after ten idle minutes; session close, client edits/revocation/rotation, bridge shutdown and app teardown clear them. Eviction is expected: clients must handle an expired/unavailable result without automatically replaying a query. Previously saved client tool allowlists stay unchanged, so enable `get_result_page` explicitly for an existing client that should page results. Cache entries and rows are never written to audit logs; the final audit entry records `truncated` (decision `returned`).
+
+The built-in AI's existing 20-row/100-column, 128 KiB context limit and explicit row-sharing toggle remain stronger constraints. AI output continues to be a proposed Operation, never an execution request. See [L2_REPORT](L2_REPORT.md) for driver-only measurements and headless integration-test boundaries.

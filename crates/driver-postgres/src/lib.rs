@@ -85,6 +85,7 @@ impl PostgresDriver {
                     })
                     .collect(),
                 capabilities: Capabilities {
+                    execute_stream: true,
                     backup: true, roles: true,
                     import_rows: true,
                     schema_snapshot: true,
@@ -275,6 +276,7 @@ impl PgSession {
         req: &ExecRequest,
         state: &mut TxState,
         cancel: &CancelToken,
+        sink: Option<&dyn AsyncResultSink>,
     ) -> Result<Vec<ResultSet>, DbError> {
         if !req.params.is_empty() {
             return Err(DbError::unsupported(
@@ -341,6 +343,18 @@ impl PgSession {
                     .collect();
                 let limit = clamp_row_limit(req.row_limit) as usize;
                 let cursorable = matches!(first, "SELECT" | "WITH" | "VALUES" | "TABLE");
+                if let Some(sink) = sink {
+                    let index = results.len();
+                    let mut result = ResultSet { title: result_title(sql.lines().next().unwrap_or("")), table: Some(Table { columns, rows: vec![] }), ..Default::default() };
+                    sink.start(index, &result).await?;
+                    let (count, truncated) = self.stream_table(&sql, &types, limit, cursorable, state.explicit, index, sink).await?;
+                    result.row_count = count;
+                    result.truncated = truncated;
+                    result.elapsed_ms = start.elapsed().as_millis() as u64;
+                    sink.end(index, &result).await?;
+                    results.push(result);
+                    continue;
+                }
                 let rows = if cursorable {
                     self.cursor_rows(&sql, limit, state.explicit, cancel)
                         .await?
@@ -366,6 +380,7 @@ impl PgSession {
             };
             result.title = result_title(sql.lines().next().unwrap_or(""));
             result.elapsed_ms = start.elapsed().as_millis() as u64;
+            if let Some(sink) = sink { let index = results.len(); sink.start(index, &result).await?; sink.end(index, &result).await?; }
             results.push(result);
         }
         Ok(results)
@@ -457,9 +472,10 @@ impl PgSession {
         req: &ExecRequest,
         state: &mut TxState,
         cancel: &CancelToken,
+        sink: Option<&dyn AsyncResultSink>,
     ) -> Result<Vec<ResultSet>, DbError> {
         if !req.read_only {
-            return self.run(req, state, cancel).await;
+            return self.run(req, state, cancel, sink).await;
         }
         if state.explicit {
             return Err(DbError::unsupported("Read-only agent execution is unavailable inside a user transaction; finish it first"));
@@ -498,7 +514,7 @@ impl PgSession {
             .await
             .map_err(|e| self.error(e));
         let result = match begin {
-            Ok(()) => self.run(req, state, cancel).await,
+            Ok(()) => self.run(req, state, cancel, sink).await,
             Err(error) => Err(error),
         };
         let cleanup = self
@@ -520,6 +536,7 @@ impl PgSession {
         cancel: CancelToken,
         preview: bool,
         edits: Option<(&EditRequest, bool)>,
+        sink: Option<&dyn AsyncResultSink>,
     ) -> Result<RunOutput, DbError> {
         let deadline = tokio::time::sleep(Duration::from_millis(req.timeout_ms.max(1)));
         tokio::pin!(deadline);
@@ -538,7 +555,7 @@ impl PgSession {
                         .await
                         .map(RunOutput::Preview)
                 } else {
-                    self.run_guarded(req, &mut state, &cancel)
+                    self.run_guarded(req, &mut state, &cancel, sink)
                         .await
                         .map(RunOutput::Execute)
                 }
@@ -601,6 +618,13 @@ fn uuid_free_id() -> u64 {
 }
 #[async_trait]
 impl Session for PgSession {
+    async fn execute_stream(&self, req: &ExecRequest, cancel: CancelToken, sink: &dyn ResultSink) -> Result<Vec<ResultSet>, DbError> {
+        if req.row_limit <= 2000 { return self.execute(req,cancel).await; }
+        self.live_query(req,cancel,sink).await
+    }
+    async fn execute_stream_raw(&self, req: &ExecRequest, cancel: CancelToken, sink: &dyn AsyncResultSink) -> Result<Vec<ResultSet>, DbError> {
+        match self.execute_cancelled(req, cancel, false, None, Some(sink)).await? { RunOutput::Execute(results) => Ok(results), _ => unreachable!() }
+    }
     async fn preview_grants(&self,changes:&[GrantChange],cancel:CancelToken)->Result<GrantPlan,DbError>{let plan=self.native_grants(changes).await?;let req=ExecRequest{text:plan.statements.join(";\n"),read_only:false,params:Default::default(),row_limit:1,graph_node_limit:1,timeout_ms:30000,preview_sample_limit:1};self.migrate_transaction(&req,cancel,true).await?;Ok(plan)}
 
     async fn import_rows_progress(&self,req:&EditRequest,preview:bool,cancel:CancelToken,sink:&dyn ProgressSink)->Result<ImportOutput,DbError>{if preview {let output=self.import_rows(req,true,cancel).await?;sink.progress(req.edits.len() as u64,req.edits.len() as u64).await?;Ok(output)}else{self.copy_import(req,cancel,sink).await}}
@@ -620,7 +644,7 @@ impl Session for PgSession {
             return Err(DbError::query("Import requires 1..10000 inserts"));
         }
         let exec = ExecRequest { text: String::new(), read_only: false, params: Default::default(), row_limit: 100, graph_node_limit: 1, timeout_ms: req.timeout_ms, preview_sample_limit: 100 };
-        match self.execute_cancelled(&exec, cancel, preview, Some((req, true))).await? {
+        match self.execute_cancelled(&exec, cancel, preview, Some((req, true)), None).await? {
             RunOutput::Preview(result) => Ok(ImportOutput::Preview(result)),
             RunOutput::Edit(result) => Ok(ImportOutput::Applied(result)),
             _ => Err(DbError::internal("Invalid import result")),
@@ -667,12 +691,12 @@ impl Session for PgSession {
     async fn preview_edits(&self, req: &EditRequest, cancel: CancelToken) -> Result<ChangePreview,DbError> {
         let mut exec = ExecRequest {text:String::new(),read_only:false,params:Default::default(),row_limit:1000,graph_node_limit:1,timeout_ms:req.timeout_ms,preview_sample_limit:req.preview_sample_limit};
         exec.timeout_ms=req.timeout_ms;
-        match self.execute_cancelled(&exec,cancel,true,Some((req, false))).await? {RunOutput::Preview(r)=>Ok(r),_=>unreachable!()}
+        match self.execute_cancelled(&exec,cancel,true,Some((req, false)), None).await? {RunOutput::Preview(r)=>Ok(r),_=>unreachable!()}
     }
     async fn apply_edits(&self, req: &EditRequest, cancel: CancelToken) -> Result<EditResult,DbError> {
         let mut exec = ExecRequest {text:String::new(),read_only:false,params:Default::default(),row_limit:1000,graph_node_limit:1,timeout_ms:req.timeout_ms,preview_sample_limit:req.preview_sample_limit};
         exec.timeout_ms=req.timeout_ms;
-        match self.execute_cancelled(&exec,cancel,false,Some((req, false))).await? {RunOutput::Edit(r)=>Ok(r),_=>unreachable!()}
+        match self.execute_cancelled(&exec,cancel,false,Some((req, false)), None).await? {RunOutput::Edit(r)=>Ok(r),_=>unreachable!()}
     }
 
     async fn schema_graph(&self, scope: Option<&str>) -> Result<SchemaGraph, DbError> { self.load_schema_graph(scope).await }
@@ -681,7 +705,7 @@ impl Session for PgSession {
         req: &ExecRequest,
         cancel: CancelToken,
     ) -> Result<ChangePreview, DbError> {
-        match self.execute_cancelled(req, cancel, true, None).await? {
+        match self.execute_cancelled(req, cancel, true, None, None).await? {
             RunOutput::Preview(r) => Ok(r),
             _ => unreachable!(),
         }
@@ -708,7 +732,7 @@ impl Session for PgSession {
         req: &ExecRequest,
         cancel: CancelToken,
     ) -> Result<Vec<ResultSet>, DbError> {
-        match self.execute_cancelled(req, cancel, false, None).await? {
+        match self.execute_cancelled(req, cancel, false, None, None).await? {
             RunOutput::Execute(r) => Ok(r),
             _ => unreachable!(),
         }
@@ -977,3 +1001,4 @@ mod tests {
 mod management;
 mod administration;
 mod backup_stream;
+mod query_stream;

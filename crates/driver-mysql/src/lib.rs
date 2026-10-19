@@ -74,6 +74,7 @@ impl MysqlDriver {
                     })
                     .collect(),
                 capabilities: Capabilities {
+                    execute_stream: false,
                     backup: true,
                     roles: true,
                     import_rows: true,

@@ -43,6 +43,7 @@ struct RunRecord {
     session_id: String,
 }
 pub struct Host {
+    agent_results: agent_bridge::results::Store,
     backup_statuses: Mutex<HashMap<String,management::BackupStatus>>,
     restore_files: Mutex<HashMap<String,management::administration::files::Selected>>,
     network: Arc<net::State>,
@@ -60,6 +61,7 @@ impl Host {
     pub fn new(paths: Paths) -> Self {
         let driver_root = paths.data.join("drivers");
         Self {
+            agent_results: Default::default(),
             network: Arc::new(net::State::default()),
             backup_statuses: Mutex::default(),
             restore_files: Mutex::default(),
@@ -343,6 +345,7 @@ async fn session_open(
 }
 #[tauri::command]
 async fn session_close(host: tauri::State<'_, Host>, session_id: String) -> CommandResult<()> {
+    host.agent_results.clear_session(&session_id);
     let record = host
         .sessions
         .lock()
@@ -1062,7 +1065,7 @@ mod tests {
     async fn client_crud_rotation_and_private_audit_commands() {
         let (app,dir)=setup();
         app.manage(agent_bridge::Bridge::default());
-        let input=permissions::ClientInput{id:None,name:"scoped".into(),connections:Default::default(),allowed_tools:vec!["list_connections".into()],max_rows:3,expires_at:None};
+        let input=permissions::ClientInput{id:None,name:"scoped".into(),connections:Default::default(),allowed_tools:vec!["list_connections".into()],max_rows:3,max_result_rows:200,max_result_bytes:262144,expires_at:None};
         let created=permissions::agent_client_save(app.state(),input).unwrap();let raw=created["token"].as_str().unwrap();let id=created["client"]["id"].as_str().unwrap().to_owned();
         assert!(permissions::authenticate(&dir,raw).unwrap().is_some());
         let listed=serde_json::to_string(&permissions::agent_clients_list(app.state()).unwrap()).unwrap();assert!(!listed.contains(raw)&&!listed.contains("token_hash")&&!listed.contains("token_salt"));

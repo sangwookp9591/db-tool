@@ -47,6 +47,7 @@ pub struct DriverManifest {
 pub struct FieldSpec { key, label, kind: FieldKind /*Text|Number|Password|FilePath|Bool|Select{options}*/, required, default: Option<String>, secret: bool, placeholder }
 pub enum PreviewSupport { None, Transactional, DryRun } // serde default None
 pub struct Capabilities {
+    pub execute_stream: bool,      // serde default false; protocol-1 optional incremental execution
     pub schema_graph: bool,        // serde default false; 엔티티·필드·관계 다이어그램
     pub filtered_browse: bool,     // serde default false; typed Value의 AND 동등 필터
     pub preview_changes: PreviewSupport, // serde(default); capability-driven UI/tools
@@ -77,6 +78,7 @@ pub struct ConnectConfig { pub fields: BTreeMap<String,String>, pub secret: Opti
     async fn schema_graph(&self, scope: Option<&str>) -> Result<SchemaGraph, DbError>;         // default Unsupported
     async fn browse(&self, node_id: &str, page: PageRequest) -> Result<ResultSet, DbError>;      // capabilities.paged_browse
     async fn preview(&self, req: &ExecRequest, cancel: CancelToken) -> Result<ChangePreview, DbError>; // default Unsupported
+    async fn execute_stream_raw(&self, req: &ExecRequest, cancel: CancelToken, sink: &dyn AsyncResultSink) -> Result<Vec<ResultSet>, DbError>; // default Unsupported, capability negotiation required
     async fn execute(&self, req: &ExecRequest, cancel: CancelToken) -> Result<Vec<ResultSet>, DbError>;
     async fn expand(&self, element_id: &str, limit: u32) -> Result<ResultSet, DbError>;          // capabilities.graph_expand
     async fn close(&self);
@@ -172,7 +174,7 @@ pub enum ErrorKind { Connection, Auth, Query, Timeout, Cancelled, Unsupported, I
 | `preview(session_id, run_id, req, source?)` | 드라이버 preview 실행, 취소/타임아웃 후 정리 대기, 이력 kind=preview. source 기본 ui, 에이전트는 agent. 거부 배치는 notes만 반환하고 실행하지 않는다 |
 | `edit_preview(session_id, run_id, req)` | 기본 키 기반 편집을 bound parameters로 실행하고 전부 롤백. read-only는 Auth, capability 미지원은 Unsupported |
 | `edit_apply(session_id, run_id, req)` | 같은 세션·요청의 60초 이내 성공 미리보기 필요(일회용). 한 트랜잭션; Update/Delete 영향 수가 1이 아니면 Conflict와 전체 롤백 |
-| `execute_stream(session_id, run_id, req, on_event)` | 같은 실행·취소·이력 경로를 쓴다. 그래프 또는 모든 표가 2,000행 이하이면 기존 ResultSet 배열을 반환한다. 그 외 큰 표는 Channel로 보내고 빈 배열을 반환한다 |
+| `execute_stream(session_id, run_id, req, on_event)` | 같은 실행·취소·이력 경로를 쓴다. 그래프와 legacy 경로의 작은 표는 기존 ResultSet 배열을 반환한다. 협상된 PG의 row_limit>2,000 요청은 최종 행 수가 작더라도 즉시 Channel로 보내고 빈 배열을 반환한다 |
 | `cancel(run_id)` | 탭을 닫거나 사용자가 취소할 때 호출 |
 | `expand(session_id, element_id, limit)` | |
 | `history_list(limit)` | `history.jsonl`: 시각, 프로필명, 쿼리 텍스트, 소요 시간, 행 수, 오류 요약. 파라미터 값과 secret은 기록하지 않는다 |
@@ -195,7 +197,7 @@ pub enum ErrorKind { Connection, Auth, Query, Timeout, Cancelled, Unsupported, I
 
 ## 결과 뷰어와 계측
 
-큰 표는 `Channel<Response>`의 raw MessagePack 바이트로 `start → rows* → end`를 결과 집합별로 보내고 마지막에 `done`으로 끝난다. 작은 결과와 그래프의 직접 invoke 반환은 유지한다. 첫 청크는 200행, 이후 2,000행이며 컬럼별 공통 태그와 값 배열을 사용한다. 혼합 타입은 셀 태그를 유지하고 정수·decimal·JSON 원문은 문자열로 보존한다. UI는 결과 인덱스·행 offset·폭을 검증하고 rAF 단위로 반영한다. 동일 태그의 큰 열은 검증된 인코딩 버퍼와 scalar offset으로 보관하고 보이는 셀만 디코드한다. 수신한 열 청크는 그대로 보관하고, 기존 행 배열 인터페이스는 조회한 행만 셀 객체로 만드는 읽기 전용 Proxy로 제공한다. 정렬은 열 값을 직접 읽으며 완료·실패 시 Channel onmessage의 결과 참조를 끊는다. 호스트 청크 전송은 드라이버가 결과 수집을 끝낸 뒤 시작하므로 DB에서 첫 행을 받는 시점까지 스트리밍하는 계약은 아니다.
+큰 표는 `Channel<Response>`의 raw MessagePack 바이트로 `start → rows* → end`를 결과 집합별로 보내고 마지막에 `done`으로 끝난다. row_limit≤2,000 요청·legacy 작은 결과와 그래프의 직접 invoke 반환은 유지한다. 협상된 PG의 큰 행 예산 요청은 실제 결과가 작더라도 즉시 스트리밍한다. 첫 청크는 200행, 이후 2,000행이며 컬럼별 공통 태그와 값 배열을 사용한다. 혼합 타입은 셀 태그를 유지하고 정수·decimal·JSON 원문은 문자열로 보존한다. UI는 결과 인덱스·행 offset·폭을 검증하고 rAF 단위로 반영한다. 동일 태그의 큰 열은 검증된 인코딩 버퍼와 scalar offset으로 보관하고 보이는 셀만 디코드한다. 수신한 열 청크는 그대로 보관하고, 기존 행 배열 인터페이스는 조회한 행만 셀 객체로 만드는 읽기 전용 Proxy로 제공한다. 정렬은 열 값을 직접 읽으며 완료·실패 시 Channel onmessage의 결과 참조를 끊는다. PG는 handshake의 `capabilities.execute_stream`을 협상한 경우 선택 `execute_stream` 메서드를 사용한다. `stream_start`는 최종 행 수가 미정인 컬럼 메타데이터이고, `rows*` 뒤 `stream_end`가 실제 행 수·elapsed·truncated를 확정한다. 구 드라이버 및 작은 요청(row_limit≤2,000)은 기존 `execute`와 start/rows 재조립을 유지한다. 실행이 시작된 선택 메서드를 legacy 실행으로 재시도하지 않는다.
 
 표는 행·열을 가상화하고 보이는 셀만 포맷해 캐시한다. 정렬·필터는 로드된 원본 행을 복사하지 않고 인덱스 배열을 만든다. 그래프 레이아웃은 Worker에서 수렴시킨 뒤 Float32Array로 전달하고, Canvas는 입력·크기 변경·데이터 변경 때만 그린다. 기존 노드는 확장 시 고정하고 새 노드만 부모 근처에서 200ms 동안 이동한다. 숨긴 뷰와 비활성 탭은 유지하되 Worker와 렌더를 멈춘다. 첫 표시와 Reset은 fit-to-view이며, 다중·역방향 관계는 곡선으로 분리하고 작은 줌에서는 캡션·화살표를 생략한다.
 
@@ -207,7 +209,7 @@ pub enum ErrorKind { Connection, Auth, Query, Timeout, Cancelled, Unsupported, I
 
 - **실행 모델:** 로컬 드라이버 검색과 프로브는 Host 생성에서 제외하고 Registry를 처음 읽을 때 수행한다. 드라이버당 프로세스 하나를 처음 연결할 때 지연 실행하고, 그 안에서 세션 ID로 여러 연결을 다중화한다. 마지막 세션 종료 후 5분 단발 타이머로 프로세스를 종료하고 wait로 회수하며, 그 전에 연결하면 타이머를 취소한다. 다음 연결은 새 프로세스로 시작한다. 설치만 한 드라이버는 프로세스를 띄우지 않는다.
 - **프로토콜(protocol 1):** big-endian u32 길이 + MessagePack 본문. 요청 `{id, method, params}`, 응답 `{id, result|error}`, 실행 청크 `{id, chunk}`, 취소 `{cancel: id}`. 프레임 하나는 최대 16 MiB, 일반 요청 하나의 전체 응답은 최대 256 MiB이며 초과분을 조용히 잘라내지 않고 연결을 끊는다. `backup_stream`의 검증된 64 KiB 이하 byte 청크는 누적 응답 한도에서 제외하고, 8칸 채널과 파일 sink로 backpressure를 유지한다. 핸드셰이크의 `protocol`이 다르면 "드라이버 업데이트 필요"로 거부한다.
-- **스트리밍:** `Session::execute_stream`을 `PluginSession`이 재정의해 큰 표의 행을 처음 200행, 이후 2,000행 단위로 UI 채널에 바로 넘긴다. 현재 DB 드라이버의 `execute`는 결과를 모아서 반환하므로 청크 전송은 DB 실행이 끝난 뒤 시작한다.
+- **스트리밍:** `Session::execute_stream`을 `PluginSession`이 재정의한다. PG의 선택 `execute_stream`은 같은 세션 mutex·읽기 전용·취소·타임아웃·정리 경로에서 `simple_query_raw`와 200/2,000행 FETCH 커서를 사용하고, async sink가 SDK의 기존 8프레임 채널을 await한다. 텍스트 타입 변환을 재사용한다. 청크는 약 256KiB를 기준으로 나누며 단일 큰 셀에는 기존 16MiB 프레임 상한이 적용된다. DML RETURNING/SHOW/EXPLAIN은 raw stream을 끝까지 drain한다. 결과 인덱스·행 폭·최종 행 수를 호스트가 검증하고 LiveResults가 최종 metadata를 UI end에 반영한다. 다른 드라이버와 구 host의 `execute`는 기존 수집 후 청크 경로다.
 - **취소와 크래시:** 취소는 해당 요청의 `CancelToken`으로 전달한다. DB 롤백 정리 3초와 전송 유예 3초 안에 응답이 없으면 프로세스를 종료하고 그 드라이버의 세션을 dead로 표시한다. 다음 연결 때 프로세스를 다시 띄우며, 기존 세션이나 쿼리를 재실행하지 않는다. 다른 드라이버는 영향을 받지 않는다.
 - **비밀:** 비밀번호는 `ConnectConfig.secret`으로만 전달한다(argv·환경 변수·프로필에 넣지 않음). 드라이버 stderr는 호스트가 로그로 받으며 기존 redaction을 적용하고 8 KiB를 넘는 줄은 버린다. 자식 프로세스 환경에서 서명·AI·테스트 비밀은 제외한다.
 - **백업 파일 스트리밍:** `backup_create_file`은 저장 대화상자의 일회용 path/token으로만 쓴다. 드라이버 `backup_stream` → 기존 `{id,chunk}` envelope → 호스트 zstd writer가 전체 payload를 수집하지 않고 SHA-256을 계산하며, manifest는 `.axbackup` v2 trailer에 둔다. 취소·실패 시 옆의 임시 파일을 삭제하고 기존 파일을 보존한다. `restore_pick_file`은 선택한 일반 파일을 스트리밍 검증하여 비공개 익명 임시 파일에 고정하고 세션에 묶인 토큰만 UI에 반환한다. `restore_file_preview/apply`는 이 토큰·payload digest·overwrite·새 DB 이름에 묶인 일회용 승인 영수증을 쓰며, `restore_start/chunk/finish/abort` 선택 메서드로 64 KiB씩 전송한다. SDK도 익명 파일에 스테이징하고, 실패·취소·세션 종료·업로드 유휴 만료 시 정리한다. 기존 v1 파일과 bounded 단일-frame 메서드는 호환용으로 남긴다. `restore_options`가 덮어쓰기·새 DB 생성 가능 여부와 서버 제약을 제공하므로 UI는 driver-id로 분기하지 않는다.

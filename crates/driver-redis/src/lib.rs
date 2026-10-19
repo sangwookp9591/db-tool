@@ -56,6 +56,7 @@ impl RedisDriver {
                     field("username", FieldKind::Text, None, false),
                 ],
                 capabilities: Capabilities {
+                    execute_stream: false,
                     backup: false, roles: true,
                     import_rows: true, schema_snapshot: false, ddl_render: false,
                     explain: false,

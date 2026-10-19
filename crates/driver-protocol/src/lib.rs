@@ -96,6 +96,7 @@ pub enum Request {
         node_id: String,
         page: PageRequest,
     },
+    ExecuteStream { session: u64, req: ExecRequest },
     Execute {
         session: u64,
         req: ExecRequest,
@@ -158,6 +159,7 @@ impl Request {
             | Self::ServerInfo { session }
             | Self::ListChildren { session, .. }
             | Self::Browse { session, .. }
+            | Self::ExecuteStream { session, .. }
             | Self::Execute { session, .. }
             | Self::Expand { session, .. }
             | Self::SchemaGraph { session, .. }
@@ -220,6 +222,8 @@ pub enum Reply {
 #[derive(Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ExecuteChunk {
+    StreamStart { index: usize, result: Box<ResultSet> },
+    StreamEnd { index: usize, result: Box<ResultSet> },
     Backup { data: BackupData },
     Start {
         index: usize,
@@ -250,6 +254,8 @@ impl<'de> Deserialize<'de> for ExecuteChunk {
         #[derive(Deserialize)]
         #[serde(rename_all = "snake_case")]
         enum Kind {
+            StreamStart,
+            StreamEnd,
             Start,
             Backup,
             Rows,
@@ -278,6 +284,8 @@ impl<'de> Deserialize<'de> for ExecuteChunk {
         }
         if e.data.is_some() { return Err(serde::de::Error::custom("Unexpected backup data")); }
         match (e.kind, e.result, e.rows, e.documents, e.nodes, e.rels) {
+            (Kind::StreamStart, Some(result), None, None, None, None) => Ok(Self::StreamStart { index: e.index, result }),
+            (Kind::StreamEnd, Some(result), None, None, None, None) => Ok(Self::StreamEnd { index: e.index, result }),
             (Kind::Start, Some(result), None, None, None, None) => Ok(Self::Start {
                 index: e.index,
                 result,
@@ -345,14 +353,19 @@ impl ExecuteChunk {
                     Self::Relationships { index, rels: b },
                 )
             }
-            Self::Start { .. } | Self::Backup { .. } => return None,
+            Self::StreamStart { .. } | Self::StreamEnd { .. } | Self::Start { .. } | Self::Backup { .. } => return None,
         })
     }
 
     pub fn append(self, results: &mut Vec<ResultSet>) -> Result<(), DbError> {
         let invalid = || DbError::internal("Invalid driver result chunk sequence");
         match self {
-            Self::Start { index, result, .. } if index == results.len() => results.push(*result),
+            Self::Start { index, result, .. } | Self::StreamStart { index, result } if index == results.len() => results.push(*result),
+            Self::StreamEnd { index, mut result } => {
+                let previous = results.get_mut(index).ok_or_else(invalid)?;
+                if let (Some(old), Some(new)) = (&mut previous.table, &mut result.table) { new.rows = std::mem::take(&mut old.rows); }
+                *previous = *result;
+            }
             Self::Rows { index, rows } => results
                 .get_mut(index)
                 .and_then(|r| r.table.as_mut())

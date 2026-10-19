@@ -117,6 +117,7 @@ impl PluginDriver {
             process,
             session,
             closed: CancelToken::new(),
+            incremental: self.manifest.capabilities.execute_stream,
         })
     }
 }
@@ -420,6 +421,8 @@ impl Process {
         if cancel.is_cancelled() {
             return Err(DbError::new(ErrorKind::Cancelled, "실행이 취소되었습니다"));
         }
+        let incremental = matches!(request, Request::ExecuteStream { .. });
+        let mut active: Option<(usize, usize, u64)> = None;
         let started = Instant::now();
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         let (sender, mut incoming) = mpsc::channel(8);
@@ -458,6 +461,7 @@ impl Process {
                 }
                 message = incoming.recv() => match message {
                     Some(Message::Result { result, .. }) => {
+                        if active.is_some() { self.fail(); return Err(invalid_reply()); }
                         guard.armed = false;
                         self.pending.lock().unwrap().remove(&id);
                         return Ok(Response { reply: result, results, first_chunk: first_chunk.unwrap_or_else(|| started.elapsed()) });
@@ -468,6 +472,25 @@ impl Process {
                         return Err(error);
                     }
                     Some(Message::Chunk { chunk, .. }) => {
+                        match &chunk {
+                            ExecuteChunk::StreamStart { index, result } => {
+                                if !incremental || active.is_some() || *index != results.len() || result.graph.is_some() || result.documents.is_some() || result.table.as_ref().is_some_and(|t| !t.rows.is_empty()) { self.fail(); return Err(invalid_reply()); }
+                                active = Some((*index, result.table.as_ref().map_or(0, |t| t.columns.len()), 0));
+                                if let Some(sink) = sink { sink.start_pending(*index, result)?; }
+                            }
+                            ExecuteChunk::Rows { index, rows } if incremental => {
+                                let Some((current, width, count)) = active.as_mut() else { self.fail(); return Err(invalid_reply()); };
+                                if index != current || rows.iter().any(|r| r.len() != *width) { self.fail(); return Err(invalid_reply()); }
+                                *count = count.checked_add(rows.len() as u64).ok_or_else(invalid_reply)?;
+                            }
+                            ExecuteChunk::StreamEnd { index, result } => {
+                                let Some((current, _, count)) = active.take() else { self.fail(); return Err(invalid_reply()); };
+                                if !incremental || current != *index || result.row_count != count || result.graph.is_some() || result.documents.is_some() || result.table.as_ref().map(|t| &t.columns) != results.get(*index).and_then(|r| r.table.as_ref()).map(|t| &t.columns) || result.table.as_ref().is_some_and(|t| !t.rows.is_empty()) { self.fail(); return Err(invalid_reply()); }
+                                if let Some(sink) = sink { sink.end(*index, result)?; }
+                            }
+                            ExecuteChunk::Start { .. } if incremental => { self.fail(); return Err(invalid_reply()); }
+                            _ => {}
+                        }
                         if let ExecuteChunk::Backup{data}=&chunk {
                             let target=backup_sink.ok_or_else(invalid_reply)?;
                             if data.data.len()>BACKUP_CHUNK_BYTES {self.fail();return Err(invalid_reply());}
@@ -478,8 +501,8 @@ impl Process {
                             if streaming.is_some_and(|old| old != *enabled) { self.fail(); return Err(invalid_reply()); }
                             streaming = Some(*enabled);
                         }
-                        if first_chunk.is_none() && !matches!(chunk, ExecuteChunk::Start { .. }) { first_chunk = Some(started.elapsed()); }
-                        let chunk = if streaming == Some(true) {
+                        if first_chunk.is_none() && !matches!(chunk, ExecuteChunk::Start { .. } | ExecuteChunk::StreamStart { .. } | ExecuteChunk::StreamEnd { .. }) { first_chunk = Some(started.elapsed()); }
+                        let chunk = if streaming == Some(true) || incremental {
                             if let Some(sink) = sink {
                                 match chunk {
                                     ExecuteChunk::Rows { index, rows } => { sink.rows(index, rows)?; continue; }
@@ -540,6 +563,7 @@ impl Drop for Pending {
 }
 
 pub struct PluginSession {
+    incremental: bool,
     lease: Mutex<Option<SessionLease>>,
     process: Arc<Process>,
     session: u64,
@@ -677,10 +701,7 @@ impl Session for PluginSession {
         let response = self
             .process
             .call_with_sink(
-                Request::Execute {
-                    session: self.session,
-                    req: req.clone(),
-                },
+                if self.incremental && req.row_limit > 2000 { Request::ExecuteStream { session: self.session, req: req.clone() } } else { Request::Execute { session: self.session, req: req.clone() } },
                 cancel,
                 Duration::from_millis(req.timeout_ms).saturating_add(RESPONSE_GRACE),
                 Some(sink),

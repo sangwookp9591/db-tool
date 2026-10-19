@@ -62,6 +62,7 @@ impl SqliteDriver {
                     },
                 ],
                 capabilities: Capabilities {
+                    execute_stream: false,
                     backup: true, roles: false,
                     import_rows: true,
                     schema_snapshot: true,

@@ -1,3 +1,5 @@
+#[path = "agent_results.rs"]
+pub mod results;
 use crate::{storage, permissions, DbError, Host};
 use axum::{
     extract::{DefaultBodyLimit, Request, State},
@@ -92,6 +94,7 @@ impl Bridge {
     }
     pub async fn stop(&self, config: &std::path::Path) {
         if let Some(running) = self.running.lock().await.take() {
+            if let Some(app) = &running.shared.app { app.state::<Host>().agent_results.clear(); }
             running.stop.cancel();
             let requests = std::mem::take(&mut *running.shared.pending.lock().unwrap());
             for (id, reply) in requests {
@@ -622,3 +625,7 @@ mod tests {
         assert!(!request.read_only);
     }
 }
+
+#[cfg(test)]
+#[path = "agent_results_e2e.rs"]
+mod results_e2e;

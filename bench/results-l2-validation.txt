@@ -1,0 +1,404 @@
+cargo build --workspace --bins
+   Compiling axdb v0.3.0 (/Users/iron/Project/psw/db-tool/src-tauri)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 6.20s
+
+
+cargo test -p driver-postgres -p driver-mysql -p axdb-driver-sdk -p axdb-driver-protocol -p dbcore
+   Compiling syn v3.0.9
+   Compiling parking_lot_core v0.9.12
+   Compiling serde_json v1.0.154
+   Compiling syn v2.0.119
+   Compiling getrandom v0.2.17
+   Compiling cpufeatures v0.2.17
+   Compiling simd-adler32 v0.3.10
+   Compiling ring v0.17.14
+   Compiling parking_lot v0.12.5
+   Compiling rustls v0.23.46
+   Compiling miniz_oxide v0.9.1
+   Compiling stacker v0.1.25
+   Compiling getrandom v0.3.4
+   Compiling flate2 v1.1.10
+   Compiling rustls-webpki v0.103.15
+   Compiling sha1 v0.10.7
+   Compiling sha2 v0.10.9
+   Compiling uuid v1.28.0
+   Compiling synstructure v0.14.0
+   Compiling tracing-attributes v0.1.31
+   Compiling recursive-proc-macro-impl v0.1.1
+   Compiling recursive v0.1.1
+   Compiling tokio-macros v2.7.2
+   Compiling serde_derive v1.0.229
+   Compiling async-trait v0.1.92
+   Compiling futures-macro v0.3.34
+   Compiling zerofrom-derive v0.1.8
+   Compiling tokio v1.53.3
+   Compiling futures-util v0.3.34
+   Compiling yoke-derive v0.8.4
+   Compiling zerofrom v0.1.8
+   Compiling zerovec-derive v0.11.6
+   Compiling yoke v0.8.3
+   Compiling displaydoc v0.2.7
+   Compiling serde v1.0.229
+   Compiling zerovec v0.11.8
+   Compiling zerotrie v0.2.5
+   Compiling tracing v0.1.44
+   Compiling rmp-serde v1.3.1
+   Compiling tinystr v0.8.4
+   Compiling icu_locale_core v2.3.0
+   Compiling potential_utf v0.1.6
+   Compiling thiserror-impl v2.0.21
+   Compiling sqlparser_derive v0.6.0
+   Compiling icu_collections v2.3.0
+   Compiling sqlparser v0.63.0
+   Compiling icu_provider v2.3.1
+   Compiling tokio-util v0.7.20
+   Compiling tokio-native-tls v0.3.1
+   Compiling icu_normalizer v2.3.0
+   Compiling icu_properties v2.3.0
+   Compiling thiserror v2.0.21
+   Compiling dbcore v0.3.0 (/Users/iron/Project/psw/db-tool/crates/dbcore)
+   Compiling tokio-postgres v0.7.18
+   Compiling mysql_common v0.37.3
+   Compiling idna_adapter v1.2.2
+   Compiling idna v1.1.0
+   Compiling url v2.5.8
+   Compiling tokio-rustls v0.26.6
+   Compiling postgres-native-tls v0.5.3
+   Compiling axdb-driver-protocol v0.3.0 (/Users/iron/Project/psw/db-tool/crates/driver-protocol)
+   Compiling mysql_async v0.37.1
+   Compiling axdb-driver-sdk v0.3.0 (/Users/iron/Project/psw/db-tool/crates/driver-sdk)
+   Compiling driver-postgres v0.3.0 (/Users/iron/Project/psw/db-tool/crates/driver-postgres)
+   Compiling driver-mysql v0.3.0 (/Users/iron/Project/psw/db-tool/crates/driver-mysql)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 49.11s
+     Running unittests src/lib.rs (target-l2/debug/deps/axdb_driver_protocol-c9a8fcb0c4e0c186)
+
+running 7 tests
+test tests::invalid_and_partial_frames_fail ... ok
+test tests::cancellation_frame_roundtrip ... ok
+test tests::unknown_optional_methods_decode_without_closing_transport ... ok
+test tests::legacy_start_defaults_to_reassembly_and_ambiguous_envelopes_fail ... ok
+test tests::fragmented_and_consecutive_frames ... ok
+test tests::backup_restore_request_preserves_binary_through_request_envelope ... ok
+test tests::typed_large_result_roundtrip_and_order_validation ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.56s
+
+     Running unittests src/lib.rs (target-l2/debug/deps/axdb_driver_sdk-1e1f22939b858032)
+
+running 2 tests
+test tests::incremental_sink_backpressures_at_eight_frames_and_propagates_closed_receiver ... ok
+test tests::oversized_batch_splits_without_losing_order ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+     Running unittests src/lib.rs (target-l2/debug/deps/dbcore-e7f406d58647dbd6)
+
+running 10 tests
+test workbench::tests::new_import_table_types_are_allowlisted ... ok
+test filter::tests::keys_are_exact_and_cannot_inject_sql ... ok
+test preview::tests::plans_respect_comments_quotes_nested_keywords_and_unsafe_controls ... ok
+test workbench::tests::changes_are_destructive_and_identifiers_quoted ... ok
+test workbench::tests::duplicate_objects_and_cross_dialect_rejected ... ok
+test explain::tests::estimates_and_nested_plans ... ok
+test explain::tests::mongo_aggregation_preserves_cursor_and_pipeline_stages ... ok
+test workbench::tests::sqlite_columns_and_postgres_constraints_render_without_table_rebuilds ... ok
+test explain::tests::old_capabilities_default_editor_extensions_off ... ok
+test edits::tests::additive_contract_defaults_and_roundtrip ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/contract.rs (target-l2/debug/deps/contract-656340dc50a42a2e)
+
+running 4 tests
+test debug_never_exposes_secrets ... ok
+test preview_contract_is_additive_and_defaults_to_no_support ... ok
+test values_preserve_tags_and_precision ... ok
+test viewer_contract_defaults_are_additive ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target-l2/debug/deps/driver_mysql-e70fa6a85f10e150)
+
+running 8 tests
+test value::tests::precision_and_boundary_validation ... ok
+test value::tests::decimal_filters_never_round_to_the_column_scale ... ok
+test management::tests::normalizes_mysql_and_maria_plans ... ok
+test value::tests::old_driver_manifest_without_icon_key_deserializes ... ok
+test catalog::tests::snapshots_exclude_only_the_volatile_auto_increment_counter ... ok
+test management::tests::mysql_ddl_keeps_column_attributes_and_never_rebuilds_tables ... ok
+test management::tests::edit_operators_do_not_rewrite_quoted_identifiers ... ok
+test management::tests::protected_sql_rejects_implicit_commit_and_external_effects ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/axdb-driver-mysql.rs (target-l2/debug/deps/axdb_driver_mysql-c57ce8a80d8ed611)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/mysql.rs (target-l2/debug/deps/mysql-5b572b3edd4ef6ca)
+
+running 3 tests
+test mysql_tls_authentication_and_validation ... ok
+test mariadb_contract ... ok
+test mysql_contract ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.86s
+
+     Running unittests src/lib.rs (target-l2/debug/deps/driver_postgres-2b18e848288e44eb)
+
+running 4 tests
+test split::tests::postgres_quotes_comments_and_unicode ... ok
+test split::tests::rejects_unterminated_input_before_any_execution ... ok
+test tests::result_title_caps_at_80_chars_with_ellipsis ... ok
+test tests::quotes_identifiers_and_types ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/axdb-driver-postgres.rs (target-l2/debug/deps/axdb_driver_postgres-b336f0b71013573d)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/explain.rs (target-l2/debug/deps/explain-d883726d2b5319cd)
+
+running 1 test
+test explain_analyze_rolls_back_writes_and_recovers_from_errors ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+
+     Running tests/management.rs (target-l2/debug/deps/management-7278aaff46cd0deb)
+
+running 1 test
+test atomic_import_snapshot_and_migration ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s
+
+     Running tests/postgres.rs (target-l2/debug/deps/postgres-59f201ae90d8b4da)
+
+running 9 tests
+test c2_binary_edit_binds_and_reads_bytea ... ok
+test schema_graph_and_filtered_browse ... ok
+test c2_bound_edits_preview_apply_conflicts_and_catalog ... ok
+test read_only_execution_is_enforced_and_cleans_up ... ok
+test c2_nested_multirow_conflict_and_interruption ... ok
+test change_preview_rolls_back_rows_schema_and_preserves_user_transaction ... ok
+test change_preview_ignores_concurrent_ddl_from_other_sessions ... ok
+test real_postgres_contract ... ok
+test cancellation_races_do_not_poison_next_query ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.07s
+
+     Running tests/streaming.rs (target-l2/debug/deps/streaming-67e1d2a9cdb18e06)
+
+running 2 tests
+test real_incremental_limits_metadata_precision_and_multi_result ... ok
+test real_incremental_cancel_timeout_and_session_reuse ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.93s
+
+     Running tests/tls.rs (target-l2/debug/deps/tls-4a28c95f23829a33)
+
+running 1 test
+test real_postgres_tls_modes ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests axdb_driver_protocol
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests axdb_driver_sdk
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests dbcore
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests driver_mysql
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests driver_postgres
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+
+cargo test -p axdb --lib agent_bridge
+   Compiling axdb v0.3.0 (/Users/iron/Project/psw/db-tool/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 12.06s
+     Running unittests src/lib.rs (target-l2/debug/deps/axdb-b057cb1310388015)
+
+running 10 tests
+test agent_bridge::tests::old_contract_defaults_remain_compatible ... ok
+test agent_bridge::tests::transport_failure_is_unavailable_but_explicit_denial_is_preserved ... ok
+test agent_bridge::tests::stopping_releases_requests_waiting_for_ready ... ok
+test agent_bridge::tests::queues_until_ready_and_waits_again_after_reload ... ok
+test agent_bridge::tests::missing_ready_is_unavailable_and_does_not_forward ... ok
+test agent_bridge::tests::http_auth_origin_protocol_and_webview_forwarding ... ok
+test agent_bridge::tests::discovery_is_published_on_ready_and_removed_on_reload_and_stop ... ok
+test agent_bridge::results_e2e::real_pg_http_caps_pages_scope_and_revocation ... ok
+test agent_bridge::results::tests::caps_owner_lru_ttl_cleanup_and_huge_utf8 ... ok
+test agent_bridge::results::tests::byte_budget_evicts_and_client_cleanup_drops_entries ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 121 filtered out; finished in 0.79s
+
+
+
+cargo test -p axdb --lib stream::tests
+   Compiling axdb v0.3.0 (/Users/iron/Project/psw/db-tool/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.46s
+     Running unittests src/lib.rs (target-l2/debug/deps/axdb-b057cb1310388015)
+
+running 3 tests
+test stream::tests::packs_exact_and_mixed_cells ... ok
+test stream::tests::pending_metadata_requires_matching_end_before_completion ... ok
+test stream::tests::live_channel_keeps_event_order_and_rejects_incomplete_or_oversized_rows ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 128 filtered out; finished in 0.01s
+
+
+
+cargo test -p axdb --test streaming_compat
+   Compiling axdb v0.3.0 (/Users/iron/Project/psw/db-tool/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 11.57s
+     Running tests/streaming_compat.rs (target-l2/debug/deps/streaming_compat-140abc67674f7e02)
+
+running 8 tests
+test old::tests::invalid_and_partial_frames_fail ... ok
+test old::tests::cancellation_frame_roundtrip ... ok
+test old::tests::legacy_start_defaults_to_reassembly_and_ambiguous_envelopes_fail ... ok
+test old::tests::fragmented_and_consecutive_frames ... ok
+test new_host_old_driver_uses_capability_fallback ... ok
+test old_host_codec_new_driver_keeps_legacy_chunks ... ok
+test new_host_new_driver_updates_pending_metadata ... ok
+test old::tests::typed_large_result_roundtrip_and_order_validation ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.58s
+
+
+
+cargo test -p axdb --lib legacy_clients_default_to_bounded_model_results
+   Compiling axdb v0.3.0 (/Users/iron/Project/psw/db-tool/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.86s
+     Running unittests src/lib.rs (target-l2/debug/deps/axdb-b057cb1310388015)
+
+running 1 test
+test permissions::tests::legacy_clients_default_to_bounded_model_results ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 130 filtered out; finished in 0.00s
+
+
+
+cargo test -p axdb --lib result_page_rejects_invalid_offsets_and_limits
+   Compiling axdb v0.3.0 (/Users/iron/Project/psw/db-tool/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.74s
+     Running unittests src/lib.rs (target-l2/debug/deps/axdb-b057cb1310388015)
+
+running 1 test
+test agent_dispatch::tests::result_page_rejects_invalid_offsets_and_limits ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 130 filtered out; finished in 0.00s
+
+
+
+cargo test -p axdb --test plugin_contracts mongo_schema::real_mongodb_schema_graph -- --exact --test-threads=1
+    Blocking waiting for file lock on artifact directory
+   Compiling axdb v0.3.0 (/Users/iron/Project/psw/db-tool/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.75s
+     Running tests/plugin_contracts.rs (target-l2/debug/deps/plugin_contracts-62c5ae1215a86a68)
+
+running 1 test
+test mongo_schema::real_mongodb_schema_graph ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 39 filtered out; finished in 0.57s
+
+
+
+cargo clippy --workspace --all-targets -- -D warnings
+    Blocking waiting for file lock on build directory
+   Compiling axdb v0.3.0 (/Users/iron/Project/psw/db-tool/src-tauri)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 8.31s
+
+
+pnpm --dir ui exec tsc --noEmit
+
+
+pnpm --dir ui test
+
+> axdb-ui@0.3.0 test /Users/iron/Project/psw/db-tool/ui
+> vitest run
+
+
+ RUN  v5.0.4 /Users/iron/Project/psw/db-tool/ui
+
+(node:65800) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+ Test Files  37 passed | 1 skipped (38)
+      Tests  144 passed | 1 skipped (145)
+   Start at  22:56:57
+   Duration  29.79s (tests 80%, import 19%, transform 1%)
+
+    Isolate  38 workers spawned · ~764ms startup each (spawn + environment, per file)
+             at least ~2.46s faster with isolate: false — reuses workers across files instead of one per file
+
+
+
+FAILED workspace-tests - Initial Mongo URI did not match repository fixture contract
+failures:
+    context::tests::mongodb_real_context
+
+test result: FAILED. 122 passed; 1 failed; 4 ignored; 0 measured; 0 filtered out; finished in 7.71s
+
+error: test failed, to rerun pass `-p axdb --lib`
+
+
+FAILED workspace-tests-final - Parallel plugin Mongo schema test observed collections being created by another contract in the same executable
+failures:
+    mongo_schema::real_mongodb_schema_graph
+
+test result: FAILED. 39 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 9.36s
+
+error: test failed, to rerun pass `-p axdb --test plugin_contracts`
+
+
+FAILED driver-tests - Subsequent Mongo management snapshot encountered the view left by the failed schema fixture
+failures:
+    snapshot_indexes_and_standalone_import_refusal
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s
+
+error: test failed, to rerun pass `-p driver-mongodb --test management`
+
+
+FAILED host-final - Subsequent Mongo context budget assertion encountered the large sampled collection left by the failed schema fixture
+failures:
+    context::tests::mongodb_real_context
+
+test result: FAILED. 123 passed; 1 failed; 4 ignored; 0 measured; 0 filtered out; finished in 7.46s
+
+error: test failed, to rerun pass `-p axdb --lib`
+
+
+FAILED agent-env-failure - Headless HTTP fixture lacked a registry driver without AXDB_DRIVER_DIR; fixed by explicit native PG registration
+failures:
+    agent_bridge::results_e2e::real_pg_http_caps_pages_scope_and_revocation
+
+test result: FAILED. 9 passed; 1 failed; 0 ignored; 0 measured; 121 filtered out; finished in 60.20s
+
+error: test failed, to rerun pass `-p axdb --lib`

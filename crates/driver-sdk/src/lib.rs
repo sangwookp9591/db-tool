@@ -201,6 +201,11 @@ async fn dispatch(
                 Request::Browse { node_id, page, .. } => {
                     Ok(Reply::ResultSet(session.browse(&node_id, page).await?))
                 }
+                Request::ExecuteStream { req, .. } => {
+                    if !driver.manifest().capabilities.execute_stream { return Err(DbError::unsupported("Incremental execution unavailable")); }
+                    session.execute_stream_raw(&req, cancel, &QueryOutput { tx, id }).await?;
+                    Ok(Reply::Unit)
+                }
                 Request::Execute { req, .. } => {
                     let results = session.execute(&req, cancel.clone()).await?;
                     let streaming = streamable_tables(&results);
@@ -387,9 +392,39 @@ impl BackupSink for BackupOutput<'_> {
     }
 }
 
+struct QueryOutput<'a> { tx: &'a mpsc::Sender<Message>, id: u64 }
+#[async_trait::async_trait]
+impl AsyncResultSink for QueryOutput<'_> {
+    async fn start(&self, index: usize, result: &ResultSet) -> Result<(), DbError> {
+        send(self.tx, self.id, ExecuteChunk::StreamStart { index, result: Box::new(result.clone()) }).await
+    }
+    async fn rows(&self, index: usize, rows: Vec<Vec<Value>>) -> Result<(), DbError> {
+        send(self.tx, self.id, ExecuteChunk::Rows { index, rows }).await
+    }
+    async fn end(&self, index: usize, result: &ResultSet) -> Result<(), DbError> {
+        send(self.tx, self.id, ExecuteChunk::StreamEnd { index, result: Box::new(result.clone()) }).await
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn incremental_sink_backpressures_at_eight_frames_and_propagates_closed_receiver() {
+        let (tx, mut rx) = mpsc::channel(8);
+        let (progress, mut received) = mpsc::channel(1);
+        let producer = tokio::spawn(async move {
+            let output = QueryOutput { tx: &tx, id: 1 };
+            for i in 0..10 { output.rows(0, vec![vec![Value::Int(i.to_string())]]).await?; progress.send(i).await.unwrap(); }
+            Ok::<_, DbError>(())
+        });
+        for expected in 0..8 { assert_eq!(received.recv().await, Some(expected)); }
+        assert!(tokio::time::timeout(std::time::Duration::from_millis(10), received.recv()).await.is_err());
+        rx.recv().await.unwrap();
+        assert_eq!(received.recv().await, Some(8));
+        drop(rx);
+        assert_eq!(producer.await.unwrap().unwrap_err().kind, ErrorKind::Connection);
+    }
     #[tokio::test]
     async fn oversized_batch_splits_without_losing_order() {
         let rows = vec![

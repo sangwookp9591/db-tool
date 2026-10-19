@@ -48,6 +48,7 @@ fn valid_arguments(tool: &str, args: &Value) -> bool {
         return false;
     };
     let (keys, required): (&[&str], &[&str]) = match tool {
+        "get_result_page" => (&["session_id", "result_id", "offset", "limit", "byte_offset"], &["session_id", "result_id"]),
         "backup_status" => (&["session_id"], &["session_id"]),
         "plan_grants" => (&["session_id","changes"], &["session_id"]),
         "schema_diff" => (&["session_id","after"], &["session_id"]),
@@ -97,6 +98,7 @@ fn valid_arguments(tool: &str, args: &Value) -> bool {
                 }),
                 "timeout_ms" => v.as_u64().is_some_and(|n| (1..=3600000).contains(&n)),
                 "sample_limit" => v.as_u64().is_some_and(|n| n <= 200),
+                "byte_offset" => v.as_u64().is_some_and(|n| n <= 32*1024*1024),
                 "offset" => v.as_u64().is_some_and(|n| n <= 9007199254740991),
                 "read_only" => v.is_boolean(),
                 "changes" => serde_json::from_value::<Vec<dbcore::GrantChange>>(v.clone()).is_ok_and(|c|dbcore::validate_grants(&c).is_ok()),
@@ -160,6 +162,7 @@ async fn dispatch_inner(shared: &Shared, client: &AgentClient, method: &str, par
     if method == "tools/list" {
         let mut value = forward(shared, method, params).await;
         if let Some(tools) = value["tools"].as_array_mut() {
+            tools.push(json!({"name":"get_result_page","title":"Read saved result page","description":"Read a cached result without executing SQL; offset counts rows/documents/graph items across result sets. Use byte_offset=0 and next_byte_offset to recover original JSON fragments for an oversized cell. Handles expire on session close or ten idle minutes.","inputSchema":{"type":"object","properties":{"session_id":{"type":"string"},"result_id":{"type":"string"},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":1000},"byte_offset":{"type":"integer","minimum":0}},"required":["session_id","result_id"],"additionalProperties":false},"annotations":{"readOnlyHint":true,"untrustedContentHint":true}}));
             tools.retain(|t| {
                 client
                     .allowed_tools
@@ -249,6 +252,7 @@ async fn dispatch_inner(shared: &Shared, client: &AgentClient, method: &str, par
             | "close_connection"
             | "explore"
             | "run_query"
+            | "get_result_page"
             | "preview_changes"
             | "schema_diff" | "plan_import" | "plan_migration" | "backup_status" | "plan_grants"
             | "explain_query"
@@ -289,7 +293,7 @@ async fn dispatch_inner(shared: &Shared, client: &AgentClient, method: &str, par
     if let Err(e) = permissions::audit(&host, client, tool, id.as_deref(), "allowed", text) {
         return json!({"error":e});
     }
-    let mut result = match tool {
+    let result = match tool {
         "schema_diff" => {
             let after=serde_json::from_value::<dbcore::SchemaSnapshot>(args["after"].clone());
             match after {Ok(after)=>match crate::management::schema_snapshot(app.state(),args["session_id"].as_str().unwrap_or("").into(),None).await{Ok(before)=>encoded(crate::management::schema_diff(before,after)),Err(e)=>json!({"error":e})},Err(_)=>permissions::error("InvalidInput")}
@@ -344,6 +348,9 @@ async fn dispatch_inner(shared: &Shared, client: &AgentClient, method: &str, par
         "get_ui_state" if client.id != "local" || !client.connections.is_empty() => {
             json!({"connections":visible_connections(&host,client),"active_tab":null,"last_result":[]})
         }
+        "get_result_page" => {
+            read_result_page(&host, client, args)
+        },
         "run_query" | "preview_changes" => {
             let session = args["session_id"].as_str().unwrap_or("").to_owned();
             let req = serde_json::from_value::<ExecRequest>(
@@ -410,8 +417,9 @@ async fn dispatch_inner(shared: &Shared, client: &AgentClient, method: &str, par
         _ => forward(shared, method, params.clone()).await,
     };
     // A delayed credential dialog or UI response cannot return data after a grant is withdrawn.
-    let valid = permissions::current(&host.paths.config, client).is_ok_and(|now| {
-        (!context_tool || now.allowed_tools.iter().any(|name| name == tool))
+    let current = permissions::current(&host.paths.config, client);
+    let valid = current.as_ref().is_ok_and(|now| {
+        now.allowed_tools.iter().any(|name| name == tool)
             && (!requires_connection
                 || id
                     .as_ref()
@@ -421,9 +429,36 @@ async fn dispatch_inner(shared: &Shared, client: &AgentClient, method: &str, par
         let _ = permissions::audit(&host, client, tool, id.as_deref(), "denied", text);
         return permissions::error("Forbidden");
     }
-    bound(&mut result, client.max_rows.min(200) as usize);
-    result
+    let client = current.as_ref().unwrap();
+    if tool == "get_result_page" {
+        if let Err(e) = permissions::audit_result(&host, client, tool, id.as_deref(), "returned", None, result["truncated"].as_bool()) { return json!({"error":e}); }
+        return result;
+    }
+    limit_result(&host, client, tool, args, id.as_deref(), result)
 }
+pub(crate) fn limit_result(host: &Host, client: &AgentClient, tool: &str, args: &Value, profile: Option<&str>, mut result: Value) -> Value {
+    if result.get("results").is_some() && args["session_id"].as_str().is_some_and(|s|host.session(s).is_err()) { return permissions::error("NotFound"); }
+    let mut limited = crate::agent_bridge::results::project(&result, 0, client.max_result_rows.clamp(1,1000) as usize, client.max_result_bytes.clamp(8192,1024*1024));
+    if limited["truncated"] == true {
+        if let (Some(session), Some(profile)) = (args["session_id"].as_str(), profile) {
+            let handle = host.agent_results.insert(&client.id, &client.token_hash, session, profile, std::mem::take(&mut result));
+            limited["result_id"] = json!(handle);
+            if handle.is_none() { limited["result_handle_unavailable"] = json!("cache_size_limit"); }
+        }
+    }
+    if let Err(e) = permissions::audit_result(host, client, tool, profile, "returned", None, Some(limited["truncated"].as_bool().unwrap_or(false))) { return json!({"error":e}); }
+    limited
+}
+
+pub(crate) fn read_result_page(host: &Host, client: &AgentClient, args: &Value) -> Value {
+    let current = match permissions::current(&host.paths.config,client) { Ok(client) => client, Err(_) => return permissions::error("Forbidden") };
+    if !valid_arguments("get_result_page", args) { return permissions::error("InvalidInput"); }
+    let session = args["session_id"].as_str().unwrap_or("");
+    let record = match host.session(session) { Ok(record) => record, Err(_) => return permissions::error("NotFound") };
+    if !current.allowed_tools.iter().any(|t|t=="get_result_page") || current.permission(&record.profile.id)==Permission::None { return permissions::error("Forbidden"); }
+    encoded(host.agent_results.page(args["result_id"].as_str().unwrap_or(""), &current.id, &current.token_hash, session, &record.profile.id, args["offset"].as_u64().unwrap_or(0) as usize, (args["limit"].as_u64().unwrap_or(current.max_result_rows as u64) as usize).min(current.max_result_rows.clamp(1,1000) as usize), current.max_result_bytes.clamp(8192,1024*1024), args["byte_offset"].as_u64().map(|v|v as usize)))
+}
+
 async fn run_query(
     shared: &Shared,
     host: &Host,
@@ -460,6 +495,7 @@ async fn run_query(
         };
         let mut display = json!(preview);
         bound(&mut display, client.max_rows.min(200) as usize);
+        let display = crate::agent_bridge::results::project(&display, 0, client.max_result_rows.clamp(1,1000) as usize, client.max_result_bytes.clamp(8192,1024*1024));
         let reply=forward(shared,"approval",json!({"arguments":{"timeout_ms":req.timeout_ms},"text":req.text,"connection":record.profile.name,"preview":display,"client":client.name})).await;
         if reply["approved"] != true {
             let _ = permissions::audit(
@@ -514,11 +550,12 @@ async fn run_query(
         storage::HistorySource::Agent,
     )
     .await;
-    if let Ok(results) = &result {
-        let _ = forward(shared, "results", json!({"results":results})).await;
-    }
     let mut response = encoded(result.map(|results| json!({"results":results})));
     response["run"] = json!(run_id);
+    if response.get("error").is_none() {
+        let value = crate::agent_bridge::results::project(&response, 0, client.max_result_rows.clamp(1,1000) as usize, client.max_result_bytes.clamp(8192,1024*1024));
+        let _ = forward(shared, "results", value).await;
+    }
     response
 }
 // Count limits are aggregate across result sets; typed values remain unchanged.
@@ -608,6 +645,15 @@ pub fn bound(value: &mut Value, limit: usize) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn result_page_rejects_invalid_offsets_and_limits() {
+        let valid=serde_json::json!({"session_id":"s","result_id":"r","offset":0,"byte_offset":0,"limit":200});
+        assert!(super::valid_arguments("get_result_page",&valid));
+        for (key,value) in [("offset",serde_json::json!(-1)),("limit",serde_json::json!(0)),("limit",serde_json::json!(1001)),("byte_offset",serde_json::json!(32*1024*1024+1)),("unexpected",serde_json::json!(true))] {
+            let mut invalid=valid.clone();invalid[key]=value;assert!(!super::valid_arguments("get_result_page",&invalid));
+        }
+    }
+
     use super::*;
     #[test]
     fn activity_is_metadata_only_and_never_assumes_approval_on_failure() {

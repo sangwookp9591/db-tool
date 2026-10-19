@@ -413,3 +413,21 @@ P1이 판단을 보류한 "쿼리 50회 후반 RSS +4.06MiB/회" 관측을 프�
 vmmap 진단에서 결과 DOM/canvas는 제거됐고 WebContent의 WebKit Malloc이 가장 큰 잔여 영역이었다. 메모리 압력 모의 요청은 권한 오류로 거부되어 회수 가능한 캐시인지 확정하지 못했다. 마지막 idle 빈 렌더 실험은 수집 준비 단계에서 실패해 효과를 입증하지 못했고 되돌렸다. 해당 진단들은 성능 accepted에서 제외했다.
 
 최신 집중 19검사·tsc, workspace 269검사/6 ignored, clippy -D warnings 및 Python self-check는 통과했다. 최신 전체 UI는 sidebar paging timeout 1건이 남아 코디네이터가 통합을 담당한다. PG 진정한 스트리밍/MCP byte cap은 L2 인계, release 프로필·전체 자식 수명·숨김 CPU·반복 native와 +50MiB 달성은 미완료다. 최종 아티팩트는 [영수증](../bench/results-l1-final-artifact.json)의 보관 앱이며 canonical bundle은 폐기 실험 빌드다. 릴리스 통과를 주장하지 않는다.
+
+
+## L2: PG true streaming와 MCP 결과 상한 (2026-10-19)
+
+PG의 protocol 1 선택 `execute_stream`을 capability로 협상한다. 같은 보호 실행 경로에서 200/2,000행 FETCH와 `simple_query_raw`, async sink와 기존 SDK 8프레임 채널을 연결했다. 시작의 미정 행 수와 종료의 실제 행 수·잘림·elapsed를 별도 이벤트로 전달한다. 기존 execute와 0.2.0 조합은 유지한다. MCP structured 결과는 기본 200 items/256KiB이며 초과분은 클라이언트·토큰·연결·세션에 묶인 bounded LRU 핸들로 페이지 조회한다.
+
+아래는 동일 L2 debug 드라이버의 legacy/선택 streaming 경로를 교차 3쌍 측정한 중앙값이다. 드라이버 stdio 소비 경계이며 host/UI/WebKit·DB 서버는 포함하지 않는다. macOS `proc_pid_rusage(RUSAGE_INFO_V2)`를 약 2ms마다 샘플링한 최댓값으로 정확한 OS high-water mark는 아니다. 빌드가 병행될 수 있는 환경이며 load gate와 릴리스/native 앱 회귀 측정은 수행하지 않았다.
+
+| 결과 총행 | 경로 | 피크 RSS MiB | 피크 physical footprint MiB | 첫 행 청크 ms | 전체 ms |
+|---|---|---:|---:|---:|---:|
+| 100,000 | legacy | 234.70 | 222.38 | 865.75 | 2,052.29 |
+| 100,000 | streaming | 44.61 | 18.98 | 16.74 | 1,203.79 |
+| 1,000,000 | legacy | 2,196.06 | 2,184.71 | 8,632.78 | 20,459.96 |
+| 1,000,000 | streaming | 46.62 | 26.83 | 18.85 | 12,886.29 |
+
+기존 결과 집합당 100,000행 상한을 바꾸지 않았다. 따라서 총 1,000,000행은 같은 요청 안에서 100,000행 결과 집합 10개를 사용했다. 단일 결과 1,000,000행 또는 기존 호스트의 누적 256MiB 응답 한도를 넘는 UI 전송 근거가 아니다. 느린 소비자(각 rows 청크에 2ms 대기) 단일 1,000,000행 실험은 RSS 50.97MiB, footprint 30.34MiB, 전체 19,920.52ms였다. 행 수 10배에 따라 드라이버 보유 메모리가 비례 증가하는 현상을 제거했지만, L1의 앱 종료 뒤 +50MiB 목표를 달성했다는 뜻은 아니다.
+
+[원자료](../bench/results-l2-streaming.json), [계산 요약](../bench/results-l2-streaming-summary.json), [L2 보고서](L2_REPORT.md). MySQL true streaming은 보류했으며 기존 쿼리·취소·타임존 경로를 변경하지 않았다. 전체 workspace 검증은 Mongo 병렬 fixture 충돌로 실패했으며 집중 검사의 통과와 구분한다.

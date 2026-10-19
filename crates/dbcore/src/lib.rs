@@ -60,6 +60,8 @@ pub enum FieldKind {
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct Capabilities {
     #[serde(default)]
+    pub execute_stream: bool,
+    #[serde(default)]
     pub backup: bool,
     #[serde(default)]
     pub roles: bool,
@@ -206,6 +208,9 @@ pub trait Session: Send + Sync {
         Err(DbError::unsupported("This driver does not support explain"))
     }
     /// Stream large tables to a sink; returned results retain metadata, not streamed rows.
+    async fn execute_stream_raw(&self, _req: &ExecRequest, _cancel: CancelToken, _sink: &dyn AsyncResultSink) -> Result<Vec<ResultSet>, DbError> {
+        Err(DbError::unsupported("Incremental execution requires a driver update"))
+    }
     async fn execute_stream(&self, req: &ExecRequest, cancel: CancelToken, sink: &dyn ResultSink) -> Result<Vec<ResultSet>, DbError> {
         let mut results = self.execute(req, cancel.clone()).await?;
         if streamable_tables(&results) {
@@ -260,7 +265,16 @@ pub trait Session: Send + Sync {
     async fn close(&self);
 }
 
+#[async_trait]
+pub trait AsyncResultSink: Send + Sync {
+    async fn start(&self, index: usize, result: &ResultSet) -> Result<(), DbError>;
+    async fn rows(&self, index: usize, rows: Vec<Vec<Value>>) -> Result<(), DbError>;
+    async fn end(&self, index: usize, result: &ResultSet) -> Result<(), DbError>;
+}
+
 pub trait ResultSink: Send + Sync {
+    fn start_pending(&self, index: usize, result: &ResultSet) -> Result<(), DbError> { self.start(index, result) }
+    fn end(&self, _index: usize, _result: &ResultSet) -> Result<(), DbError> { Ok(()) }
     fn start(&self, index: usize, result: &ResultSet) -> Result<(), DbError>;
     fn rows(&self, index: usize, rows: Vec<Vec<Value>>) -> Result<(), DbError>;
 }
