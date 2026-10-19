@@ -1,3 +1,4 @@
+import './sidebar.css';
 import { Button } from './ui/Button';
 import { useEffect, useRef } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';

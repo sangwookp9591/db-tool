@@ -1,3 +1,5 @@
+import './sidebar.css';
+import { loadSidebarPreferences, sidebarRatio, SIDEBAR_STORAGE_KEY } from './sidebar';
 import { Button } from './ui/Button';
 import { SpotlightCard } from './ui/SpotlightCard';
 import { SpringCheck } from './ui/SpringCheck';
@@ -12,6 +14,12 @@ import { Skeleton } from './ui/Skeleton';
 import { BranchGroup, BranchItem, reachIndex, reachState, toggleOpen, treeKey } from './ui/BranchedMenu';
 interface Props { editRequest?: {id:string;sequence:number} | null; onNodes?: (profileId: string, nodes: ExplorerNode[]) => void; addRequest?: number; drivers: DriverManifest[]; profiles: Profile[]; sessions: Record<string, string>; dead: Set<string>; onProfiles: () => Promise<void>; onConnect: (profile: Profile, secret?: string | null) => Promise<void>; onDisconnect: (profile: Profile) => Promise<void>; onQuery: (profile: Profile, text?: string) => void; onAction: (profile: Profile, node: ExplorerNode, action: NodeAction) => void; onError: (error: unknown, profileId?: string) => void }
 export function Connections(props: Props) {
+  const [view, setView] = useState(loadSidebarPreferences);
+  const panels = useRef<HTMLDivElement>(null);
+  const sectionId = useId();
+  useEffect(() => { try { localStorage.setItem(SIDEBAR_STORAGE_KEY, JSON.stringify(view)); } catch { /* Viewer preferences remain usable without storage. */ } }, [view]);
+  const resize = (y: number) => { const rect = panels.current!.getBoundingClientRect(); setView(v => ({ ...v, ratio: sidebarRatio((y - rect.top) / rect.height * 100) })); };
+  const rows = view.connectionsCollapsed ? `36px ${view.explorerCollapsed ? '0px 36px' : '0px minmax(0,1fr)'}` : view.explorerCollapsed ? 'minmax(0,1fr) 0px 36px' : `minmax(165px,${view.ratio}fr) 8px minmax(200px,${100 - view.ratio}fr)`;
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [editing, setEditing] = useState<Profile | 'new' | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -38,8 +46,11 @@ export function Connections(props: Props) {
   useEffect(() => { if (props.addRequest) setEditing('new'); }, [props.addRequest]);
   useEffect(() => { if (props.editRequest) setEditing(props.profiles.find(profile => profile.id === props.editRequest?.id) ?? null); }, [props.editRequest]);
   async function task(id: string, callback: () => Promise<void>) { setBusy(id); try { await callback(); } catch (e) { props.onError(e, id); } finally { setBusy(null); } }
-  return <aside class="connections" aria-label="Connections"><div class="sidebar-heading">작업공간<small>연결된 데이터베이스를 탐색하세요.</small></div><div class="connection-search"><Search /><input aria-label="Search connections" placeholder="연결 검색…" value={search} onInput={e => setSearch(e.currentTarget.value)} /><kbd>⌘ K</kbd></div><div class="section-title"><strong>연결</strong><Button morph={false} onClick={() => setEditing('new')} aria-label="Add connection" data-testid="add-connection"><Plus /></Button></div>
-    <div class="connection-list" ref={list} onScroll={() => { closeMenus(); listEdges(); }}>{props.profiles.filter(profile => `${profile.name} ${props.drivers.find(d => d.id === profile.driver_id)?.display_name ?? ''}`.toLocaleLowerCase().includes(search.toLocaleLowerCase())).map(profile => {
+  return <aside class={`connections ${view.compact ? 'connections--compact' : ''}`} aria-label="Connections"><div class="sidebar-heading">작업공간<small>연결된 데이터베이스를 탐색하세요.</small></div>
+    <div class="sidebar-panels" ref={panels} style={{ gridTemplateRows: rows }}>
+    <section class="sidebar-section" aria-label="연결 섹션"><div class="section-title sidebar-section-heading"><Button bare class="sidebar-section-toggle" aria-expanded={!view.connectionsCollapsed} aria-controls={`${sectionId}-connections`} onClick={() => setView(v => ({ ...v, connectionsCollapsed: !v.connectionsCollapsed }))}>{view.connectionsCollapsed ? <ChevronRight /> : <ChevronDown />}연결 <small>{props.profiles.length}</small></Button><Button morph={false} onClick={() => setEditing('new')} aria-label="Add connection" data-testid="add-connection"><Plus /></Button></div>
+    <div class="sidebar-section-body" id={`${sectionId}-connections`} hidden={view.connectionsCollapsed}><div class="connection-search"><Search /><input aria-label="Search connections" placeholder="연결 검색…" value={search} onInput={e => setSearch(e.currentTarget.value)} /><kbd>⌘ K</kbd></div><Button bare class="sidebar-compact" aria-pressed={view.compact} onClick={() => setView(v => ({ ...v, compact: !v.compact }))}>컴팩트 보기</Button>
+    <div class="connection-list" ref={list} onScroll={() => { closeMenus(); listEdges(); }}>{props.profiles.filter(profile => `${profile.name} ${props.drivers.find(d => d.id === profile.driver_id)?.display_name ?? ''}`.toLocaleLowerCase().includes(search.toLocaleLowerCase())).sort((a, b) => Number(b.id === activeId) - Number(a.id === activeId)).map(profile => {
       const manifest = props.drivers.find(d => d.id === profile.driver_id);
       const Tile = manifest?.paradigm === 'Graph' ? Share2 : manifest?.paradigm === 'Document' ? FileJson : manifest?.paradigm === 'KeyValue' ? KeyRound : Database;
       const connected = !!props.sessions[profile.id] && !props.dead.has(profile.id);
@@ -47,12 +58,20 @@ export function Connections(props: Props) {
         <div class="connection-actions"><Button morph={false} class="connect-button" title={busy === profile.id ? '작업 중…' : connected ? '연결 끊기' : '연결하기'} aria-label={`Connect or disconnect ${profile.name}`} data-testid="connect-connection" disabled={!!busy || !manifest} onClick={() => void task(profile.id, () => connected ? props.onDisconnect(profile) : props.onConnect(profile).then(() => setFocusId(profile.id)))}>{connected ? <Unplug /> : <PlugZap />}</Button><details onToggle={placeMenu}><summary aria-label={`Connection actions for ${profile.name}`} title="연결 작업"><MoreHorizontal /></summary><div class="connection-menu"><Button morph={false} onClick={e => { e.currentTarget.closest('details')?.removeAttribute('open'); setEditing(profile); }}><Pencil />편집</Button><Button morph={false} aria-label={`Test ${profile.name}`} data-testid="test-connection" disabled={!!busy} onClick={e => { e.currentTarget.closest('details')?.removeAttribute('open'); if (!isMock && !profile.save_secret && manifest?.connection_fields.some(f => f.secret)) setEditing(profile); else void task(profile.id, async () => setNotice(await api('connection_test', { profile, secret: null }))); }}><FlaskConical />테스트</Button><FuseButton pending={pendingDelete === profile.id} onPendingChange={pending => setPendingDelete(pending ? profile.id : null)} onUndo={() => {}} unmountAction="cancel" disabled={!!busy} aria-label={`Delete ${profile.name}`} label="삭제" doneLabel="삭제 예약" undoLabel="실행 취소" onCommit={() => void task(profile.id, async () => { if (props.sessions[profile.id]) await props.onDisconnect(profile); await api("profile_delete", { profileId: profile.id }); await props.onProfiles(); })} /></div></details></div></div></SpotlightCard>
 
       </section>;
-    })}</div>
+    })}</div></div></section>
+    <div class="sidebar-section-splitter" role="separator" aria-label="연결과 탐색기 높이 조절" aria-orientation="horizontal" aria-valuemin={20} aria-valuemax={65} aria-valuenow={Math.round(view.ratio)} aria-controls={`${sectionId}-connections ${sectionId}-explorer`} tabIndex={0} hidden={view.connectionsCollapsed || view.explorerCollapsed}
+      onPointerDown={e => { if (e.button !== 0) return; e.preventDefault(); closeMenus(); e.currentTarget.setPointerCapture(e.pointerId); resize(e.clientY); }}
+      onPointerMove={e => { if (e.currentTarget.hasPointerCapture(e.pointerId)) resize(e.clientY); }}
+      onPointerUp={e => { if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId); }}
+      onKeyDown={e => { if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return; e.preventDefault(); setView(v => ({ ...v, ratio: sidebarRatio(v.ratio + (e.key === 'ArrowDown' ? 5 : -5)) })); }} />
+    <section class="sidebar-section" aria-label="탐색기 섹션"><div class="section-title sidebar-section-heading"><Button bare class="sidebar-section-toggle" aria-expanded={!view.explorerCollapsed} aria-controls={`${sectionId}-explorer`} onClick={() => setView(v => ({ ...v, explorerCollapsed: !v.explorerCollapsed }))}>{view.explorerCollapsed ? <ChevronRight /> : <ChevronDown />}탐색기</Button></div><div class="sidebar-section-body" id={`${sectionId}-explorer`} hidden={view.explorerCollapsed}>
     {props.profiles.map(profile => {
       const manifest = props.drivers.find(d => d.id === profile.driver_id);
       if (!manifest || !isLive(profile.id)) return null;
       return <div class="explorer-region" key={profile.id} hidden={profile.id !== activeId}><Button morph={false} class="new-query" onClick={() => props.onQuery(profile)}><Plus />쿼리 · {manifest.query_language.display}</Button><Explorer onNodes={nodes => props.onNodes?.(profile.id, nodes)} sessionId={props.sessions[profile.id]} manifest={manifest} onAction={(node, action) => props.onAction(profile, node, action)} onError={e => props.onError(e, profile.id)} /></div>;
     })}
+    {!activeId && <p class="sidebar-explorer-empty">연결하면 탐색 항목이 표시됩니다.</p>}
+    </div></section></div>
     {!props.profiles.length && <div class="sidebar-empty"><Database /><p>연결을 추가해 시작하세요.</p><Button morph={false} onClick={() => setEditing('new')}><Plus />연결 추가</Button></div>}
     {notice && <div class="notice" role="status">{notice}<Button morph={false} aria-label="Dismiss connection test" onClick={() => setNotice('')}><X /></Button></div>}
     {editing && <ProfileForm key={editing === 'new' ? 'new' : editing.id} profile={editing === 'new' ? undefined : editing} drivers={props.drivers} onClose={() => setEditing(null)} onSaved={async () => { await props.onProfiles(); setEditing(null); }} onError={props.onError} />}

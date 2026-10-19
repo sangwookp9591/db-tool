@@ -1,0 +1,28 @@
+.sidebar-panels{flex:1;min-height:0;display:grid;align-content:start;overflow:hidden}
+.sidebar-section:first-child{grid-row:1}
+.sidebar-section:last-child{grid-row:3}
+.sidebar-section{display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.connections .sidebar-section-heading{flex:none;min-height:36px;height:36px;padding:4px 12px;letter-spacing:0}
+.connections .sidebar-section-toggle{display:flex;justify-content:flex-start;align-items:center;gap:6px;min-width:0;flex:1;text-align:left;font-size:12px;font-weight:600;background:transparent;border:0;padding:4px 0}
+.sidebar-section-toggle small{margin-left:auto}
+.sidebar-section-body{display:flex;flex:1;flex-direction:column;min-height:0;overflow:hidden}
+.connections .connection-search{flex:none;margin:2px 12px 4px}
+.sidebar-compact{align-self:flex-end;margin:0 12px 4px;min-height:24px;padding:2px 6px;font-size:11px;background:transparent;color:var(--text-secondary);border:1px solid var(--border-subtle);border-radius:var(--radius-sm)}
+.sidebar-compact[aria-pressed=true]{background:var(--surface-active);color:var(--text-accent);border-color:var(--border-focus)}
+.connections .sidebar-section .connection-list{flex:1;max-height:none;min-height:0;scroll-snap-type:none;overscroll-behavior:contain}
+.connections .sidebar-section .explorer-region{min-height:0;border-top:0;padding-top:0}
+.connections .explorer-scroll{overscroll-behavior:contain}
+.sidebar-section-splitter{grid-row:2;position:relative;cursor:row-resize;touch-action:none;background:var(--border-subtle)}
+.sidebar-section-splitter::after{content:'';position:absolute;inset:3px calc(50% - 18px);border-radius:2px;background:var(--border-strong)}
+.sidebar-section-splitter:hover,.sidebar-section-splitter:focus-visible{background:var(--surface-active);outline:1px solid var(--border-focus);outline-offset:-1px}
+.sidebar-explorer-empty{margin:12px;color:var(--text-muted);font-size:12px}
+.connections--compact .connection{margin:0 8px 3px;padding:4px 6px;border-radius:var(--radius-sm)}
+.connections--compact .connection-heading{gap:6px}
+.connections--compact .connection-tile{width:22px;height:24px;background:transparent;border:0}
+.connections--compact .connection-info>small{display:none}
+.connections .connection[data-active]{top:0;bottom:auto;background:var(--bg-elevated)}
+/* One scroll owner: snap points pulled small wheel gestures back to the map. */
+.modal-dialog.agent-clients-dialog .dialog-body{scroll-snap-type:none;overscroll-behavior:contain}
+.agent-clients-dialog .agent-overview__map{scroll-snap-align:none}
+.agent-clients-dialog .call-history__list{max-height:none;overflow:visible;scroll-snap-type:none}
+@media(prefers-reduced-motion:reduce){.sidebar-panels,.sidebar-section-body{transition:none}}
