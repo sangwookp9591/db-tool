@@ -1,0 +1,349 @@
+L3 verification; Rust commands use CARGO_TARGET_DIR=target-l3 CARGO_BUILD_JOBS=4.
+
+=== expected RED: absent stream capability ===
+    Blocking waiting for file lock on artifact directory
+   Compiling proc-macro2 v1.0.107
+   Compiling libc v0.2.190
+   Compiling cc v1.8.0
+   Compiling memchr v2.8.3
+   Compiling smallvec v1.16.3
+   Compiling serde_core v1.0.229
+   Compiling errno v0.3.14
+   Compiling quote v1.0.47
+   Compiling syn v3.0.9
+   Compiling parking_lot_core v0.9.12
+   Compiling serde v1.0.229
+   Compiling typenum v1.20.1
+   Compiling bytes v1.12.1
+   Compiling generic-array v0.14.7
+   Compiling ring v0.17.14
+   Compiling parking_lot v0.12.5
+   Compiling object v0.39.1
+   Compiling signal-hook-registry v1.4.8
+   Compiling socket2 v0.6.5
+   Compiling mio v1.2.4
+   Compiling serde_json v1.0.154
+   Compiling getrandom v0.4.3
+   Compiling synstructure v0.14.0
+   Compiling zerovec-derive v0.11.6
+   Compiling displaydoc v0.2.7
+   Compiling zerofrom-derive v0.1.8
+   Compiling yoke-derive v0.8.4
+   Compiling serde_derive v1.0.229
+   Compiling tokio-macros v2.7.2
+   Compiling zerofrom v0.1.8
+   Compiling tokio v1.53.3
+   Compiling ar_archive_writer v0.5.3
+   Compiling yoke v0.8.3
+   Compiling zerovec v0.11.8
+   Compiling zerotrie v0.2.5
+   Compiling tinystr v0.8.4
+   Compiling icu_locale_core v2.3.0
+   Compiling potential_utf v0.1.6
+   Compiling icu_collections v2.3.0
+   Compiling psm v0.1.32
+   Compiling icu_provider v2.3.1
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling getrandom v0.2.17
+   Compiling bitflags v2.13.2
+   Compiling once_cell v1.21.4
+   Compiling digest v0.10.7
+   Compiling icu_properties v2.3.0
+   Compiling icu_normalizer v2.3.0
+   Compiling stacker v0.1.25
+   Compiling tokio-util v0.7.20
+   Compiling libmimalloc-sys v0.1.49
+   Compiling cpufeatures v0.2.17
+   Compiling aho-corasick v1.1.5
+   Compiling simd-adler32 v0.3.10
+   Compiling rustls v0.23.46
+   Compiling miniz_oxide v0.9.1
+   Compiling regex-automata v0.4.18
+   Compiling idna_adapter v1.2.2
+   Compiling rustls-webpki v0.103.15
+   Compiling thiserror-impl v2.0.21
+   Compiling async-trait v0.1.92
+   Compiling syn v2.0.119
+   Compiling subtle v2.6.1
+   Compiling dbcore v0.3.0 (/Users/iron/Project/psw/db-tool/crates/dbcore)
+   Compiling regex v1.13.1
+   Compiling recursive-proc-macro-impl v0.1.1
+   Compiling form_urlencoded v1.2.2
+   Compiling thiserror v2.0.21
+   Compiling rmp-serde v1.3.1
+   Compiling flate2 v1.1.10
+   Compiling idna v1.1.0
+   Compiling getrandom v0.3.4
+   Compiling rustix v1.1.5
+   Compiling sha2 v0.10.9
+   Compiling sha1 v0.10.7
+   Compiling futures-macro v0.3.34
+   Compiling chacha20 v0.10.2
+   Compiling uuid v1.28.0
+   Compiling tempfile v3.27.0
+   Compiling mysql_common v0.37.3
+   Compiling futures-util v0.3.34
+   Compiling rand v0.10.3
+   Compiling url v2.5.8
+   Compiling mimalloc v0.1.52
+   Compiling recursive v0.1.1
+   Compiling axdb-driver-protocol v0.3.0 (/Users/iron/Project/psw/db-tool/crates/driver-protocol)
+   Compiling tokio-rustls v0.26.6
+   Compiling sqlparser_derive v0.6.0
+   Compiling log v0.4.34
+   Compiling sqlparser v0.63.0
+   Compiling axdb-driver-sdk v0.3.0 (/Users/iron/Project/psw/db-tool/crates/driver-sdk)
+   Compiling mysql_async v0.37.1
+   Compiling driver-mysql v0.3.0 (/Users/iron/Project/psw/db-tool/crates/driver-mysql)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5m 23s
+     Running tests/streaming.rs (target-l3/debug/deps/streaming-6306dbe44568460e)
+
+running 4 tests
+test mysql_incremental_contract ... FAILED
+test mariadb_incremental_contract ... FAILED
+test mariadb_incremental_interruptions ... FAILED
+test mysql_incremental_interruptions ... FAILED
+
+failures:
+
+---- mysql_incremental_contract stdout ----
+
+thread 'mysql_incremental_contract' (6596235) panicked at crates/driver-mysql/tests/streaming.rs:59:5:
+assertion failed: driver.manifest().capabilities.execute_stream
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- mariadb_incremental_contract stdout ----
+
+thread 'mariadb_incremental_contract' (6596233) panicked at crates/driver-mysql/tests/streaming.rs:59:5:
+assertion failed: driver.manifest().capabilities.execute_stream
+
+---- mariadb_incremental_interruptions stdout ----
+
+thread 'mariadb_incremental_interruptions' (6596234) panicked at crates/driver-mysql/tests/streaming.rs:148:13:
+assertion `left == right` failed
+  left: Unsupported
+ right: Cancelled
+
+---- mysql_incremental_interruptions stdout ----
+
+thread 'mysql_incremental_interruptions' (6596236) panicked at crates/driver-mysql/tests/streaming.rs:148:13:
+assertion `left == right` failed
+  left: Unsupported
+ right: Cancelled
+
+
+failures:
+    mariadb_incremental_contract
+    mariadb_incremental_interruptions
+    mysql_incremental_contract
+    mysql_incremental_interruptions
+
+test result: FAILED. 0 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+error: test failed, to rerun pass `-p driver-mysql --test streaming`
+
+=== initial integration: fixture REPEAT rejected by existing read-only policy ===
+   Compiling driver-mysql v0.3.0 (/Users/iron/Project/psw/db-tool/crates/driver-mysql)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 21.94s
+     Running unittests src/lib.rs (target-l3/debug/deps/driver_mysql-6c2dcb13dfed1f7f)
+
+running 8 tests
+test value::tests::decimal_filters_never_round_to_the_column_scale ... ok
+test management::tests::normalizes_mysql_and_maria_plans ... ok
+test value::tests::precision_and_boundary_validation ... ok
+test value::tests::old_driver_manifest_without_icon_key_deserializes ... ok
+test catalog::tests::snapshots_exclude_only_the_volatile_auto_increment_counter ... ok
+test management::tests::edit_operators_do_not_rewrite_quoted_identifiers ... ok
+test management::tests::mysql_ddl_keeps_column_attributes_and_never_rebuilds_tables ... ok
+test management::tests::protected_sql_rejects_implicit_commit_and_external_effects ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/bin/axdb-driver-mysql.rs (target-l3/debug/deps/axdb_driver_mysql-a904d5a1ae3a62ce)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/mysql.rs (target-l3/debug/deps/mysql-bcd44f1311bc93af)
+
+running 3 tests
+test mysql_tls_authentication_and_validation ... ok
+test mariadb_contract ... ok
+test mysql_contract ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 13.61s
+
+     Running tests/streaming.rs (target-l3/debug/deps/streaming-9929ffa0d91e8a30)
+
+running 4 tests
+test mariadb_incremental_contract ... FAILED
+test mysql_incremental_contract ... FAILED
+test mariadb_incremental_interruptions ... ok
+test mysql_incremental_interruptions ... ok
+
+failures:
+
+---- mariadb_incremental_contract stdout ----
+
+thread 'mariadb_incremental_contract' (6602868) panicked at crates/driver-mysql/tests/streaming.rs:120:14:
+called `Result::unwrap()` on an `Err` value: DbError { kind: Unsupported, message: "Protected operations refuse stored/UDF or unrecognized functions", detail: None, position: None }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- mysql_incremental_contract stdout ----
+
+thread 'mysql_incremental_contract' (6602870) panicked at crates/driver-mysql/tests/streaming.rs:120:14:
+called `Result::unwrap()` on an `Err` value: DbError { kind: Unsupported, message: "Protected operations refuse stored/UDF or unrecognized functions", detail: None, position: None }
+
+
+failures:
+    mariadb_incremental_contract
+    mysql_incremental_contract
+
+test result: FAILED. 2 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.65s
+
+error: test failed, to rerun pass `-p driver-mysql --test streaming`
+
+=== final native: AXDB_TEST_MYSQL=1 AXDB_TEST_MARIADB=1 cargo test -p driver-mysql ===
+   Compiling driver-mysql v0.3.0 (/Users/iron/Project/psw/db-tool/crates/driver-mysql)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.85s
+     Running unittests src/lib.rs (target-l3/debug/deps/driver_mysql-6c2dcb13dfed1f7f)
+
+running 8 tests
+test value::tests::precision_and_boundary_validation ... ok
+test value::tests::decimal_filters_never_round_to_the_column_scale ... ok
+test value::tests::old_driver_manifest_without_icon_key_deserializes ... ok
+test management::tests::normalizes_mysql_and_maria_plans ... ok
+test catalog::tests::snapshots_exclude_only_the_volatile_auto_increment_counter ... ok
+test management::tests::mysql_ddl_keeps_column_attributes_and_never_rebuilds_tables ... ok
+test management::tests::edit_operators_do_not_rewrite_quoted_identifiers ... ok
+test management::tests::protected_sql_rejects_implicit_commit_and_external_effects ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/bin/axdb-driver-mysql.rs (target-l3/debug/deps/axdb_driver_mysql-a904d5a1ae3a62ce)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/mysql.rs (target-l3/debug/deps/mysql-bcd44f1311bc93af)
+
+running 3 tests
+test mysql_tls_authentication_and_validation ... ok
+test mariadb_contract ... ok
+test mysql_contract ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.94s
+
+     Running tests/streaming.rs (target-l3/debug/deps/streaming-9929ffa0d91e8a30)
+
+running 4 tests
+test mariadb_incremental_contract ... ok
+test mysql_incremental_contract ... ok
+test mariadb_incremental_interruptions ... ok
+test mysql_incremental_interruptions ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.06s
+
+   Doc-tests driver_mysql
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+=== final cargo build --workspace --bins ===
+    Blocking waiting for file lock on package cache
+   Compiling axdb v0.3.0 (/Users/iron/Project/psw/db-tool/src-tauri)
+   Compiling driver-mysql v0.3.0 (/Users/iron/Project/psw/db-tool/crates/driver-mysql)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 19.71s
+
+=== final plugin/C1: AXDB_DRIVER_DIR=target-l3/debug AXDB_L3_OLD_DRIVER=<saved-before-driver> AXDB_TEST_MYSQL=1 AXDB_TEST_MARIADB=1 cargo test -p axdb --test mysql_streaming_compat ===
+   Compiling axdb v0.3.0 (/Users/iron/Project/psw/db-tool/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 19.38s
+     Running tests/mysql_streaming_compat.rs (target-l3/debug/deps/mysql_streaming_compat-ebef92bde557ac7a)
+
+running 8 tests
+test old::tests::invalid_and_partial_frames_fail ... ok
+test old::tests::cancellation_frame_roundtrip ... ok
+test old::tests::legacy_start_defaults_to_reassembly_and_ambiguous_envelopes_fail ... ok
+test old::tests::fragmented_and_consecutive_frames ... ok
+test new_host_keeps_pre_stream_mysql_driver_fallback ... ok
+test mariadb_plugin_stream_and_old_host_codec ... ok
+test mysql_plugin_stream_and_old_host_codec ... ok
+test old::tests::typed_large_result_roundtrip_and_order_validation ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.58s
+
+
+=== final plugin native contracts: AXDB_DRIVER_DIR=target-l3/debug AXDB_TEST_MYSQL=1 AXDB_TEST_MARIADB=1 cargo test -p axdb --test plugin_contracts mysql_contract ===
+   Compiling axdb v0.3.0 (/Users/iron/Project/psw/db-tool/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.82s
+     Running tests/plugin_contracts.rs (target-l3/debug/deps/plugin_contracts-344722e7a4437f7f)
+
+running 3 tests
+test mysql_contract::mysql_tls_authentication_and_validation ... ok
+test mysql_contract::mariadb_contract ... ok
+test mysql_contract::mysql_contract ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 37 filtered out; finished in 6.55s
+
+
+=== final cargo clippy -p driver-mysql --all-targets -- -D warnings ===
+    Checking driver-mysql v0.3.0 (/Users/iron/Project/psw/db-tool/crates/driver-mysql)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.93s
+
+=== cargo clippy -p axdb --test mysql_streaming_compat -- -D warnings ===
+    Checking russh v0.64.1
+    Checking axum v0.8.9
+    Checking mysql_async v0.37.1
+    Checking neo4rs v0.9.0-rc.10 (/Users/iron/Project/psw/db-tool/vendor/neo4rs)
+    Checking calamine v0.36.1
+    Checking csv v1.4.0
+    Checking axdb-driver-package v0.3.0 (/Users/iron/Project/psw/db-tool/crates/driver-package)
+    Checking postgres-native-tls v0.5.3
+    Checking zstd v0.13.3
+    Checking zip v4.6.1
+    Checking hmac v0.12.1
+    Checking keyring v3.6.3
+    Checking shell-words v1.1.1
+    Checking driver-postgres v0.3.0 (/Users/iron/Project/psw/db-tool/crates/driver-postgres)
+    Checking driver-mysql v0.3.0 (/Users/iron/Project/psw/db-tool/crates/driver-mysql)
+    Checking driver-mongodb v0.3.0 (/Users/iron/Project/psw/db-tool/crates/driver-mongodb)
+    Checking driver-neo4j v0.3.0 (/Users/iron/Project/psw/db-tool/crates/driver-neo4j)
+    Checking driver-redis v0.3.0 (/Users/iron/Project/psw/db-tool/crates/driver-redis)
+    Checking driver-sqlite v0.3.0 (/Users/iron/Project/psw/db-tool/crates/driver-sqlite)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2m 36s
+
+=== pnpm --dir ui exec tsc --noEmit (exit 0) ===
+(no diagnostics)
+
+=== pnpm --dir ui test ===
+
+> axdb-ui@0.3.0 test /Users/iron/Project/psw/db-tool/ui
+> vitest run
+
+
+ RUN  v5.0.4 /Users/iron/Project/psw/db-tool/ui
+
+(node:87446) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+ Test Files  37 passed | 1 skipped (38)
+      Tests  144 passed | 1 skipped (145)
+   Start at  23:41:15
+   Duration  32.41s (tests 77%, import 21%, transform 1%, worker 1%)
+
+    Isolate  38 workers spawned · ~914ms startup each (spawn + environment, per file)
+             at least ~2.95s faster with isolate: false — reuses workers across files instead of one per file
+
+
+Benchmark self-check: Usage size, dataset count, precise u64 MessagePack, fragmented framing and truncated-frame rejection passed.
+Legacy collect, guarded cancellation and options source verified byte-identical to HEAD d93ebd5.
+Old codec fixture verified byte-identical to d07c12f protocol source; SHA-256 3879c358366e8b8fc00fc40cfc009abd35b428fbd06ccdbe25097a758f7be8fc.
+
+=== final canonical cargo build --workspace --bins ===
+   Compiling axdb v0.3.0 (/Users/iron/Project/psw/db-tool/src-tauri)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 7.28s

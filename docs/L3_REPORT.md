@@ -1,0 +1,13 @@
+# L3 — MySQL·MariaDB true streaming
+
+ADR-0004·0003, ARCHITECTURE, README와 L2 인계에 따라 MySQL·MariaDB true streaming을 구현했다. 시작은 main `d93ebd5` clean 상태였다. 변경은 MySQL 드라이버·테스트·측정·보고서이며, Cargo.lock에는 새 패키지 없이 기존 futures-util 참조만 추가했다. 다른 워커의 UI·WebView 및 공유 소스 변경을 보존했다. commit/push, 사용자 앱·GUI·사용자 DB·SSH 접근은 없고 Rust 빌드는 `CARGO_TARGET_DIR=target-l3`, `CARGO_BUILD_JOBS=4`만 썼다. dist/·target/·target-rel은 수정하지 않았다.
+
+기존 `Capabilities.execute_stream`만 true로 바꾸고 protocol 1 선택 메서드를 구현했다. [QueryResult::stream](https://docs.rs/mysql_async/0.37.1/mysql_async/struct.QueryResult.html#method.stream)으로 text·prepared 결과를 읽고 첫 200행·이후 최대 2,000행·보수적 약 256KiB 배치를 SDK의 8프레임 async 채널에 await한다. 미정 시작 metadata와 실제 행 수·truncated·elapsed 종료 metadata를 구분하며 반환 결과에 행을 남기지 않는다. legacy 수집 루프·guarded 취소·연결 옵션은 변경 전과 동일하고, row_limit≤2,000의 host fallback을 유지한다. 새 타입·커맨드·공유 Capabilities 정의 변경이나 선택 실행 뒤 legacy 재실행은 없다.
+
+세션 mutex·read-only operation_connection·SQL 허용 정책·타임존 변환·KILL/정리를 공유한다. 보호 연결은 현재 DB와 UTC를 사용하며 명시적 트랜잭션 중 보호 작업을 거부한다. 일반 세션의 비UTC timestamp 표시와 UTC tagged parameter 검증을 유지한다. 영구 대기 sink도 취소·타임아웃에 반응해 guarded 안에서 drain·ROLLBACK 또는 timeout reset을 끝낸다. sink 오류도 drain 후 반환하고 정리 확인 실패 시 기존 정책대로 세션을 닫는다. 기존 int/decimal/JSON 변환을 재사용하며 AI/Operation 계획을 실행하는 경로는 추가하지 않았다.
+
+변경 전/최종 debug 바이너리의 교차 3쌍에서 100만 총행 MySQL RSS/footprint 중앙값은 581.36/568.25→43.98/24.13MiB, 첫 rows 청크는 5,506.80→85.31ms, 전체는 8,540.53→5,973.91ms였다. MariaDB는 584.59/572.14→44.30/24.84MiB, 첫 청크 4,311.82→82.60ms, 전체 6,434.44→4,760.39ms였다. 10만 행·느린 소비자와 방법은 [RESOURCE_OPT](RESOURCE_OPT.md#l3-mysqlmariadb-true-streaming-2026-10-19), [원자료](../bench/results-l3-streaming.json)에 있다. 100만 총행은 10만 행 결과 집합 10개이며 초과 행은 다음 결과·세션을 보존하려고 drain한다. 단일 큰 셀은 기존 16MiB 프레임 상한을 따른다. 약 2ms 샘플 피크·stdio 경계·load gate 없는 공유 환경 결과이므로 release/native 앱·WebKit으로 일반화하지 않는다.
+
+실DB `AXDB_TEST_MYSQL=1 AXDB_TEST_MARIADB=1 cargo test -p driver-mysql` 15개, workspace bins 빌드 뒤 `AXDB_DRIVER_DIR=target-l3/debug`의 기존 플러그인 계약 3개와 새 스트림/C1 suite 8개가 통과했다. 행 상한·다중 결과·정밀 값·큰 셀·prepared parameter·시간대·읽기 전용·트랜잭션 거부, INSERT 1회/affected metadata, 서버 및 영구 sink 대기 중 취소/타임아웃·실패 후 재사용을 검사했다. C1은 실제 0.2.0 소스와 같은 codec fixture로 새 드라이버를 읽는 경우 및 새 host가 보관한 capability=false 드라이버로 fallback하는 경우다. driver all-targets와 새 host 테스트 대상 clippy `-D warnings`, tsc, UI 144 passed/1 skipped, 측정 스크립트 self-check도 통과했다. 초기 미지원 RED 4개와 fixture의 REPEAT 정책 거부 2개는 보존했고 허용 정책을 넓히지 않았다. [검증 명세](../bench/results-l3-verification.json), [로그](../bench/results-l3-validation.txt)에 범위를 적었다.
+
+전체 workspace 실DB·전체 workspace clippy·release/native GUI·WebView 메모리·외부 제공자 E2E는 수행하지 않았다. C1은 0.2.0 앱 GUI 실행 증거가 아니다. MySQL require TLS는 실DB 계약에서 통과했으나 CA fixture가 없어 verify-full은 실서버 검증으로 세지 않는다. 완료는 실행한 검증과 측정에 근거하며 주석이나 mock으로 대체하지 않았다.

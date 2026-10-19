@@ -8,6 +8,7 @@ license.workspace = true
 axdb-driver-sdk = { path = "../driver-sdk" }
 dbcore.workspace = true
 async-trait.workspace = true
+futures-util = "0.3"
 serde_json = { workspace = true, features = ["raw_value"] }
 tokio.workspace = true
 mysql_async = { version = "0.37.1", default-features = false, features = ["minimal-rust", "rustls-tls", "ring", "tls12"] }

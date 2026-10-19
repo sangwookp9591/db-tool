@@ -1,0 +1,83 @@
+{
+  "base_commit": "d93ebd5",
+  "start_git_status": "clean",
+  "rust_environment": {
+    "CARGO_TARGET_DIR": "target-l3",
+    "CARGO_BUILD_JOBS": "4"
+  },
+  "plugin_environment": {
+    "AXDB_DRIVER_DIR": "target-l3/debug",
+    "AXDB_L3_OLD_DRIVER": "/tmp/axdb-l3-before-driver-mysql"
+  },
+  "driver_sha256": "021f00d3c0ae7e9f76976f313eade2bd4186b57760124da71d1ea3d87d1b1bb7",
+  "baseline_sha256": "b34a6e300873e5b49803c629967954b0a1e074d2fcc563b583c9a6a04f0506cc",
+  "old_codec_sha256": "3879c358366e8b8fc00fc40cfc009abd35b428fbd06ccdbe25097a758f7be8fc",
+  "old_codec_source": "d07c12f:crates/driver-protocol/src/lib.rs",
+  "commands": [
+    {
+      "command": "cargo test -p driver-mysql",
+      "environment": {
+        "AXDB_TEST_MYSQL": "1",
+        "AXDB_TEST_MARIADB": "1"
+      },
+      "passed": 15
+    },
+    {
+      "command": "cargo build --workspace --bins",
+      "status": "passed"
+    },
+    {
+      "command": "cargo test -p axdb --test mysql_streaming_compat",
+      "passed": 8,
+      "scope": "3 live plugin/C1 tests plus 5 codec fixture tests; both test DBs enabled; saved pre-change fallback driver enabled"
+    },
+    {
+      "command": "cargo test -p axdb --test plugin_contracts mysql_contract",
+      "passed": 3,
+      "scope": "both test DBs; require TLS; verify-full unavailable"
+    },
+    {
+      "command": "cargo clippy -p driver-mysql --all-targets -- -D warnings",
+      "status": "passed"
+    },
+    {
+      "command": "cargo clippy -p axdb --test mysql_streaming_compat -- -D warnings",
+      "status": "passed"
+    },
+    {
+      "command": "pnpm --dir ui exec tsc --noEmit",
+      "exit_code": 0
+    },
+    {
+      "command": "pnpm --dir ui test",
+      "passed": 144,
+      "skipped": 1
+    },
+    {
+      "command": "uv run --script bench/mysql_stream_bench.py --self-check",
+      "status": "passed"
+    },
+    {
+      "command": "uv run --script bench/mysql_stream_bench.py --baseline /tmp/axdb-l3-before-driver-mysql",
+      "status": "passed",
+      "measurements": 26
+    }
+  ],
+  "unrun": [
+    "whole-workspace real-DB suite",
+    "whole-workspace clippy",
+    "user/native GUI",
+    "release/native app/WebView performance",
+    "verify-full TLS without CA fixture",
+    "external provider E2E"
+  ],
+  "evidence": "results-l3-validation.txt",
+  "measurements": "results-l3-streaming.json",
+  "invariants": [
+    "no commit/push",
+    "no user DB/SSH/app/GUI access",
+    "no UI/WebView source edits",
+    "no AI/Operation plan execution added",
+    "legacy collect/guarded/options preserved verbatim"
+  ]
+}

@@ -2,9 +2,11 @@
 mod administration;
 mod catalog;
 mod management;
+mod query_stream;
 mod value;
 use async_trait::async_trait;
 use dbcore::*;
+use futures_util::StreamExt;
 use mysql_async::{prelude::*, Conn, Opts, OptsBuilder, Params, SslOpts};
 use sqlparser::{ast::Statement, dialect::MySqlDialect, parser::Parser};
 use std::{
@@ -74,7 +76,7 @@ impl MysqlDriver {
                     })
                     .collect(),
                 capabilities: Capabilities {
-                    execute_stream: false,
+                    execute_stream: true,
                     backup: true,
                     roles: true,
                     import_rows: true,
@@ -479,50 +481,144 @@ async fn collect<P: Protocol>(
     }
     Ok(out)
 }
+async fn collect_to<P: Protocol + Unpin>(
+    mut result: mysql_async::QueryResult<'_, '_, P>,
+    limit: usize,
+    title: &str,
+    utc: bool,
+    sink: Option<&dyn AsyncResultSink>,
+    started: Instant,
+) -> Result<Vec<ResultSet>, DbError> {
+    let Some(sink) = sink else {
+        return collect(result, limit, title, utc).await;
+    };
+    let outcome = async {
+        let mut out = vec![];
+        while let Some(mut stream) = result.stream::<mysql_async::Row>().await.map_err(error)? {
+            let columns = stream.columns_ref().to_vec();
+            let index = out.len();
+            let mut item = ResultSet {
+                title: title.chars().take(80).collect(),
+                table: (!columns.is_empty()).then(|| Table {
+                    columns: columns
+                        .iter()
+                        .map(|c| Column {
+                            name: c.name_str().into_owned(),
+                            type_name: if utc {
+                                value::type_name(c)
+                            } else {
+                                value::type_name(c)
+                                    .replace("TIMESTAMP (UTC)", "TIMESTAMP (session time zone)")
+                            },
+                        })
+                        .collect(),
+                    rows: vec![],
+                }),
+                affected: columns.is_empty().then(|| stream.affected_rows()),
+                ..Default::default()
+            };
+            sink.start(index, &item).await?;
+            let mut rows = vec![];
+            let mut bytes = 0usize;
+            let mut first = true;
+            while let Some(row) = stream.next().await {
+                let row = row.map_err(error)?;
+                // shortcut: excess rows are drained to preserve later results; use server cursors to bound server work.
+                if item.row_count as usize >= limit {
+                    item.truncated = true;
+                    continue;
+                }
+                let row_bytes = columns.len().saturating_mul(64).saturating_add(
+                    (0..columns.len())
+                        .filter_map(|i| match row.as_ref(i) {
+                            Some(mysql_async::Value::Bytes(b)) => Some(b.len()),
+                            _ => None,
+                        })
+                        .sum::<usize>(),
+                );
+                if !rows.is_empty() && bytes.saturating_add(row_bytes) > 256 * 1024 {
+                    sink.rows(index, std::mem::take(&mut rows)).await?;
+                    bytes = 0;
+                    first = false;
+                }
+                rows.push(
+                    columns
+                        .iter()
+                        .enumerate()
+                        .map(|(i, c)| {
+                            let value = value::cell(c, row.as_ref(i).expect("column width"))?;
+                            Ok(match value {
+                                Value::DateTimeTz(text) if !utc => {
+                                    Value::DateTime(text.trim_end_matches("+00:00").to_owned())
+                                }
+                                v => v,
+                            })
+                        })
+                        .collect::<Result<Vec<_>, DbError>>()?,
+                );
+                item.row_count += 1;
+                bytes = bytes.saturating_add(row_bytes);
+                if rows.len() >= if first { 200 } else { 2000 } {
+                    sink.rows(index, std::mem::take(&mut rows)).await?;
+                    bytes = 0;
+                    first = false;
+                }
+            }
+            if !rows.is_empty() {
+                sink.rows(index, rows).await?;
+            }
+            item.elapsed_ms = started.elapsed().as_millis() as u64;
+            sink.end(index, &item).await?;
+            out.push(item);
+        }
+        Ok(out)
+    }
+    .await;
+    // Drain inside guarded, including sink failures, before reusing or rolling back the connection.
+    result.drop_result().await.map_err(error)?;
+    outcome
+}
 async fn query(conn: &mut Conn, req: &ExecRequest, utc: bool) -> Result<Vec<ResultSet>, DbError> {
+    query_to(conn, req, utc, None, Instant::now()).await
+}
+async fn query_to(
+    conn: &mut Conn,
+    req: &ExecRequest,
+    utc: bool,
+    sink: Option<&dyn AsyncResultSink>,
+    started: Instant,
+) -> Result<Vec<ResultSet>, DbError> {
     let limit = clamp_row_limit(req.row_limit) as usize;
     if req.params.is_empty() {
-        collect(
+        collect_to(
             conn.query_iter(&req.text).await.map_err(error)?,
             limit,
             &req.text,
             utc,
+            sink,
+            started,
         )
         .await
     } else {
-        collect(
+        collect_to(
             conn.exec_iter(&req.text, named_params(req)?)
                 .await
                 .map_err(error)?,
             limit,
             &req.text,
             utc,
+            sink,
+            started,
         )
         .await
     }
 }
-#[async_trait]
-impl Session for MysqlSession {
-    async fn ping(&self) -> Result<(), DbError> {
-        let mut state = self.conn.lock().await;
-        if self.closed.load(Ordering::Acquire) {
-            return Err(DbError::new(
-                ErrorKind::Connection,
-                "MySQL session is closed",
-            ));
-        }
-        tokio::time::timeout(Duration::from_secs(5), active(&mut state)?.ping())
-            .await
-            .map_err(|_| DbError::new(ErrorKind::Timeout, "MySQL ping timed out"))?
-            .map_err(error)
-    }
-    async fn server_info(&self) -> Result<String, DbError> {
-        Ok(self.version.clone())
-    }
-    async fn execute(
+impl MysqlSession {
+    async fn execute_to(
         &self,
         req: &ExecRequest,
         cancel: CancelToken,
+        sink: Option<&dyn AsyncResultSink>,
     ) -> Result<Vec<ResultSet>, DbError> {
         if cancel.is_cancelled() {
             return Err(DbError::new(ErrorKind::Cancelled, "MySQL query cancelled"));
@@ -552,12 +648,19 @@ impl Session for MysqlSession {
             conn.query_drop("START TRANSACTION READ ONLY")
                 .await
                 .map_err(error)?;
+            let output = sink.map(|sink| query_stream::InterruptibleOutput {
+                sink,
+                cancel: cancel.clone(),
+                deadline: tokio::time::Instant::now()
+                    + Duration::from_millis(req.timeout_ms.max(1)),
+            });
+            let sink = output.as_ref().map(|s| s as &dyn AsyncResultSink);
             let r = self
                 .guarded(
                     conn.id(),
                     cancel,
                     req.timeout_ms,
-                    query(&mut conn, req, true),
+                    query_to(&mut conn, req, true, sink, start),
                 )
                 .await;
             self.cleanup(&mut conn, "ROLLBACK").await?;
@@ -578,18 +681,75 @@ impl Session for MysqlSession {
                 }
             }
             self.set_timeout(conn, req.timeout_ms).await?;
+            let output = sink.map(|sink| query_stream::InterruptibleOutput {
+                sink,
+                cancel: cancel.clone(),
+                deadline: tokio::time::Instant::now()
+                    + Duration::from_millis(req.timeout_ms.max(1)),
+            });
+            let sink = output.as_ref().map(|s| s as &dyn AsyncResultSink);
             let r = self
-                .guarded(conn.id(), cancel, req.timeout_ms, query(conn, req, false))
+                .guarded(
+                    conn.id(),
+                    cancel,
+                    req.timeout_ms,
+                    query_to(conn, req, false, sink, start),
+                )
                 .await;
             if !self.closed.load(Ordering::Acquire) {
                 self.set_timeout(conn, 0).await?;
             }
             r?
         };
-        for result in &mut results {
-            result.elapsed_ms = start.elapsed().as_millis() as u64;
+        if sink.is_none() {
+            for result in &mut results {
+                result.elapsed_ms = start.elapsed().as_millis() as u64;
+            }
         }
         Ok(results)
+    }
+}
+#[async_trait]
+impl Session for MysqlSession {
+    async fn ping(&self) -> Result<(), DbError> {
+        let mut state = self.conn.lock().await;
+        if self.closed.load(Ordering::Acquire) {
+            return Err(DbError::new(
+                ErrorKind::Connection,
+                "MySQL session is closed",
+            ));
+        }
+        tokio::time::timeout(Duration::from_secs(5), active(&mut state)?.ping())
+            .await
+            .map_err(|_| DbError::new(ErrorKind::Timeout, "MySQL ping timed out"))?
+            .map_err(error)
+    }
+    async fn server_info(&self) -> Result<String, DbError> {
+        Ok(self.version.clone())
+    }
+    async fn execute(
+        &self,
+        req: &ExecRequest,
+        cancel: CancelToken,
+    ) -> Result<Vec<ResultSet>, DbError> {
+        self.execute_to(req, cancel, None).await
+    }
+    async fn execute_stream_raw(
+        &self,
+        req: &ExecRequest,
+        cancel: CancelToken,
+        sink: &dyn AsyncResultSink,
+    ) -> Result<Vec<ResultSet>, DbError> {
+        self.execute_to(req, cancel, Some(sink)).await
+    }
+    async fn execute_stream(
+        &self,
+        req: &ExecRequest,
+        cancel: CancelToken,
+        sink: &dyn ResultSink,
+    ) -> Result<Vec<ResultSet>, DbError> {
+        self.execute_stream_raw(req, cancel, &query_stream::SyncOutput(sink))
+            .await
     }
     async fn list_children(&self, parent: Option<&str>) -> Result<Vec<ExplorerNode>, DbError> {
         self.children(parent).await

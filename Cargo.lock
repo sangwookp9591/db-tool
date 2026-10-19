@@ -1712,6 +1712,7 @@ dependencies = [
  "async-trait",
  "axdb-driver-sdk",
  "dbcore",
+ "futures-util",
  "mysql_async",
  "rustls",
  "serde_json",
