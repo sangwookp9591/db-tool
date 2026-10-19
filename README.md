@@ -306,9 +306,47 @@ node bench/e2e-bridge.mjs && node bench/preview-e2e.mjs && node bench/permission
 
 crate를 만들어 `Driver`를 구현하고, SDK의 `serve`로 실행 파일을 만든 뒤, `cargo xtask package-drivers`로 패키지·서명하고 앱에서 설치합니다. 계약, capabilities 규칙, 프로토콜은 [플러그인 가이드](docs/PLUGIN_GUIDE.md)에, 설계 배경은 [ADR-0003](docs/adr/0003-installable-drivers.md)에 있습니다.
 
-### 릴리스
+### 릴리스와 배포
 
-버전(`Cargo.toml`, `src-tauri/tauri.conf.json`, `ui/package.json`)을 맞추고 `docs/release-notes/v<버전>.md`를 쓴 뒤 `scripts/release.sh <버전>`을 실행합니다. 기본 실행은 `dist/release/<버전>/`에 산출물만 만들고 업로드하지 않습니다. 서명·공증·키 설정과 전체 절차는 [RELEASE_SIGNING](docs/RELEASE_SIGNING.md)에 있습니다. 드라이버 패키지는 `scripts/publish-drivers.sh`로 올립니다.
+배포 채널은 GitHub Releases 하나입니다. 이용자는 [최신 릴리스](https://github.com/sangwookp9591/db-tool/releases/latest)에서 설치 파일을 받고, 이미 설치한 앱은 같은 곳의 `latest.json`을 읽어 스스로 업데이트합니다. 드라이버는 앱과 별도로 `drivers-*` 릴리스에 올라갑니다.
+
+**최초 1회 준비** (자세한 화면 경로는 [RELEASE_SIGNING](docs/RELEASE_SIGNING.md))
+
+| 무엇 | 어디에 | 용도 |
+|---|---|---|
+| Developer ID Application 인증서 | 로그인 키체인 | macOS 앱·드라이버 코드 서명 |
+| 공증 프로필 `axdb-notary`(App Store Connect API 키) | 키체인 | Apple 공증 제출 |
+| 업데이트 서명 키 `~/.tauri/axdb-updater.key`, 암호는 키체인 `axdb-updater` | 로컬 파일 + 키체인 | 앱 자동 업데이트 서명. **잃어버리면 이미 설치된 앱에 업데이트를 보낼 수 없으니 반드시 백업합니다** |
+| 드라이버 서명 키(`cargo xtask gen-signing-key`) | 키체인 | `.axdriver` 패키지 서명. 공개 키는 `crates/driver-package`에 내장 |
+| Windows 크로스 빌드 도구 | `rustup target add x86_64-pc-windows-msvc`, `brew install llvm nsis`, `cargo install cargo-xwin` | macOS에서 `.exe` 빌드 |
+
+**앱 릴리스 순서**
+
+1. **버전 올리기:** `Cargo.toml`(workspace), `src-tauri/tauri.conf.json`, `ui/package.json`의 버전을 같게 맞춥니다.
+2. **릴리스 노트:** `docs/release-notes/v<버전>.md`를 씁니다. `## 제목 {good|bad|neutral}` 섹션 하나가 앱의 "새로운 기능" 한 줄이 되고, 첫 항목이 요약으로 쓰입니다. 태그는 업데이트 피드에서는 자동으로 지워집니다.
+3. **검증:** `cargo test --workspace`(테스트 DB와 `AXDB_DRIVER_DIR`), `cargo clippy --workspace --all-targets -- -D warnings`, `pnpm --dir ui test`, `pnpm --dir ui exec tsc --noEmit`.
+4. **드라이버가 바뀌었다면 먼저 패키징:**
+   ```sh
+   APPLE_SIGNING_IDENTITY="Developer ID Application: …" \
+   cargo xtask package-drivers --target aarch64-apple-darwin --target x86_64-apple-darwin \
+     --target x86_64-pc-windows-msvc --version <버전> --notarize
+   ```
+   `dist/drivers/`에 서명된 `.axdriver`와 `index.json`이 생기고, 앱 빌드 때 이 목록이 오프라인 스냅숏으로 함께 들어갑니다.
+5. **앱 빌드·서명·공증:**
+   ```sh
+   scripts/release.sh <버전>            # dist/release/<버전>/에 산출물만 만든다(업로드 없음)
+   ```
+   universal `.dmg`(Developer ID 서명 → 공증 → staple), Windows NSIS `.exe`, 업데이트 아카이브와 서명(`.sig`), `latest.json`을 만듭니다. 공증 진행은 `xcrun notarytool history --keychain-profile axdb-notary`로 봅니다.
+6. **설치 확인:** dmg를 다른 위치에 설치해 실행하고 `spctl -a -vv -t open --context context:primary-signature <dmg>`가 `Notarized Developer ID`인지 확인합니다. 드라이버 설치, 연결, 업데이트 확인까지 한 번 돌려 봅니다.
+7. **게시(공개, 되돌리기 어려움):**
+   ```sh
+   scripts/publish-drivers.sh dist/drivers   # 드라이버가 바뀐 경우. drivers-* 릴리스는 latest로 표시되지 않는다
+   scripts/release.sh <버전> --publish       # v<버전> 릴리스를 latest로 만들고 dmg·exe·latest.json을 올린다
+   ```
+   드라이버 릴리스는 `--latest=false`로 올라가므로 `releases/latest`는 항상 앱 릴리스를 가리킵니다. 앱 업데이트 피드와 외부 설치 링크가 이 주소를 따르기 때문입니다.
+8. **배포 후:** 기존 버전 앱에서 상태바 업데이트 배지가 뜨는지 확인하고, 변경 사항을 커밋·푸시합니다.
+
+**Windows 참고:** 설치 파일에 코드 서명이 없어 처음 실행할 때 SmartScreen 경고가 뜹니다(**추가 정보 → 실행**). 경고를 없애려면 OV/EV 코드 서명 인증서를 `bundle > windows > signCommand`에 연결합니다.
 
 ## 구조
 
