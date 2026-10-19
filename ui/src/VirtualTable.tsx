@@ -9,11 +9,11 @@ import { ROW_HEIGHT, visibleRange, columnRange, columnWidths } from './virtual';
 import { tableIndex } from './perf/tableIndex';
 import { painted } from './perf';
 interface EditProps { target: EditTarget; edits: PendingEdits; onChange: (next: PendingEdits) => void }
-export function VirtualTable(props: { table: Table; onRow?: (row: Value[])=>void; selectedNodeId?: string | null; highlightedColumn?: string; reference?: (row: Value[],column: string)=> (()=>void) | null; onError?: (error:unknown)=>void; editing?: EditProps }) {
+export function VirtualTable(props: { table: Table; onViewOrder?: (indices: Uint32Array | null) => void; onRow?: (row: Value[])=>void; selectedNodeId?: string | null; highlightedColumn?: string; reference?: (row: Value[],column: string)=> (()=>void) | null; onError?: (error:unknown)=>void; editing?: EditProps }) {
   if (props.editing) return <EditableTable table={props.table} {...props.editing} />;
   return <ReadOnlyVirtualTable {...props} />;
 }
-function ReadOnlyVirtualTable({ table, onRow, selectedNodeId, highlightedColumn, reference, onError }: { table: Table; onRow?: (row: Value[])=>void; selectedNodeId?: string | null; highlightedColumn?: string; reference?: (row: Value[],column: string)=> (()=>void) | null; onError?: (error:unknown)=>void }) {
+function ReadOnlyVirtualTable({ table, onViewOrder, onRow, selectedNodeId, highlightedColumn, reference, onError }: { table: Table; onViewOrder?: (indices: Uint32Array | null) => void; onRow?: (row: Value[])=>void; selectedNodeId?: string | null; highlightedColumn?: string; reference?: (row: Value[],column: string)=> (()=>void) | null; onError?: (error:unknown)=>void }) {
   const callbacks = useRef({ onRow, reference }); callbacks.current = { onRow, reference };
   const scroll = useRef<HTMLDivElement>(null);
   const [viewport, setViewport] = useState({ top: 0, left: 0, height: 350, width: 800 });
@@ -34,6 +34,7 @@ function ReadOnlyVirtualTable({ table, onRow, selectedNodeId, highlightedColumn,
   useEffect(() => { if (previousColumns.current === table.columns) return; previousColumns.current = table.columns; setWidths(defaultWidths()); setSelected(null); setFilter(''); setSort({ column: -1, descending: false }); cache.current = new WeakMap(); cached.current = 0; if (scroll.current) { scroll.current.scrollTop = 0; scroll.current.scrollLeft = 0; } schedule(); }, [table.columns]);
   useEffect(() => { if (table.rows.length) void painted('table-first-paint'); }, [table.columns]);
   const indices = useMemo(() => filter || sort.column >= 0 ? tableIndex(table, filter, sort.column, sort.descending) : null, [table.rows.length, table.rows, filter, sort]);
+  useEffect(() => { onViewOrder?.(indices); }, [indices, onViewOrder]);
   const count = indices?.length ?? table.rows.length;
   const [displayCount, setDisplayCount] = useState(count), latestCount = useRef(count), counterTimer = useRef(0);
   latestCount.current = count;

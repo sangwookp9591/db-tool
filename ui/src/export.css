@@ -1,0 +1,6 @@
+.export-options { display: grid; gap: 16px; min-width: 280px; }
+.export-options > .export-format { display: grid; gap: 8px; }
+.export-options p { margin: 0; color: var(--text-primary); }
+.export-options small { color: var(--text-secondary); line-height: 1.6; }
+.export-dialog { max-width: min(480px, calc(100vw - 32px)); }
+.toast-stack:empty { display: none; }

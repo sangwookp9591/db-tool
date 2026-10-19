@@ -1,0 +1,86 @@
+import { chromium, webkit } from 'playwright';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const base = process.env.AXDB_UI_URL ?? 'http://127.0.0.1:5193';
+const browser = await chromium.launch({ headless: true });
+const page = await browser.newPage({ viewport: { width: 960, height: 600 }, colorScheme: 'dark' });
+const errors = [];
+page.on('pageerror', error => errors.push(error.message));
+await page.addInitScript(() => {
+  window.driverContexts = [];
+  const original = HTMLCanvasElement.prototype.getContext;
+  HTMLCanvasElement.prototype.getContext = function(type, ...args) {
+    const result = original.call(this, type, ...args);
+    if (type === 'webgl2' && result && !window.driverContexts.includes(result)) window.driverContexts.push(result);
+    return result;
+  };
+  window.driverPaints = [];
+  window.driverLayoutShift = 0;
+  window.appStartupLayoutShift = 0;
+  new PerformanceObserver(list => { for (const entry of list.getEntries()) if (!entry.hadRecentInput) { window.appStartupLayoutShift += entry.value; if (entry.sources.some(source => source.node?.closest?.('.drivers-panel'))) window.driverLayoutShift += entry.value; } }).observe({ type: 'layout-shift', buffered: true });
+  document.addEventListener('click', event => {
+    if (!event.target.closest('button[aria-label="드라이버"]')) return;
+    const start = performance.now();
+    const cached = !!JSON.parse(localStorage.getItem('axdb-driver-catalog-v1-mock') ?? '[]').length;
+    const observer = new MutationObserver(() => {
+      const content = document.querySelector(cached ? '.drivers-panel .glass-icon-cell' : '.drivers-panel .glass-icon-cell, .drivers-skeleton');
+      if (content) { window.driverPaints.push({ ms: performance.now() - start, kind: content.className }); observer.disconnect(); }
+    });
+    observer.observe(document, { childList: true, subtree: true });
+  }, true);
+});
+const shot = name => page.screenshot({ path: `../docs/design-shots/${name}.png` });
+const theme = value => page.evaluate(value => { document.documentElement.dataset.theme = value; window.dispatchEvent(new Event('axdb-theme-change')); }, value);
+const settle = () => page.waitForFunction(() => document.querySelector('.glass-icons')?.dataset.animating === 'false', { timeout: 20000 });
+try {
+  await page.goto(`${base}?driver_catalog_delay=2500&driver_error=postgres&driver_step_delay=400`);
+  await page.getByRole('button', { name: '드라이버', exact: true }).waitFor();
+  assert.equal(await page.evaluate(() => performance.getEntriesByType('resource').some(r => /GlassIcons[-.]|DriversPanel[-.]/.test(r.name))), false);
+  await page.getByRole('button', { name: '드라이버', exact: true }).click();
+  await page.getByRole('status', { name: '드라이버 목록 준비 중' }).waitFor();
+  await shot('drivers-skeleton-midnight');
+  await theme('daylight'); await shot('drivers-skeleton-daylight');
+  await page.getByTestId('driver-postgres').waitFor(); await settle();
+  assert.equal(await page.locator('.glass-icons').getAttribute('data-gpu'), 'true');
+  assert.equal(await page.evaluate(() => window.driverContexts.length), 1);
+  const loadingCLS = await page.evaluate(() => window.driverLayoutShift);
+  const appStartupCLS = await page.evaluate(() => window.appStartupLayoutShift);
+  assert.equal(loadingCLS, 0);
+  await shot('drivers-glass-daylight'); await theme('midnight'); await settle(); await shot('drivers-glass-midnight');
+  await page.mouse.move(10, 580); await settle();
+  const frames = await page.locator('.glass-icons').getAttribute('data-frames');
+  await page.waitForTimeout(250);
+  assert.equal(await page.locator('.glass-icons').getAttribute('data-frames'), frames);
+  await page.getByRole('button', { name: 'PostgreSQL 설치', exact: true }).click();
+  await page.getByRole('progressbar', { name: '드라이버 설치 진행률' }).waitFor();
+  await shot('drivers-progress-midnight'); await theme('daylight'); await shot('drivers-progress-daylight');
+  await page.getByRole('button', { name: '드라이버 설치 취소', exact: true }).click();
+  await page.getByRole('button', { name: 'PostgreSQL 설치', exact: true }).waitFor();
+  assert.equal(await page.getByRole('button', { name: 'PostgreSQL 삭제', exact: true }).count(), 0);
+  await page.getByRole('button', { name: 'PostgreSQL 설치', exact: true }).click();
+  await page.getByRole('button', { name: '다시 시도', exact: true }).waitFor();
+  await shot('drivers-error-daylight'); await theme('midnight'); await shot('drivers-error-midnight');
+  await page.getByRole('button', { name: '다시 시도', exact: true }).click();
+  await page.getByRole('button', { name: 'PostgreSQL 삭제', exact: true }).waitFor({ timeout: 20000 });
+  await page.getByRole('button', { name: '드라이버 화면 닫기' }).click();
+  await page.getByRole('button', { name: '드라이버', exact: true }).click();
+  await page.getByTestId('driver-sqlite').waitFor(); await settle();
+  const timings = await page.evaluate(() => window.driverPaints);
+  assert(timings.at(-1).ms < 50, `cached first content: ${timings.at(-1).ms}ms`);
+  await page.evaluate(() => window.driverContexts.at(-1).getExtension('WEBGL_lose_context')?.loseContext());
+  await page.waitForFunction(() => document.querySelector('.glass-icons')?.dataset.gpu === 'false');
+  await shot('drivers-glass-fallback-midnight');
+  assert.equal(await page.locator('.glass-icon-plate img').count(), 4);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.waitForTimeout(100);
+  assert.equal(await page.evaluate(() => document.getAnimations().filter(a => a.playState === 'running').length), 0);
+  assert.deepEqual(errors, []);
+  await page.reload();
+  await page.getByRole('button', { name: '드라이버', exact: true }).click();
+  await page.getByTestId('driver-sqlite').waitFor();
+  const persistedCache = await page.evaluate(() => window.driverPaints[0]);
+  assert(persistedCache.ms < 50, `persisted cache first content: ${persistedCache.ms}ms`);
+  const result = { timings, persistedCache, loadingCLS, appStartupCLS, contextsPerGrid: 1, idleFrames: 0, pageErrors: errors, checked: ['lazy imports', 'shader image atlas', 'DOM context-loss fallback', 'cancel without install', 'error and retry', 'dark/light screenshots', 'reduced motion'] };
+  fs.writeFileSync('../docs/design-shots/drivers-performance.json', JSON.stringify(result, null, 2));
+  console.log(JSON.stringify(result));
+} finally { await browser.close(); }

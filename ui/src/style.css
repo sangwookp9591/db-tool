@@ -157,3 +157,6 @@ main{display:flex;flex-direction:column;min-height:0;min-width:0;flex:1;backgrou
 .dialog-body:has(.agent-clients){scroll-snap-type:y proximity;scroll-padding-top:4px}
 @media (min-width:1100px){.agent-overview{grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:20px}}
 @media (max-height:720px){.connection-list{max-height:min(32%,130px)}}
+/* 데스크톱 앱 크롬은 선택 불가(⌘A·드래그로 UI 전체가 선택되어 회색 박스가 생기는 문제). 데이터·입력·코드만 선택 가능 */
+body{-webkit-user-select:none;user-select:none}
+:is(input,textarea,[contenteditable],.cm-editor,td,pre,code,details,.driver-error,.row-inspector,.document-tree,.json-view,.result-title,.message,.notice){-webkit-user-select:text;user-select:text}

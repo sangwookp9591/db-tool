@@ -4,7 +4,7 @@ import { Button } from './Button';
 import type { MicroAccessibility } from './accessibility';
 import './micro.css';
 
-export interface ToastItem { id: string; message: string; tone?: 'success' | 'error' | 'info' }
+export interface ToastItem { id: string; message: string; tone?: 'success' | 'error' | 'info'; action?: { label: string; onClick: () => void } }
 // Non-error toasts leave on their own after `autoDismissMs` (opt-in; paused while hovered or focused). Errors stay until closed.
 function Toast({ item, onDismiss, autoDismissMs }: { item: ToastItem; onDismiss: (id: string) => void; autoDismissMs?: number }) {
   const [paused, setPaused] = useState(false);
@@ -15,6 +15,7 @@ function Toast({ item, onDismiss, autoDismissMs }: { item: ToastItem; onDismiss:
   }, [item.id, item.tone, autoDismissMs, paused]);
   return <div class="toast-stack__item" data-tone={item.tone ?? 'info'} onPointerEnter={() => setPaused(true)} onPointerLeave={() => setPaused(false)} onFocusIn={() => setPaused(true)} onFocusOut={() => setPaused(false)}>
     <span role={item.tone === 'error' ? 'alert' : 'status'} title={item.message}>{item.message}</span>
+    {item.action && <Button bare type="button" onClick={item.action.onClick}>{item.action.label}</Button>}
     <Button bare type="button" aria-label={`Dismiss ${item.message}`} onClick={() => onDismiss(item.id)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></Button>
   </div>;
 }

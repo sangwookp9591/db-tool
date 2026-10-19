@@ -153,3 +153,10 @@
 .integration-beam__node { width: 96px; }
 .integration-beam__node:hover .integration-beam__label { color: var(--text-primary); }
 @media (prefers-reduced-motion: reduce) { .integration-beam__node .integration-beam__tile { transition: none; } .integration-beam__node:hover .integration-beam__tile { transform: none; } }
+
+/* Segmented controls share one track; ordinary jelly radios retain their tile style. */
+.jelly-radio--segmented{position:relative;isolation:isolate;display:inline-grid;grid-template-columns:repeat(var(--segments),minmax(0,1fr));gap:0;padding:3px;border:1px solid var(--border-subtle);border-radius:var(--radius);background:var(--surface-secondary)}
+.jelly-radio--segmented:before{content:'';position:absolute;z-index:-1;top:3px;bottom:3px;left:3px;width:calc((100% - 6px)/var(--segments));transform:translateX(calc(var(--selected)*100%));border-radius:calc(var(--radius) - 2px);background:var(--bg-elevated);box-shadow:0 1px 3px var(--border-default);transition:transform 180ms ease}
+.micro.jelly-radio--segmented button,.micro.jelly-radio--segmented button:hover:enabled,.micro.jelly-radio--segmented button:is([aria-checked=true],[aria-selected=true]){position:relative;display:flex;align-items:center;justify-content:center;gap:6px;min-height:26px;padding:3px 12px;border:0;background:transparent;font-size:12px;color:var(--text-secondary)}
+.micro.jelly-radio--segmented button:is([aria-checked=true],[aria-selected=true]){color:var(--text-primary);font-weight:600}
+@media(prefers-reduced-motion:reduce){.jelly-radio--segmented:before{transition:none}}

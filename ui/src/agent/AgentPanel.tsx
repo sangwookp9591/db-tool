@@ -22,6 +22,11 @@ export function AgentPanel({ host, registrationKey, ready, queryPulse, openReque
   const [clientsOpen, setClientsOpen] = useState(false);
   useEffect(() => { if (openRequest) setClientsOpen(true); }, [openRequest]);
   const [enabled, setEnabled] = useState(false);
+  useEffect(() => {
+    const changed = (event: Event) => setEnabled((event as CustomEvent<boolean>).detail);
+    window.addEventListener('axdb-bridge-change', changed);
+    return () => window.removeEventListener('axdb-bridge-change', changed);
+  }, []);
   const [error, setError] = useState('');
   const [approval, setApproval] = useState<{ text: string; connection: string; preview?: ChangePreview; finish: (allow: boolean) => void } | null>(null);
   const pending = useRef<((allow: boolean) => void) | null>(null);

@@ -1,5 +1,5 @@
 // BranchedMenu: pure fold/path/keyboard helpers, plus gallery and mock-app DOM behavior in the existing Chromium test dependency.
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { chromium, type Browser, type Page } from 'playwright';
 import { createServer, type ViteDevServer } from 'vite';
 import { activePath, reachIndex, reachState, toggleOpen, treeKey, type BranchNode } from './BranchedMenu';
@@ -73,10 +73,9 @@ beforeAll(async () => {
 afterAll(async () => { await browser?.close(); await server?.close(); }, 30000);
 
 describe('gallery BranchedMenu', () => {
+  beforeEach(async () => { await page.goto(`${base}?gallery`); await page.getByTestId('bm-demo').waitFor(); }, 30000);
   it('folds sections, moves the accent line and the rail marker, and selects leaves', async () => {
-    await page.goto(`${base}?gallery`);
     const demo = page.getByTestId('bm-demo');
-    await demo.waitFor();
     const heads = demo.locator('.bm-root > .bm-item > .bm-row > .bm-button');
     expect(await heads.first().getAttribute('aria-expanded')).toBe('true');
     expect(await demo.locator('.bm-item[data-section-active]').count()).toBe(1);
@@ -94,8 +93,6 @@ describe('gallery BranchedMenu', () => {
     expect(await demo.locator('.bm-item[data-section-active]').count()).toBe(0);
   });
   it('draws lines with CSS boxes, not SVG paths', async () => {
-    await page.goto(`${base}?gallery`);
-    await page.getByTestId('bm-demo').waitFor();
     expect(await page.locator('[data-testid=bm-demo] svg:not(.lucide)').count()).toBe(0);
   });
 });
@@ -106,6 +103,13 @@ describe('sidebar explorer (mock app)', () => {
     await page.goto(base);
     await page.evaluate(() => { try { localStorage.clear(); } catch { /* ignore */ } });
     await page.goto(base);
+    await page.getByRole('button', { name: '드라이버', exact: true }).click();
+    for (const name of ['Neo4j', 'PostgreSQL']) {
+      await page.getByRole('tab', { name: '사용 가능', exact: true }).click();
+      await page.getByRole('button', { name: `${name} 설치`, exact: true }).click();
+      await page.getByRole('button', { name: `${name} 삭제`, exact: true }).waitFor();
+    }
+    await page.getByRole('button', { name: '드라이버 화면 닫기' }).click();
     const sidebar = await page.locator('.app').getAttribute('data-sidebar-open');
     if (sidebar !== 'true') await page.getByLabel('Connections panel').click();
     await live('Graph playground');

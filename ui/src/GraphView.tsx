@@ -1,3 +1,5 @@
+import { ExportButton } from './ExportButton';
+import { canvasPng, schemaSvg } from './exportImage';
 import { Button } from './ui/Button';
 import { X, Maximize2, Search, ZoomIn, ZoomOut } from 'lucide-preact';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
@@ -9,17 +11,18 @@ import { start, finish, painted, registerGraphProbe } from './perf';
 import { valueText } from './values';
 interface LayoutNode extends GraphPosition { data: GNode; color: string; caption: string; short: string; match: boolean; visible: boolean }
 interface LayoutLink { data: GRel; source: LayoutNode; target: LayoutNode; offset: number }
-interface Props { graph: Graph; sessionId: string; canExpand: boolean; limit: number; onError: (error: unknown) => void; active?: boolean; schema?: SchemaGraph; labelEntities?: SchemaEntity[]; selectedNodeId?: string | null; onSelect?: (node: GNode | null) => void; onBrowse?: (target: BrowseTarget) => void }
+interface Props { graph: Graph; onGraphChange?: (graph: Graph) => void; sessionId: string; canExpand: boolean; limit: number; onError: (error: unknown) => void; active?: boolean; schema?: SchemaGraph; labelEntities?: SchemaEntity[]; selectedNodeId?: string | null; onSelect?: (node: GNode | null) => void; onBrowse?: (target: BrowseTarget) => void }
 const colorTokens = ['--paradigm-relational', '--paradigm-graph', '--paradigm-document', '--paradigm-keyvalue', '--semantic-binary', '--semantic-json'];
 function graphTheme() {
   const style = getComputedStyle(document.documentElement);
   const token = (name: string) => style.getPropertyValue(name).trim();
   return { colors: colorTokens.map(token), edge: token('--text-muted'), text: token('--text-primary'), surface: token('--bg-overlay'), selected: token('--accent-warning'), font: style.getPropertyValue('--font-ui').trim() };
 }
-export function GraphView({ graph: initial, sessionId, canExpand, limit, onError, active = true, schema, labelEntities, selectedNodeId, onSelect, onBrowse }: Props) {
+export function GraphView({ graph: initial, onGraphChange, sessionId, canExpand, limit, onError, active = true, schema, labelEntities, selectedNodeId, onSelect, onBrowse }: Props) {
   const [palette] = useState(graphTheme);
   const colors = palette.colors;
   const [graph, setGraph] = useState(initial);
+  useEffect(() => { onGraphChange?.(graph); }, [graph, onGraphChange]);
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<GNode | GRel | null>(null);
   const [expanding, setExpanding] = useState(false);
@@ -29,6 +32,7 @@ export function GraphView({ graph: initial, sessionId, canExpand, limit, onError
   const scene = useRef<{ nodes: LayoutNode[]; links: LayoutLink[] }>({ nodes: [], links: [] });
   const hit = useRef<ReturnType<typeof hitIndex<LayoutNode>>>(() => undefined);
   const camera = useRef({ x: 0, y: 0, scale: 1 });
+  const exportSvg = useRef<(background?: string) => string>(() => '');
   const draw = useRef<() => void>(() => {}), dimensions = useRef({ width: 600, height: 400 });
   const worker = useRef<Worker | null>(null), revision = useRef(0);
   const activeRef = useRef(active && !document.hidden); activeRef.current = active && !document.hidden;
@@ -81,6 +85,7 @@ export function GraphView({ graph: initial, sessionId, canExpand, limit, onError
       const boundary=(n:LayoutNode,sign:number)=>{const factor=Math.min(120/Math.max(Math.abs(dx),.001),boxHeight(n.id)/2/Math.max(Math.abs(dy),.001));return {x:n.x+sign*dx*Math.max(0,factor-19/length),y:n.y+sign*dy*Math.max(0,factor-19/length)};};
       return edgeCurve(boundary(link.source,1),boundary(link.target,-1),link.offset,false);
     }
+    exportSvg.current = background => schema ? schemaSvg(schema, nodes, links.filter(l => l.source.visible && l.target.visible).map(l => ({ curve: curveFor(l), label: l.data.rel_type })), camera.current, dimensions.current.width, dimensions.current.height, palette, background) : '';
     scene.current = { nodes, links }; hit.current = hitIndex(nodes.filter(n => n.visible));
     let first = true, settled = false;
     const profiling = new URLSearchParams(location.search).has('graphProfile');
@@ -212,7 +217,12 @@ export function GraphView({ graph: initial, sessionId, canExpand, limit, onError
     catch (error) { if (alive.current && source.current === expected) onError(error); } finally { if (alive.current) setExpanding(false); }
   }
   const accessibleContent = useMemo(() => accessible ? <>{visible.map(n => <Button bare onClick={() => select(n)} key={n.id}>{schema?.entities.find(e=>e.id===n.id)?.name ?? nodeCaption(n)}</Button>)}{graph.rels.filter(r => ids.has(r.start) && ids.has(r.end)).map(r => <Button bare onClick={() => select(r)} key={r.id}>{r.rel_type} · {r.id}</Button>)}</> : null, [accessible, visible, graph.rels, ids]);
-  return <div class="graph-area"><div class="graph-main"><div class="toolbar"><input disabled={!ready} aria-label="Search graph" placeholder={schema?"테이블 이름 검색…":"레이블 또는 속성 값 검색"} value={search} onInput={e => setSearch(e.currentTarget.value)} /><Button bare aria-label="Reset view" onClick={fit}><Maximize2 />뷰 초기화</Button><Button bare aria-label="Zoom in graph" title="확대" onClick={() => { invalidate.current(); fitMode.current = false; const next = Math.min(6, camera.current.scale * 1.25); camera.current.x *= next / camera.current.scale; camera.current.y *= next / camera.current.scale; camera.current.scale = next; schedule(); }}><ZoomIn /></Button><Button bare aria-label="Zoom out graph" title="축소" onClick={() => { invalidate.current(); fitMode.current = false; const next = Math.max(.001, camera.current.scale / 1.25); camera.current.x *= next / camera.current.scale; camera.current.y *= next / camera.current.scale; camera.current.scale = next; schedule(); }}><ZoomOut /></Button><span class="graph-message" role="status">{graph.nodes.length > safeLimit ? `${graph.nodes.length.toLocaleString()}개 중 ${safeLimit.toLocaleString()}개 표시` : expanding ? '확장 중…' : schema ? '휠: 확대 · 드래그: 이동 · 두 번 클릭: 탐색' : '휠: 확대 · 드래그: 이동 · 두 번 클릭: 확장'}</span></div>
+  return <div class="graph-area"><div class="graph-main"><div class="toolbar"><input disabled={!ready} aria-label="Search graph" placeholder={schema?"테이블 이름 검색…":"레이블 또는 속성 값 검색"} value={search} onInput={e => setSearch(e.currentTarget.value)} /><Button bare aria-label="Reset view" onClick={fit}><Maximize2 />뷰 초기화</Button><Button bare aria-label="Zoom in graph" title="확대" onClick={() => { invalidate.current(); fitMode.current = false; const next = Math.min(6, camera.current.scale * 1.25); camera.current.x *= next / camera.current.scale; camera.current.y *= next / camera.current.scale; camera.current.scale = next; schedule(); }}><ZoomIn /></Button><Button bare aria-label="Zoom out graph" title="축소" onClick={() => { invalidate.current(); fitMode.current = false; const next = Math.max(.001, camera.current.scale / 1.25); camera.current.x *= next / camera.current.scale; camera.current.y *= next / camera.current.scale; camera.current.scale = next; schedule(); }}><ZoomOut /></Button><ExportButton image name={schema ? 'axdb-erd' : 'axdb-graph'} formats={schema ? ['SVG', 'PNG'] : ['PNG']} count={visible.length} disabled={!ready} makeFile={async ({format, background}) => {
+      stopIntro.current(); invalidate.current(); draw.current();
+      const fill = background ? getComputedStyle(document.documentElement).getPropertyValue('--bg-base').trim() : undefined;
+      const bytes = format === 'SVG' ? new TextEncoder().encode(exportSvg.current(fill)) : await canvasPng(canvas.current!, fill);
+      return {bytes, count: visible.length, unit: schema ? '개 엔티티' : '개 노드'};
+    }} /><span class="graph-message" role="status">{graph.nodes.length > safeLimit ? `${graph.nodes.length.toLocaleString()}개 중 ${safeLimit.toLocaleString()}개 표시` : expanding ? '확장 중…' : schema ? '휠: 확대 · 드래그: 이동 · 두 번 클릭: 탐색' : '휠: 확대 · 드래그: 이동 · 두 번 클릭: 확장'}</span></div>
     <div class="canvas-wrap" ref={container}><canvas ref={canvas} hidden={!ready} data-ready={ready} data-total-nodes={graph.nodes.length} aria-label={`Graph: ${visible.length} nodes, ${graph.rels.length} relationships`} role="img"
       onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); drag.current = { node: hitNode(e), x: e.clientX, y: e.clientY, moved: false }; }}
       onPointerMove={e => { const d = drag.current; if (!d) return; const dx = e.clientX - d.x, dy = e.clientY - d.y; if (Math.abs(dx) + Math.abs(dy) > 2) d.moved = true; if (d.node) { invalidate.current(); const p = point(e); d.node.x = p.x; d.node.y = p.y; worker.current?.postMessage({ kind: 'pin', id: d.node.id, ...p }); hit.current = hitIndex(scene.current.nodes); } else { interact.current(); fitMode.current = false; camera.current.x += dx; camera.current.y += dy; } d.x = e.clientX; d.y = e.clientY; schedule(); }}

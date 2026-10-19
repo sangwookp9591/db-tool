@@ -1,0 +1,30 @@
+{
+  "timings": [
+    {
+      "ms": 5.800000000745058,
+      "kind": "drivers-skeleton "
+    },
+    {
+      "ms": 2.699999999254942,
+      "kind": "glass-icon-cell"
+    }
+  ],
+  "persistedCache": {
+    "ms": 18.700000001117587,
+    "kind": "glass-icon-cell"
+  },
+  "loadingCLS": 0,
+  "appStartupCLS": 0.004029670715332031,
+  "contextsPerGrid": 1,
+  "idleFrames": 0,
+  "pageErrors": [],
+  "checked": [
+    "lazy imports",
+    "shader image atlas",
+    "DOM context-loss fallback",
+    "cancel without install",
+    "error and retry",
+    "dark/light screenshots",
+    "reduced motion"
+  ]
+}

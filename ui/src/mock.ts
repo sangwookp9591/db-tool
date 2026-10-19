@@ -104,7 +104,7 @@ export async function mockInvoke<K extends keyof Commands>(command: K, args: Com
     case 'agent_bridge_reply': break;
     case 'ai_settings': result = { settings: { enabled: false, model: 'claude-opus-5-5', effort: 'medium', auth: 'api_key' }, has_key: false, has_ant_cli: false }; break;
     case 'ai_configure': throw failure('Unsupported', 'AI 설정은 데스크톱 앱에서 저장할 수 있습니다. (모의 모드)');
-    case 'drivers_list': result = drivers; break;
+    case 'drivers_list': result = drivers.filter(driver => mockInstalledDrivers.has(driver.id)); break;
     case 'profiles_list': result = profiles; break;
     case 'profile_save': {
       const profile = a.profile as Profile;
@@ -188,4 +188,66 @@ export function simulateAgentCalls(count: number, emit: (call: import('./contrac
     setTimeout(() => emit({ ...base, status: 'running' }), i * 40);
     setTimeout(() => emit({ ...base, status: i % 7 === 6 ? 'error' : 'success', duration_ms: 120 + (i * 37) % 900, row_count: i % 2 ? 40 + i : null }), i * 40 + 300);
   }
+}
+
+// Browser-only installation simulation. No package is downloaded or executed.
+drivers.push(
+  { ...drivers[0], id: 'sqlite', display_name: 'SQLite · 데모', connection_fields: [{ key: 'path', label: '데이터베이스 파일', kind: 'FilePath', required: true, default: ':memory:', secret: false, placeholder: null }] },
+  { ...drivers[0], id: 'redis', display_name: 'Redis · 데모', paradigm: 'KeyValue', connection_fields: fields.map(field => field.key === 'port' ? { ...field, default: '56379' } : field), capabilities: { ...capabilities, edit_rows: false, params: false, preview_changes: 'None' }, query_language: { id: 'redis', display: 'Redis', editor_mode: 'text', supports_params: false }, default_query: 'SCAN 0 COUNT 100' },
+);
+const mockInstalledDrivers = new Map<string, string>();
+const mockCatalog: import('./drivers/api').CatalogDriver[] = [
+  { id: 'sqlite', name: 'SQLite', version: '1.0.0', paradigm: 'Relational', size: 3_800_000, description: '로컬 파일의 테이블을 탐색하고 SQL을 실행합니다.' },
+  { id: 'redis', name: 'Redis', version: '1.0.0', paradigm: 'KeyValue', size: 4_600_000, description: '키와 자료형을 탐색하고 Redis 명령을 실행합니다.' },
+  { id: 'postgres', name: 'PostgreSQL', version: '1.0.0', paradigm: 'Relational', size: 8_500_000, description: '스키마 탐색, SQL 실행과 안전한 데이터 편집을 지원합니다.' },
+  { id: 'neo4j', name: 'Neo4j', version: '1.0.0', paradigm: 'Graph', size: 6_200_000, description: 'Cypher로 노드와 관계를 조회하고 그래프를 탐색합니다.' },
+  { id: 'mongodb', name: 'MongoDB', version: '1.0.0', paradigm: 'Document', size: 10_800_000, description: '컬렉션과 문서를 탐색하고 JSON 쿼리를 실행합니다.' },
+];
+let mockDriverOperation: { cancelled: boolean; committing: boolean } | null = null;
+const mockDriverFailures = new Set<string>();
+export async function mockDriverInvoke<K extends keyof import('./drivers/api').DriverCommands>(command: K, args: import('./drivers/api').DriverCommands[K]['args']): Promise<import('./drivers/api').DriverCommands[K]['result']> {
+  const a = args as { source?: string; id?: string; allowUnverified?: boolean; onProgress?: Pick<import('@tauri-apps/api/core').Channel<import('./drivers/api').InstallProgress>, 'onmessage'> };
+  let result: unknown;
+  // Mock-only knobs make first-load, failure and recovery states reproducible without a provider.
+  const scenario = new URLSearchParams(location.search);
+  if (command === 'drivers_catalog') {
+    await new Promise(resolve => setTimeout(resolve, Number(scenario.get('driver_catalog_delay') ?? 180)));
+    result = { installed: [...mockInstalledDrivers].map(([id, version]) => ({ id, version })), drivers: mockCatalog.map(driver => ({ ...driver, installed_version: mockInstalledDrivers.get(driver.id) ?? null })), refreshing: false };
+    const warning = scenario.get('driver_catalog_warning');
+    if (warning) result = { ...(result as object), warning, ...(scenario.has('driver_catalog_empty') ? { drivers: [] } : {}) };
+  } else if (command === 'driver_cancel') {
+    result = !!mockDriverOperation && !mockDriverOperation.committing;
+    if (result) mockDriverOperation!.cancelled = true;
+  } else if (command === 'driver_remove') {
+    if ([...sessions.values()].some(profile => profile.driver_id === a.id)) throw failure('Conflict', '이 드라이버를 사용하는 연결을 먼저 끊으세요.');
+    mockInstalledDrivers.delete(a.id!);
+  } else {
+    const source = a.source ?? a.id!;
+    const local = source.startsWith('/');
+    if (local && !source.endsWith('.axdriver')) throw failure('Unsupported', '.axdriver 파일을 선택하세요.');
+    if (local && !a.allowUnverified) throw failure('Auth', '확인되지 않은 드라이버: explicit consent required');
+    const id = local ? 'local-demo' : source;
+    if (!local && !mockCatalog.some(driver => driver.id === id)) throw failure('Unsupported', '드라이버를 찾을 수 없습니다.');
+    const operation = { cancelled: false, committing: false }; mockDriverOperation = operation;
+    const total = mockCatalog.find(driver => driver.id === id)?.size ?? 1_200_000;
+    try {
+      for (const [index, stage] of ['download', 'download', 'download', 'verify', 'signature', 'extract', 'handshake', 'register', 'complete'].entries()) {
+        if (operation.cancelled) throw failure('Cancelled', 'cancelled: 설치를 취소했습니다.');
+        operation.committing = ['register', 'complete'].includes(stage);
+        const downloaded = Math.round(total * Math.min(1, (index + 1) / 3));
+        a.onProgress?.onmessage({ stage, downloaded, bytes: downloaded, total, bytesPerSecond: total / 1.2 });
+        await new Promise(resolve => setTimeout(resolve, Number(scenario.get('driver_step_delay') ?? 160)));
+        if (operation.cancelled) throw failure('Cancelled', 'cancelled: 설치를 취소했습니다.');
+        if (stage === 'verify' && scenario.get('driver_error') === id && !mockDriverFailures.has(id)) { mockDriverFailures.add(id); throw failure('Internal', '패키지 무결성을 확인하지 못했습니다. 다시 다운로드하세요. (모의 오류)'); }
+      }
+      if (local && !mockCatalog.some(driver => driver.id === id)) {
+        mockCatalog.push({ id, name: '로컬 드라이버 · 데모', version: '1.0.0', paradigm: 'Relational', size: 1_200_000, description: '파일 설치 흐름을 확인하기 위한 모의 드라이버입니다.' });
+        drivers.push({ ...drivers[0], id, display_name: '로컬 드라이버 · 데모' });
+      }
+      const version = mockCatalog.find(driver => driver.id === id)!.version;
+      mockInstalledDrivers.set(id, version);
+      result = { id, version };
+    } finally { mockDriverOperation = null; }
+  }
+  return result as import('./drivers/api').DriverCommands[K]['result'];
 }
