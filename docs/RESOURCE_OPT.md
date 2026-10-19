@@ -450,3 +450,19 @@ L2에서 보류한 MySQL 확장을 완료했다. `capabilities.execute_stream=tr
 각 rows 청크에 2ms 대기한 1,000,000 총행의 별도 실험에서 MySQL RSS/footprint는 45.14/24.02MiB, 전체 4,766.57ms였고 MariaDB는 43.58/25.17MiB, 전체 4,892.43ms였다. 총행 수에 비례해 메모리가 증가하던 수집 경로를 제거한 근거이며, release 성능·native 앱 footprint·L1 종료 뒤 +50MiB 목표 달성으로 일반화하지 않는다.
 
 [측정 하네스](../bench/mysql_stream_bench.py), [26회 원자료·중앙값·바이너리 SHA-256](../bench/results-l3-streaming.json), [검증 명세](../bench/results-l3-verification.json), [검증 로그](../bench/results-l3-validation.txt), [L3 보고서](L3_REPORT.md). 재현은 보관한 변경 전 바이너리를 `uv run --script bench/mysql_stream_bench.py --baseline <변경-전-바이너리>`에 전달한다. baseline 생략 시 같은 바이너리의 legacy/streaming 비교이며 이번 표의 별도 바이너리 비교와 구분한다.
+
+## M3: 닫힌 탭 retainer 제거 (2026-10-20)
+
+SwipeRow의 최초 effect cleanup이 actions/icon VNode를 통해 과거 App과 닫힌 탭을 보유한 경로를 CDP에서 확인했다. width는 배열 대신 개수만 캡처하고 spring의 종료·취소 callback 참조도 해제했다. 탭 맵과 graph probe는 원래부터 비워졌으며, 임의 GC·압박·캐시 삭제를 제품에 넣지 않았다.
+
+| 지표 | 기준 → 수정 |
+|---|---|
+| 일반 모션 Chromium, 닫고 GC 뒤 JS 힙 | 80,896,208 → 19,132,696 bytes |
+| 같은 스냅숏의 detached DOM | 6,088 → 0 |
+| Native 닫고 10초 앱 footprint 중앙값, 유효 5쌍 | 374.7 → 353.6MiB |
+| Native 짝 차이 중앙값 | −23.8MiB; 3쌍 감소·2쌍 증가 |
+| Native 시작 +50MiB 목표 | 수정 5회 모두 미달(+122.5~+233.8MiB) |
+
+Native는 격리된 dev/debug=0 앱, 1280×768/DPR2, load≤14와 짝 차이≤3의 **지점별** 판정이다. raw 전체 쌍의 제외 플래그를 수정하지 않았으며 startup 등 실패 지점은 따로 제외했다. 두 앱의 모든 프로세스 종료를 확인했다. JS 참조 제거는 재현됐지만 일관된 native 감소·엔진 내부 원인·release 결과는 확정하지 않는다. host 194 passed/7 ignored, clippy -D warnings, 최신 UI 146 passed/1 skipped, tsc를 통과했다.
+
+[M3 보고서](M3_REPORT.md) · [소유 경로·크기·검증](M3_RETAINERS.md) · [Chromium 영수증](../bench/results-m3-artifacts.json) · [Native 5쌍 집계](../bench/results-m3-native-summary.json).

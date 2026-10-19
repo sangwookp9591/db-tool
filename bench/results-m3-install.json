@@ -1,0 +1,18 @@
+{
+  "exit": 0,
+  "helper": "/Users/iron/Project/psw/db-tool/target-m3/debug/deps/axdb-e88bbd2abd26cfd8",
+  "helper_sha256": "492a9898f7d8a26dbcfeaf0951c264a00d80f818385509eb5069b1e44eaf7944",
+  "config": "/var/folders/_p/fy8jj5b95c38w41rttwnnll40000gn/T/axdb-resource-m3-install-_67mp_7h",
+  "packages": [
+    {
+      "path": "/private/tmp/claude-501/-Users-iron-Project-psw-db-tool/1fe252ea-91ad-4737-8951-7e8f929f6ea0/scratchpad/r2/drivers/postgres-0.2.0.axdriver",
+      "sha256": "d939e0c0b01cf9d9ab63a60afc9c78d5710746f548706b6993e8827e35c0dd6f"
+    },
+    {
+      "path": "/private/tmp/claude-501/-Users-iron-Project-psw-db-tool/1fe252ea-91ad-4737-8951-7e8f929f6ea0/scratchpad/r2/drivers/neo4j-0.2.0.axdriver",
+      "sha256": "0ad6310a3bf49c6507b96bf8ecf4d8aee64556a60136d4a7607c7260d9540519"
+    }
+  ],
+  "stdout": "\nrunning 1 test\ntest driver_install::tests::resource_bench_install_signed_packages ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 130 filtered out; finished in 3.60s\n\n",
+  "stderr": ""
+}

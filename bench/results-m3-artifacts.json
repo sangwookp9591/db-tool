@@ -1,0 +1,486 @@
+{
+  "source_commit": "f625c221f19164184589cc02b63d91e71e7103d7",
+  "chromium": [
+    {
+      "browser": "156.0.8078.4",
+      "viewport": {
+        "width": 1280,
+        "height": 768,
+        "scale": 2
+      },
+      "backend": "mock, six-column 100000-row table, 300 nodes / 299 relationships",
+      "motion": "no-preference",
+      "complete": true,
+      "points": [
+        {
+          "stage": "startup",
+          "gc": true,
+          "snapshotBytes": 24158080,
+          "usedSize": 10380080,
+          "totalSize": 11108352,
+          "embedderHeapUsedSize": 3532984,
+          "backingStorageSize": 7191089,
+          "documents": 1,
+          "nodes": 459,
+          "jsEventListeners": 100
+        },
+        {
+          "stage": "table-100000",
+          "gc": false,
+          "snapshotBytes": 89887744,
+          "usedSize": 41773640,
+          "totalSize": 43204608,
+          "embedderHeapUsedSize": 5992328,
+          "backingStorageSize": 10889462,
+          "documents": 1,
+          "nodes": 1226,
+          "jsEventListeners": 362
+        },
+        {
+          "stage": "graph-300",
+          "gc": false,
+          "snapshotBytes": 98351726,
+          "usedSize": 45205472,
+          "totalSize": 47398912,
+          "embedderHeapUsedSize": 5934144,
+          "backingStorageSize": 11031771,
+          "documents": 1,
+          "nodes": 2054,
+          "jsEventListeners": 592
+        },
+        {
+          "stage": "tabs-10",
+          "gc": false,
+          "snapshotBytes": 191904449,
+          "usedSize": 86000776,
+          "totalSize": 95289344,
+          "embedderHeapUsedSize": 10162272,
+          "backingStorageSize": 11033762,
+          "documents": 1,
+          "nodes": 8817,
+          "jsEventListeners": 2777
+        },
+        {
+          "stage": "closed-10",
+          "gc": false,
+          "snapshotBytes": 185352653,
+          "usedSize": 80896208,
+          "totalSize": 81920000,
+          "embedderHeapUsedSize": 8270280,
+          "backingStorageSize": 11028952,
+          "documents": 1,
+          "nodes": 7956,
+          "jsEventListeners": 1959
+        },
+        {
+          "stage": "closed-gc",
+          "gc": true,
+          "snapshotBytes": 185352653,
+          "usedSize": 80896208,
+          "totalSize": 81920000,
+          "embedderHeapUsedSize": 8270280,
+          "backingStorageSize": 11028952,
+          "documents": 1,
+          "nodes": 7956,
+          "jsEventListeners": 1959
+        }
+      ],
+      "errors": [],
+      "closed": {
+        "state": {
+          "connections": [
+            {
+              "id": "demo-0",
+              "name": "Analytics sandbox",
+              "session_id": "ea006195-d38f-4785-87a6-02126eaea994"
+            },
+            {
+              "id": "demo-1",
+              "name": "Graph playground",
+              "session_id": "f9b18a09-3c67-45c5-98b6-026c3600236f"
+            }
+          ],
+          "active_tab": null,
+          "last_result": []
+        },
+        "graphProbes": 0
+      },
+      "name": "baseline-cold-fixed",
+      "snapshots": [
+        {
+          "stage": "startup",
+          "path": "target-m3/baseline-cold-fixed/startup.heapsnapshot",
+          "sha256": "59f92f6c5f0283453b9d34f5a7c12959947f8965116b40139922876470016b80"
+        },
+        {
+          "stage": "table-100000",
+          "path": "target-m3/baseline-cold-fixed/table-100000.heapsnapshot",
+          "sha256": "52ee91bbd43933810a5d5b7998a752b3a1ab6b33e10d54c594b2822c5312a0e3"
+        },
+        {
+          "stage": "graph-300",
+          "path": "target-m3/baseline-cold-fixed/graph-300.heapsnapshot",
+          "sha256": "794b4692516ac2f885829247f0a36c0f3536703bc7386f0aaf1a1589dcd0d8f7"
+        },
+        {
+          "stage": "tabs-10",
+          "path": "target-m3/baseline-cold-fixed/tabs-10.heapsnapshot",
+          "sha256": "48a92c09925c0d4213a68b60e87a61b6f3905fb157302c6d47499cfafe781964"
+        },
+        {
+          "stage": "closed-10",
+          "path": "target-m3/baseline-cold-fixed/closed-10.heapsnapshot",
+          "sha256": "8b66648f0435c722f30bd78c00fb218cd48be0402e592c5e8e7ea9f356e16315"
+        },
+        {
+          "stage": "closed-gc",
+          "path": "target-m3/baseline-cold-fixed/closed-gc.heapsnapshot",
+          "sha256": "a7cfb49b3076519cfbaa3a599027a783e4ebf519b7a8ce3886b99392b563ff5e"
+        }
+      ]
+    },
+    {
+      "browser": "156.0.8078.4",
+      "viewport": {
+        "width": 1280,
+        "height": 768,
+        "scale": 2
+      },
+      "backend": "mock, six-column 100000-row table, 300 nodes / 299 relationships",
+      "motion": "no-preference",
+      "complete": true,
+      "points": [
+        {
+          "stage": "startup",
+          "gc": true,
+          "snapshotBytes": 24151847,
+          "usedSize": 10369632,
+          "totalSize": 11091968,
+          "embedderHeapUsedSize": 3341432,
+          "backingStorageSize": 7184081,
+          "documents": 1,
+          "nodes": 459,
+          "jsEventListeners": 100
+        },
+        {
+          "stage": "table-100000",
+          "gc": false,
+          "snapshotBytes": 89872043,
+          "usedSize": 41773376,
+          "totalSize": 43188224,
+          "embedderHeapUsedSize": 5988888,
+          "backingStorageSize": 10882232,
+          "documents": 1,
+          "nodes": 1226,
+          "jsEventListeners": 362
+        },
+        {
+          "stage": "graph-300",
+          "gc": false,
+          "snapshotBytes": 94869122,
+          "usedSize": 44371188,
+          "totalSize": 46333952,
+          "embedderHeapUsedSize": 6074416,
+          "backingStorageSize": 11024531,
+          "documents": 1,
+          "nodes": 2015,
+          "jsEventListeners": 583
+        },
+        {
+          "stage": "tabs-10",
+          "gc": false,
+          "snapshotBytes": 169327001,
+          "usedSize": 79820580,
+          "totalSize": 88981504,
+          "embedderHeapUsedSize": 10075896,
+          "backingStorageSize": 11026486,
+          "documents": 1,
+          "nodes": 8363,
+          "jsEventListeners": 2648
+        },
+        {
+          "stage": "closed-10",
+          "gc": false,
+          "snapshotBytes": 37914403,
+          "usedSize": 19132760,
+          "totalSize": 20463616,
+          "embedderHeapUsedSize": 5398144,
+          "backingStorageSize": 11013752,
+          "documents": 1,
+          "nodes": 1141,
+          "jsEventListeners": 297
+        },
+        {
+          "stage": "closed-gc",
+          "gc": true,
+          "snapshotBytes": 37914833,
+          "usedSize": 19132696,
+          "totalSize": 20201472,
+          "embedderHeapUsedSize": 5398144,
+          "backingStorageSize": 11013752,
+          "documents": 1,
+          "nodes": 1141,
+          "jsEventListeners": 297
+        }
+      ],
+      "errors": [],
+      "closed": {
+        "state": {
+          "connections": [
+            {
+              "id": "demo-0",
+              "name": "Analytics sandbox",
+              "session_id": "b1c58cda-0488-4ac5-afea-c07e11e11b70"
+            },
+            {
+              "id": "demo-1",
+              "name": "Graph playground",
+              "session_id": "ae787ad1-20bd-4363-bc50-40401c4495f5"
+            }
+          ],
+          "active_tab": null,
+          "last_result": []
+        },
+        "graphProbes": 0
+      },
+      "name": "candidate-cold-fixed",
+      "snapshots": [
+        {
+          "stage": "startup",
+          "path": "target-m3/candidate-cold-fixed/startup.heapsnapshot",
+          "sha256": "13a9841edaad97567012634c591b6c126f49039000642375310a9788d6029c40"
+        },
+        {
+          "stage": "table-100000",
+          "path": "target-m3/candidate-cold-fixed/table-100000.heapsnapshot",
+          "sha256": "3a1ba1e3ebde4d6b24e55be61080bee4f21921b0d56faf4149cd24d5fcbb7158"
+        },
+        {
+          "stage": "graph-300",
+          "path": "target-m3/candidate-cold-fixed/graph-300.heapsnapshot",
+          "sha256": "237b0c7d04b27e6b9c373743ffe1d61cd628925c1ff3bdc934d291e2e6bfc096"
+        },
+        {
+          "stage": "tabs-10",
+          "path": "target-m3/candidate-cold-fixed/tabs-10.heapsnapshot",
+          "sha256": "f7efb196528a048fa0411f04c706194a5ea859f14ab2d3bc7c64879a19ed6374"
+        },
+        {
+          "stage": "closed-10",
+          "path": "target-m3/candidate-cold-fixed/closed-10.heapsnapshot",
+          "sha256": "b0483a137e31def651da8737cc4183854c99d11b7f3e5a1d34f1beaefa6fe025"
+        },
+        {
+          "stage": "closed-gc",
+          "path": "target-m3/candidate-cold-fixed/closed-gc.heapsnapshot",
+          "sha256": "81e256c39df364399be450c29116f153943c2c4d6d4e51ad4226ce24a4ddd6eb"
+        }
+      ]
+    }
+  ],
+  "source_files": {
+    "ui/src/ui/SwipeRow.tsx": {
+      "baseline_sha256": "fd3802fc4df4549941b9bfd9aaab1b3e4602b388f82e1fc3cb5298960b8b21d6",
+      "candidate_sha256": "c2f6967332d597b5346501d97b96320811cab082567d53e1ca8314695d3e8d3e"
+    },
+    "ui/src/ui/spring.ts": {
+      "baseline_sha256": "1d6adc6596e90e65fd2bd966724274343d7a82236848331e38749f01c6538539",
+      "candidate_sha256": "be29071304686d44d9d8d5575d3e42be444fc2a3727e7c337a68620c8f6ebf89"
+    },
+    "bench/m3_retainers.mjs": {
+      "sha256": "1ed04d235b65ffc45f2ea977cb9fa101eda27fe596fbaa67789d17d6a5874f32"
+    },
+    "bench/m3_heap.py": {
+      "sha256": "63d1dddcb038eec2b24ceeb93e59c1c342970c82e47ce0d3f7ed0c92669dfec7"
+    },
+    "ui/src/perf/tabRetainers.test.ts": {
+      "sha256": "68670700ef708455d1d416569321eafc9c002473a56d649ce9d497b049282752"
+    },
+    "ui/src/perf/graphLifecycle.test.ts": {
+      "sha256": "52949e6503a26ec97d33ac4d372b1bce9814bd25be3414c2eecd279d52b82d0e"
+    }
+  },
+  "native_artifacts": [
+    {
+      "app": "/Users/iron/Project/psw/db-tool/target-m3/baseline.app",
+      "sha256": "13f8ce73d6e43278a62d7e5d74fe494c04e8eea1200d2b6cf4a049212b2bf883",
+      "binary_bytes": 86644144
+    },
+    {
+      "app": "/Users/iron/Project/psw/db-tool/target-m3/candidate.app",
+      "sha256": "b0f42adee868892c2bb3134d90eb07c2dcc6bc291bfa36f5cee38b5a0890b8a7",
+      "binary_bytes": 86417568
+    }
+  ],
+  "build_profile": "dev, CARGO_PROFILE_DEV_DEBUG=0, CARGO_INCREMENTAL=0; measurement apps only",
+  "compiler_jobs": 6,
+  "app_bundle_identifier": "dev.axdb.m3probe",
+  "final_ui_matches_native_candidate": true,
+  "validation": {
+    "cargo_build_workspace_bins": "passed",
+    "cargo_test_axdb": {
+      "passed": 194,
+      "ignored": 7,
+      "actual_test_databases": [
+        "PostgreSQL",
+        "Neo4j",
+        "MongoDB",
+        "Redis",
+        "SQLite"
+      ]
+    },
+    "clippy_axdb_all_targets": "passed -D warnings",
+    "ui": {
+      "passed": 146,
+      "skipped": 1
+    },
+    "tsc": "passed",
+    "browser_focused": {
+      "passed": 3
+    },
+    "red_original_sources": {
+      "failed": 2,
+      "detachedDOM": 4965
+    },
+    "r2_self_check": "passed",
+    "heap_self_check": "passed",
+    "retainers_after_schema_assertion": {
+      "passed": 2
+    }
+  },
+  "attempts": [
+    {
+      "name": "baseline",
+      "last_stage": "startup",
+      "recorded_complete": null,
+      "error": null,
+      "page_errors": [],
+      "primary": false
+    },
+    {
+      "name": "baseline-cold-fixed",
+      "last_stage": "closed-gc",
+      "recorded_complete": true,
+      "error": null,
+      "page_errors": [],
+      "primary": true
+    },
+    {
+      "name": "baseline-motion-cwd",
+      "last_stage": null,
+      "recorded_complete": false,
+      "error": "TimeoutError: locator.waitFor: Timeout 60000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Workspace settings', exact: true }) to be visible\u001b[22m\n",
+      "page_errors": [
+        "Cannot read properties of undefined (reading 'context')"
+      ],
+      "primary": false
+    },
+    {
+      "name": "baseline-v2",
+      "last_stage": "startup",
+      "recorded_complete": null,
+      "error": null,
+      "page_errors": [],
+      "primary": false
+    },
+    {
+      "name": "baseline-v3",
+      "last_stage": "table-100000",
+      "recorded_complete": null,
+      "error": null,
+      "page_errors": [],
+      "primary": false
+    },
+    {
+      "name": "baseline-v4",
+      "last_stage": "table-100000",
+      "recorded_complete": null,
+      "error": null,
+      "page_errors": [],
+      "primary": false
+    },
+    {
+      "name": "baseline-v5",
+      "last_stage": "closed-gc",
+      "recorded_complete": null,
+      "error": null,
+      "page_errors": [],
+      "primary": false
+    },
+    {
+      "name": "candidate-cold-fixed",
+      "last_stage": "closed-gc",
+      "recorded_complete": true,
+      "error": null,
+      "page_errors": [],
+      "primary": true
+    },
+    {
+      "name": "candidate-final",
+      "last_stage": "startup",
+      "recorded_complete": false,
+      "error": "TimeoutError: locator.waitFor: Timeout 60000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('.cm-content') to be visible\u001b[22m\n",
+      "page_errors": [
+        "Cannot read properties of undefined (reading '__H')",
+        "Cannot read properties of undefined (reading '__H')"
+      ],
+      "primary": false
+    },
+    {
+      "name": "candidate-motion",
+      "last_stage": "startup",
+      "recorded_complete": null,
+      "error": null,
+      "page_errors": [],
+      "primary": false
+    },
+    {
+      "name": "candidate-motion-cwd",
+      "last_stage": null,
+      "recorded_complete": false,
+      "error": "TimeoutError: locator.waitFor: Timeout 60000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Workspace settings', exact: true }) to be visible\u001b[22m\n",
+      "page_errors": [
+        "Cannot read properties of undefined (reading 'context')"
+      ],
+      "primary": false
+    },
+    {
+      "name": "candidate-motion-isolated",
+      "last_stage": null,
+      "recorded_complete": false,
+      "error": "TimeoutError: locator.waitFor: Timeout 60000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Workspace settings', exact: true }) to be visible\u001b[22m\n",
+      "page_errors": [
+        "Cannot read properties of undefined (reading 'context')"
+      ],
+      "primary": false
+    },
+    {
+      "name": "spring-release",
+      "last_stage": "closed-gc",
+      "recorded_complete": null,
+      "error": null,
+      "page_errors": [],
+      "primary": false
+    },
+    {
+      "name": "swipe-count",
+      "last_stage": "closed-gc",
+      "recorded_complete": null,
+      "error": null,
+      "page_errors": [],
+      "primary": false
+    }
+  ],
+  "native_summary": "bench/results-m3-native-summary.json",
+  "native_total_runs": 10,
+  "native_closed10_valid_pairs": 5,
+  "native_plus50_passes": 0,
+  "native_source_sha256": {
+    "bench/results-resource-m3-native-pair.json": "c3ec2e2bd3705ab8fdd97c05bfb5dac0b804097404f63b3e6d2e9760c4886967",
+    "bench/results-resource-m3-native-extra.json": "db020acb84706db927f7966ff3d79cf95c6187a6def5cdcac974436973938321"
+  },
+  "final_artifact_audit": "hashes, local links, known credential scan, ad-hoc signatures passed",
+  "final_measured_processes_remaining": [],
+  "start_status": "?? src-tauri/tests/mysql_streaming_compat.rs",
+  "end_status": " M docs/RESOURCE_OPT.md\n M ui/src/perf/graphLifecycle.test.ts\n M ui/src/ui/SwipeRow.tsx\n M ui/src/ui/spring.ts\n?? bench/m3_heap.py\n?? bench/m3_retainers.mjs\n?? bench/results-m3-artifacts.json\n?? bench/results-m3-backup-streaming.json\n?? bench/results-m3-browser-final.txt\n?? bench/results-m3-chromium-heaps.json\n?? bench/results-m3-clippy.txt\n?? bench/results-m3-heap-self-check.txt\n?? bench/results-m3-host-test.txt\n?? bench/results-m3-install.json\n?? bench/results-m3-micro-test.txt\n?? bench/results-m3-native-summary.json\n?? bench/results-m3-r2-self-check.txt\n?? bench/results-m3-retainers-red.txt\n?? bench/results-m3-retainers-verified.txt\n?? bench/results-m3-tsc-verified.txt\n?? bench/results-m3-ui-final.txt\n?? bench/results-m3-ui-test.txt\n?? bench/results-m3-ui-verified.txt\n?? bench/results-resource-m3-native-extra.json\n?? bench/results-resource-m3-native-pair.json\n?? docs/M3_REPORT.md\n?? docs/M3_RETAINERS.md\n?? src-tauri/tests/mysql_streaming_compat.rs\n?? ui/src/perf/tabRetainers.test.ts\n"
+}

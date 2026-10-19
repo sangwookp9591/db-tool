@@ -17,7 +17,9 @@ export function SwipeRow({ open, onOpenChange, actions, children, label, disable
   const x = useRef(0);
   const stop = useRef<() => void>(() => {});
   const wheelEnd = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const width = () => rail.current?.offsetWidth ?? actions.length * 64;
+  // Effect cleanups share this scope; retaining icon VNodes also retains their old parent tree.
+  const actionCount = actions.length;
+  const width = () => rail.current?.offsetWidth ?? actionCount * 64;
   const paint = (next: number) => { x.current = next; if (surface.current) surface.current.style.transform = `translateX(${next}px)`; };
   const settle = () => { stop.current(); stop.current = spring(x.current, open ? -width() : 0, paint); };
   useLayoutEffect(() => { settle(); }, [open, actions.length]);

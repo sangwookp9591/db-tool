@@ -1,0 +1,59 @@
+
+> axdb-ui@0.3.0 test /Users/iron/Project/psw/db-tool/ui
+> vitest run
+
+
+ RUN  v5.0.4 /Users/iron/Project/psw/db-tool/ui
+
+(node:14924) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+stderr | src/perf/graphLifecycle.test.ts
+(!) Failed to run dependency scan. Skipping dependency pre-bundling. Error: The following dependencies are imported but could not be resolved:
+
+  react/jsx-dev-runtime (imported by /Users/iron/Project/psw/db-tool/ui/src/update/WhatsNew.tsx)
+
+Are they installed?
+    at file:///Users/iron/Project/psw/db-tool/ui/node_modules/.pnpm/vite@8.3.4/node_modules/vite/dist/node/chunks/node.js:28519:33
+    at async file:///Users/iron/Project/psw/db-tool/ui/node_modules/.pnpm/vite@8.3.4/node_modules/vite/dist/node/chunks/node.js:35839:15
+
+stderr | src/perf/graphLifecycle.test.ts
+12:41:15 AM [vite] (client) [Unhandled rejection] TypeError: Cannot read properties of undefined (reading '__H')
+ > y node_modules/.vite/deps/preact_hooks.js?v=627c04ea:20:12
+ > _ node_modules/.vite/deps/preact_hooks.js?v=627c04ea:30:10
+ > d node_modules/.vite/deps/preact_hooks.js?v=627c04ea:27:16
+ > $.App [as constructor] src/App.tsx:54:30
+ > $.F [as render] node_modules/.vite/deps/preact.js?v=96173e26:271:14
+ > N node_modules/.vite/deps/preact.js?v=96173e26:184:35
+ > L node_modules/.vite/deps/preact.js?v=96173e26:83:119
+ > N node_modules/.vite/deps/preact.js?v=96173e26:188:56
+ > G node_modules/.vite/deps/preact.js?v=96173e26:275:157
+ > src/main.tsx:8:33
+
+
+ ❯ src/perf/graphLifecycle.test.ts (1 test | 1 skipped) 30061ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/perf/graphLifecycle.test.ts [ src/perf/graphLifecycle.test.ts ]
+Error: Hook timed out in 30000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+ ❯ src/perf/graphLifecycle.test.ts:6:1
+      4| let server: ViteDevServer, browser: Browser, page: Page, sessionId: st…
+      5| declare global { interface Window { __ownedGraphWorkers: (Worker & { t…
+      6| beforeAll(async () => {
+       | ^
+      7|   server = await createServer({ configFile: false, server: { host: '12…
+      8|   browser = await chromium.launch({ headless: true }); page = await br…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 37 passed | 1 skipped (39)
+      Tests  145 passed | 2 skipped (147)
+   Start at  00:41:09
+   Duration  32.01s (tests 84%, import 14%, transform 1%, worker 1%)
+
+    Isolate  39 workers spawned · ~701ms startup each (spawn + environment, per file)
+             at least ~2.34s faster with isolate: false — reuses workers across files instead of one per file
+
+ ELIFECYCLE  Test failed. See above for more details.

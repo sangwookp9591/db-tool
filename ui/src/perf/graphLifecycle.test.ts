@@ -4,7 +4,7 @@ import { createServer, type ViteDevServer } from 'vite';
 let server: ViteDevServer, browser: Browser, page: Page, sessionId: string;
 declare global { interface Window { __ownedGraphWorkers: (Worker & { terminated: boolean })[]; __ownedGraphCanvas: HTMLCanvasElement } }
 beforeAll(async () => {
-  server = await createServer({ configFile: false, server: { host: '127.0.0.1', port: 0, hmr: false }, logLevel: 'error' }); await server.listen();
+  server = await createServer({ configFile: false, cacheDir: `node_modules/.vite-graph-lifecycle-${crypto.randomUUID()}`, optimizeDeps: { rolldownOptions: { transform: { jsx: { runtime: 'automatic', importSource: 'preact' } } } }, server: { host: '127.0.0.1', port: 0, hmr: false }, logLevel: 'error' }); await server.listen();
   browser = await chromium.launch({ headless: true }); page = await browser.newPage({ reducedMotion: 'reduce', viewport: { width: 960, height: 600 } });
   await page.addInitScript(() => { const Original = window.Worker; window.__ownedGraphWorkers = []; window.Worker = class extends Original { terminated = false; constructor(...args: ConstructorParameters<typeof Worker>) { super(...args); window.__ownedGraphWorkers.push(this); } terminate() { this.terminated = true; super.terminate(); } }; });
   await page.goto(server.resolvedUrls!.local[0]);

@@ -1,0 +1,4065 @@
+{
+  "sources": [
+    {
+      "path": "bench/results-resource-m3-native-pair.json",
+      "sha256": "c3ec2e2bd3705ab8fdd97c05bfb5dac0b804097404f63b3e6d2e9760c4886967"
+    },
+    {
+      "path": "bench/results-resource-m3-native-extra.json",
+      "sha256": "db020acb84706db927f7966ff3d79cf95c6187a6def5cdcac974436973938321"
+    }
+  ],
+  "pairs": [
+    {
+      "pair": 1,
+      "source": "bench/results-resource-m3-native-pair.json",
+      "source_repeat": 1,
+      "whole_pair_accepted": false,
+      "points": [
+        {
+          "stage": "graph-300",
+          "accepted": true,
+          "load_delta": 2.8642578125,
+          "baseline_mib": 433.4728240966797,
+          "candidate_mib": 367.6446075439453,
+          "delta_mib": -65.82821655273438,
+          "baseline_webcontent_mib": 290.0949172973633,
+          "candidate_webcontent_mib": 262.8918151855469
+        },
+        {
+          "stage": "idle-10",
+          "accepted": false,
+          "load_delta": 3.9248046875,
+          "baseline_mib": 128.70664978027344,
+          "candidate_mib": 125.09722900390625,
+          "delta_mib": -3.6094207763671875,
+          "baseline_webcontent_mib": 57.09473419189453,
+          "candidate_webcontent_mib": 51.672882080078125
+        },
+        {
+          "stage": "idle-60",
+          "accepted": true,
+          "load_delta": 2.5703125,
+          "baseline_mib": 119.01914978027344,
+          "candidate_mib": 115.80035400390625,
+          "delta_mib": -3.2187957763671875,
+          "baseline_webcontent_mib": 56.45410919189453,
+          "candidate_webcontent_mib": 50.610382080078125
+        },
+        {
+          "stage": "startup",
+          "accepted": false,
+          "load_delta": 3.8310546875,
+          "baseline_mib": 202.23794555664062,
+          "candidate_mib": 129.33160400390625,
+          "delta_mib": -72.90634155273438,
+          "baseline_webcontent_mib": 74.25098419189453,
+          "candidate_webcontent_mib": 52.782257080078125
+        },
+        {
+          "stage": "table-100000",
+          "accepted": true,
+          "load_delta": 2.6572265625,
+          "baseline_mib": 338.91009521484375,
+          "candidate_mib": 328.41009521484375,
+          "delta_mib": -10.5,
+          "baseline_webcontent_mib": 197.2666778564453,
+          "candidate_webcontent_mib": 182.3917465209961
+        },
+        {
+          "stage": "tabs-10",
+          "accepted": true,
+          "load_delta": 2.82470703125,
+          "baseline_mib": 457.66053009033203,
+          "candidate_mib": 508.94171142578125,
+          "delta_mib": 51.28118133544922,
+          "baseline_webcontent_mib": 323.76690673828125,
+          "candidate_webcontent_mib": 366.67317962646484
+        },
+        {
+          "stage": "tabs-closed",
+          "accepted": true,
+          "load_delta": 2.85009765625,
+          "baseline_mib": 472.7699279785156,
+          "candidate_mib": 524.4104843139648,
+          "delta_mib": 51.64055633544922,
+          "baseline_webcontent_mib": 340.37630462646484,
+          "candidate_webcontent_mib": 383.17320251464844
+        },
+        {
+          "stage": "tabs-closed-10",
+          "accepted": true,
+          "load_delta": 2.2451171875,
+          "baseline_mib": 431.11365509033203,
+          "candidate_mib": 251.84796142578125,
+          "delta_mib": -179.26569366455078,
+          "baseline_webcontent_mib": 344.15755462646484,
+          "candidate_webcontent_mib": 159.14195251464844
+        }
+      ],
+      "candidate_closed_minus_startup_mib": 122.516357421875,
+      "candidate_closed_minus_idle10_mib": 126.750732421875,
+      "plus50_met": false
+    },
+    {
+      "pair": 2,
+      "source": "bench/results-resource-m3-native-pair.json",
+      "source_repeat": 2,
+      "whole_pair_accepted": false,
+      "points": [
+        {
+          "stage": "graph-300",
+          "accepted": true,
+          "load_delta": 1.54052734375,
+          "baseline_mib": 350.9884033203125,
+          "candidate_mib": 301.4416198730469,
+          "delta_mib": -49.546783447265625,
+          "baseline_webcontent_mib": 259.1729965209961,
+          "candidate_webcontent_mib": 210.3604965209961
+        },
+        {
+          "stage": "idle-10",
+          "accepted": true,
+          "load_delta": 0.11865234375,
+          "baseline_mib": 127.81611633300781,
+          "candidate_mib": 125.03482055664062,
+          "delta_mib": -2.7812957763671875,
+          "baseline_webcontent_mib": 57.34471130371094,
+          "candidate_webcontent_mib": 57.32904052734375
+        },
+        {
+          "stage": "idle-60",
+          "accepted": true,
+          "load_delta": 2.4599609375,
+          "baseline_mib": 119.01921844482422,
+          "candidate_mib": 118.00357055664062,
+          "delta_mib": -1.0156478881835938,
+          "baseline_webcontent_mib": 56.48533630371094,
+          "candidate_webcontent_mib": 56.06341552734375
+        },
+        {
+          "stage": "startup",
+          "accepted": true,
+          "load_delta": 0.21533203125,
+          "baseline_mib": 130.0661392211914,
+          "candidate_mib": 147.05044555664062,
+          "delta_mib": 16.98430633544922,
+          "baseline_webcontent_mib": 58.64158630371094,
+          "candidate_webcontent_mib": 73.95404052734375
+        },
+        {
+          "stage": "table-100000",
+          "accepted": true,
+          "load_delta": 2.02294921875,
+          "baseline_mib": 317.09766387939453,
+          "candidate_mib": 323.5976867675781,
+          "delta_mib": 6.500022888183594,
+          "baseline_webcontent_mib": 177.5323257446289,
+          "candidate_webcontent_mib": 181.45415496826172
+        },
+        {
+          "stage": "tabs-10",
+          "accepted": true,
+          "load_delta": 2.8388671875,
+          "baseline_mib": 519.4417572021484,
+          "candidate_mib": 468.26990509033203,
+          "delta_mib": -51.171852111816406,
+          "baseline_webcontent_mib": 382.07936096191406,
+          "candidate_webcontent_mib": 328.6261901855469
+        },
+        {
+          "stage": "tabs-closed",
+          "accepted": false,
+          "load_delta": 3.10400390625,
+          "baseline_mib": 470.61363220214844,
+          "candidate_mib": 479.6761779785156,
+          "delta_mib": 9.062545776367188,
+          "baseline_webcontent_mib": 336.06373596191406,
+          "candidate_webcontent_mib": 339.15746307373047
+        },
+        {
+          "stage": "tabs-closed-10",
+          "accepted": true,
+          "load_delta": 2.2392578125,
+          "baseline_mib": 374.67610931396484,
+          "candidate_mib": 380.37925720214844,
+          "delta_mib": 5.703147888183594,
+          "baseline_webcontent_mib": 287.07936096191406,
+          "candidate_webcontent_mib": 292.28246307373047
+        }
+      ],
+      "candidate_closed_minus_startup_mib": 233.3288116455078,
+      "candidate_closed_minus_idle10_mib": 255.3444366455078,
+      "plus50_met": false
+    },
+    {
+      "pair": 3,
+      "source": "bench/results-resource-m3-native-extra.json",
+      "source_repeat": 1,
+      "whole_pair_accepted": true,
+      "points": [
+        {
+          "stage": "graph-300",
+          "accepted": true,
+          "load_delta": 1.310546875,
+          "baseline_mib": 436.8946990966797,
+          "candidate_mib": 435.1289825439453,
+          "delta_mib": -1.765716552734375,
+          "baseline_webcontent_mib": 291.6886444091797,
+          "candidate_webcontent_mib": 288.2510986328125
+        },
+        {
+          "stage": "idle-10",
+          "accepted": true,
+          "load_delta": 2.1298828125,
+          "baseline_mib": 122.19102478027344,
+          "candidate_mib": 117.64408111572266,
+          "delta_mib": -4.546943664550781,
+          "baseline_webcontent_mib": 54.12591552734375,
+          "candidate_webcontent_mib": 52.11024475097656
+        },
+        {
+          "stage": "idle-60",
+          "accepted": true,
+          "load_delta": 1.4619140625,
+          "baseline_mib": 115.44102478027344,
+          "candidate_mib": 118.30030822753906,
+          "delta_mib": 2.859283447265625,
+          "baseline_webcontent_mib": 52.95404052734375,
+          "candidate_webcontent_mib": 55.15711975097656
+        },
+        {
+          "stage": "startup",
+          "accepted": true,
+          "load_delta": 2.1953125,
+          "baseline_mib": 127.62852478027344,
+          "candidate_mib": 119.80033111572266,
+          "delta_mib": -7.828193664550781,
+          "baseline_webcontent_mib": 55.92279052734375,
+          "candidate_webcontent_mib": 53.18836975097656
+        },
+        {
+          "stage": "table-100000",
+          "accepted": true,
+          "load_delta": 1.4248046875,
+          "baseline_mib": 326.36328887939453,
+          "candidate_mib": 317.67572021484375,
+          "delta_mib": -8.687568664550781,
+          "baseline_webcontent_mib": 183.8917007446289,
+          "candidate_webcontent_mib": 176.65725708007812
+        },
+        {
+          "stage": "tabs-10",
+          "accepted": true,
+          "load_delta": 1.68603515625,
+          "baseline_mib": 480.1137237548828,
+          "candidate_mib": 456.48860931396484,
+          "delta_mib": -23.62511444091797,
+          "baseline_webcontent_mib": 340.48565673828125,
+          "candidate_webcontent_mib": 319.7668151855469
+        },
+        {
+          "stage": "tabs-closed",
+          "accepted": true,
+          "load_delta": 1.55126953125,
+          "baseline_mib": 473.3012237548828,
+          "candidate_mib": 449.05113220214844,
+          "delta_mib": -24.250091552734375,
+          "baseline_webcontent_mib": 334.28253173828125,
+          "candidate_webcontent_mib": 313.43871307373047
+        },
+        {
+          "stage": "tabs-closed-10",
+          "accepted": true,
+          "load_delta": 0.92529296875,
+          "baseline_mib": 377.3949737548828,
+          "candidate_mib": 353.55113220214844,
+          "delta_mib": -23.843841552734375,
+          "baseline_webcontent_mib": 287.09503173828125,
+          "candidate_webcontent_mib": 266.29808807373047
+        }
+      ],
+      "candidate_closed_minus_startup_mib": 233.75080108642578,
+      "candidate_closed_minus_idle10_mib": 235.90705108642578,
+      "plus50_met": false
+    },
+    {
+      "pair": 4,
+      "source": "bench/results-resource-m3-native-extra.json",
+      "source_repeat": 2,
+      "whole_pair_accepted": true,
+      "points": [
+        {
+          "stage": "graph-300",
+          "accepted": true,
+          "load_delta": 0.16748046875,
+          "baseline_mib": 434.5352554321289,
+          "candidate_mib": 434.6603012084961,
+          "delta_mib": 0.1250457763671875,
+          "baseline_webcontent_mib": 281.9073486328125,
+          "candidate_webcontent_mib": 283.2042922973633
+        },
+        {
+          "stage": "idle-10",
+          "accepted": true,
+          "load_delta": 1.0703125,
+          "baseline_mib": 124.67535400390625,
+          "candidate_mib": 124.31611633300781,
+          "delta_mib": -0.3592376708984375,
+          "baseline_webcontent_mib": 54.657142639160156,
+          "candidate_webcontent_mib": 54.219757080078125
+        },
+        {
+          "stage": "idle-60",
+          "accepted": true,
+          "load_delta": 0.7578125,
+          "baseline_mib": 115.83158111572266,
+          "candidate_mib": 114.89424133300781,
+          "delta_mib": -0.9373397827148438,
+          "baseline_webcontent_mib": 53.37586975097656,
+          "candidate_webcontent_mib": 53.032257080078125
+        },
+        {
+          "stage": "startup",
+          "accepted": true,
+          "load_delta": 1.8828125,
+          "baseline_mib": 129.31595611572266,
+          "candidate_mib": 197.0504913330078,
+          "delta_mib": 67.73453521728516,
+          "baseline_webcontent_mib": 55.96961975097656,
+          "candidate_webcontent_mib": 71.36038208007812
+        },
+        {
+          "stage": "table-100000",
+          "accepted": true,
+          "load_delta": 0.28466796875,
+          "baseline_mib": 329.48826599121094,
+          "candidate_mib": 336.3789367675781,
+          "delta_mib": 6.8906707763671875,
+          "baseline_webcontent_mib": 180.07915496826172,
+          "candidate_webcontent_mib": 185.0948486328125
+        },
+        {
+          "stage": "tabs-10",
+          "accepted": true,
+          "load_delta": 0.32080078125,
+          "baseline_mib": 465.26988220214844,
+          "candidate_mib": 458.28553009033203,
+          "delta_mib": -6.984352111816406,
+          "baseline_webcontent_mib": 322.42308807373047,
+          "candidate_webcontent_mib": 321.72003173828125
+        },
+        {
+          "stage": "tabs-closed",
+          "accepted": true,
+          "load_delta": 0.51611328125,
+          "baseline_mib": 457.84800720214844,
+          "candidate_mib": 472.4730529785156,
+          "delta_mib": 14.625045776367188,
+          "baseline_webcontent_mib": 315.64183807373047,
+          "candidate_webcontent_mib": 337.06380462646484
+        },
+        {
+          "stage": "tabs-closed-10",
+          "accepted": true,
+          "load_delta": 0.51025390625,
+          "baseline_mib": 360.23863220214844,
+          "candidate_mib": 378.0043029785156,
+          "delta_mib": 17.765670776367188,
+          "baseline_webcontent_mib": 268.01683807373047,
+          "candidate_webcontent_mib": 290.37630462646484
+        }
+      ],
+      "candidate_closed_minus_startup_mib": 180.9538116455078,
+      "candidate_closed_minus_idle10_mib": 253.6881866455078,
+      "plus50_met": false
+    },
+    {
+      "pair": 5,
+      "source": "bench/results-resource-m3-native-extra.json",
+      "source_repeat": 3,
+      "whole_pair_accepted": false,
+      "points": [
+        {
+          "stage": "graph-300",
+          "accepted": true,
+          "load_delta": 0.78466796875,
+          "baseline_mib": 427.4415283203125,
+          "candidate_mib": 435.7853240966797,
+          "delta_mib": 8.343795776367188,
+          "baseline_webcontent_mib": 284.1885986328125,
+          "candidate_webcontent_mib": 291.2198715209961
+        },
+        {
+          "stage": "idle-10",
+          "accepted": true,
+          "load_delta": 2.4482421875,
+          "baseline_mib": 127.28479766845703,
+          "candidate_mib": 123.97229766845703,
+          "delta_mib": -3.3125,
+          "baseline_webcontent_mib": 54.34466552734375,
+          "candidate_webcontent_mib": 54.81341552734375
+        },
+        {
+          "stage": "idle-60",
+          "accepted": true,
+          "load_delta": 0.9423828125,
+          "baseline_mib": 117.28479766845703,
+          "candidate_mib": 113.42539978027344,
+          "delta_mib": -3.8593978881835938,
+          "baseline_webcontent_mib": 53.06341552734375,
+          "candidate_webcontent_mib": 53.782142639160156
+        },
+        {
+          "stage": "startup",
+          "accepted": false,
+          "load_delta": 3.009765625,
+          "baseline_mib": 200.22229766845703,
+          "candidate_mib": 128.83164978027344,
+          "delta_mib": -71.3906478881836,
+          "baseline_webcontent_mib": 71.37591552734375,
+          "candidate_webcontent_mib": 56.313392639160156
+        },
+        {
+          "stage": "table-100000",
+          "accepted": true,
+          "load_delta": 1.1630859375,
+          "baseline_mib": 323.3789367675781,
+          "candidate_mib": 336.6289367675781,
+          "delta_mib": 13.25,
+          "baseline_webcontent_mib": 181.0479278564453,
+          "candidate_webcontent_mib": 186.4385528564453
+        },
+        {
+          "stage": "tabs-10",
+          "accepted": true,
+          "load_delta": 0.783203125,
+          "baseline_mib": 480.0199737548828,
+          "candidate_mib": 467.3324279785156,
+          "delta_mib": -12.687545776367188,
+          "baseline_webcontent_mib": 342.12623596191406,
+          "candidate_webcontent_mib": 333.26686096191406
+        },
+        {
+          "stage": "tabs-closed",
+          "accepted": true,
+          "load_delta": 0.97216796875,
+          "baseline_mib": 472.5355987548828,
+          "candidate_mib": 464.0199279785156,
+          "delta_mib": -8.515670776367188,
+          "baseline_webcontent_mib": 335.34498596191406,
+          "candidate_webcontent_mib": 329.84498596191406
+        },
+        {
+          "stage": "tabs-closed-10",
+          "accepted": true,
+          "load_delta": 1.14990234375,
+          "baseline_mib": 374.7074737548828,
+          "candidate_mib": 307.2230529785156,
+          "delta_mib": -67.48442077636719,
+          "baseline_webcontent_mib": 286.03248596191406,
+          "candidate_webcontent_mib": 221.36061096191406
+        }
+      ],
+      "candidate_closed_minus_startup_mib": 178.3914031982422,
+      "candidate_closed_minus_idle10_mib": 183.2507553100586,
+      "plus50_met": false
+    }
+  ],
+  "stats": {
+    "source": "target-m3/native-merged.json",
+    "variant": "m3-all-five",
+    "artifacts": [
+      {
+        "app": "/Users/iron/Project/psw/db-tool/target-m3/baseline.app",
+        "sha256": "13f8ce73d6e43278a62d7e5d74fe494c04e8eea1200d2b6cf4a049212b2bf883",
+        "binary_bytes": 86644144
+      },
+      {
+        "app": "/Users/iron/Project/psw/db-tool/target-m3/candidate.app",
+        "sha256": "b0f42adee868892c2bb3134d90eb07c2dcc6bc291bfa36f5cee38b5a0890b8a7",
+        "binary_bytes": 86417568
+      }
+    ],
+    "rows": [
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "idle-60",
+        "role": "host",
+        "rss_mib": {
+          "n": 5,
+          "p50": 157.734375,
+          "p95": 164.6875,
+          "min": 113.625,
+          "max": 164.6875
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 39.25116729736328,
+          "p95": 45.28246307373047,
+          "min": 37.70440673828125,
+          "max": 45.28246307373047
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.03997438977479773,
+          "p95": 0.04004492296161435,
+          "min": 0.019991778597762147,
+          "max": 0.04004492296161435
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "idle-60",
+        "role": "GPU",
+        "rss_mib": {
+          "n": 5,
+          "p50": 36.546875,
+          "p95": 37.75,
+          "min": 27.59375,
+          "max": 37.75
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 15.750846862792969,
+          "p95": 18.407142639160156,
+          "min": 15.078857421875,
+          "max": 18.407142639160156
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "idle-60",
+        "role": "WebContent",
+        "rss_mib": {
+          "n": 5,
+          "p50": 73.296875,
+          "p95": 76.96875,
+          "min": 53.921875,
+          "max": 76.96875
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 53.782142639160156,
+          "p95": 56.06341552734375,
+          "min": 50.610382080078125,
+          "max": 56.06341552734375
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.020005110272211187,
+          "p95": 0.03999422836651527,
+          "min": 0.019987194887398866,
+          "max": 0.03999422836651527
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "idle-60",
+        "role": "Networking",
+        "rss_mib": {
+          "n": 5,
+          "p50": 12.21875,
+          "p95": 15.53125,
+          "min": 9.078125,
+          "max": 15.53125
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 4.828651428222656,
+          "p95": 6.047401428222656,
+          "min": 4.750480651855469,
+          "max": 6.047401428222656
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "idle-60",
+        "role": "total",
+        "rss_mib": {
+          "n": 5,
+          "p50": 282.578125,
+          "p95": 291.265625,
+          "min": 204.21875,
+          "max": 291.265625
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 115.80035400390625,
+          "p95": 118.30030822753906,
+          "min": 113.42539978027344,
+          "max": 118.30030822753906
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0599615846621966,
+          "p95": 0.07998845673303054,
+          "min": 0.039983557195524294,
+          "max": 0.07998845673303054
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "idle-60",
+        "role": "app",
+        "rss_mib": {
+          "n": 5,
+          "p50": 282.578125,
+          "p95": 291.265625,
+          "min": 204.21875,
+          "max": 291.265625
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 115.80035400390625,
+          "p95": 118.30030822753906,
+          "min": 113.42539978027344,
+          "max": 118.30030822753906
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0599615846621966,
+          "p95": 0.07998845673303054,
+          "min": 0.039983557195524294,
+          "max": 0.07998845673303054
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "idle-60",
+        "role": "drivers",
+        "rss_mib": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0,
+          "p95": 0,
+          "min": 0,
+          "max": 0
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "table-100000",
+        "role": "host",
+        "rss_mib": {
+          "n": 5,
+          "p50": 145.984375,
+          "p95": 148.4375,
+          "min": 137.5,
+          "max": 148.4375
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 53.87628173828125,
+          "p95": 57.72007751464844,
+          "min": 46.65746307373047,
+          "max": 57.72007751464844
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.9302124032522228,
+          "p95": 1.8679362827798196,
+          "min": 0.0,
+          "max": 1.8679362827798196
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "table-100000",
+        "role": "GPU",
+        "rss_mib": {
+          "n": 5,
+          "p50": 47.359375,
+          "p95": 48.5625,
+          "min": 46.25,
+          "max": 48.5625
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 87.79790496826172,
+          "p95": 88.76667785644531,
+          "min": 86.25091552734375,
+          "max": 88.76667785644531
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 2.7906372097566066,
+          "p95": 2.8019044241697295,
+          "min": 2.784744256457275,
+          "max": 2.8019044241697295
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "table-100000",
+        "role": "WebContent",
+        "rss_mib": {
+          "n": 5,
+          "p50": 162.59375,
+          "p95": 168.078125,
+          "min": 156.234375,
+          "max": 168.078125
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 182.3917465209961,
+          "p95": 186.4385528564453,
+          "min": 176.65725708007812,
+          "max": 186.4385528564453
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 3.735872565559639,
+          "p95": 7.4416992260175965,
+          "min": 3.713901744325364,
+          "max": 7.4416992260175965
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "table-100000",
+        "role": "Networking",
+        "rss_mib": {
+          "n": 5,
+          "p50": 8.875,
+          "p95": 9.546875,
+          "min": 8.1875,
+          "max": 9.546875
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 5.828605651855469,
+          "p95": 6.047401428222656,
+          "min": 5.766105651855469,
+          "max": 6.047401428222656
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "table-100000",
+        "role": "driver-postgres",
+        "rss_mib": {
+          "n": 5,
+          "p50": 231.640625,
+          "p95": 232.09375,
+          "min": 231.0,
+          "max": 232.09375
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 17.18816375732422,
+          "p95": 23.32878875732422,
+          "min": 12.938209533691406,
+          "max": 23.32878875732422
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "table-100000",
+        "role": "total",
+        "rss_mib": {
+          "n": 5,
+          "p50": 594.75,
+          "p95": 604.75,
+          "min": 580.328125,
+          "max": 604.75
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 349.28578186035156,
+          "p95": 359.70772552490234,
+          "min": 334.05138397216797,
+          "max": 359.70772552490234
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 8.405713272509189,
+          "p95": 11.162548839026426,
+          "min": 6.5168889034903525,
+          "max": 11.162548839026426
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "table-100000",
+        "role": "app",
+        "rss_mib": {
+          "n": 5,
+          "p50": 363.109375,
+          "p95": 372.78125,
+          "min": 349.15625,
+          "max": 372.78125
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 328.41009521484375,
+          "p95": 336.6289367675781,
+          "min": 317.67572021484375,
+          "max": 336.6289367675781
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 8.405713272509189,
+          "p95": 11.162548839026426,
+          "min": 6.5168889034903525,
+          "max": 11.162548839026426
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "table-100000",
+        "role": "drivers",
+        "rss_mib": {
+          "n": 5,
+          "p50": 231.640625,
+          "p95": 232.09375,
+          "min": 231.0,
+          "max": 232.09375
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 17.18816375732422,
+          "p95": 23.32878875732422,
+          "min": 12.938209533691406,
+          "max": 23.32878875732422
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "graph-300",
+        "role": "host",
+        "rss_mib": {
+          "n": 5,
+          "p50": 146.28125,
+          "p95": 149.640625,
+          "min": 138.90625,
+          "max": 149.640625
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 53.98558807373047,
+          "p95": 62.17315673828125,
+          "min": 47.32945251464844,
+          "max": 62.17315673828125
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.9312959681870341,
+          "p95": 0.9375356336778832,
+          "min": 0.0,
+          "max": 0.9375356336778832
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "graph-300",
+        "role": "GPU",
+        "rss_mib": {
+          "n": 5,
+          "p50": 50.75,
+          "p95": 53.125,
+          "min": 49.453125,
+          "max": 53.125
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 86.89176940917969,
+          "p95": 90.8292465209961,
+          "min": 36.73535919189453,
+          "max": 90.8292465209961
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 1.8625919363740269,
+          "p95": 2.7879393443029072,
+          "min": 0.7800382489714273,
+          "max": 2.7879393443029072
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "graph-300",
+        "role": "WebContent",
+        "rss_mib": {
+          "n": 5,
+          "p50": 230.859375,
+          "p95": 236.296875,
+          "min": 219.234375,
+          "max": 236.296875
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 283.2042922973633,
+          "p95": 291.2198715209961,
+          "min": 210.3604965209961,
+          "max": 291.2198715209961
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 4.646565573838159,
+          "p95": 5.625213802067424,
+          "min": 1.5600764979428545,
+          "max": 5.625213802067424
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "graph-300",
+        "role": "Networking",
+        "rss_mib": {
+          "n": 5,
+          "p50": 8.890625,
+          "p95": 9.59375,
+          "min": 8.234375,
+          "max": 9.59375
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 5.828605651855469,
+          "p95": 6.000526428222656,
+          "min": 5.766105651855469,
+          "max": 6.000526428222656
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "graph-300",
+        "role": "driver-postgres",
+        "rss_mib": {
+          "n": 5,
+          "p50": 231.640625,
+          "p95": 232.09375,
+          "min": 231.0,
+          "max": 232.09375
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 17.18816375732422,
+          "p95": 23.32878875732422,
+          "min": 12.938209533691406,
+          "max": 23.32878875732422
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "graph-300",
+        "role": "driver-neo4j",
+        "rss_mib": {
+          "n": 5,
+          "p50": 11.53125,
+          "p95": 11.703125,
+          "min": 11.53125,
+          "max": 11.703125
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 5.828651428222656,
+          "p95": 5.9067535400390625,
+          "min": 5.594230651855469,
+          "max": 5.9067535400390625
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "graph-300",
+        "role": "total",
+        "rss_mib": {
+          "n": 5,
+          "p50": 680.84375,
+          "p95": 689.65625,
+          "min": 666.34375,
+          "max": 689.65625
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 454.55218505859375,
+          "p95": 463.8333435058594,
+          "min": 324.22401428222656,
+          "max": 463.8333435058594
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 7.500285069423211,
+          "p95": 8.392203083869463,
+          "min": 2.340114746914282,
+          "max": 8.392203083869463
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "graph-300",
+        "role": "app",
+        "rss_mib": {
+          "n": 5,
+          "p50": 437.671875,
+          "p95": 446.078125,
+          "min": 423.640625,
+          "max": 446.078125
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 434.6603012084961,
+          "p95": 435.7853240966797,
+          "min": 301.4416198730469,
+          "max": 435.7853240966797
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 7.500285069423211,
+          "p95": 8.392203083869463,
+          "min": 2.340114746914282,
+          "max": 8.392203083869463
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "graph-300",
+        "role": "drivers",
+        "rss_mib": {
+          "n": 5,
+          "p50": 243.171875,
+          "p95": 243.625,
+          "min": 242.703125,
+          "max": 243.625
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 22.782394409179688,
+          "p95": 29.17304229736328,
+          "min": 18.766860961914062,
+          "max": 29.17304229736328
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "tabs-10",
+        "role": "host",
+        "rss_mib": {
+          "n": 5,
+          "p50": 142.390625,
+          "p95": 150.140625,
+          "min": 137.765625,
+          "max": 150.140625
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 52.82936096191406,
+          "p95": 55.87628173828125,
+          "min": 46.18885040283203,
+          "max": 55.87628173828125
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.928958480783951,
+          "p95": 0.9360780030328052,
+          "min": 0.9224959280410209,
+          "max": 0.9360780030328052
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "tabs-10",
+        "role": "GPU",
+        "rss_mib": {
+          "n": 5,
+          "p50": 57.171875,
+          "p95": 58.6875,
+          "min": 46.140625,
+          "max": 58.6875
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 80.5479736328125,
+          "p95": 82.37628173828125,
+          "min": 77.82931518554688,
+          "max": 82.37628173828125
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 2.786875442351915,
+          "p95": 3.7424831652529598,
+          "min": 2.767487784122878,
+          "max": 3.7424831652529598
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "tabs-10",
+        "role": "WebContent",
+        "rss_mib": {
+          "n": 5,
+          "p50": 344.59375,
+          "p95": 355.328125,
+          "min": 279.578125,
+          "max": 355.328125
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 328.6261901855469,
+          "p95": 366.67317962646484,
+          "min": 319.7668151855469,
+          "max": 366.67317962646484
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 3.705101552758746,
+          "p95": 3.7424831652529598,
+          "min": 2.8082340090982494,
+          "max": 3.7424831652529598
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "tabs-10",
+        "role": "Networking",
+        "rss_mib": {
+          "n": 5,
+          "p50": 8.828125,
+          "p95": 9.5625,
+          "min": 8.234375,
+          "max": 9.5625
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 5.828605651855469,
+          "p95": 6.000526428222656,
+          "min": 5.766105651855469,
+          "max": 6.000526428222656
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "tabs-10",
+        "role": "driver-postgres",
+        "rss_mib": {
+          "n": 5,
+          "p50": 256.109375,
+          "p95": 259.328125,
+          "min": 230.859375,
+          "max": 259.328125
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 31.063186645507812,
+          "p95": 34.70378875732422,
+          "min": 13.360084533691406,
+          "max": 34.70378875732422
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "tabs-10",
+        "role": "driver-neo4j",
+        "rss_mib": {
+          "n": 5,
+          "p50": 11.53125,
+          "p95": 11.53125,
+          "min": 7.046875,
+          "max": 11.53125
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 5.828651428222656,
+          "p95": 5.9067535400390625,
+          "min": 5.594230651855469,
+          "max": 5.9067535400390625
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "tabs-10",
+        "role": "total",
+        "rss_mib": {
+          "n": 5,
+          "p50": 822.109375,
+          "p95": 839.109375,
+          "min": 718.59375,
+          "max": 839.109375
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 498.8335723876953,
+          "p95": 528.0054244995117,
+          "min": 490.1772994995117,
+          "max": 528.0054244995117
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 7.410203105517471,
+          "p95": 8.420587121819139,
+          "min": 6.552546021229262,
+          "max": 8.420587121819139
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "tabs-10",
+        "role": "app",
+        "rss_mib": {
+          "n": 5,
+          "p50": 554.46875,
+          "p95": 568.96875,
+          "min": 480.0625,
+          "max": 568.96875
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 467.3324279785156,
+          "p95": 508.94171142578125,
+          "min": 456.48860931396484,
+          "max": 508.94171142578125
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 7.410203105517471,
+          "p95": 8.420587121819139,
+          "min": 6.552546021229262,
+          "max": 8.420587121819139
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "tabs-10",
+        "role": "drivers",
+        "rss_mib": {
+          "n": 5,
+          "p50": 267.640625,
+          "p95": 270.859375,
+          "min": 238.53125,
+          "max": 270.859375
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 36.969940185546875,
+          "p95": 40.54804229736328,
+          "min": 19.06371307373047,
+          "max": 40.54804229736328
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "tabs-closed",
+        "role": "host",
+        "rss_mib": {
+          "n": 4,
+          "p50": 144.5390625,
+          "p95": 150.125,
+          "min": 137.78125,
+          "max": 150.125
+        },
+        "footprint_mib": {
+          "n": 4,
+          "p50": 52.89971923828125,
+          "p95": 55.72003173828125,
+          "min": 46.17322540283203,
+          "max": 55.72003173828125
+        },
+        "cpu_percent": {
+          "n": 4,
+          "p50": 0.9340467431358814,
+          "p95": 1.862404111118746,
+          "min": 0.928418363883346,
+          "max": 1.862404111118746
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "tabs-closed",
+        "role": "GPU",
+        "rss_mib": {
+          "n": 4,
+          "p50": 56.2265625,
+          "p95": 57.203125,
+          "min": 45.25,
+          "max": 57.203125
+        },
+        "footprint_mib": {
+          "n": 4,
+          "p50": 78.18869018554688,
+          "p95": 82.15748596191406,
+          "min": 76.67306518554688,
+          "max": 82.15748596191406
+        },
+        "cpu_percent": {
+          "n": 4,
+          "p50": 0.9317195518643794,
+          "p95": 0.9358564381024188,
+          "min": 0.9284183638833666,
+          "max": 0.9358564381024188
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "tabs-closed",
+        "role": "WebContent",
+        "rss_mib": {
+          "n": 4,
+          "p50": 354.4765625,
+          "p95": 373.921875,
+          "min": 329.265625,
+          "max": 373.921875
+        },
+        "footprint_mib": {
+          "n": 4,
+          "p50": 333.45439529418945,
+          "p95": 383.17320251464844,
+          "min": 313.43871307373047,
+          "max": 383.17320251464844
+        },
+        "cpu_percent": {
+          "n": 4,
+          "p50": 2.3360217053229517,
+          "p95": 7.427346911066933,
+          "min": 1.8624041111186633,
+          "max": 7.427346911066933
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "tabs-closed",
+        "role": "Networking",
+        "rss_mib": {
+          "n": 4,
+          "p50": 8.8125,
+          "p95": 9.1875,
+          "min": 8.3125,
+          "max": 9.1875
+        },
+        "footprint_mib": {
+          "n": 4,
+          "p50": 5.8598785400390625,
+          "p95": 6.031776428222656,
+          "min": 5.781730651855469,
+          "max": 6.031776428222656
+        },
+        "cpu_percent": {
+          "n": 4,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "tabs-closed",
+        "role": "driver-postgres",
+        "rss_mib": {
+          "n": 4,
+          "p50": 257.2890625,
+          "p95": 259.328125,
+          "min": 184.734375,
+          "max": 259.328125
+        },
+        "footprint_mib": {
+          "n": 4,
+          "p50": 32.00851058959961,
+          "p95": 34.70378875732422,
+          "min": 13.360084533691406,
+          "max": 34.70378875732422
+        },
+        "cpu_percent": {
+          "n": 4,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "tabs-closed",
+        "role": "driver-neo4j",
+        "rss_mib": {
+          "n": 4,
+          "p50": 11.53125,
+          "p95": 11.53125,
+          "min": 7.9375,
+          "max": 11.53125
+        },
+        "footprint_mib": {
+          "n": 4,
+          "p50": 5.820827484130859,
+          "p95": 5.8911285400390625,
+          "min": 5.6880035400390625,
+          "max": 5.8911285400390625
+        },
+        "cpu_percent": {
+          "n": 4,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "tabs-closed",
+        "role": "total",
+        "rss_mib": {
+          "n": 4,
+          "p50": 832.9921875,
+          "p95": 860.625,
+          "min": 713.71875,
+          "max": 860.625
+        },
+        "footprint_mib": {
+          "n": 4,
+          "p50": 507.8961296081543,
+          "p95": 543.4585723876953,
+          "min": 486.0054473876953,
+          "max": 543.4585723876953
+        },
+        "cpu_percent": {
+          "n": 4,
+          "p50": 4.667646234154345,
+          "p95": 9.284183638833646,
+          "min": 3.7289481926775636,
+          "max": 9.284183638833646
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "tabs-closed",
+        "role": "app",
+        "rss_mib": {
+          "n": 4,
+          "p50": 564.171875,
+          "p95": 589.765625,
+          "min": 521.046875,
+          "max": 589.765625
+        },
+        "footprint_mib": {
+          "n": 4,
+          "p50": 468.2464904785156,
+          "p95": 524.4104843139648,
+          "min": 449.05113220214844,
+          "max": 524.4104843139648
+        },
+        "cpu_percent": {
+          "n": 4,
+          "p50": 4.667646234154345,
+          "p95": 9.284183638833646,
+          "min": 3.7289481926775636,
+          "max": 9.284183638833646
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "tabs-closed",
+        "role": "drivers",
+        "rss_mib": {
+          "n": 4,
+          "p50": 268.8203125,
+          "p95": 270.859375,
+          "min": 192.671875,
+          "max": 270.859375
+        },
+        "footprint_mib": {
+          "n": 4,
+          "p50": 37.86058807373047,
+          "p95": 40.53241729736328,
+          "min": 19.04808807373047,
+          "max": 40.53241729736328
+        },
+        "cpu_percent": {
+          "n": 4,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "tabs-closed-10",
+        "role": "host",
+        "rss_mib": {
+          "n": 5,
+          "p50": 142.421875,
+          "p95": 150.078125,
+          "min": 137.765625,
+          "max": 150.078125
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 52.78248596191406,
+          "p95": 55.67315673828125,
+          "min": 46.09510040283203,
+          "max": 55.67315673828125
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "tabs-closed-10",
+        "role": "GPU",
+        "rss_mib": {
+          "n": 5,
+          "p50": 53.0625,
+          "p95": 54.5,
+          "min": 40.8125,
+          "max": 54.5
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 30.907485961914062,
+          "p95": 33.92311096191406,
+          "min": 28.43878173828125,
+          "max": 33.92311096191406
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "tabs-closed-10",
+        "role": "WebContent",
+        "rss_mib": {
+          "n": 5,
+          "p50": 349.859375,
+          "p95": 373.796875,
+          "min": 305.5625,
+          "max": 373.796875
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 266.29808807373047,
+          "p95": 292.28246307373047,
+          "min": 159.14195251464844,
+          "max": 292.28246307373047
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "tabs-closed-10",
+        "role": "Networking",
+        "rss_mib": {
+          "n": 5,
+          "p50": 8.875,
+          "p95": 9.640625,
+          "min": 8.3125,
+          "max": 9.640625
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 5.844230651855469,
+          "p95": 6.031776428222656,
+          "min": 5.781730651855469,
+          "max": 6.031776428222656
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "tabs-closed-10",
+        "role": "driver-postgres",
+        "rss_mib": {
+          "n": 5,
+          "p50": 245.40625,
+          "p95": 259.328125,
+          "min": 83.84375,
+          "max": 259.328125
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 31.016311645507812,
+          "p95": 34.68816375732422,
+          "min": 13.313209533691406,
+          "max": 34.68816375732422
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "tabs-closed-10",
+        "role": "driver-neo4j",
+        "rss_mib": {
+          "n": 5,
+          "p50": 11.53125,
+          "p95": 11.53125,
+          "min": 7.375,
+          "max": 11.53125
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 5.813026428222656,
+          "p95": 5.8911285400390625,
+          "min": 5.578605651855469,
+          "max": 5.8911285400390625
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "tabs-closed-10",
+        "role": "total",
+        "rss_mib": {
+          "n": 5,
+          "p50": 822.03125,
+          "p95": 858.109375,
+          "min": 608.5,
+          "max": 858.109375
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 390.4585723876953,
+          "p95": 418.5210952758789,
+          "min": 270.8491744995117,
+          "max": 418.5210952758789
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "tabs-closed-10",
+        "role": "app",
+        "rss_mib": {
+          "n": 5,
+          "p50": 554.40625,
+          "p95": 587.25,
+          "min": 501.3125,
+          "max": 587.25
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 353.55113220214844,
+          "p95": 380.37925720214844,
+          "min": 251.84796142578125,
+          "max": 380.37925720214844
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "tabs-closed-10",
+        "role": "drivers",
+        "rss_mib": {
+          "n": 5,
+          "p50": 256.9375,
+          "p95": 270.859375,
+          "min": 91.78125,
+          "max": 270.859375
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 36.907440185546875,
+          "p95": 40.51679229736328,
+          "min": 19.00121307373047,
+          "max": 40.51679229736328
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "idle-60",
+        "role": "host",
+        "rss_mib": {
+          "n": 5,
+          "p50": 159.21875,
+          "p95": 171.46875,
+          "min": 116.546875,
+          "max": 171.46875
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 42.17311096191406,
+          "p95": 43.51686096191406,
+          "min": 37.96998596191406,
+          "max": 43.51686096191406
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.020001613246917214,
+          "p95": 0.040006112633965134,
+          "min": 0.019983705602994402,
+          "max": 0.040006112633965134
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "idle-60",
+        "role": "GPU",
+        "rss_mib": {
+          "n": 5,
+          "p50": 36.6875,
+          "p95": 36.796875,
+          "min": 29.0625,
+          "max": 36.796875
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 15.891494750976562,
+          "p95": 18.719573974609375,
+          "min": 15.219619750976562,
+          "max": 18.719573974609375
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.02000641010381479,
+          "min": 0.0,
+          "max": 0.02000641010381479
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "idle-60",
+        "role": "WebContent",
+        "rss_mib": {
+          "n": 5,
+          "p50": 75.421875,
+          "p95": 76.765625,
+          "min": 61.375,
+          "max": 76.765625
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 53.37586975097656,
+          "p95": 56.48533630371094,
+          "min": 52.95404052734375,
+          "max": 56.48533630371094
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.020001613246917547,
+          "p95": 0.02000641010381479,
+          "min": 0.019983705602994402,
+          "max": 0.02000641010381479
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "idle-60",
+        "role": "Networking",
+        "rss_mib": {
+          "n": 5,
+          "p50": 12.28125,
+          "p95": 12.421875,
+          "min": 8.921875,
+          "max": 12.421875
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 4.891151428222656,
+          "p95": 5.875480651855469,
+          "min": 4.797355651855469,
+          "max": 5.875480651855469
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "idle-60",
+        "role": "total",
+        "rss_mib": {
+          "n": 5,
+          "p50": 284.140625,
+          "p95": 297.453125,
+          "min": 216.671875,
+          "max": 297.453125
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 117.28479766845703,
+          "p95": 119.01921844482422,
+          "min": 115.44102478027344,
+          "max": 119.01921844482422
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.04000322649383476,
+          "p95": 0.06001923031144436,
+          "min": 0.039967411205988804,
+          "max": 0.06001923031144436
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "idle-60",
+        "role": "app",
+        "rss_mib": {
+          "n": 5,
+          "p50": 284.140625,
+          "p95": 297.453125,
+          "min": 216.671875,
+          "max": 297.453125
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 117.28479766845703,
+          "p95": 119.01921844482422,
+          "min": 115.44102478027344,
+          "max": 119.01921844482422
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.04000322649383476,
+          "p95": 0.06001923031144436,
+          "min": 0.039967411205988804,
+          "max": 0.06001923031144436
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "idle-60",
+        "role": "drivers",
+        "rss_mib": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0,
+          "p95": 0,
+          "min": 0,
+          "max": 0
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "table-100000",
+        "role": "host",
+        "rss_mib": {
+          "n": 5,
+          "p50": 142.546875,
+          "p95": 148.421875,
+          "min": 139.09375,
+          "max": 148.421875
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 47.860679626464844,
+          "p95": 54.84503173828125,
+          "min": 46.282508850097656,
+          "max": 54.84503173828125
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.9349659130914068,
+          "p95": 1.8748668545684397,
+          "min": 0.9217529667476515,
+          "max": 1.8748668545684397
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "table-100000",
+        "role": "GPU",
+        "rss_mib": {
+          "n": 5,
+          "p50": 48.28125,
+          "p95": 48.8125,
+          "min": 45.640625,
+          "max": 48.8125
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 88.64167785644531,
+          "p95": 88.9073257446289,
+          "min": 87.34475708007812,
+          "max": 88.9073257446289
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 2.8048977392741583,
+          "p95": 2.8123002818526492,
+          "min": 1.843505933495344,
+          "max": 2.8123002818526492
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "table-100000",
+        "role": "WebContent",
+        "rss_mib": {
+          "n": 5,
+          "p50": 161.8125,
+          "p95": 165.890625,
+          "min": 158.375,
+          "max": 165.890625
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 181.0479278564453,
+          "p95": 197.2666778564453,
+          "min": 177.5323257446289,
+          "max": 197.2666778564453
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 3.7398636523655444,
+          "p95": 4.687167136421099,
+          "min": 3.687011866990688,
+          "max": 4.687167136421099
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "table-100000",
+        "role": "Networking",
+        "rss_mib": {
+          "n": 5,
+          "p50": 8.921875,
+          "p95": 9.21875,
+          "min": 8.796875,
+          "max": 9.21875
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 5.875480651855469,
+          "p95": 5.922401428222656,
+          "min": 5.797401428222656,
+          "max": 5.922401428222656
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "table-100000",
+        "role": "driver-postgres",
+        "rss_mib": {
+          "n": 5,
+          "p50": 231.328125,
+          "p95": 231.625,
+          "min": 230.828125,
+          "max": 231.625
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 23.063186645507812,
+          "p95": 23.922561645507812,
+          "min": 13.141288757324219,
+          "max": 23.922561645507812
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "table-100000",
+        "role": "total",
+        "rss_mib": {
+          "n": 5,
+          "p50": 591.375,
+          "p95": 601.78125,
+          "min": 586.734375,
+          "max": 601.78125
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 350.28585052490234,
+          "p95": 355.69203186035156,
+          "min": 336.52022552490234,
+          "max": 355.69203186035156
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 7.479727304731109,
+          "p95": 9.374334272842187,
+          "min": 6.452270767233684,
+          "max": 9.374334272842187
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "table-100000",
+        "role": "app",
+        "rss_mib": {
+          "n": 5,
+          "p50": 360.015625,
+          "p95": 370.15625,
+          "min": 355.40625,
+          "max": 370.15625
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 326.36328887939453,
+          "p95": 338.91009521484375,
+          "min": 317.09766387939453,
+          "max": 338.91009521484375
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 7.479727304731109,
+          "p95": 9.374334272842187,
+          "min": 6.452270767233684,
+          "max": 9.374334272842187
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "table-100000",
+        "role": "drivers",
+        "rss_mib": {
+          "n": 5,
+          "p50": 231.328125,
+          "p95": 231.625,
+          "min": 230.828125,
+          "max": 231.625
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 23.063186645507812,
+          "p95": 23.922561645507812,
+          "min": 13.141288757324219,
+          "max": 23.922561645507812
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "graph-300",
+        "role": "host",
+        "rss_mib": {
+          "n": 5,
+          "p50": 141.125,
+          "p95": 149.6875,
+          "min": 138.296875,
+          "max": 149.6875
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 49.06378173828125,
+          "p95": 58.17315673828125,
+          "min": 48.641929626464844,
+          "max": 58.17315673828125
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.928940790358882,
+          "p95": 1.8536963226072949,
+          "min": 0.0,
+          "max": 1.8536963226072949
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "graph-300",
+        "role": "GPU",
+        "rss_mib": {
+          "n": 5,
+          "p50": 51.046875,
+          "p95": 53.09375,
+          "min": 47.953125,
+          "max": 53.09375
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 88.3917465209961,
+          "p95": 88.8604965209961,
+          "min": 37.06364440917969,
+          "max": 88.8604965209961
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 2.7805444839109423,
+          "p95": 2.8044822473094517,
+          "min": 1.85709520884828,
+          "max": 2.8044822473094517
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "graph-300",
+        "role": "WebContent",
+        "rss_mib": {
+          "n": 5,
+          "p50": 228.71875,
+          "p95": 237.8125,
+          "min": 219.015625,
+          "max": 237.8125
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 284.1885986328125,
+          "p95": 291.6886444091797,
+          "min": 259.1729965209961,
+          "max": 291.6886444091797
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 4.674137078849066,
+          "p95": 6.528951900834123,
+          "min": 3.71419041769656,
+          "max": 6.528951900834123
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "graph-300",
+        "role": "Networking",
+        "rss_mib": {
+          "n": 5,
+          "p50": 8.921875,
+          "p95": 9.0,
+          "min": 7.1875,
+          "max": 9.0
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 5.875480651855469,
+          "p95": 5.8911285400390625,
+          "min": 5.797355651855469,
+          "max": 5.8911285400390625
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "graph-300",
+        "role": "driver-postgres",
+        "rss_mib": {
+          "n": 5,
+          "p50": 230.828125,
+          "p95": 231.625,
+          "min": 229.59375,
+          "max": 231.625
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 23.047561645507812,
+          "p95": 23.922561645507812,
+          "min": 13.125663757324219,
+          "max": 23.922561645507812
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "graph-300",
+        "role": "driver-neo4j",
+        "rss_mib": {
+          "n": 5,
+          "p50": 11.546875,
+          "p95": 11.71875,
+          "min": 11.4375,
+          "max": 11.71875
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 5.859855651855469,
+          "p95": 5.922401428222656,
+          "min": 5.5317535400390625,
+          "max": 5.922401428222656
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "graph-300",
+        "role": "total",
+        "rss_mib": {
+          "n": 5,
+          "p50": 672.734375,
+          "p95": 689.3125,
+          "min": 659.171875,
+          "max": 689.3125
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 456.14586639404297,
+          "p95": 466.52088928222656,
+          "min": 380.72399139404297,
+          "max": 466.52088928222656
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 8.413446741928315,
+          "p95": 9.327074144048757,
+          "min": 6.499833230968959,
+          "max": 9.327074144048757
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "graph-300",
+        "role": "app",
+        "rss_mib": {
+          "n": 5,
+          "p50": 431.59375,
+          "p95": 446.125,
+          "min": 417.734375,
+          "max": 446.125
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 433.4728240966797,
+          "p95": 436.8946990966797,
+          "min": 350.9884033203125,
+          "max": 436.8946990966797
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 8.413446741928315,
+          "p95": 9.327074144048757,
+          "min": 6.499833230968959,
+          "max": 9.327074144048757
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "graph-300",
+        "role": "drivers",
+        "rss_mib": {
+          "n": 5,
+          "p50": 242.546875,
+          "p95": 243.1875,
+          "min": 241.140625,
+          "max": 243.1875
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 28.90741729736328,
+          "p95": 29.73558807373047,
+          "min": 18.65741729736328,
+          "max": 29.73558807373047
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "tabs-10",
+        "role": "host",
+        "rss_mib": {
+          "n": 5,
+          "p50": 146.03125,
+          "p95": 153.0,
+          "min": 127.46875,
+          "max": 153.0
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 52.579429626464844,
+          "p95": 56.360679626464844,
+          "min": 50.485679626464844,
+          "max": 56.360679626464844
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.9149208261800558,
+          "p95": 1.8487336116910078,
+          "min": 0.0,
+          "max": 1.8487336116910078
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "tabs-10",
+        "role": "GPU",
+        "rss_mib": {
+          "n": 5,
+          "p50": 56.796875,
+          "p95": 58.34375,
+          "min": 46.28125,
+          "max": 58.34375
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 79.95438385009766,
+          "p95": 80.89186096191406,
+          "min": 77.53246307373047,
+          "max": 80.89186096191406
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 2.744762478540228,
+          "p95": 2.799068736022496,
+          "min": 1.813176421049289,
+          "max": 2.799068736022496
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "tabs-10",
+        "role": "WebContent",
+        "rss_mib": {
+          "n": 5,
+          "p50": 353.25,
+          "p95": 359.78125,
+          "min": 312.34375,
+          "max": 359.78125
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 340.48565673828125,
+          "p95": 382.07936096191406,
+          "min": 322.42308807373047,
+          "max": 382.07936096191406
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 2.773100417536471,
+          "p95": 3.7320916480299946,
+          "min": 2.7447624785402485,
+          "max": 3.7320916480299946
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "tabs-10",
+        "role": "Networking",
+        "rss_mib": {
+          "n": 5,
+          "p50": 8.921875,
+          "p95": 9.0,
+          "min": 7.15625,
+          "max": 9.0
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 5.875480651855469,
+          "p95": 5.8911285400390625,
+          "min": 5.797355651855469,
+          "max": 5.8911285400390625
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "tabs-10",
+        "role": "driver-postgres",
+        "rss_mib": {
+          "n": 5,
+          "p50": 229.5,
+          "p95": 240.65625,
+          "min": 216.375,
+          "max": 240.65625
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 20.516311645507812,
+          "p95": 32.84443664550781,
+          "min": 12.438186645507812,
+          "max": 32.84443664550781
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "tabs-10",
+        "role": "driver-neo4j",
+        "rss_mib": {
+          "n": 5,
+          "p50": 11.53125,
+          "p95": 11.5625,
+          "min": 8.0,
+          "max": 11.5625
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 5.859855651855469,
+          "p95": 5.922401428222656,
+          "min": 5.5317535400390625,
+          "max": 5.922401428222656
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "tabs-10",
+        "role": "total",
+        "rss_mib": {
+          "n": 5,
+          "p50": 797.75,
+          "p95": 827.25,
+          "min": 730.75,
+          "max": 827.25
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 500.8492660522461,
+          "p95": 537.8023452758789,
+          "min": 487.6773452758789,
+          "max": 537.8023452758789
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 6.404445783260532,
+          "p95": 7.464183296059969,
+          "min": 4.618566273208877,
+          "max": 7.464183296059969
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "tabs-10",
+        "role": "app",
+        "rss_mib": {
+          "n": 5,
+          "p50": 563.34375,
+          "p95": 575.03125,
+          "min": 493.25,
+          "max": 575.03125
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 480.0199737548828,
+          "p95": 519.4417572021484,
+          "min": 457.66053009033203,
+          "max": 519.4417572021484
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 6.404445783260532,
+          "p95": 7.464183296059969,
+          "min": 4.618566273208877,
+          "max": 7.464183296059969
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "tabs-10",
+        "role": "drivers",
+        "rss_mib": {
+          "n": 5,
+          "p50": 237.5,
+          "p95": 252.21875,
+          "min": 227.8125,
+          "max": 252.21875
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 26.37616729736328,
+          "p95": 38.548065185546875,
+          "min": 18.36058807373047,
+          "max": 38.548065185546875
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "tabs-closed",
+        "role": "host",
+        "rss_mib": {
+          "n": 4,
+          "p50": 146.6953125,
+          "p95": 152.984375,
+          "min": 143.046875,
+          "max": 152.984375
+        },
+        "footprint_mib": {
+          "n": 4,
+          "p50": 53.14975357055664,
+          "p95": 56.313804626464844,
+          "min": 50.485679626464844,
+          "max": 56.313804626464844
+        },
+        "cpu_percent": {
+          "n": 4,
+          "p50": 0.9366861267621136,
+          "p95": 1.8507708782754027,
+          "min": 0.9269797577149,
+          "max": 1.8507708782754027
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "tabs-closed",
+        "role": "GPU",
+        "rss_mib": {
+          "n": 4,
+          "p50": 56.5390625,
+          "p95": 57.3125,
+          "min": 49.109375,
+          "max": 57.3125
+        },
+        "footprint_mib": {
+          "n": 4,
+          "p50": 79.12627029418945,
+          "p95": 79.98558807373047,
+          "min": 76.01683807373047,
+          "max": 79.98558807373047
+        },
+        "cpu_percent": {
+          "n": 4,
+          "p50": 0.930821436453042,
+          "p95": 0.938709138333023,
+          "min": 0.9253854391377218,
+          "max": 0.938709138333023
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "tabs-closed",
+        "role": "WebContent",
+        "rss_mib": {
+          "n": 4,
+          "p50": 359.6015625,
+          "p95": 386.96875,
+          "min": 349.4375,
+          "max": 386.96875
+        },
+        "footprint_mib": {
+          "n": 4,
+          "p50": 334.81375885009766,
+          "p95": 340.37630462646484,
+          "min": 315.64183807373047,
+          "max": 340.37630462646484
+        },
+        "cpu_percent": {
+          "n": 4,
+          "p50": 2.34272682269077,
+          "p95": 8.342817819433524,
+          "min": 1.8507708782754027,
+          "max": 8.342817819433524
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "tabs-closed",
+        "role": "Networking",
+        "rss_mib": {
+          "n": 4,
+          "p50": 9.015625,
+          "p95": 9.046875,
+          "min": 8.90625,
+          "max": 9.046875
+        },
+        "footprint_mib": {
+          "n": 4,
+          "p50": 5.8598785400390625,
+          "p95": 5.906776428222656,
+          "min": 5.828605651855469,
+          "max": 5.906776428222656
+        },
+        "cpu_percent": {
+          "n": 4,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "tabs-closed",
+        "role": "driver-postgres",
+        "rss_mib": {
+          "n": 4,
+          "p50": 217.9765625,
+          "p95": 240.65625,
+          "min": 84.984375,
+          "max": 240.65625
+        },
+        "footprint_mib": {
+          "n": 4,
+          "p50": 22.32101058959961,
+          "p95": 32.84443664550781,
+          "min": 15.297538757324219,
+          "max": 32.84443664550781
+        },
+        "cpu_percent": {
+          "n": 4,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "tabs-closed",
+        "role": "driver-neo4j",
+        "rss_mib": {
+          "n": 4,
+          "p50": 11.5390625,
+          "p95": 11.5625,
+          "min": 11.4375,
+          "max": 11.5625
+        },
+        "footprint_mib": {
+          "n": 4,
+          "p50": 5.766117095947266,
+          "p95": 5.875480651855469,
+          "min": 5.5161285400390625,
+          "max": 5.875480651855469
+        },
+        "cpu_percent": {
+          "n": 4,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "tabs-closed",
+        "role": "total",
+        "rss_mib": {
+          "n": 4,
+          "p50": 794.3046875,
+          "p95": 850.28125,
+          "min": 669.296875,
+          "max": 850.28125
+        },
+        "footprint_mib": {
+          "n": 4,
+          "p50": 498.0601921081543,
+          "p95": 511.8336639404297,
+          "min": 484.2085494995117,
+          "max": 511.8336639404297
+        },
+        "cpu_percent": {
+          "n": 4,
+          "p50": 4.660236443676821,
+          "p95": 10.196777334863262,
+          "min": 3.7386524607649214,
+          "max": 10.196777334863262
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "tabs-closed",
+        "role": "app",
+        "rss_mib": {
+          "n": 4,
+          "p50": 569.6953125,
+          "p95": 598.0625,
+          "min": 563.0625,
+          "max": 598.0625
+        },
+        "footprint_mib": {
+          "n": 4,
+          "p50": 472.6527633666992,
+          "p95": 473.3012237548828,
+          "min": 457.84800720214844,
+          "max": 473.3012237548828
+        },
+        "cpu_percent": {
+          "n": 4,
+          "p50": 4.660236443676821,
+          "p95": 10.196777334863262,
+          "min": 3.7386524607649214,
+          "max": 10.196777334863262
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "tabs-closed",
+        "role": "drivers",
+        "rss_mib": {
+          "n": 4,
+          "p50": 229.515625,
+          "p95": 252.21875,
+          "min": 96.421875,
+          "max": 252.21875
+        },
+        "footprint_mib": {
+          "n": 4,
+          "p50": 28.180866241455078,
+          "p95": 38.532440185546875,
+          "min": 20.81366729736328,
+          "max": 38.532440185546875
+        },
+        "cpu_percent": {
+          "n": 4,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "tabs-closed-10",
+        "role": "host",
+        "rss_mib": {
+          "n": 5,
+          "p50": 143.03125,
+          "p95": 147.390625,
+          "min": 121.578125,
+          "max": 147.390625
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 52.501304626464844,
+          "p95": 56.282554626464844,
+          "min": 49.50128173828125,
+          "max": 56.282554626464844
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "tabs-closed-10",
+        "role": "GPU",
+        "rss_mib": {
+          "n": 5,
+          "p50": 53.484375,
+          "p95": 54.765625,
+          "min": 38.515625,
+          "max": 54.765625
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 30.766883850097656,
+          "p95": 32.20433807373047,
+          "min": 30.03246307373047,
+          "max": 32.20433807373047
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "tabs-closed-10",
+        "role": "WebContent",
+        "rss_mib": {
+          "n": 5,
+          "p50": 349.078125,
+          "p95": 360.171875,
+          "min": 263.859375,
+          "max": 360.171875
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 287.07936096191406,
+          "p95": 344.15755462646484,
+          "min": 268.01683807373047,
+          "max": 344.15755462646484
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "tabs-closed-10",
+        "role": "Networking",
+        "rss_mib": {
+          "n": 5,
+          "p50": 8.984375,
+          "p95": 9.046875,
+          "min": 7.265625,
+          "max": 9.046875
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 5.891105651855469,
+          "p95": 5.906776428222656,
+          "min": 5.828605651855469,
+          "max": 5.906776428222656
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "tabs-closed-10",
+        "role": "driver-postgres",
+        "rss_mib": {
+          "n": 5,
+          "p50": 74.21875,
+          "p95": 217.65625,
+          "min": 21.46875,
+          "max": 217.65625
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 20.438186645507812,
+          "p95": 32.81318664550781,
+          "min": 12.391311645507812,
+          "max": 32.81318664550781
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "tabs-closed-10",
+        "role": "driver-neo4j",
+        "rss_mib": {
+          "n": 5,
+          "p50": 11.4375,
+          "p95": 11.546875,
+          "min": 7.546875,
+          "max": 11.546875
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 5.828651428222656,
+          "p95": 5.875480651855469,
+          "min": 5.5161285400390625,
+          "max": 5.875480651855469
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "tabs-closed-10",
+        "role": "total",
+        "rss_mib": {
+          "n": 5,
+          "p50": 654.421875,
+          "p95": 789.34375,
+          "min": 460.6875,
+          "max": 789.34375
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 395.4898910522461,
+          "p95": 460.9585723876953,
+          "min": 386.5210494995117,
+          "max": 460.9585723876953
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "tabs-closed-10",
+        "role": "app",
+        "rss_mib": {
+          "n": 5,
+          "p50": 560.140625,
+          "p95": 568.765625,
+          "min": 431.21875,
+          "max": 568.765625
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 374.7074737548828,
+          "p95": 431.11365509033203,
+          "min": 360.23863220214844,
+          "max": 431.11365509033203
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "tabs-closed-10",
+        "role": "drivers",
+        "rss_mib": {
+          "n": 5,
+          "p50": 85.65625,
+          "p95": 229.203125,
+          "min": 29.46875,
+          "max": 229.203125
+        },
+        "footprint_mib": {
+          "n": 5,
+          "p50": 26.28241729736328,
+          "p95": 38.501190185546875,
+          "min": 18.21996307373047,
+          "max": 38.501190185546875
+        },
+        "cpu_percent": {
+          "n": 5,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "startup",
+        "role": "host",
+        "rss_mib": {
+          "n": 3,
+          "p50": 163.828125,
+          "p95": 171.75,
+          "min": 124.0,
+          "max": 171.75
+        },
+        "footprint_mib": {
+          "n": 3,
+          "p50": 42.485633850097656,
+          "p95": 44.21998596191406,
+          "min": 39.17311096191406,
+          "max": 44.21998596191406
+        },
+        "cpu_percent": {
+          "n": 3,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "startup",
+        "role": "GPU",
+        "rss_mib": {
+          "n": 3,
+          "p50": 37.640625,
+          "p95": 37.9375,
+          "min": 33.96875,
+          "max": 37.9375
+        },
+        "footprint_mib": {
+          "n": 3,
+          "p50": 24.235244750976562,
+          "p95": 26.21966552734375,
+          "min": 24.047698974609375,
+          "max": 26.21966552734375
+        },
+        "cpu_percent": {
+          "n": 3,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "startup",
+        "role": "WebContent",
+        "rss_mib": {
+          "n": 3,
+          "p50": 75.578125,
+          "p95": 76.90625,
+          "min": 67.421875,
+          "max": 76.90625
+        },
+        "footprint_mib": {
+          "n": 3,
+          "p50": 55.96961975097656,
+          "p95": 58.64158630371094,
+          "min": 55.92279052734375,
+          "max": 58.64158630371094
+        },
+        "cpu_percent": {
+          "n": 3,
+          "p50": 0.928135368501326,
+          "p95": 0.9288762545092348,
+          "min": 0.0,
+          "max": 0.9288762545092348
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "startup",
+        "role": "Networking",
+        "rss_mib": {
+          "n": 3,
+          "p50": 12.34375,
+          "p95": 12.515625,
+          "min": 9.265625,
+          "max": 12.515625
+        },
+        "footprint_mib": {
+          "n": 3,
+          "p50": 5.078651428222656,
+          "p95": 6.031776428222656,
+          "min": 4.984855651855469,
+          "max": 6.031776428222656
+        },
+        "cpu_percent": {
+          "n": 3,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "startup",
+        "role": "total",
+        "rss_mib": {
+          "n": 3,
+          "p50": 289.390625,
+          "p95": 299.109375,
+          "min": 234.65625,
+          "max": 299.109375
+        },
+        "footprint_mib": {
+          "n": 3,
+          "p50": 129.31595611572266,
+          "p95": 130.0661392211914,
+          "min": 127.62852478027344,
+          "max": 130.0661392211914
+        },
+        "cpu_percent": {
+          "n": 3,
+          "p50": 0.928135368501326,
+          "p95": 0.9288762545092348,
+          "min": 0.0,
+          "max": 0.9288762545092348
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "startup",
+        "role": "app",
+        "rss_mib": {
+          "n": 3,
+          "p50": 289.390625,
+          "p95": 299.109375,
+          "min": 234.65625,
+          "max": 299.109375
+        },
+        "footprint_mib": {
+          "n": 3,
+          "p50": 129.31595611572266,
+          "p95": 130.0661392211914,
+          "min": 127.62852478027344,
+          "max": 130.0661392211914
+        },
+        "cpu_percent": {
+          "n": 3,
+          "p50": 0.928135368501326,
+          "p95": 0.9288762545092348,
+          "min": 0.0,
+          "max": 0.9288762545092348
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "startup",
+        "role": "drivers",
+        "rss_mib": {
+          "n": 3,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        },
+        "footprint_mib": {
+          "n": 3,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        },
+        "cpu_percent": {
+          "n": 3,
+          "p50": 0,
+          "p95": 0,
+          "min": 0,
+          "max": 0
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "idle-10",
+        "role": "host",
+        "rss_mib": {
+          "n": 4,
+          "p50": 161.4609375,
+          "p95": 171.578125,
+          "min": 123.875,
+          "max": 171.578125
+        },
+        "footprint_mib": {
+          "n": 4,
+          "p50": 43.22780990600586,
+          "p95": 44.07936096191406,
+          "min": 38.89186096191406,
+          "max": 44.07936096191406
+        },
+        "cpu_percent": {
+          "n": 4,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "idle-10",
+        "role": "GPU",
+        "rss_mib": {
+          "n": 4,
+          "p50": 36.859375,
+          "p95": 36.9375,
+          "min": 32.234375,
+          "max": 36.9375
+        },
+        "footprint_mib": {
+          "n": 4,
+          "p50": 22.53209686279297,
+          "p95": 25.68841552734375,
+          "min": 20.860244750976562,
+          "max": 25.68841552734375
+        },
+        "cpu_percent": {
+          "n": 4,
+          "p50": 0.0,
+          "p95": 0.9323973106158691,
+          "min": 0.0,
+          "max": 0.9323973106158691
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "idle-10",
+        "role": "WebContent",
+        "rss_mib": {
+          "n": 4,
+          "p50": 75.78125,
+          "p95": 76.921875,
+          "min": 67.453125,
+          "max": 76.921875
+        },
+        "footprint_mib": {
+          "n": 4,
+          "p50": 54.50090408325195,
+          "p95": 57.34471130371094,
+          "min": 54.12591552734375,
+          "max": 57.34471130371094
+        },
+        "cpu_percent": {
+          "n": 4,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "idle-10",
+        "role": "Networking",
+        "rss_mib": {
+          "n": 4,
+          "p50": 12.3671875,
+          "p95": 12.4375,
+          "min": 9.484375,
+          "max": 12.4375
+        },
+        "footprint_mib": {
+          "n": 4,
+          "p50": 4.875526428222656,
+          "p95": 5.8911285400390625,
+          "min": 4.812980651855469,
+          "max": 5.8911285400390625
+        },
+        "cpu_percent": {
+          "n": 4,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "idle-10",
+        "role": "total",
+        "rss_mib": {
+          "n": 4,
+          "p50": 286.46875,
+          "p95": 297.875,
+          "min": 233.046875,
+          "max": 297.875
+        },
+        "footprint_mib": {
+          "n": 4,
+          "p50": 125.98007583618164,
+          "p95": 127.81611633300781,
+          "min": 122.19102478027344,
+          "max": 127.81611633300781
+        },
+        "cpu_percent": {
+          "n": 4,
+          "p50": 0.0,
+          "p95": 0.9323973106158691,
+          "min": 0.0,
+          "max": 0.9323973106158691
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "idle-10",
+        "role": "app",
+        "rss_mib": {
+          "n": 4,
+          "p50": 286.46875,
+          "p95": 297.875,
+          "min": 233.046875,
+          "max": 297.875
+        },
+        "footprint_mib": {
+          "n": 4,
+          "p50": 125.98007583618164,
+          "p95": 127.81611633300781,
+          "min": 122.19102478027344,
+          "max": 127.81611633300781
+        },
+        "cpu_percent": {
+          "n": 4,
+          "p50": 0.0,
+          "p95": 0.9323973106158691,
+          "min": 0.0,
+          "max": 0.9323973106158691
+        }
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "stage": "idle-10",
+        "role": "drivers",
+        "rss_mib": {
+          "n": 4,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        },
+        "footprint_mib": {
+          "n": 4,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        },
+        "cpu_percent": {
+          "n": 4,
+          "p50": 0.0,
+          "p95": 0,
+          "min": 0,
+          "max": 0
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "startup",
+        "role": "host",
+        "rss_mib": {
+          "n": 3,
+          "p50": 158.140625,
+          "p95": 158.59375,
+          "min": 134.0,
+          "max": 158.59375
+        },
+        "footprint_mib": {
+          "n": 3,
+          "p50": 40.188690185546875,
+          "p95": 41.76690673828125,
+          "min": 40.07940673828125,
+          "max": 41.76690673828125
+        },
+        "cpu_percent": {
+          "n": 3,
+          "p50": 0.0,
+          "p95": 0.9305619337859492,
+          "min": 0.0,
+          "max": 0.9305619337859492
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "startup",
+        "role": "GPU",
+        "rss_mib": {
+          "n": 3,
+          "p50": 36.609375,
+          "p95": 37.625,
+          "min": 34.8125,
+          "max": 37.625
+        },
+        "footprint_mib": {
+          "n": 3,
+          "p50": 27.016517639160156,
+          "p95": 78.92272186279297,
+          "min": 21.453994750976562,
+          "max": 78.92272186279297
+        },
+        "cpu_percent": {
+          "n": 3,
+          "p50": 0.0,
+          "p95": 0.9305619337859492,
+          "min": 0.0,
+          "max": 0.9305619337859492
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "startup",
+        "role": "WebContent",
+        "rss_mib": {
+          "n": 3,
+          "p50": 71.484375,
+          "p95": 76.03125,
+          "min": 68.28125,
+          "max": 76.03125
+        },
+        "footprint_mib": {
+          "n": 3,
+          "p50": 71.36038208007812,
+          "p95": 73.95404052734375,
+          "min": 53.18836975097656,
+          "max": 73.95404052734375
+        },
+        "cpu_percent": {
+          "n": 3,
+          "p50": 0.9218509325323363,
+          "p95": 0.9305619337859492,
+          "min": 0.0,
+          "max": 0.9305619337859492
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "startup",
+        "role": "Networking",
+        "rss_mib": {
+          "n": 3,
+          "p50": 12.34375,
+          "p95": 15.484375,
+          "min": 9.703125,
+          "max": 15.484375
+        },
+        "footprint_mib": {
+          "n": 3,
+          "p50": 5.000480651855469,
+          "p95": 6.000480651855469,
+          "min": 4.969276428222656,
+          "max": 6.000480651855469
+        },
+        "cpu_percent": {
+          "n": 3,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "startup",
+        "role": "total",
+        "rss_mib": {
+          "n": 3,
+          "p50": 282.171875,
+          "p95": 284.140625,
+          "min": 246.796875,
+          "max": 284.140625
+        },
+        "footprint_mib": {
+          "n": 3,
+          "p50": 147.05044555664062,
+          "p95": 197.0504913330078,
+          "min": 119.80033111572266,
+          "max": 197.0504913330078
+        },
+        "cpu_percent": {
+          "n": 3,
+          "p50": 0.9218509325323363,
+          "p95": 2.791685801357848,
+          "min": 0.0,
+          "max": 2.791685801357848
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "startup",
+        "role": "app",
+        "rss_mib": {
+          "n": 3,
+          "p50": 282.171875,
+          "p95": 284.140625,
+          "min": 246.796875,
+          "max": 284.140625
+        },
+        "footprint_mib": {
+          "n": 3,
+          "p50": 147.05044555664062,
+          "p95": 197.0504913330078,
+          "min": 119.80033111572266,
+          "max": 197.0504913330078
+        },
+        "cpu_percent": {
+          "n": 3,
+          "p50": 0.9218509325323363,
+          "p95": 2.791685801357848,
+          "min": 0.0,
+          "max": 2.791685801357848
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "startup",
+        "role": "drivers",
+        "rss_mib": {
+          "n": 3,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        },
+        "footprint_mib": {
+          "n": 3,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        },
+        "cpu_percent": {
+          "n": 3,
+          "p50": 0,
+          "p95": 0,
+          "min": 0,
+          "max": 0
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "idle-10",
+        "role": "host",
+        "rss_mib": {
+          "n": 4,
+          "p50": 157.90625,
+          "p95": 158.421875,
+          "min": 126.984375,
+          "max": 158.421875
+        },
+        "footprint_mib": {
+          "n": 4,
+          "p50": 40.25905990600586,
+          "p95": 41.56378173828125,
+          "min": 37.79815673828125,
+          "max": 41.56378173828125
+        },
+        "cpu_percent": {
+          "n": 4,
+          "p50": 0.0,
+          "p95": 0.9301018394627776,
+          "min": 0.0,
+          "max": 0.9301018394627776
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "idle-10",
+        "role": "GPU",
+        "rss_mib": {
+          "n": 4,
+          "p50": 36.0625,
+          "p95": 36.84375,
+          "min": 29.109375,
+          "max": 36.84375
+        },
+        "footprint_mib": {
+          "n": 4,
+          "p50": 23.77428436279297,
+          "p95": 24.063392639160156,
+          "min": 20.657119750976562,
+          "max": 24.063392639160156
+        },
+        "cpu_percent": {
+          "n": 4,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "idle-10",
+        "role": "WebContent",
+        "rss_mib": {
+          "n": 4,
+          "p50": 73.734375,
+          "p95": 77.0625,
+          "min": 62.21875,
+          "max": 77.0625
+        },
+        "footprint_mib": {
+          "n": 4,
+          "p50": 54.51658630371094,
+          "p95": 57.32904052734375,
+          "min": 52.11024475097656,
+          "max": 57.32904052734375
+        },
+        "cpu_percent": {
+          "n": 4,
+          "p50": 0.0,
+          "p95": 0.9301018394627776,
+          "min": 0.0,
+          "max": 0.9301018394627776
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "idle-10",
+        "role": "Networking",
+        "rss_mib": {
+          "n": 4,
+          "p50": 12.3046875,
+          "p95": 15.453125,
+          "min": 9.671875,
+          "max": 15.453125
+        },
+        "footprint_mib": {
+          "n": 4,
+          "p50": 4.8598785400390625,
+          "p95": 5.844230651855469,
+          "min": 4.781730651855469,
+          "max": 5.844230651855469
+        },
+        "cpu_percent": {
+          "n": 4,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "idle-10",
+        "role": "total",
+        "rss_mib": {
+          "n": 4,
+          "p50": 281.875,
+          "p95": 284.046875,
+          "min": 227.984375,
+          "max": 284.046875
+        },
+        "footprint_mib": {
+          "n": 4,
+          "p50": 124.14420700073242,
+          "p95": 125.03482055664062,
+          "min": 117.64408111572266,
+          "max": 125.03482055664062
+        },
+        "cpu_percent": {
+          "n": 4,
+          "p50": 0.0,
+          "p95": 1.8602036789255552,
+          "min": 0.0,
+          "max": 1.8602036789255552
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "idle-10",
+        "role": "app",
+        "rss_mib": {
+          "n": 4,
+          "p50": 281.875,
+          "p95": 284.046875,
+          "min": 227.984375,
+          "max": 284.046875
+        },
+        "footprint_mib": {
+          "n": 4,
+          "p50": 124.14420700073242,
+          "p95": 125.03482055664062,
+          "min": 117.64408111572266,
+          "max": 125.03482055664062
+        },
+        "cpu_percent": {
+          "n": 4,
+          "p50": 0.0,
+          "p95": 1.8602036789255552,
+          "min": 0.0,
+          "max": 1.8602036789255552
+        }
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "stage": "idle-10",
+        "role": "drivers",
+        "rss_mib": {
+          "n": 4,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        },
+        "footprint_mib": {
+          "n": 4,
+          "p50": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        },
+        "cpu_percent": {
+          "n": 4,
+          "p50": 0.0,
+          "p95": 0,
+          "min": 0,
+          "max": 0
+        }
+      }
+    ],
+    "leaks": [],
+    "excluded": [
+      {
+        "artifact": 1,
+        "workers": "default",
+        "repeat": 1,
+        "stage": "startup",
+        "iteration": 0
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "repeat": 1,
+        "stage": "idle-10",
+        "iteration": 0
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "repeat": 1,
+        "stage": "startup",
+        "iteration": 0
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "repeat": 1,
+        "stage": "idle-10",
+        "iteration": 0
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "repeat": 2,
+        "stage": "tabs-closed",
+        "iteration": 0
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "repeat": 2,
+        "stage": "tabs-closed",
+        "iteration": 0
+      },
+      {
+        "artifact": 1,
+        "workers": "default",
+        "repeat": 5,
+        "stage": "startup",
+        "iteration": 0
+      },
+      {
+        "artifact": 0,
+        "workers": "default",
+        "repeat": 5,
+        "stage": "startup",
+        "iteration": 0
+      }
+    ]
+  },
+  "closed10": {
+    "accepted_pairs": 5,
+    "baseline_median_mib": 374.7074737548828,
+    "candidate_median_mib": 353.55113220214844,
+    "paired_delta_median_mib": -23.843841552734375,
+    "improved_pairs": 3
+  },
+  "all_exits_verified": true,
+  "plus50_met": false
+}

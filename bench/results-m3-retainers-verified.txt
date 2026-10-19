@@ -1,0 +1,9 @@
+
+ RUN  v5.0.4 /Users/iron/Project/psw/db-tool/ui
+
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  00:46:14
+   Duration  7.26s (tests 94%, import 5%)
+
