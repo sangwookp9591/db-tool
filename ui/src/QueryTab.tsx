@@ -1,3 +1,4 @@
+import type { QueryDraft } from './recycle';
 import './results.css';
 import { EditorTools } from './ax/EditorTools';
 import { lazy, Suspense } from 'preact/compat';
@@ -24,11 +25,11 @@ import { executeQuery } from './perf/stream';
 import { ChangePreviewView } from './ChangePreviewView';
 import { Dialog } from './Dialog';
 import { pendingCount, emptyEdits, buildEditRequest, type PendingEdits } from './edits';
-interface Props { onDirty?: (dirty: boolean) => void; aiSuggested?: boolean; sourceText?: string; entityId?: string; schema?: SchemaGraph; onBrowse?: (target:BrowseTarget)=>void; readOnly?: boolean; onResults?: (results: ResultSet[]) => void; active?: boolean; initialText: string; sessionId: string; manifest: DriverManifest; graphLimit: number; onRun: (runId: string | null) => void; onReady: (handle: EditorHandle | null) => void; onHistory: () => void; onError: (error: unknown) => void }
+interface Props { draft?: QueryDraft; onDraft?: (draft: QueryDraft) => void; onDirty?: (dirty: boolean) => void; aiSuggested?: boolean; sourceText?: string; entityId?: string; schema?: SchemaGraph; onBrowse?: (target:BrowseTarget)=>void; readOnly?: boolean; onResults?: (results: ResultSet[]) => void; active?: boolean; initialText: string; sessionId: string; manifest: DriverManifest; graphLimit: number; onRun: (runId: string | null) => void; onReady: (handle: EditorHandle | null) => void; onHistory: () => void; onError: (error: unknown) => void }
 export function QueryTab(props: Props) {
   const container = useRef<HTMLDivElement>(null);
   const runShortcut = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘↵' : 'Ctrl+↵';
-  const [paneRatio, setPaneRatio] = useState(.28), [paneHeight, setPaneHeight] = useState(500), [firstReceived, setFirstReceived] = useState(false);
+  const [paneRatio, setPaneRatio] = useState(props.draft?.paneRatio ?? .28), [paneHeight, setPaneHeight] = useState(500), [firstReceived, setFirstReceived] = useState(false);
   const available = Math.max(320, paneHeight - (props.manifest.capabilities.params ? 72 : 38) - 6);
   const editorHeight = Math.max(80, Math.min(available - 300, available * paneRatio));
   useLayoutEffect(() => { const element = container.current!; const resize = () => { if (element.clientHeight) setPaneHeight(element.clientHeight); }; resize(); const observer = new ResizeObserver(resize); observer.observe(element); return () => observer.disconnect(); }, []);
@@ -53,10 +54,11 @@ export function QueryTab(props: Props) {
   const [resultEntity,setResultEntity]=useState<string|undefined>();
   const [results, setResults] = useState<ResultSet[]>([]);
   const [error, setError] = useState<ReturnType<typeof normalizeError> | null>(null);
-  const [timeout, setTimeoutSeconds] = useState(30);
-  const [rowLimit, setRowLimit] = useState(1000);
+  const [timeout, setTimeoutSeconds] = useState(props.draft?.timeout ?? 30);
+  const [rowLimit, setRowLimit] = useState(props.draft?.rowLimit ?? 1000);
   const [resultRowLimit, setResultRowLimit] = useState(1000);
-  const [params, setParams] = useState('{}');
+  const [params, setParams] = useState(props.draft?.params ?? '{}');
+  useEffect(() => { props.onDraft?.({params, rowLimit, timeout, paneRatio}); }, [params, rowLimit, timeout, paneRatio]);
   // Every error raised inside this tab (run, editor, result views) is shown once here; the parent only reacts to connection-level ones.
   const fail = (e: unknown) => { setError(normalizeError(e)); props.onError(e); };
   let paramError = '';

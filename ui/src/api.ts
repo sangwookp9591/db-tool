@@ -50,11 +50,15 @@ export interface Commands extends EditorCommands, ConnectionCommands {
   history_delete: { args: { timestamp: string; profileName: string; text: string }; result: void };
   history_list: { args: { limit: number }; result: HistoryEntry[] };
 }
+export let activeRequests = 0;
+let recycleFrozen = false;
+export function freezeRequests(value: boolean) { recycleFrozen = value; }
 export const isMock = !('__TAURI_INTERNALS__' in window);
 export async function api<K extends keyof Commands>(command: K, args: Commands[K]['args']): Promise<Commands[K]['result']> {
+  if (recycleFrozen) throw { kind: 'Busy', message: '작업공간 복원 중입니다. 잠시 후 다시 시도하세요.' };
   if (isMock) return (await import('./mock')).mockInvoke(command, args);
-  if (!perf.captureCommands) return invoke<Commands[K]['result']>(command, args);
+  activeRequests++;
   const since = performance.now();
   try { return await invoke<Commands[K]['result']>(command, args); }
-  finally { finish(`ipc:${command}`, since); }
+  finally { activeRequests--; if (perf.captureCommands) finish(`ipc:${command}`, since); }
 }

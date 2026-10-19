@@ -1,0 +1,18 @@
+
+> axdb-ui@0.3.0 test /Users/iron/Project/psw/db-tool/ui
+> vitest run
+
+
+ RUN  v5.0.4 /Users/iron/Project/psw/db-tool/ui
+
+(node:58877) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+ Test Files  38 passed | 1 skipped (39)
+      Tests  147 passed | 1 skipped (148)
+   Start at  03:31:48
+   Duration  24.82s (tests 83%, import 15%, transform 2%, worker 1%)
+
+    Isolate  39 workers spawned · ~525ms startup each (spawn + environment, per file)
+             at least ~1.75s faster with isolate: false — reuses workers across files instead of one per file
+

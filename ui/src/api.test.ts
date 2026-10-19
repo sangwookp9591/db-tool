@@ -24,3 +24,19 @@ it('native timing opt-in preserves errors and excludes arguments', async () => {
     expect(JSON.stringify(perf.marks())).not.toContain('private-test-secret');
   } finally { perf.captureCommands = false; perf.clear(); }
 });
+
+it('blocks new calls during recycling and counts pending calls through rejection', async () => {
+  const native = await import('./api');
+  let reject!: (error: Error) => void;
+  invoke.mockImplementationOnce(() => new Promise((_resolve, fail) => { reject = fail; }));
+  const pending = api('history_list', { limit: 1 });
+  expect(native.activeRequests).toBe(1);
+  native.freezeRequests(true);
+  const before = invoke.mock.calls.length;
+  await expect(api('profile_delete', { profileId: 'preserved' })).rejects.toMatchObject({ kind: 'Busy' });
+  expect(invoke.mock.calls.length).toBe(before);
+  native.freezeRequests(false);
+  const error = new Error('read failed'); reject(error);
+  await expect(pending).rejects.toBe(error);
+  expect(native.activeRequests).toBe(0);
+});

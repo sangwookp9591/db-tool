@@ -1,0 +1,37 @@
+{
+  "owned_labels": 20,
+  "remaining_nodes": {
+    "ResourceP1_1792432372694": 0,
+    "ResourceP1_1792432744573": 0,
+    "ResourceP1_1792432833379": 0,
+    "ResourceP1_1792432858449": 0,
+    "ResourceP1_1792432965760": 0,
+    "ResourceP1_1792433155849": 0,
+    "ResourceP1_1792433393224": 0,
+    "ResourceP1_1792433626810": 0,
+    "ResourceP1_1792433665434": 0,
+    "ResourceP1_1792433899022": 0,
+    "ResourceP1_1792434132579": 0,
+    "ResourceP1_1792434366016": 0,
+    "ResourceP1_1792434601983": 0,
+    "ResourceP1_1792434835373": 0,
+    "ResourceP1_1792435069865": 0,
+    "ResourceP1_1792435304262": 0,
+    "ResourceP1_1792435537469": 0,
+    "ResourceP1_1792435771399": 0,
+    "ResourceP1_1792436005045": 0,
+    "ResourceP1_1792436238527": 0
+  },
+  "live_measurement_apps": {},
+  "live_target_m5_drivers": {},
+  "all_recorded_exit_checks": true,
+  "e2e_exit_verified": true,
+  "inactive_discovery_files_remaining": 0,
+  "secret_scan": {
+    "tracked_hunks": 12,
+    "new_artifacts": 52,
+    "passed": true,
+    "scope": "added lines in tracked files; full new files; existing unchanged fixture literals preserved"
+  },
+  "head_unchanged": true
+}

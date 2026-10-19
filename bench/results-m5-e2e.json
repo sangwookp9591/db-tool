@@ -1,0 +1,28 @@
+{
+  "config": "/private/var/folders/_p/fy8jj5b95c38w41rttwnnll40000gn/T/axdb-resource-m5-e2e-3o2fm4vg",
+  "app": "/Users/iron/Project/psw/db-tool/target-m5/FinalProbe.app",
+  "binary_sha256": "d2d27790a66430b1cdfd50fdb58d5fde482ec1394d94aa6e929a5b811dfd20bf",
+  "credentials": "isolated debug fixture seam in RAM; does not verify OS keychain",
+  "checks": [
+    {
+      "name": "e2e-bridge",
+      "exit": 0,
+      "seconds": 2.651534416989307,
+      "log": "bench/results-m5-e2e-bridge.txt"
+    },
+    {
+      "name": "preview-e2e",
+      "exit": 0,
+      "seconds": 0.7178015000099549,
+      "log": "bench/results-m5-preview-e2e.txt"
+    },
+    {
+      "name": "permissions-e2e",
+      "exit": 0,
+      "seconds": 11.344241541999509,
+      "log": "bench/results-m5-permissions-e2e.txt"
+    }
+  ],
+  "pid": 99869,
+  "exit_verified": true
+}

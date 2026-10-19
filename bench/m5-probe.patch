@@ -1,0 +1,267 @@
+--- a/src-tauri/src/lib.rs
++++ b/src-tauri/src/lib.rs
+@@ -1,4 +1,5 @@
+ mod recycle;
++mod m4_probe;
+ pub mod net;
+ mod management;
+ pub mod backup_file;
+@@ -637,7 +638,7 @@
+         .manage(recycle::Recycler::default())
+         .on_window_event(|window, event| {
+             if window.label() == "main" {
+-                if let tauri::WindowEvent::Focused(focused) = event { recycle::focus(window.app_handle(), *focused); }
++                if let tauri::WindowEvent::Focused(focused) = event { recycle::focus(window.app_handle(), *focused); if *focused { m4_probe::focused(window.app_handle()); } }
+             }
+         })
+         .manage(export::Exports::default())
+@@ -678,11 +679,8 @@
+             Ok(())
+         })
+         .invoke_handler(tauri::generate_handler![
+-            recycle::recycle_settings,
+-            recycle::recycle_large,
+-            recycle::recycle_restore,
+-            recycle::recycle_ready,
+-            recycle::recycle_commit,
++            recycle::recycle_settings, recycle::recycle_large, recycle::recycle_restore, recycle::recycle_ready, recycle::recycle_commit,
++            m4_probe::m4_probe,
+             net::connection_parse,
+             net::connection_test_steps,
+             net::connection_host_key_confirm,
+@@ -780,7 +778,7 @@
+             permissions::agent_audit_list,
+             permissions::agent_approve_write
+         ])
+-        .build(tauri::generate_context!())
++        .build({ let mut context = tauri::generate_context!(); context.config_mut().app.windows[0].data_store_identifier = Some([109,52,119,101,98,107,105,116,109,101,109,111,114,121,1,9]); context })
+         .expect("Failed to build axdb")
+         .run(|app, event| {
+             if matches!(event, tauri::RunEvent::Exit) {
+--- a/src-tauri/src/recycle.rs
++++ b/src-tauri/src/recycle.rs
+@@ -286,6 +286,7 @@
+         if state.generation != generation || state.phase != Phase::Committing {
+             return Ok(false);
+         }
++        crate::m4_probe::stamp();
+         state.snapshot = Some(snapshot);
+         state.phase = Phase::Replacing;
+     }
+--- a/src-tauri/src/storage.rs
++++ b/src-tauri/src/storage.rs
+@@ -159,6 +159,13 @@
+     result
+ }
+ pub fn keychain_get(id: &str) -> Result<Option<String>, DbError> {
++    // Measurement-only credential seam: test fixtures remain in RAM; no keychain writes.
++    if cfg!(debug_assertions) && std::env::var("AXDB_M5_E2E").as_deref()==Ok("1") {
++        let fixtures: serde_json::Value=serde_json::from_str(include_str!("../../bench/fixtures.json")).unwrap();
++        let kind=match id {"e2e-pg-0001"|"e2e-pg-badport-0001"=>"table", "e2e-neo-0001"=>"graph", _=>return Ok(None)};
++        return Ok(fixtures[kind]["secret"].as_str().map(str::to_owned));
++    }
++
+     // Debug-only test seam: unsigned debug binaries change code identity on every rebuild,
+     // so macOS prompts for keychain access and blocks E2E runs. Compiled out of release builds.
+     #[cfg(debug_assertions)]
+--- /dev/null
++++ b/src-tauri/src/m4_probe.rs
+@@ -0,0 +1,107 @@
++//! Measurement only: this module is never linked into the product.
++use crate::{viewer_bench, CommandResult, DbError, Host};
++use serde_json::{json, Value};
++use std::sync::Mutex;
++use tauri::Manager;
++static SNAPSHOT: Mutex<Option<Value>> = Mutex::new(None);
++fn enabled(app: &tauri::AppHandle) -> CommandResult<()> {
++    if (viewer_bench::viewer_bench_enabled() || std::env::var("AXDB_M5_E2E").as_deref()==Ok("1")) && app.config().identifier == "dev.axdb.m5probe" { Ok(()) }
++    else { Err(DbError::unsupported("Isolated M4 probe only")) }
++}
++#[tauri::command]
++pub async fn m4_probe(app: tauri::AppHandle, action: String, value: Option<Value>) -> CommandResult<Value> {
++    enabled(&app)?;
++    match action.as_str() {
++        "pause" => {
++            let since = std::time::Instant::now();
++            let path = app.state::<Host>().paths.config.join("m5-timer.json");
++            tokio::time::sleep(std::time::Duration::from_secs(10)).await;
++            let host_ms = since.elapsed().as_secs_f64()*1000.;
++            let completed = epoch();
++            crate::storage::write_private(&path, &serde_json::to_vec(&json!({"host_ms":host_ms,"completed_at":completed})).unwrap())?;
++            let wake = app.clone();
++            tauri::async_runtime::spawn(async move {
++                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
++                let at = epoch();
++                let window = wake.get_window("main").unwrap();
++                let _ = wake.show(); let _ = window.show(); let _ = window.set_focus();
++                if let Some(webview) = wake.get_webview("main") { let _ = webview.set_focus(); }
++                let _ = crate::storage::write_private(&wake.state::<Host>().paths.config.join("m5-activation-request.json"), &serde_json::to_vec(&json!({"at":at})).unwrap());
++            });
++            Ok(json!({"host_ms":host_ms,"completed_at":completed}))
++        },
++        "get" => Ok(SNAPSHOT.lock().unwrap().clone().unwrap_or(Value::Null)),
++        "quick" => Ok(json!(std::env::var("AXDB_M5_QUICK").as_deref()==Ok("1"))),
++        "mode" => Ok(json!(std::env::var("AXDB_M4_MODE").unwrap_or_else(|_| "control".into()))),
++        "activation" => Ok(serde_json::from_slice(&std::fs::read(app.state::<Host>().paths.config.join("m5-activation.json")).map_err(|_|DbError::internal("No activation"))?).unwrap()),
++        "activate" => {
++            let window = app.get_window("main").ok_or_else(|| DbError::internal("No main window"))?;
++            let since = std::time::Instant::now();
++            window.show().map_err(|_| DbError::internal("Cannot show probe"))?;
++            window.set_focus().map_err(|_| DbError::internal("Cannot focus probe"))?;
++            Ok(json!({"native_ms":since.elapsed().as_secs_f64()*1000.0}))
++        }
++        "arm" => {
++            let state = value.ok_or_else(|| DbError::query("Snapshot required"))?;
++            if state["ui"]["tabs"].as_array().is_none_or(|tabs| tabs.iter().any(|tab| tab["kind"]!="query" || tab["runId"]!=Value::Null || tab["dirty"]==true)) || !app.state::<Host>().runs.lock().unwrap().is_empty() {
++                return Err(DbError::query("Probe still has tabs or running operations"));
++            }
++            *SNAPSHOT.lock().unwrap() = Some(state);
++            app.get_window("main").unwrap().hide().map_err(|_| DbError::internal("Cannot hide probe"))?;
++            if std::env::var("AXDB_M5_PRODUCT").as_deref()==Ok("1") && std::env::var("AXDB_M4_MODE").as_deref()==Ok("replace") { return Ok(Value::Null); }
++            tauri::async_runtime::spawn(async move {
++                tokio::time::sleep(std::time::Duration::from_secs(if std::env::var("AXDB_M5_QUICK").as_deref()==Ok("1"){2}else{120})).await;
++                if std::env::var("AXDB_M5_PRODUCT").as_deref()!=Ok("1") { activity(); }
++                let result = recycle(&app);
++                if let Err(error) = result { let _ = crate::storage::write_private(&app.state::<Host>().paths.config.join("m4-error.json"), &serde_json::to_vec(&error).unwrap()); }
++            });
++            Ok(Value::Null)
++        }
++        _ => Err(DbError::query("Unknown probe action")),
++    }
++}
++fn recycle(app: &tauri::AppHandle) -> CommandResult<()> {
++    let window = app.get_window("main").ok_or_else(|| DbError::internal("No main window"))?;
++    if window.is_visible().unwrap_or(true) || window.is_focused().unwrap_or(true) || !app.state::<Host>().runs.lock().unwrap().is_empty() {
++        return Err(DbError::query("Probe became active or busy; recycle aborted"));
++    }
++    let mode = std::env::var("AXDB_M4_MODE").unwrap_or_default();
++    let started = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis();
++    SNAPSHOT.lock().unwrap().as_mut().unwrap()["recycle_at"] = json!(started);
++    if mode == "control" { return Ok(()); }
++    app.state::<crate::agent_bridge::Bridge>().loading(&app.state::<Host>().paths.config);
++    if mode == "reload" {
++        app.get_webview_window("main").ok_or_else(|| DbError::internal("No main webview window"))?.reload().map_err(|_| DbError::internal("Reload failed"))?;
++    } else if mode == "replace" {
++        app.get_webview("main").ok_or_else(|| DbError::internal("No main webview"))?.close().map_err(|_| DbError::internal("Close failed"))?;
++        let config = app.config().app.windows[0].clone();
++        let builder = tauri::webview::WebviewBuilder::from_config(&config);
++        let size = window.inner_size().map_err(|_| DbError::internal("No window size"))?;
++        window.add_child(builder, tauri::PhysicalPosition::new(0, 0), size).map_err(|_| DbError::internal("Replacement failed"))?;
++    } else { return Err(DbError::query("Invalid M4 mode")); }
++    Ok(())
++}
++
++fn epoch() -> u128 { std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() }
++fn activity() {
++    if std::env::var("AXDB_M5_ACTIVITY").as_deref() != Ok("1") { return; }
++    let (ready, start) = std::sync::mpsc::sync_channel(0);
++    std::thread::spawn(move || {
++        use objc2_foundation::{NSActivityOptions, NSProcessInfo, NSString};
++        let info = NSProcessInfo::processInfo();
++        let token = info.beginActivityWithOptions_reason(NSActivityOptions::UserInitiatedAllowingIdleSystemSleep, &NSString::from_str("Prepare idle workspace"));
++        let _ = ready.send(());
++        std::thread::sleep(std::time::Duration::from_secs(15));
++        unsafe { info.endActivity(&token); }
++    });
++    let _ = start.recv();
++}
++
++pub(crate) fn focused(app: &tauri::AppHandle) {
++    if SNAPSHOT.lock().unwrap().is_some() {
++        let _ = crate::storage::write_private(&app.state::<Host>().paths.config.join("m5-activation.json"), &serde_json::to_vec(&json!({"at":epoch()})).unwrap());
++        if let Some(webview) = app.get_webview("main") { let _ = webview.set_focus(); }
++    }
++}
++
++pub(crate) fn stamp() { if let Some(saved)=SNAPSHOT.lock().unwrap().as_mut() {saved["recycle_at"]=json!(epoch());} }
+--- a/ui/src/App.tsx
++++ b/ui/src/App.tsx
+@@ -1,3 +1,4 @@
++import { invoke as m4invoke } from '@tauri-apps/api/core';
+ import { noteLargeResult, restoreWorkspace, useIdleRecycle, type QueryDraft } from './recycle';
+ import { DriverLogo } from './drivers/DriverLogo';
+ import { useCommandShortcut } from './ui/useCommandShortcut';
+@@ -116,11 +117,14 @@
+     const sidebar=sidebarSnapshot.current(); if(!sidebar)return null;
+     return { sidebar, sessions:sessionsRef.current, serverInfo, dead:[...dead], tabs:tabsRef.current.map(tab=>({...tab,text:handles.current.get(tab.id)?.text()??tab.text,draft:drafts.current.get(tab.id)})), active:activeRef.current, sidebarOpen, sidebarWidth, historyOpen, graphLimit, theme };
+   }, loaded, report);
++  (window as any).__m4snapshot = () => ({ sidebar:sidebarSnapshot.current(), sessions:sessionsRef.current, serverInfo, sidebarOpen, sidebarWidth, historyOpen, graphLimit, theme, tabs:tabsRef.current.map(t=>({...t,text:handles.current.get(t.id)?.text()??t.text,draft:drafts.current.get(t.id)})) });
+   async function refreshProfiles() { setProfiles(await api('profiles_list', {})); }
+   async function refreshHistory() { try { setHistory(await api('history_list', { limit: 100 })); } catch (e) { report(e); } }
+   async function load() {
+     setLoaded(false); setError(null);
+     try { const [d, p, h] = await Promise.all([api('drivers_list', {}), api('profiles_list', {}), api('history_list', { limit: 100 })]); setDrivers(d); setProfiles(p); setHistory(h);
++      const m4saved = await m4invoke<any>('m4_probe', {action:'get',value:null});
++      if(m4saved?.ui) { const u=m4saved.ui; sessionsRef.current=u.sessions; setSessions(u.sessions); setServerInfo(u.serverInfo); setSidebarOpen(u.sidebarOpen); setSidebarWidth(u.sidebarWidth); setHistoryOpen(u.historyOpen); setGraphLimit(u.graphLimit); }
+       const saved = await restoreWorkspace<WorkspaceSnapshot>();
+       if (saved) {
+         setSavedSidebar(saved.sidebar);
+--- a/ui/src/perf/resource.ts
++++ b/ui/src/perf/resource.ts
+@@ -15,6 +15,8 @@
+   element.value = value; element.dispatchEvent(new Event('input', { bubbles: true })); element.dispatchEvent(new Event('change', { bubbles: true }));
+ }
+ export async function resourceBench(leak: boolean) {
++  const m4saved = await invoke<any>('m4_probe',{action:'get',value:null});
++  if(m4saved) { await m4resume(m4saved); return; }
+   let checkpoint = 0;
+   const report: Record<string, unknown> = { target: 'resource', leak, userAgent: navigator.userAgent };
+   async function sample(stage: string, iteration = 0) {
+@@ -42,6 +44,11 @@
+   const req = (text: string) => ({ text, params: {}, row_limit: 100000, graph_node_limit: 300, timeout_ms: 60000 });
+   try {
+     await sample('prepare-window'); await frame(); await frame();
++    if(await invoke<boolean>('m4_probe',{action:'quick',value:null})) {
++      const ui=(window as any).__m4snapshot();
++      await invoke('m4_probe',{action:'arm',value:{report,ui,profiles:[],sessions:[],label:'',graphSession:'',checkpoint}});
++      await new Promise(()=>{});
++    }
+     await sample('startup'); await pause(Math.max(0, 10000 - performance.now())); await sample('idle-10');
+     await pause(Math.max(0, 60000 - performance.now())); await sample('idle-60');
+     const manifests = await api('drivers_list', {}), config = await invoke<BenchConfig>('viewer_bench_config');
+@@ -113,6 +120,18 @@
+     while (app.querySelectorAll('.workspace-tab').length < 10) { await open(tableSession, 'SELECT i FROM generate_series(1,1000) i'); await run(1000); }
+     app.querySelector<HTMLButtonElement>('.workspace-tab [role=tab]')!.click(); await frame(); await frame(); await run(100000);
+     await sample('tabs-10'); await sample('prepare-close'); const closedAt = performance.now(); await close(); await sample('tabs-closed'); await pause(Math.max(0, closedAt + 10000 - performance.now())); await sample('tabs-closed-10');
++    await open(graphSession, 'RETURN $m5_draft');
++    input(active().querySelector<HTMLInputElement>('[aria-label="Row limit"]')!, '16000');
++    const params=active().querySelector<HTMLTextAreaElement>('[aria-label="Query parameters"]')!;
++    params.value='{"m5_draft":"preserved"}';params.dispatchEvent(new Event('input',{bubbles:true}));await frame();await frame();
++    report.m4 = true;
++    const ui=(window as any).__m4snapshot();
++    const productMode=await invoke<string>('m4_probe',{action:'mode',value:null});
++    await invoke('recycle_settings',{value:productMode==='replace'});
++    await invoke('m4_probe',{action:'arm',value:{report,ui,profiles,sessions,label,graphSession,checkpoint}});
++    const mode=await invoke<string>('m4_probe',{action:'mode',value:null});
++    if(mode==='control') { await pause(120100); await m4resume(await invoke('m4_probe',{action:'get',value:null})); }
++    await new Promise(()=>{});
+     if (leak) {
+       await sample('prepare-repeat-query');
+       await open(tableSession, sql);
+@@ -134,3 +153,26 @@
+     await invoke('viewer_bench_write', { report });
+   }
+ }
++
++async function m4resume(saved:any) {
++  const report=saved.report;
++  let checkpoint=saved.checkpoint;
++  const sample=async(stage:string)=>{ Object.assign(report,{stage,checkpoint:++checkpoint,at:Date.now(),viewport:{width:innerWidth,height:innerHeight,scale:devicePixelRatio}});await invoke('viewer_bench_write',{report});await invoke('viewer_bench_checkpoint',{checkpoint}); };
++  try {
++    await waitFor(()=>!!window.axdb?.agent && document.querySelectorAll('.connection .status-dot.connected').length===saved.sessions.length);
++    await waitFor(()=>Object.keys(saved.ui).every(key=>JSON.stringify((window as any).__m4snapshot()[key])===JSON.stringify(saved.ui[key])));
++    report.restoration={sessions:JSON.stringify((window as any).__m4snapshot().sessions)===JSON.stringify(saved.ui.sessions),tabs:document.querySelectorAll('.workspace-tab').length,theme:document.documentElement.dataset.theme,reload_ready_ms:Date.now()-saved.recycle_at};
++    const current=(window as any).__m4snapshot();
++    report.restoration.snapshot=Object.keys(saved.ui).every(key=>JSON.stringify(current[key])===JSON.stringify(saved.ui[key]));
++    if(!report.restoration.sessions || !report.restoration.snapshot || report.restoration.tabs!==saved.ui.tabs.length) throw new Error('M4 workspace snapshot did not restore');
++    for(const sessionId of saved.sessions) await api('session_info',{sessionId});
++    await sample('recycled-ready'); const waiting=Date.now(); const timing=await invoke<{host_ms:number;completed_at:number}>('m4_probe',{action:'pause',value:null}); report.hidden_wait_ms=Date.now()-waiting; report.host_timer_ms=timing.host_ms; report.ipc_delivery_ms=Date.now()-timing.completed_at;
++    await waitFor(()=>document.visibilityState==='visible' && document.hasFocus()); await frame();await frame(); const native=await invoke<{at:number}>('m4_probe',{action:'activation',value:null});report.activation_2raf_ms=Date.now()-native.at;
++    await sample('activated');
++    if(saved.graphSession) await api('execute',{sessionId:saved.graphSession,runId:crypto.randomUUID(),req:{text:`MATCH (n:${saved.label}) DETACH DELETE n`,params:{},row_limit:100000,graph_node_limit:300,timeout_ms:60000}});
++    for(const sessionId of saved.sessions) await api('session_close',{sessionId});
++    for(const profileId of saved.profiles) await api('profile_delete',{profileId});
++    report.complete=true;
++  } catch(error) {report.complete=false;report.error=error instanceof Error?error.message:String(error);}
++  await invoke('viewer_bench_write',{report});
++}

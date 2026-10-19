@@ -1,0 +1,20 @@
+{
+  "all_match": true,
+  "files": {
+    "Cargo.lock": true,
+    "src-tauri/Cargo.toml": true,
+    "src-tauri/src/lib.rs": true,
+    "src-tauri/src/recycle.rs": true,
+    "src-tauri/src/m4_probe.rs": true,
+    "src-tauri/src/storage.rs": true,
+    "src-tauri/src/agent_bridge.rs": true,
+    "src-tauri/src/driver_install.rs": true,
+    "ui/src/App.tsx": true,
+    "ui/src/Connections.tsx": true,
+    "ui/src/QueryTab.tsx": true,
+    "ui/src/NavigationTab.tsx": true,
+    "ui/src/api.ts": true,
+    "ui/src/recycle.ts": true,
+    "ui/src/perf/resource.ts": true
+  }
+}

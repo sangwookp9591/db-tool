@@ -1,0 +1,110 @@
+{
+  "base_commit": "0c64f3bc2a96535a0b0ec0c3de1d9518174d2d7a",
+  "final_binary_sha256": "d2d27790a66430b1cdfd50fdb58d5fde482ec1394d94aa6e929a5b811dfd20bf",
+  "final_product_patch_sha256": "b699ca5bad15f0c3b13c42a7cfaa0ee7a8cd8bd8a7ba188b94008dd11cee564c",
+  "final_probe_patch_sha256": "3f740692aaa9bdd33f8dc3205d96a601405dca6da198ca27420defb6aaf38866",
+  "after_measurement_patch_sha256": "b509b0f7d58f9492ce30334f5175f27172695567f076d5e58ecb6fceb03c3c9b",
+  "source_sha256": {
+    "Cargo.lock": "bed1989722530fdd48b9571e4f11b6f56e94d2777973bdd13b6b2cbb218939e0",
+    "src-tauri/Cargo.toml": "5389e5d5d84985e440beccf2bf1385124debbb226e12dfe53c4c0c544c04e47d",
+    "src-tauri/src/lib.rs": "4269fc5974533675febe517d838cb7963a28677c9d98ff677e1b11c25a75f70a",
+    "src-tauri/src/recycle.rs": "a6ce847c2fd719ad6f4d76b910a186b6fcf09eb818c3042d83ab0279bf893d7d",
+    "src-tauri/src/m4_probe.rs": "1c17db6d47476aee3934b97970e25a1844c696025aa545b3959a9a3d158cd713",
+    "src-tauri/src/storage.rs": "d278d088dbe1f292be16ffa7c68c7acbcfc66f6a35dbb656fe8ec19ad17de726",
+    "src-tauri/src/agent_bridge.rs": "71e88d2544a23a06148ee39ebc40a6201248bed8e9600e3a6ff13c36fb16f91f",
+    "src-tauri/src/driver_install.rs": "b92e800b562db3cfb8519812a2a38cf55849827c8d7d915a76d0cf38779d8247",
+    "ui/src/App.tsx": "32877188b3f7de2a8cbd600217e2861108eec2685883d30910a9e0b1da81fcad",
+    "ui/src/Connections.tsx": "907bcf19a1dcf77944a9513abedab0824d3de0dc5af9b10e5453dbd8bd656aef",
+    "ui/src/QueryTab.tsx": "5baa06ae696706f9a688d68b1bf51be10aacca519ee76b1ba5f2cce21812ad6c",
+    "ui/src/NavigationTab.tsx": "ed1d20f05cdcea72976859474378019a3960b836f39fab7d544b306b010cd357",
+    "ui/src/api.ts": "f3ca71c97bbb22af17b819dd1bf55b05067cde2c36ea96764d444968530cbf8f",
+    "ui/src/recycle.ts": "839c7b7745aa7609da8821cf85a2b28f920408e17085f03dc0403e02ec024889",
+    "ui/src/perf/resource.ts": "1974be72674c1565575a6fec9f2bbc403fa513bc49ae377eac7379fa58cec554"
+  },
+  "measured_binary_receipt": "bench/results-m5-measured-artifacts.json",
+  "focused_validation": "bench/results-m5-focused-validation.json",
+  "full_workspace_validation": "bench/results-m5-validation.json",
+  "native_pairs": "bench/results-m5-paired-combined.json",
+  "scripts_sha256": {
+    "bench/m5_memory.py": "b19eba97a96e3b7779a0bfef57bbf3a897ba674b7b8e2a55b44794e4c7161979",
+    "bench/m5_summary.py": "8c6d18d99e608b3d7e7167bc9faf85e7463675bfa0803e7c33063b57e6826c57",
+    "bench/m5_e2e.py": "d851626b0103e1cdd27d97e99556e0f29322b9e3111cd64cd9d06c2564434326",
+    "bench/m5_validate.py": "a83cf66e5f751ad6bddef3bf498df97248b7e02ff4ef1b49709c614cf631069f"
+  },
+  "policy_final_validation": "bench/results-m5-policy-final-validation.json",
+  "native_summary": "bench/results-m5-paired-summary.json",
+  "e2e": "bench/results-m5-e2e.json",
+  "cleanup": "bench/results-m5-final-cleanup.json",
+  "probe_tsc": "bench/results-m5-probe-tsc-final.txt",
+  "evidence_sha256": {
+    "bench/results-m5-paired-combined.json": "c018012d2f06433c8eae30e824ab7eb33510099e33720966760c272bbff345cc",
+    "bench/results-m5-paired-summary.json": "428aecf23cc6762518ec71340993640085dad385bb627de962588db4076bed8c",
+    "bench/results-m5-e2e.json": "1708b70508d4a81d74e94512ea189479b0b17f2d61de98b8547a2f3a8974e3dc",
+    "bench/results-m5-final-cleanup.json": "0ce89e74494abd28b504bf0587c95026d149c44c7967d2a1d46a813d69931f66",
+    "bench/results-m5-focused-validation.json": "6eb332e7603b2e117c75d11aedc6bee3c041be0258c1f5735a7dee0d2979d30a",
+    "bench/results-m5-validation.json": "009d1499dfdb758e32334544a6b4fe09557725eac49efcd0a12b88bfe05b55e6",
+    "bench/results-m5-policy-final-validation.json": "8e13d8b6bab57f0b356ea5cff3822da9cabc9f04a7a69a694f3477f54493f538",
+    "bench/results-m5-document-checks.json": "b2e77202ae58be5e9075a5a979077be3d1430fabb0ae61aeba71cad625bd7d66",
+    "bench/results-m5-final-repro-check.json": "aa80a1637653f3db710a10503de7fc3449f4197294bb3c2f0472de22272e650e"
+  },
+  "memory_driver_binaries": [
+    {
+      "id": "postgres",
+      "version": "0.2.0",
+      "path": "/var/folders/_p/fy8jj5b95c38w41rttwnnll40000gn/T/axdb-resource-m3-install-_67mp_7h/drivers/postgres/0.2.0/bin/aarch64-apple-darwin/axdb-driver-postgres",
+      "sha256": "b65799b641a271f9604579e4d12fbc14b82d913807aeb421fb3d65d59433a713"
+    },
+    {
+      "id": "neo4j",
+      "version": "0.2.0",
+      "path": "/var/folders/_p/fy8jj5b95c38w41rttwnnll40000gn/T/axdb-resource-m3-install-_67mp_7h/drivers/neo4j/0.2.0/bin/aarch64-apple-darwin/axdb-driver-neo4j",
+      "sha256": "3de87b3b89d2b128f389e4e003758d16405766f8c5b5df009a491f1f8d2c78a2"
+    }
+  ],
+  "e2e_driver_binaries": [
+    {
+      "path": "target-m5/debug/axdb-driver-mongodb",
+      "sha256": "a50dc9797a4facfed8f3011e06b05dc3706bd0e4f9e385ed4141b312ec83c566"
+    },
+    {
+      "path": "target-m5/debug/axdb-driver-neo4j",
+      "sha256": "f774da0c7c9a45b2fca30670d5c1abe1c523c79b59ac29b99a0ad6dba8577bf8"
+    },
+    {
+      "path": "target-m5/debug/axdb-driver-sqlite",
+      "sha256": "5f721e4f893592ee4f1d086524034d56da8a4147e724a038f5ba7fd24f90615d"
+    },
+    {
+      "path": "target-m5/debug/axdb-driver-redis",
+      "sha256": "5839309cd2b476effd6ce3f0a4b23bc0e267ac1e10948415dc055f959162d2b1"
+    },
+    {
+      "path": "target-m5/debug/axdb-driver-postgres",
+      "sha256": "a384d201686499e3b48f411584aa8fc6a776c016fedc42ea4701a9257e21f6ba"
+    },
+    {
+      "path": "target-m5/debug/axdb-driver-example-kv",
+      "sha256": "82254988e42273be0a3d3780f16cf403e307dda2c02cc348c6633005aa64706d"
+    },
+    {
+      "path": "target-m5/debug/axdb-driver-mysql",
+      "sha256": "ea6ac5de045a1ad1ae81b307ed55bb027f71fd420c7eee15e15edde00be1a3d2"
+    }
+  ],
+  "reports_sha256": {
+    "docs/M5_REPORT.md": "f0ab21abafc010ccba2fe3e2fc5bd9c37196532a810dd8a81fe064079ad74dba",
+    "docs/M5_WEBVIEW_RECYCLE.md": "cc850b0735d5a7c09f52c07cfd37cea5b16361106d77dc5b87abc76de82b29ca"
+  },
+  "fixture_sha256": "5126d2e68587dbcdf07eb5ae9dcf1632d3a4f1d7ee2eb452227de8db52497580",
+  "test_environment_source_sha256": "265176408c673df5712361640462c5b54c78979d222a8fa1cd1ebb6007c593e9",
+  "final_checks": {
+    "endpoints_verified": true,
+    "default_off": true,
+    "native_valid_pairs": 5,
+    "native_adopted": false,
+    "e2e_suites_passed": 3,
+    "source_reconstruction_passed": true,
+    "cleanup_passed": true,
+    "full_workspace_green": false
+  }
+}

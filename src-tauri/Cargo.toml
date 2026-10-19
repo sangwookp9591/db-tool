@@ -38,7 +38,7 @@ sha2 = "0.10.9"
 tokio.workspace = true
 tokio-util.workspace = true
 mimalloc = { version = "=0.1.52", default-features = false }
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["unstable"] }
 tauri-plugin-dialog = "2.8.3"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
@@ -66,3 +66,6 @@ tauri = { version = "2", features = ["test"] }
 [features]
 custom-protocol = ["tauri/custom-protocol"]
 default = ["custom-protocol"]
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSProcessInfo", "NSString", "NSObject"] }

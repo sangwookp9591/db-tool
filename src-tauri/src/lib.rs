@@ -1,3 +1,4 @@
+mod recycle;
 pub mod net;
 mod management;
 pub mod backup_file;
@@ -633,6 +634,12 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_opener::Builder::new().build())
+        .manage(recycle::Recycler::default())
+        .on_window_event(|window, event| {
+            if window.label() == "main" {
+                if let tauri::WindowEvent::Focused(focused) = event { recycle::focus(window.app_handle(), *focused); }
+            }
+        })
         .manage(export::Exports::default())
         .manage(driver_install::Installer::default())
         .on_page_load(|webview, payload| {
@@ -671,6 +678,11 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            recycle::recycle_settings,
+            recycle::recycle_large,
+            recycle::recycle_restore,
+            recycle::recycle_ready,
+            recycle::recycle_commit,
             net::connection_parse,
             net::connection_test_steps,
             net::connection_host_key_confirm,

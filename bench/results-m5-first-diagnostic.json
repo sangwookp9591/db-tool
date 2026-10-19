@@ -1,0 +1,12 @@
+{
+  "timer": {
+    "host_ms": 10003.1965,
+    "completed_at": 1792432596571
+  },
+  "ui": {
+    "hidden_wait_ms": 12047,
+    "host_timer_ms": 10003.1965,
+    "ipc_delivery_ms": 2043
+  },
+  "failure": "Window shown but replacement child did not receive document focus; diagnostic aborted; not a paired score"
+}

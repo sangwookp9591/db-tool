@@ -1,0 +1,723 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index 7bc24ae..55e35c3 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -374,6 +374,7 @@ dependencies = [
+  "mimalloc",
+  "mongodb",
+  "native-tls",
++ "objc2-foundation",
+  "percent-encoding",
+  "redis",
+  "reqwest",
+diff --git a/src-tauri/Cargo.toml b/src-tauri/Cargo.toml
+index 3f4c402..4103610 100644
+--- a/src-tauri/Cargo.toml
++++ b/src-tauri/Cargo.toml
+@@ -38,7 +38,7 @@ sha2 = "0.10.9"
+ tokio.workspace = true
+ tokio-util.workspace = true
+ mimalloc = { version = "=0.1.52", default-features = false }
+-tauri = { version = "2", features = [] }
++tauri = { version = "2", features = ["unstable"] }
+ tauri-plugin-dialog = "2.8.3"
+ tauri-plugin-updater = "2"
+ tauri-plugin-process = "2"
+@@ -66,3 +66,6 @@ tauri = { version = "2", features = ["test"] }
+ [features]
+ custom-protocol = ["tauri/custom-protocol"]
+ default = ["custom-protocol"]
++
++[target.'cfg(target_os = "macos")'.dependencies]
++objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSProcessInfo", "NSString", "NSObject"] }
+diff --git a/src-tauri/src/agent_bridge.rs b/src-tauri/src/agent_bridge.rs
+index 498fd50..0f7ae2c 100644
+--- a/src-tauri/src/agent_bridge.rs
++++ b/src-tauri/src/agent_bridge.rs
+@@ -14,7 +14,7 @@ use serde::Serialize;
+ use serde_json::{json, Value};
+ use std::{
+     collections::HashMap,
+-    sync::{Arc, Mutex},
++    sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}},
+     time::Duration,
+ };
+ use tauri::{Emitter, Manager};
+@@ -33,6 +33,7 @@ pub(crate) struct Shared {
+     pub(crate) app: Option<tauri::AppHandle>,
+     config: std::path::PathBuf,
+     permits: tokio::sync::Semaphore,
++    pub(crate) recycling: AtomicBool,
+     token: String,
+     ready: watch::Receiver<bool>,
+     pending: Mutex<HashMap<String, oneshot::Sender<Value>>>,
+@@ -63,6 +64,22 @@ impl Default for Bridge {
+     }
+ }
+ impl Bridge {
++    pub(crate) async fn pause_for_recycle(&self) -> bool {
++        let running = self.running.lock().await;
++        if let Some(running) = running.as_ref() {
++            running.shared.recycling.store(true, Ordering::SeqCst);
++            if running.shared.permits.available_permits() != 64 || !running.shared.pending.lock().unwrap().is_empty() {
++                running.shared.recycling.store(false, Ordering::SeqCst);
++                return false;
++            }
++        }
++        self.ready.send_replace(false);
++        true
++    }
++    pub(crate) async fn resume_after_recycle(&self, config: &std::path::Path) -> Result<(), DbError> {
++        self.mark_ready(config).await
++    }
++
+     pub(crate) async fn client_config(&self) -> Result<Value, DbError> {
+         let running = self.running.lock().await;
+         let running = running.as_ref().ok_or_else(|| DbError::query("먼저 MCP 브리지를 켜세요"))?;
+@@ -83,6 +100,7 @@ impl Bridge {
+         let running = self.running.lock().await;
+         self.ready.send_replace(true);
+         if let Some(running) = running.as_ref() {
++            running.shared.recycling.store(false, Ordering::SeqCst);
+             publish(config, &running.discovery)?;
+         }
+         Ok(())
+@@ -126,6 +144,7 @@ impl Bridge {
+             app: Some(app),
+             config: config.to_owned(),
+             permits: tokio::sync::Semaphore::new(64),
++            recycling: AtomicBool::new(false),
+             token: format!(
+                 "{}{}",
+                 uuid::Uuid::new_v4().simple(),
+@@ -310,6 +329,11 @@ async fn rpc(
+         "ping" => json!({}),
+         "tools/list" | "tools/call" => {
+             let _permit = match shared.permits.try_acquire() { Ok(p)=>p,Err(_)=>return Json(json!({"jsonrpc":"2.0","id":id,"result":{"error":{"kind":"Busy","message":"Too many pending agent requests"}}})).into_response() };
++            if shared.recycling.load(Ordering::SeqCst) {
++                let error = json!({"error":{"kind":"Busy","message":"Workbench is restoring; retry this request","retryable":true}});
++                let result = if method == "tools/call" { json!({"content":[{"type":"text","text":error.to_string()}],"structuredContent":error,"isError":true}) } else { error };
++                return Json(json!({"jsonrpc":"2.0","id":id,"result":result})).into_response();
++            }
+             let value = crate::agent_dispatch::dispatch(&shared,&client,method,request.get("params").cloned().unwrap_or(json!({}))).await;
+             if method == "tools/call" {
+                 json!({"content":[{"type":"text","text":value.to_string()}],"structuredContent":value,"isError":value.get("error").is_some()})
+@@ -407,6 +431,7 @@ mod tests {
+         let (sender, mut requests) = tokio::sync::mpsc::unbounded_channel();
+         let shared = Arc::new(Shared {
+             app: None, config: test_config("test-token"), permits: tokio::sync::Semaphore::new(64),
++            recycling: AtomicBool::new(false),
+             token: "test-token".into(),
+             ready: watch::channel(true).1,
+             pending: Mutex::new(HashMap::new()),
+@@ -438,6 +463,11 @@ mod tests {
+         )
+         .await
+         .starts_with("HTTP/1.1 403"));
++        shared.recycling.store(true, Ordering::SeqCst);
++        let paused = request(address, auth, r#"{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"run_query"}}"#).await;
++        assert!(paused.contains("retryable") && paused.contains("Busy") && paused.contains("structuredContent"));
++        assert!(requests.try_recv().is_err(), "A paused request must never be forwarded or executed");
++        shared.recycling.store(false, Ordering::SeqCst);
+         let response = request(address, auth, payload).await;
+         assert!(response.contains("application/json"));
+         assert!(response.contains("2025-11-25"));
+@@ -486,6 +516,7 @@ mod tests {
+         (
+             Arc::new(Shared {
+                 app: None, config: test_config("test"), permits: tokio::sync::Semaphore::new(64),
++            recycling: AtomicBool::new(false),
+                 token: "test".into(),
+                 ready,
+                 pending: Mutex::new(HashMap::new()),
+diff --git a/src-tauri/src/agent_results_e2e.rs b/src-tauri/src/agent_results_e2e.rs
+index 5720631..f75bbf5 100644
+--- a/src-tauri/src/agent_results_e2e.rs
++++ b/src-tauri/src/agent_results_e2e.rs
+@@ -77,6 +77,7 @@ async fn real_pg_http_caps_pages_scope_and_revocation() {
+         app: None,
+         config: config.clone(),
+         permits: tokio::sync::Semaphore::new(64),
++        recycling: std::sync::atomic::AtomicBool::new(false),
+         token: String::new(),
+         ready: watch::channel(true).1,
+         pending: Mutex::new(HashMap::new()),
+diff --git a/src-tauri/src/driver_install.rs b/src-tauri/src/driver_install.rs
+index 650ecd9..311763a 100644
+--- a/src-tauri/src/driver_install.rs
++++ b/src-tauri/src/driver_install.rs
+@@ -113,6 +113,9 @@ pub struct Installer {
+     active: Mutex<Option<CancelToken>>,
+     validated: Mutex<Option<ValidatedCatalog>>,
+ }
++impl Installer {
++    pub(crate) fn idle(&self) -> bool { self.operation.try_lock().is_ok() }
++}
+ impl Default for Installer {
+     fn default() -> Self {
+         Self {
+diff --git a/src-tauri/src/lib.rs b/src-tauri/src/lib.rs
+index 5ad4f31..dd85637 100644
+--- a/src-tauri/src/lib.rs
++++ b/src-tauri/src/lib.rs
+@@ -1,3 +1,4 @@
++mod recycle;
+ pub mod net;
+ mod management;
+ pub mod backup_file;
+@@ -633,6 +634,12 @@ pub fn run() {
+         .plugin(tauri_plugin_updater::Builder::new().build())
+         .plugin(tauri_plugin_process::init())
+         .plugin(tauri_plugin_opener::Builder::new().build())
++        .manage(recycle::Recycler::default())
++        .on_window_event(|window, event| {
++            if window.label() == "main" {
++                if let tauri::WindowEvent::Focused(focused) = event { recycle::focus(window.app_handle(), *focused); }
++            }
++        })
+         .manage(export::Exports::default())
+         .manage(driver_install::Installer::default())
+         .on_page_load(|webview, payload| {
+@@ -671,6 +678,11 @@ pub fn run() {
+             Ok(())
+         })
+         .invoke_handler(tauri::generate_handler![
++            recycle::recycle_settings,
++            recycle::recycle_large,
++            recycle::recycle_restore,
++            recycle::recycle_ready,
++            recycle::recycle_commit,
+             net::connection_parse,
+             net::connection_test_steps,
+             net::connection_host_key_confirm,
+diff --git a/ui/src/App.tsx b/ui/src/App.tsx
+index 5086d98..f6b8724 100644
+--- a/ui/src/App.tsx
++++ b/ui/src/App.tsx
+@@ -1,3 +1,4 @@
++import { noteLargeResult, restoreWorkspace, useIdleRecycle, type QueryDraft } from './recycle';
+ import { DriverLogo } from './drivers/DriverLogo';
+ import { useCommandShortcut } from './ui/useCommandShortcut';
+ const PulseHeart = lazy(() => import('./ui/PulseHeart').then(m => ({ default: m.PulseHeart })));
+@@ -32,7 +33,7 @@ import { savedTheme, setTheme, type Theme } from './theme';
+ import { useEffect, useRef, useState } from 'preact/hooks';
+ import type { DriverManifest, Profile, HistoryEntry, ExplorerNode, NodeAction, DbError, ResultSet } from './contract';
+ import { api, isMock } from './api';
+-import { Connections } from './Connections';
++import { Connections, type ConnectionsState } from './Connections';
+ import { Dialog } from './Dialog';
+ const NavigationTab = lazy(() => import('./NavigationTab').then(m => ({ default: m.NavigationTab })));
+ import { ErrorBanner } from './ErrorBanner';
+@@ -44,7 +45,8 @@ const AssistantPanel = lazy(() => import('./ai/AssistantPanel').then(m => ({ def
+ import type { WorkInput } from './ai/types';
+ import { AgentPanel } from './agent/AgentPanel';
+ const MAX_TOASTS = 4, TOAST_MS = 4500, SIDEBAR_MIN = 220;
+-interface Tab { aria?: string; dirty?: boolean; aiSuggested?: boolean; id: string; profileId: string; kind: 'query' | 'browse' | 'schema'; scope?: string | null; text: string; nodeId?: string; title: string; runId: string | null }
++interface Tab { draft?: QueryDraft; aria?: string; dirty?: boolean; aiSuggested?: boolean; id: string; profileId: string; kind: 'query' | 'browse' | 'schema'; scope?: string | null; text: string; nodeId?: string; title: string; runId: string | null }
++interface WorkspaceSnapshot { sidebar: ConnectionsState; sessions: Record<string,string>; serverInfo: Record<string,string|null|undefined>; dead: string[]; tabs: Tab[]; active: string; sidebarOpen: boolean; sidebarWidth: number; historyOpen: boolean; graphLimit: number; theme: Theme }
+ export function App() {
+   const [axPage, setAxPage] = useState<AxPage | null>(null);
+   const [axImport,setAxImport]=useState<{profileId:string;nodeId:string;file:File}|null>(null);
+@@ -98,6 +100,9 @@ export function App() {
+   const [assistantMounted, setAssistantMounted] = useState(false);
+   const credentialReply = useRef<((secret: string | null) => void) | null>(null);
+   const handles = useRef(new Map<string, EditorHandle>());
++  const drafts = useRef(new Map<string, QueryDraft>());
++  const sidebarSnapshot = useRef<() => ConnectionsState | null>(()=>null);
++  const [savedSidebar, setSavedSidebar] = useState<ConnectionsState>();
+   const activeRef = useRef(active); activeRef.current = active;
+   const tabsRef = useRef(tabs); tabsRef.current = tabs;
+   const sessionsRef = useRef(sessions); sessionsRef.current = sessions;
+@@ -106,11 +111,24 @@ export function App() {
+   // One surface per error: connection-level errors get the global banner, everything else a persistent toast. Errors raised inside a tab (reportInTab) are shown by that tab's own banner.
+   function report(e: unknown, profileId?: string) { const normalized = normalizeError(e); if (normalized.kind === 'Connection') { setError(normalized); errorProfile.current = profileId ?? null; } else notify(normalized.message, "error"); if (normalized.kind === 'Connection' && profileId) setDead(previous => new Set([...previous, profileId])); }
+   function reportInTab(e: unknown, profileId: string) { if (normalizeError(e).kind === 'Connection') report(e, profileId); }
++  const recycle = useIdleRecycle((): WorkspaceSnapshot | null => {
++    if (!loaded || axPage || driversOpen || settingsOpen || assistantMounted || commandOpen || connectPrompt || historyDelete || deletePending || error || tabs.some(tab => tab.kind !== 'query' || tab.runId || tab.dirty || tabResults[tab.id]) || document.querySelector('[role="dialog"], [aria-busy="true"], .change-preview, .ax-plan')) return null;
++    const sidebar=sidebarSnapshot.current(); if(!sidebar)return null;
++    return { sidebar, sessions:sessionsRef.current, serverInfo, dead:[...dead], tabs:tabsRef.current.map(tab=>({...tab,text:handles.current.get(tab.id)?.text()??tab.text,draft:drafts.current.get(tab.id)})), active:activeRef.current, sidebarOpen, sidebarWidth, historyOpen, graphLimit, theme };
++  }, loaded, report);
+   async function refreshProfiles() { setProfiles(await api('profiles_list', {})); }
+   async function refreshHistory() { try { setHistory(await api('history_list', { limit: 100 })); } catch (e) { report(e); } }
+   async function load() {
+     setLoaded(false); setError(null);
+-    try { const [d, p, h] = await Promise.all([api('drivers_list', {}), api('profiles_list', {}), api('history_list', { limit: 100 })]); setDrivers(d); setProfiles(p); setHistory(h); }
++    try { const [d, p, h] = await Promise.all([api('drivers_list', {}), api('profiles_list', {}), api('history_list', { limit: 100 })]); setDrivers(d); setProfiles(p); setHistory(h);
++      const saved = await restoreWorkspace<WorkspaceSnapshot>();
++      if (saved) {
++        setSavedSidebar(saved.sidebar);
++        sessionsRef.current=saved.sessions; setSessions(saved.sessions); setServerInfo(saved.serverInfo); setDead(new Set(saved.dead));
++        tabsRef.current=saved.tabs; setTabs(saved.tabs); activeRef.current=saved.active; setActive(saved.active);
++        setSidebarOpen(saved.sidebarOpen); setSidebarWidth(saved.sidebarWidth); setHistoryOpen(saved.historyOpen); setGraphLimit(saved.graphLimit); updateTheme(saved.theme); setTheme(saved.theme);
++      }
++    }
+     catch (e) { report(e); } finally { setLoaded(true); }
+   }
+   useEffect(() => { void load(); }, []);
+@@ -132,6 +150,7 @@ export function App() {
+   async function closeTab(tab: Tab) {
+     if (tab.runId) { try { await api('cancel', { runId: tab.runId }); } catch (e) { report(e, tab.profileId); } }
+     lastRuns.current.delete(tab.id);
++    drafts.current.delete(tab.id);
+     setTabResults(previous => { const next={...previous}; delete next[tab.id]; return next; });
+     if(lastResultsTab.current===tab.id){lastResults.current=[];lastResultsTab.current='';}
+     const rest = tabsRef.current.filter(t => t.id !== tab.id); setTabs(rest); if (active === tab.id) setActive(rest.at(-1)?.id ?? '');
+@@ -263,14 +282,14 @@ export function App() {
+   return <div class="app" onDragOver={e=>{if(e.dataTransfer?.types.includes('Files'))e.preventDefault();}} onDrop={e=>{if(e.dataTransfer?.files.length)e.preventDefault();}} data-sidebar-open={sidebarOpen} style={{ '--sidebar-width': `${Math.min(sidebarWidth, sidebarMax)}px` }}>
+ 
+     <Suspense fallback={null}>{updater.open && <UpdateDialog updater={updater} />}</Suspense><Suspense fallback={null}>{whatsNew.open && <WhatsNew onClose={whatsNew.close} />}</Suspense><div class="workspace"><nav class="rail" aria-label="Workspace tools"><div class="brand-mark" title="AxDB"><span class="axdb-mark" aria-hidden="true" /><span class="sr-only">AxDB</span></div><Button morph={false} aria-label="Connections panel" title="연결 · ⌘K" aria-pressed={sidebarOpen} onClick={() => setSidebarOpen(value => !value)}><Database /></Button><Button morph={false} aria-label="Execution history panel" title="실행 이력" aria-pressed={historyOpen} onClick={() => setHistoryOpen(value => !value)}><History /></Button><Tooltip open={searchTip} onOpenChange={setSearchTip} content="작업공간 검색 · ⌘K"><Button morph={false} aria-label="Command palette" onClick={() => setCommandOpen(true)}><Search /></Button></Tooltip><div class="rail-agent-slot" /><Button morph={false} aria-label="AX 워크벤치" title="AX 워크벤치" aria-pressed={!!axPage} onClick={() => setAxPage(axPage ? null : 'intent')}><SquarePlus /></Button><Button morph={false} aria-label="드라이버" title="드라이버 설치 및 관리" aria-pressed={driversOpen} onClick={() => setDriversOpen(value => !value)}><Download /></Button><Button morph={false} aria-label="AI 도우미" title="AI 도우미" onClick={() => {setAssistantMounted(true);setAssistantOpen(true);}}><Sparkles /></Button><span class="rail-spacer" /><Button morph={false} aria-label="Workspace settings" title="설정" aria-pressed={settingsOpen} onClick={() => setSettingsOpen(value => !value)}><Settings2 /></Button></nav>
+-    {settingsOpen && <section class="settings-popover" aria-label="Workspace settings"><div class="section-title"><h2>작업공간 설정</h2><Button morph={false} aria-label="Close settings" onClick={() => setSettingsOpen(false)}><X /></Button></div><label>테마<GlideSelect ariaLabel="Appearance" fitTrigger value={theme} options={[{ value: "midnight", label: "미드나이트" }, { value: "daylight", label: "데이라이트" }, { value: "system", label: "시스템" }]} onChange={value => { const next = value as Theme; updateTheme(next); setTheme(next); }} /></label><WakeSlider value={graphLimit} onChange={setGraphLimit} min={1} max={5000} step={1} aria-label="Graph node limit slider" label="노드 한도" /><label>그래프 노드 한도 <input aria-label="Graph node limit" type="number" min="1" max="5000" value={graphLimit} onChange={e => setGraphLimit(Math.max(1, Math.min(5000, Math.trunc(Number(e.currentTarget.value)) || 300)))} /></label><Button morph={false} onClick={() => { setSettingsOpen(false); onboarding.show(); }}>사용법 다시 보기</Button><Button morph={false} onClick={() => { setSettingsOpen(false); whatsNew.show(); }}>새로운 기능</Button><UpdateSettings updater={updater} /><Suspense fallback={null}><PulseHeart icon="star" size={16} showCount={false} label="GitHub에서 ⭐ Star" onClick={()=>openStar().catch(report)}/></Suspense><small>테마는 이 기기에 저장됩니다.</small></section>}
+-    <div class="sidebar-container" hidden={!sidebarOpen}><Connections editRequest={editRequest} onNodes={(profileId, nodes) => setExplorerNodes(previous => ({ ...previous, [profileId]: nodes }))} addRequest={addRequest} drivers={drivers} profiles={profiles} sessions={sessions} dead={dead} onProfiles={refreshProfiles} onConnect={async (profile, secret) => { await connect(profile, secret); }} onDisconnect={disconnect} onQuery={newQuery} onAction={action} onError={report} /></div><div hidden={!sidebarOpen} class="sidebar-splitter" role="separator" tabIndex={0} aria-label="Resize connections sidebar" aria-orientation="vertical" aria-valuemin={SIDEBAR_MIN} aria-valuemax={sidebarMax} aria-valuenow={Math.min(sidebarWidth, sidebarMax)} onPointerDown={resizeSidebar} onKeyDown={e => { if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) { e.preventDefault(); setSidebarWidth(value => e.key === 'Home' ? SIDEBAR_MIN : e.key === 'End' ? sidebarMax : Math.max(SIDEBAR_MIN, Math.min(sidebarMax, value + (e.key === 'ArrowLeft' ? -16 : 16)))); } }} />
++    {settingsOpen && <section class="settings-popover" aria-label="Workspace settings"><div class="section-title"><h2>작업공간 설정</h2><Button morph={false} aria-label="Close settings" onClick={() => setSettingsOpen(false)}><X /></Button></div><label>테마<GlideSelect ariaLabel="Appearance" fitTrigger value={theme} options={[{ value: "midnight", label: "미드나이트" }, { value: "daylight", label: "데이라이트" }, { value: "system", label: "시스템" }]} onChange={value => { const next = value as Theme; updateTheme(next); setTheme(next); }} /></label><WakeSlider value={graphLimit} onChange={setGraphLimit} min={1} max={5000} step={1} aria-label="Graph node limit slider" label="노드 한도" /><label>그래프 노드 한도 <input aria-label="Graph node limit" type="number" min="1" max="5000" value={graphLimit} onChange={e => setGraphLimit(Math.max(1, Math.min(5000, Math.trunc(Number(e.currentTarget.value)) || 300)))} /></label><label><input type="checkbox" checked={recycle.enabled} onChange={event=>void recycle.configure(event.currentTarget.checked)} />유휴 시 메모리 정리</label><Button morph={false} onClick={() => { setSettingsOpen(false); onboarding.show(); }}>사용법 다시 보기</Button><Button morph={false} onClick={() => { setSettingsOpen(false); whatsNew.show(); }}>새로운 기능</Button><UpdateSettings updater={updater} /><Suspense fallback={null}><PulseHeart icon="star" size={16} showCount={false} label="GitHub에서 ⭐ Star" onClick={()=>openStar().catch(report)}/></Suspense><small>테마는 이 기기에 저장됩니다.</small></section>}
++    <div class="sidebar-container" hidden={!sidebarOpen}><Connections initialState={savedSidebar} onSnapshot={snapshot=>{sidebarSnapshot.current=snapshot;}} editRequest={editRequest} onNodes={(profileId, nodes) => setExplorerNodes(previous => ({ ...previous, [profileId]: nodes }))} addRequest={addRequest} drivers={drivers} profiles={profiles} sessions={sessions} dead={dead} onProfiles={refreshProfiles} onConnect={async (profile, secret) => { await connect(profile, secret); }} onDisconnect={disconnect} onQuery={newQuery} onAction={action} onError={report} /></div><div hidden={!sidebarOpen} class="sidebar-splitter" role="separator" tabIndex={0} aria-label="Resize connections sidebar" aria-orientation="vertical" aria-valuemin={SIDEBAR_MIN} aria-valuemax={sidebarMax} aria-valuenow={Math.min(sidebarWidth, sidebarMax)} onPointerDown={resizeSidebar} onKeyDown={e => { if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) { e.preventDefault(); setSidebarWidth(value => e.key === 'Home' ? SIDEBAR_MIN : e.key === 'End' ? sidebarMax : Math.max(SIDEBAR_MIN, Math.min(sidebarMax, value + (e.key === 'ArrowLeft' ? -16 : 16)))); } }} />
+       <main>{axPage && <Suspense fallback={<p role="status">워크벤치를 여는 중…</p>}><Workbench importDraft={axImport??undefined} nodes={explorerNodes} page={axPage} onPage={setAxPage} onClose={()=>{setAxPage(null);setAxImport(null);}} profiles={profiles} sessions={sessions} drivers={drivers} initialProfile={activeProfile?.id} intent={axIntent} onInsert={(profile,text)=>{newQuery(profile,text,undefined,true);setAxPage(null);}}/></Suspense>}<div hidden={!!axPage} style={{height:"100%",display:axPage ? "none" : "contents"}}><div hidden={!driversOpen} style={{height:"100%",minHeight:0}}>{driversOpen && <Suspense fallback={<DriversSkeleton />}><DriversPanel requestedId={requestedDriver} onClose={() => setDriversOpen(false)} onAddConnection={addConnection} /></Suspense>}</div><div hidden={driversOpen} style={{height:"100%",display:driversOpen ? "none" : "contents"}}>{(!loaded || !drivers.length || !tabs.length) && errorBanner}
+         {!loaded ? <p class="empty-workspace">작업공간 불러오는 중…</p> : !drivers.length ? <div class="empty-workspace"><h2>드라이버부터 설치하세요</h2><p>필요한 데이터베이스 드라이버를 설치하면 연결을 추가할 수 있습니다.</p><DriverRequired /></div> : <>{tabs.length > 0 && <SlidingIndicator value={active}><div class="workspace-tabs" role="tablist" aria-label="Workspace tabs" ref={tabStrip} onWheel={e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) e.currentTarget.scrollLeft += e.deltaY; }}>{tabs.map(tab => { const p = profiles.find(p => p.id === tab.profileId); const manifest = drivers.find(d => d.id === p?.driver_id); return <div class={`workspace-tab ${active === tab.id ? 'active' : ''}`} data-paradigm={manifest?.paradigm} data-indicator-scope key={tab.id}><Button morph={false} role="tab" title={`${p?.name} / ${tab.title}`} aria-selected={active === tab.id} onClick={() => { const since = start('tab-switch'); setActive(tab.id); void painted('tab-switch', since); }}><DriverLogo iconKey={manifest?.icon_key} paradigm={manifest?.paradigm} /><span class="run-indicator" aria-label={tab.runId ? "Running" : undefined}></span><span class="tab-title">{p?.name} / {tab.title}</span>{tab.dirty && <span class="dirty-dot" aria-label="Modified query" />}{p?.access_mode === 'read_only' && <small class="read-only-badge">읽기 전용</small>}</Button><Button morph={false} onClick={() => void closeTab(tab)} aria-label={`Close ${tab.aria ?? tab.title}`}><X /></Button></div>; })}</div></SlidingIndicator>}
+           {tabs.length > 0 && errorBanner}
+           {!tabs.length && <div class="empty-workspace"><IntegrationBeam controllerRef={emptyBeam} nodes={[{id:"databases",label:"데이터베이스",side:"source",state:"disconnected",icon:<Database />},{id:"agents",label:"MCP 클라이언트",side:"target",state:"disconnected",icon:<Bot />}]} status="연결할 준비가 됐습니다" onSelect={id => id === "databases" ? addConnection() : setAgentRequest(value=>value+1)} /><h2>데이터를 한 곳에서.</h2><p>데이터베이스를 연결하고 구조를 탐색하며 쿼리를 실행하세요.</p><div class="toolbar"><Button morph={false} variant="primary" onClick={addConnection}><Plus />연결 추가</Button><Button morph={false} onClick={() => void sampleQuery()}><Terminal />샘플 쿼리</Button></div><div class="shortcut-hints"><span><kbd>⌘ K</kbd> 작업공간 검색</span><span><kbd>⌘ ↵</kbd> 쿼리 실행</span></div>{isMock && <p class="mock-badge">모의 · DB 연결 없음</p>}</div>}
+ 
+-          {tabs.map(tab => { const p = profiles.find(p => p.id === tab.profileId); const manifest = drivers.find(d => d.id === p?.driver_id); const sessionId = sessions[tab.profileId]; return manifest && !sessionId ? <section class="tab-body disconnected-tab" hidden={active!==tab.id} key={tab.id}><p>연결 끊김 · 다시 연결</p><Button morph={false} onClick={()=>{if(p)void connect(p).catch(report);}}>다시 연결</Button></section> : manifest && sessionId && <section class="tab-body" hidden={active !== tab.id} key={tab.id} aria-label={tab.aria ?? tab.title}>{<Suspense fallback={<p role="status">편집기를 불러오는 중…</p>}><NavigationTab onDirty={dirty => setTabs(previous => previous.map(item => item.id === tab.id && item.dirty !== dirty ? { ...item, dirty } : item))} aiSuggested={tab.aiSuggested} readOnly={p?.access_mode === 'read_only'} kind={tab.kind} scope={tab.scope} nodeId={tab.nodeId} title={tab.title} initialText={tab.text} onResults={results => { lastResults.current = results; lastResultsTab.current = tab.id; setTabResults(previous => ({ ...previous, [tab.id]: results[0] })); if (results[0]) notify(`${results[0].row_count.toLocaleString()}행 · ${results[0].elapsed_ms.toLocaleString()} ms`); }} active={active===tab.id} sessionId={sessionId} manifest={manifest} graphLimit={graphLimit} onRun={runId=>onRun(tab.id,runId)} onReady={handle=>{if(handle)handles.current.set(tab.id,handle);else handles.current.delete(tab.id);}} onHistory={()=>void refreshHistory()} onError={e=>reportInTab(e,tab.profileId)}/></Suspense>}</section>; })}</>}
++          {tabs.map(tab => { const p = profiles.find(p => p.id === tab.profileId); const manifest = drivers.find(d => d.id === p?.driver_id); const sessionId = sessions[tab.profileId]; return manifest && !sessionId ? <section class="tab-body disconnected-tab" hidden={active!==tab.id} key={tab.id}><p>연결 끊김 · 다시 연결</p><Button morph={false} onClick={()=>{if(p)void connect(p).catch(report);}}>다시 연결</Button></section> : manifest && sessionId && <section class="tab-body" hidden={active !== tab.id} key={tab.id} aria-label={tab.aria ?? tab.title}>{<Suspense fallback={<p role="status">편집기를 불러오는 중…</p>}><NavigationTab draft={tab.draft} onDraft={draft=>drafts.current.set(tab.id,draft)} onDirty={dirty => setTabs(previous => previous.map(item => item.id === tab.id && item.dirty !== dirty ? { ...item, dirty } : item))} aiSuggested={tab.aiSuggested} readOnly={p?.access_mode === 'read_only'} kind={tab.kind} scope={tab.scope} nodeId={tab.nodeId} title={tab.title} initialText={tab.text} onResults={results => { results.forEach(result=>noteLargeResult(result.row_count)); lastResults.current = results; lastResultsTab.current = tab.id; setTabResults(previous => ({ ...previous, [tab.id]: results[0] })); if (results[0]) notify(`${results[0].row_count.toLocaleString()}행 · ${results[0].elapsed_ms.toLocaleString()} ms`); }} active={active===tab.id} sessionId={sessionId} manifest={manifest} graphLimit={graphLimit} onRun={runId=>onRun(tab.id,runId)} onReady={handle=>{if(handle)handles.current.set(tab.id,handle);else handles.current.delete(tab.id);}} onHistory={()=>void refreshHistory()} onError={e=>reportInTab(e,tab.profileId)}/></Suspense>}</section>; })}</>}
+         <section class="history" hidden={!historyOpen} aria-label="Execution history"><div class="section-title"><strong>이력 <small>{history.length.toLocaleString()}</small></strong><span><Button morph={false} onClick={() => void refreshHistory()} aria-label="Refresh history"><RefreshCw /></Button><Button morph={false} onClick={() => setHistoryOpen(false)} aria-label="Close history"><PanelLeftClose /></Button></span></div><div class="history-list">{history.map((entry, i) => <SwipeRow key={`${entry.timestamp}:${entry.profile_name}:${i}`} label={`History ${i + 1}`} open={historyActions === `${i}`} onOpenChange={open => setHistoryActions(open ? `${i}` : null)} actions={[{id:'open',label:'새 탭에서 열기',icon:<SquarePlus />,onSelect:()=>fromHistory(entry,true)},{id:'copy',label:'쿼리 복사',icon:<Copy />,onSelect:()=>{void navigator.clipboard.writeText(entry.text).then(() => notify('쿼리를 복사했습니다')).catch(report);}},{id:'delete',label:'이력 삭제',icon:<Trash2 />,onSelect:()=>{setHistoryDelete(entry);setDeletePending(false);}}]}><Button bare class="history-entry" onClick={() => fromHistory(entry)} title={entry.text}><time title={new Date(entry.timestamp).toLocaleString()}>{new Date(entry.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</time><span>{entry.profile_name} · {entry.source === 'agent' ? '에이전트' : 'UI'}</span><code>{entry.text}</code><small class={entry.error ? 'invalid' : ''}>{entry.error ?? `${entry.row_count.toLocaleString()}행 · ${entry.elapsed_ms.toLocaleString()} ms`}</small></Button></SwipeRow>)}{!history.length && <p class="muted">실행 이력이 없습니다.</p>}</div></section>
+       </div></div></main>
+     </div>
+diff --git a/ui/src/Connections.tsx b/ui/src/Connections.tsx
+index e952851..5500a9e 100644
+--- a/ui/src/Connections.tsx
++++ b/ui/src/Connections.tsx
+@@ -3,7 +3,7 @@ import { lazy, Suspense } from 'preact/compat';
+ const ProfileForm = lazy(() => import('./ProfileForm').then(m => ({ default: m.ProfileForm })));
+ import { DriverRequired, openDrivers } from './drivers/DriverRequired';
+ import './sidebar.css';
+-import { loadSidebarPreferences, sidebarRatio, SIDEBAR_STORAGE_KEY } from './sidebar';
++import { loadSidebarPreferences, sidebarRatio, SIDEBAR_STORAGE_KEY, type SidebarPreferences } from './sidebar';
+ import { Button } from './ui/Button';
+ import { SpotlightCard } from './ui/SpotlightCard';
+ import { FuseButton } from './ui/FuseButton';
+@@ -13,7 +13,9 @@ import type { DriverManifest, Profile, ExplorerNode, NodeAction } from './contra
+ import { api, isMock } from './api';
+ import { Skeleton } from './ui/Skeleton';
+ import { BranchGroup, BranchItem, reachIndex, reachState, toggleOpen, treeKey } from './ui/BranchedMenu';
+-interface Props { editRequest?: {id:string;sequence:number} | null; onNodes?: (profileId: string, nodes: ExplorerNode[]) => void; addRequest?: number; drivers: DriverManifest[]; profiles: Profile[]; sessions: Record<string, string>; dead: Set<string>; onProfiles: () => Promise<void>; onConnect: (profile: Profile, secret?: string | null) => Promise<void>; onDisconnect: (profile: Profile) => Promise<void>; onQuery: (profile: Profile, text?: string) => void; onAction: (profile: Profile, node: ExplorerNode, action: NodeAction) => void; onError: (error: unknown, profileId?: string) => void }
++interface ExplorerState { sessionId: string; children: Record<string, ExplorerNode[]>; open: string[]; filter: string; active: string; limits: Record<string,number> }
++export interface ConnectionsState { view: SidebarPreferences; search: string; focusId: string | null; explorers: Record<string,ExplorerState> }
++interface Props { initialState?: ConnectionsState; onSnapshot?: (snapshot: () => ConnectionsState | null) => void; editRequest?: {id:string;sequence:number} | null; onNodes?: (profileId: string, nodes: ExplorerNode[]) => void; addRequest?: number; drivers: DriverManifest[]; profiles: Profile[]; sessions: Record<string, string>; dead: Set<string>; onProfiles: () => Promise<void>; onConnect: (profile: Profile, secret?: string | null) => Promise<void>; onDisconnect: (profile: Profile) => Promise<void>; onQuery: (profile: Profile, text?: string) => void; onAction: (profile: Profile, node: ExplorerNode, action: NodeAction) => void; onError: (error: unknown, profileId?: string) => void }
+ export function Connections(props: Props) {
+   const [view, setView] = useState(loadSidebarPreferences);
+   const panels = useRef<HTMLDivElement>(null);
+@@ -27,6 +29,19 @@ export function Connections(props: Props) {
+   const [notice, setNotice] = useState('');
+   const [search, setSearch] = useState('');
+   const [focusId, setFocusId] = useState<string | null>(null);
++  const explorers = useRef(new Map<string, () => ExplorerState | null>());
++  useEffect(() => { if (props.initialState) { setView(props.initialState.view); setSearch(props.initialState.search); setFocusId(props.initialState.focusId); } }, [props.initialState]);
++  useEffect(() => { props.onSnapshot?.(() => {
++    if (pendingDelete || editing || busy) return null;
++    const snapshots: Record<string,ExplorerState> = {};
++    for (const [id,session] of Object.entries(props.sessions)) {
++      if (props.dead.has(id)) continue;
++      const saved=explorers.current.get(id)?.();
++      if (!saved || saved.sessionId!==session) return null;
++      snapshots[id]=saved;
++    }
++    return {view, search, focusId, explorers:snapshots};
++  }); }, [view, search, focusId, pendingDelete, editing, busy, props.sessions, props.dead]);
+   const isLive = (id: string) => !!props.sessions[id] && !props.dead.has(id);
+   // Only one connection's explorer is shown at a time; the rest collapse to their card.
+   const activeId = focusId && isLive(focusId) ? focusId : props.profiles.find(profile => isLive(profile.id))?.id;
+@@ -69,7 +84,7 @@ export function Connections(props: Props) {
+     {props.profiles.map(profile => {
+       const manifest = props.drivers.find(d => d.id === profile.driver_id);
+       if (!manifest || !isLive(profile.id)) return null;
+-      return <div class="explorer-region" key={profile.id} hidden={profile.id !== activeId}><Button morph={false} class="new-query" onClick={() => props.onQuery(profile)}><Plus />쿼리 · {manifest.query_language.display}</Button><Explorer onNodes={nodes => props.onNodes?.(profile.id, nodes)} sessionId={props.sessions[profile.id]} manifest={manifest} onAction={(node, action) => props.onAction(profile, node, action)} onError={e => props.onError(e, profile.id)} /></div>;
++      return <div class="explorer-region" key={profile.id} hidden={profile.id !== activeId}><Button morph={false} class="new-query" onClick={() => props.onQuery(profile)}><Plus />쿼리 · {manifest.query_language.display}</Button><Explorer initialState={props.initialState?.explorers[profile.id]} onSnapshot={snapshot=>explorers.current.set(profile.id,snapshot)} onNodes={nodes => props.onNodes?.(profile.id, nodes)} sessionId={props.sessions[profile.id]} manifest={manifest} onAction={(node, action) => props.onAction(profile, node, action)} onError={e => props.onError(e, profile.id)} /></div>;
+     })}
+     {!activeId && <p class="sidebar-explorer-empty">연결하면 탐색 항목이 표시됩니다.</p>}
+     </div></section></div>
+@@ -79,7 +94,7 @@ export function Connections(props: Props) {
+   </aside>;
+ }
+ const GROUP_PAGE = 300;
+-function Explorer({ sessionId, manifest, onAction, onError, onNodes }: { onNodes?: (nodes: ExplorerNode[]) => void; sessionId: string; manifest: DriverManifest; onAction: (node: ExplorerNode, action: NodeAction) => void; onError: (error: unknown) => void }) {
++function Explorer({ sessionId, manifest, onAction, onError, onNodes, initialState, onSnapshot }: { initialState?: ExplorerState; onSnapshot?: (snapshot: () => ExplorerState | null) => void; onNodes?: (nodes: ExplorerNode[]) => void; sessionId: string; manifest: DriverManifest; onAction: (node: ExplorerNode, action: NodeAction) => void; onError: (error: unknown) => void }) {
+   const [children, setChildren] = useState<Record<string, ExplorerNode[]>>({});
+   useEffect(() => { onNodes?.(Object.values(children).flat()); }, [children]);
+   const [open, setOpen] = useState<Set<string>>(new Set());
+@@ -91,7 +106,13 @@ function Explorer({ sessionId, manifest, onAction, onError, onNodes }: { onNodes
+   const [menu, setMenu] = useState<{ node: ExplorerNode; x: number; y: number } | null>(null);
+   const [version, setVersion] = useState(0);
+   const tree = useRef<HTMLDivElement>(null);
++  const restored = useRef(false);
++  useEffect(() => { onSnapshot?.(() => loading.size || menu ? null : ({sessionId, children, open:[...open], filter, active, limits})); }, [sessionId, children, open, filter, active, limits, loading, menu]);
+   useEffect(() => {
++    if (!restored.current && initialState?.sessionId === sessionId) {
++      restored.current=true; setChildren(initialState.children); setOpen(new Set(initialState.open)); setFilter(initialState.filter); setActive(initialState.active); setLimits(initialState.limits);
++      return;
++    }
+     let current = true; setChildren({}); setOpen(new Set()); setActive(''); setLimits({}); setLoading(new Set(['$root']));
+     void api('explorer_children', { sessionId, parent: null }).then(nodes => { if (current) setChildren({ $root: nodes }); }).catch(error => { if (current) onError(error); }).finally(() => { if (current) setLoading(new Set()); });
+     return () => { current = false; };
+diff --git a/ui/src/NavigationTab.tsx b/ui/src/NavigationTab.tsx
+index a55d799..587d2f9 100644
+--- a/ui/src/NavigationTab.tsx
++++ b/ui/src/NavigationTab.tsx
+@@ -1,3 +1,4 @@
++import type { QueryDraft } from './recycle';
+ import { Button } from './ui/Button';
+ import { ArrowLeft, ArrowRight } from 'lucide-preact';
+ import { useEffect, useRef, useState } from 'preact/hooks';
+@@ -11,7 +12,7 @@ import type { ComponentType } from 'preact';
+ import type { EditorHandle } from './Editor';
+ import type { DriverManifest, ResultSet } from './contract';
+ type Step = {kind:'query';title:string} | {kind:'schema';scope:string|null;title:string} | ({kind:'browse'} & BrowseTarget);
+-export function NavigationTab(props: {onDirty?:(dirty:boolean)=>void;aiSuggested?:boolean;readOnly?:boolean;kind:'query'|'browse'|'schema';scope?:string|null;nodeId?:string;title:string;initialText:string;sessionId:string;manifest:DriverManifest;graphLimit:number;active:boolean;onRun:(id:string|null)=>void;onReady:(handle:EditorHandle|null)=>void;onHistory:()=>void;onResults:(results:ResultSet[])=>void;onError:(error:unknown)=>void}) {
++export function NavigationTab(props: {draft?:QueryDraft;onDraft?:(draft:QueryDraft)=>void;onDirty?:(dirty:boolean)=>void;aiSuggested?:boolean;readOnly?:boolean;kind:'query'|'browse'|'schema';scope?:string|null;nodeId?:string;title:string;initialText:string;sessionId:string;manifest:DriverManifest;graphLimit:number;active:boolean;onRun:(id:string|null)=>void;onReady:(handle:EditorHandle|null)=>void;onHistory:()=>void;onResults:(results:ResultSet[])=>void;onError:(error:unknown)=>void}) {
+   const [busy,setBusy]=useState(false);
+   // Schema loading/diagram errors have no view of their own, so this tab shows them (query and browse views keep their own banners).
+   const [schemaError,setSchemaError]=useState<ReturnType<typeof normalizeError>|null>(null);
+diff --git a/ui/src/QueryTab.tsx b/ui/src/QueryTab.tsx
+index a4fb111..231331a 100644
+--- a/ui/src/QueryTab.tsx
++++ b/ui/src/QueryTab.tsx
+@@ -1,3 +1,4 @@
++import type { QueryDraft } from './recycle';
+ import './results.css';
+ import { EditorTools } from './ax/EditorTools';
+ import { lazy, Suspense } from 'preact/compat';
+@@ -24,11 +25,11 @@ import { executeQuery } from './perf/stream';
+ import { ChangePreviewView } from './ChangePreviewView';
+ import { Dialog } from './Dialog';
+ import { pendingCount, emptyEdits, buildEditRequest, type PendingEdits } from './edits';
+-interface Props { onDirty?: (dirty: boolean) => void; aiSuggested?: boolean; sourceText?: string; entityId?: string; schema?: SchemaGraph; onBrowse?: (target:BrowseTarget)=>void; readOnly?: boolean; onResults?: (results: ResultSet[]) => void; active?: boolean; initialText: string; sessionId: string; manifest: DriverManifest; graphLimit: number; onRun: (runId: string | null) => void; onReady: (handle: EditorHandle | null) => void; onHistory: () => void; onError: (error: unknown) => void }
++interface Props { draft?: QueryDraft; onDraft?: (draft: QueryDraft) => void; onDirty?: (dirty: boolean) => void; aiSuggested?: boolean; sourceText?: string; entityId?: string; schema?: SchemaGraph; onBrowse?: (target:BrowseTarget)=>void; readOnly?: boolean; onResults?: (results: ResultSet[]) => void; active?: boolean; initialText: string; sessionId: string; manifest: DriverManifest; graphLimit: number; onRun: (runId: string | null) => void; onReady: (handle: EditorHandle | null) => void; onHistory: () => void; onError: (error: unknown) => void }
+ export function QueryTab(props: Props) {
+   const container = useRef<HTMLDivElement>(null);
+   const runShortcut = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘↵' : 'Ctrl+↵';
+-  const [paneRatio, setPaneRatio] = useState(.28), [paneHeight, setPaneHeight] = useState(500), [firstReceived, setFirstReceived] = useState(false);
++  const [paneRatio, setPaneRatio] = useState(props.draft?.paneRatio ?? .28), [paneHeight, setPaneHeight] = useState(500), [firstReceived, setFirstReceived] = useState(false);
+   const available = Math.max(320, paneHeight - (props.manifest.capabilities.params ? 72 : 38) - 6);
+   const editorHeight = Math.max(80, Math.min(available - 300, available * paneRatio));
+   useLayoutEffect(() => { const element = container.current!; const resize = () => { if (element.clientHeight) setPaneHeight(element.clientHeight); }; resize(); const observer = new ResizeObserver(resize); observer.observe(element); return () => observer.disconnect(); }, []);
+@@ -53,10 +54,11 @@ export function QueryTab(props: Props) {
+   const [resultEntity,setResultEntity]=useState<string|undefined>();
+   const [results, setResults] = useState<ResultSet[]>([]);
+   const [error, setError] = useState<ReturnType<typeof normalizeError> | null>(null);
+-  const [timeout, setTimeoutSeconds] = useState(30);
+-  const [rowLimit, setRowLimit] = useState(1000);
++  const [timeout, setTimeoutSeconds] = useState(props.draft?.timeout ?? 30);
++  const [rowLimit, setRowLimit] = useState(props.draft?.rowLimit ?? 1000);
+   const [resultRowLimit, setResultRowLimit] = useState(1000);
+-  const [params, setParams] = useState('{}');
++  const [params, setParams] = useState(props.draft?.params ?? '{}');
++  useEffect(() => { props.onDraft?.({params, rowLimit, timeout, paneRatio}); }, [params, rowLimit, timeout, paneRatio]);
+   // Every error raised inside this tab (run, editor, result views) is shown once here; the parent only reacts to connection-level ones.
+   const fail = (e: unknown) => { setError(normalizeError(e)); props.onError(e); };
+   let paramError = '';
+diff --git a/ui/src/api.test.ts b/ui/src/api.test.ts
+index 2377c0b..05bbf7d 100644
+--- a/ui/src/api.test.ts
++++ b/ui/src/api.test.ts
+@@ -24,3 +24,19 @@ it('native timing opt-in preserves errors and excludes arguments', async () => {
+     expect(JSON.stringify(perf.marks())).not.toContain('private-test-secret');
+   } finally { perf.captureCommands = false; perf.clear(); }
+ });
++
++it('blocks new calls during recycling and counts pending calls through rejection', async () => {
++  const native = await import('./api');
++  let reject!: (error: Error) => void;
++  invoke.mockImplementationOnce(() => new Promise((_resolve, fail) => { reject = fail; }));
++  const pending = api('history_list', { limit: 1 });
++  expect(native.activeRequests).toBe(1);
++  native.freezeRequests(true);
++  const before = invoke.mock.calls.length;
++  await expect(api('profile_delete', { profileId: 'preserved' })).rejects.toMatchObject({ kind: 'Busy' });
++  expect(invoke.mock.calls.length).toBe(before);
++  native.freezeRequests(false);
++  const error = new Error('read failed'); reject(error);
++  await expect(pending).rejects.toBe(error);
++  expect(native.activeRequests).toBe(0);
++});
+diff --git a/ui/src/api.ts b/ui/src/api.ts
+index 5038188..21421bc 100644
+--- a/ui/src/api.ts
++++ b/ui/src/api.ts
+@@ -50,11 +50,15 @@ export interface Commands extends EditorCommands, ConnectionCommands {
+   history_delete: { args: { timestamp: string; profileName: string; text: string }; result: void };
+   history_list: { args: { limit: number }; result: HistoryEntry[] };
+ }
++export let activeRequests = 0;
++let recycleFrozen = false;
++export function freezeRequests(value: boolean) { recycleFrozen = value; }
+ export const isMock = !('__TAURI_INTERNALS__' in window);
+ export async function api<K extends keyof Commands>(command: K, args: Commands[K]['args']): Promise<Commands[K]['result']> {
++  if (recycleFrozen) throw { kind: 'Busy', message: '작업공간 복원 중입니다. 잠시 후 다시 시도하세요.' };
+   if (isMock) return (await import('./mock')).mockInvoke(command, args);
+-  if (!perf.captureCommands) return invoke<Commands[K]['result']>(command, args);
++  activeRequests++;
+   const since = performance.now();
+   try { return await invoke<Commands[K]['result']>(command, args); }
+-  finally { finish(`ipc:${command}`, since); }
++  finally { activeRequests--; if (perf.captureCommands) finish(`ipc:${command}`, since); }
+ }
+--- /dev/null
++++ b/src-tauri/src/recycle.rs
+@@ -0,0 +1,219 @@
++//! Idle WebView replacement; snapshots stay in host RAM and never contain result rows.
++use crate::{agent_bridge, driver_install, storage, CommandResult, DbError, Host};
++use serde_json::{json, Value};
++use std::{sync::{mpsc, Mutex}, time::{Duration, Instant}};
++use tauri::{Emitter, Manager};
++
++const IDLE: Duration = Duration::from_secs(120);
++// M5 adoption gate: keep opt-in until all paired measurements and native regressions pass.
++const DEFAULT_ENABLED: bool = false;
++#[derive(Default, Debug, PartialEq)]
++enum Phase { #[default] Idle, Waiting, Preparing, Replacing }
++#[derive(Default)]
++struct State {
++    phase: Phase,
++    generation: u64,
++    inactive: Option<Instant>,
++    large: bool,
++    enabled: bool,
++    snapshot: Option<Value>,
++    activity: Option<mpsc::Sender<()>>,
++}
++#[derive(Default)]
++pub struct Recycler(Mutex<State>);
++
++fn enabled(settings: &Value) -> bool {
++    cfg!(target_os = "macos") && settings["idle_memory_cleanup"].as_bool().unwrap_or(DEFAULT_ENABLED)
++}
++fn eligible(state: &State, now: Instant) -> bool {
++    state.enabled && state.large && state.phase == Phase::Waiting
++        && state.inactive.is_some_and(|at| now.saturating_duration_since(at) >= IDLE)
++}
++fn busy(host: &Host, installer: &driver_install::Installer) -> bool {
++    !host.runs.lock().unwrap().is_empty() || !host.approvals.lock().unwrap().is_empty()
++        || !host.previews.lock().unwrap().is_empty() || !installer.idle()
++}
++pub fn focus(app: &tauri::AppHandle, focused: bool) {
++    let Some(recycler) = app.try_state::<Recycler>() else { return; };
++    let mut state = recycler.0.lock().unwrap();
++    if focused {
++        if let Some(webview) = app.get_webview("main") { let _ = webview.set_focus(); }
++        else if state.phase == Phase::Replacing {
++            state.activity = Some(activity());
++            if let Some(window) = app.get_window("main") {
++                if let Ok(size) = window.inner_size() {
++                    let config = app.config().app.windows[0].clone();
++                    let _ = window.add_child(tauri::webview::WebviewBuilder::from_config(&config).auto_resize(), tauri::PhysicalPosition::new(0,0), size);
++                }
++            }
++        }
++        state.inactive = None;
++        if state.phase != Phase::Replacing {
++            state.generation += 1;
++            state.phase = Phase::Idle;
++            state.activity.take();
++        }
++        return;
++    }
++    if state.phase == Phase::Replacing { return; }
++    state.inactive = Some(Instant::now());
++    state.phase = Phase::Waiting;
++    state.generation += 1;
++    let generation = state.generation;
++    let app = app.clone();
++    tauri::async_runtime::spawn(async move {
++        tokio::time::sleep(IDLE).await;
++        let recycler = app.state::<Recycler>();
++        let mut state = recycler.0.lock().unwrap();
++        if state.generation != generation || !eligible(&state, Instant::now()) { return; }
++        let Some(window) = app.get_window("main") else { return; };
++        if window.is_focused().unwrap_or(true) || busy(&app.state::<Host>(), &app.state::<driver_install::Installer>()) { return; }
++        state.phase = Phase::Preparing;
++        state.activity = Some(activity());
++        if app.emit_to("main", "recycle-prepare", generation).is_err() {
++            state.phase = Phase::Idle;
++            state.activity.take();
++        }
++    });
++}
++#[tauri::command]
++pub async fn recycle_settings(host: tauri::State<'_, Host>, recycler: tauri::State<'_, Recycler>, value: Option<bool>) -> CommandResult<bool> {
++    let _guard = host.storage.lock().await;
++    let mut settings = agent_bridge::read_settings(&host.paths.config)?;
++    if let Some(value) = value {
++        settings["idle_memory_cleanup"] = json!(value);
++        storage::write_private(&host.paths.config.join("settings.json"), &serde_json::to_vec(&settings).map_err(|_|DbError::internal("Cannot encode settings"))?)?;
++    }
++    let value = enabled(&settings);
++    let mut state = recycler.0.lock().unwrap();
++    state.enabled = value;
++    if !value && state.phase != Phase::Replacing {
++        state.generation += 1;
++        state.phase = Phase::Idle;
++        state.activity.take();
++    }
++    Ok(value)
++}
++#[tauri::command]
++pub fn recycle_large(recycler: tauri::State<'_, Recycler>) {
++    recycler.0.lock().unwrap().large = true;
++}
++#[tauri::command]
++pub fn recycle_restore(recycler: tauri::State<'_, Recycler>) -> Option<Value> {
++    recycler.0.lock().unwrap().snapshot.clone()
++}
++#[tauri::command]
++pub fn recycle_ready(recycler: tauri::State<'_, Recycler>) {
++    let mut state = recycler.0.lock().unwrap();
++    if state.phase == Phase::Replacing {
++        state.phase = Phase::Idle;
++        state.large = false;
++        state.snapshot = None;
++        state.activity.take();
++    }
++}
++#[tauri::command]
++pub async fn recycle_commit(app: tauri::AppHandle, generation: u64, snapshot: Option<Value>) -> CommandResult<bool> {
++    let recycler = app.state::<Recycler>();
++    {
++        let mut state = recycler.0.lock().unwrap();
++        if state.generation != generation || state.phase != Phase::Preparing { return Ok(false); }
++        if snapshot.as_ref().is_none_or(|value| !value.is_object() || value.to_string().len() > 2 * 1024 * 1024) {
++            state.phase = Phase::Idle;
++            state.activity.take();
++            return Ok(false);
++        }
++    }
++    let bridge = app.state::<agent_bridge::Bridge>();
++    if !bridge.pause_for_recycle().await {
++        let mut state = recycler.0.lock().unwrap();
++        state.phase = Phase::Idle; state.activity.take();
++        return Ok(false);
++    }
++    let (send, receive) = tokio::sync::oneshot::channel();
++    let handle = app.clone();
++    let scheduled = app.run_on_main_thread(move || {
++        let result = replace(&handle, generation, snapshot.unwrap());
++        let _ = send.send(result);
++    });
++    let result = if scheduled.is_err() { Err(DbError::internal("Cannot schedule idle cleanup")) }
++        else { receive.await.unwrap_or_else(|_|Err(DbError::internal("Idle cleanup interrupted"))) };
++    if !matches!(result, Ok(true)) {
++        {
++            let mut state = recycler.0.lock().unwrap();
++            state.activity.take();
++            if app.get_webview("main").is_some() { state.phase=Phase::Idle; state.snapshot=None; }
++        }
++        bridge.resume_after_recycle(&app.state::<Host>().paths.config).await?;
++    }
++    result
++}
++fn replace(app: &tauri::AppHandle, generation: u64, snapshot: Value) -> CommandResult<bool> {
++    let recycler = app.state::<Recycler>();
++    let mut state = recycler.0.lock().unwrap();
++    if state.generation != generation || state.phase != Phase::Preparing { return Ok(false); }
++    let window = app.get_window("main").ok_or_else(||DbError::internal("No workbench window"))?;
++    let host = app.state::<Host>();
++    if !state.enabled || window.is_focused().unwrap_or(true) || busy(&host, &app.state::<driver_install::Installer>()) {
++        state.phase = Phase::Idle;
++        state.activity.take();
++        return Ok(false);
++    }
++    let size = window.inner_size().map_err(|_|DbError::internal("Cannot read window size"))?;
++    let config = app.config().app.windows[0].clone();
++    state.snapshot = Some(snapshot);
++    state.phase = Phase::Replacing;
++    app.get_webview("main").ok_or_else(||DbError::internal("No workbench webview"))?.close().map_err(|_|DbError::internal("Cannot close idle webview"))?;
++    window.add_child(tauri::webview::WebviewBuilder::from_config(&config).auto_resize(), tauri::PhysicalPosition::new(0,0), size)
++        .map_err(|_|DbError::internal("Cannot restore workbench webview"))?;
++    Ok(true)
++}
++fn activity() -> mpsc::Sender<()> {
++    let (end, receive) = mpsc::channel();
++    #[cfg(target_os = "macos")]
++    {
++        let (started, ready) = mpsc::sync_channel(0);
++        std::thread::spawn(move || {
++            use objc2_foundation::{NSActivityOptions, NSProcessInfo, NSString};
++            let info = NSProcessInfo::processInfo();
++            let token = info.beginActivityWithOptions_reason(NSActivityOptions::UserInitiatedAllowingIdleSystemSleep, &NSString::from_str("Restore idle workbench"));
++            let _ = started.send(());
++            let _ = receive.recv_timeout(Duration::from_secs(12));
++            // The opaque token is created and ended on this thread exactly once.
++            unsafe { info.endActivity(&token); }
++        });
++        let _ = ready.recv();
++    }
++    #[cfg(not(target_os = "macos"))]
++    drop(receive);
++    end
++}
++#[cfg(test)]
++mod tests {
++    use super::*;
++    #[test]
++    fn running_queries_and_unused_approval_receipts_block_recycling() {
++        let dir = tempfile::tempdir().unwrap();
++        let host = Host::new(storage::Paths {config:dir.path().into(), data:dir.path().into(), log:dir.path().into()});
++        let installer=driver_install::Installer::default();
++        assert!(!busy(&host,&installer));
++        let run=host.run("session","query").unwrap();
++        assert!(busy(&host,&installer)); drop(run);
++        assert!(!busy(&host,&installer));
++        for approvals in [&host.approvals, &host.previews] {
++            approvals.lock().unwrap().insert("receipt".into(), crate::permissions::Approval {fingerprint:"fixture".into(),created:Instant::now()});
++            assert!(busy(&host,&installer)); approvals.lock().unwrap().clear();
++        }
++    }
++    #[test]
++    fn idle_policy_requires_large_result_setting_and_full_two_minutes() {
++        let at = Instant::now();
++        let mut state = State { enabled:true, large:true, phase:Phase::Waiting, inactive:Some(at), ..State::default() };
++        assert!(!eligible(&state, at + IDLE - Duration::from_millis(1)));
++        assert!(eligible(&state, at + IDLE));
++        for phase in [Phase::Idle, Phase::Preparing, Phase::Replacing] { state.phase=phase; assert!(!eligible(&state,at+IDLE)); }
++        state.phase=Phase::Waiting; state.large=false; assert!(!eligible(&state,at+IDLE));
++        state.large=true; state.enabled=false; assert!(!eligible(&state,at+IDLE));
++        assert!(!enabled(&json!({})));
++    }
++}
+--- /dev/null
++++ b/ui/src/recycle.ts
+@@ -0,0 +1,38 @@
++import { invoke } from '@tauri-apps/api/core';
++import { listen } from '@tauri-apps/api/event';
++import { useEffect, useRef, useState } from 'preact/hooks';
++import { activeRequests, freezeRequests, isMock } from './api';
++
++export interface QueryDraft { params: string; rowLimit: number; timeout: number; paneRatio: number }
++export const restoreWorkspace = <T>() => isMock ? Promise.resolve(null) : invoke<T | null>('recycle_restore');
++export function noteLargeResult(rows: number) {
++  if (!isMock && rows >= 10000) void invoke('recycle_large').catch(() => {});
++}
++export function useIdleRecycle(snapshot: () => unknown | null, ready: boolean, report: (error: unknown) => void) {
++  const latest = useRef(snapshot); latest.current = snapshot;
++  const [enabled, setEnabled] = useState(false);
++  useEffect(() => {
++    if (!isMock) void invoke<boolean>('recycle_settings', { value: null }).then(setEnabled).catch(report);
++  }, []);
++  useEffect(() => {
++    if (isMock || !ready) return;
++    let alive = true;
++    const subscription = listen<number>('recycle-prepare', async event => {
++      if (!alive) return;
++      const value = activeRequests === 0 ? latest.current() : null;
++      freezeRequests(true);
++      document.documentElement.inert = true;
++      try { await invoke('recycle_commit', { generation: event.payload, snapshot: value }); }
++      catch (error) { report(error); }
++      finally { freezeRequests(false); document.documentElement.inert = false; }
++    });
++    void subscription.then(() => invoke('recycle_ready')).catch(report);
++    return () => { alive = false; void subscription.then(unlisten => unlisten()); };
++  }, [ready]);
++  async function configure(value: boolean) {
++    if (isMock) { setEnabled(value); return; }
++    try { setEnabled(await invoke<boolean>('recycle_settings', { value })); }
++    catch (error) { report(error); }
++  }
++  return { enabled, configure };
++}

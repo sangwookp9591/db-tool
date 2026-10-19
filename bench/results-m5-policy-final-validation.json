@@ -1,0 +1,38 @@
+[
+  {
+    "name": "final-build-v4",
+    "command": [
+      "cargo",
+      "build",
+      "--workspace",
+      "--bins"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "policy-final",
+    "command": [
+      "cargo",
+      "test",
+      "-p",
+      "axdb",
+      "--lib",
+      "recycle::tests"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "policy-clippy-final",
+    "command": [
+      "cargo",
+      "clippy",
+      "-p",
+      "axdb",
+      "--all-targets",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "exit": 0
+  }
+]

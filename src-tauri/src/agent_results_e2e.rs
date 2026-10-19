@@ -77,6 +77,7 @@ async fn real_pg_http_caps_pages_scope_and_revocation() {
         app: None,
         config: config.clone(),
         permits: tokio::sync::Semaphore::new(64),
+        recycling: std::sync::atomic::AtomicBool::new(false),
         token: String::new(),
         ready: watch::channel(true).1,
         pending: Mutex::new(HashMap::new()),

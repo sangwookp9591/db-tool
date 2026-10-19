@@ -1,0 +1,23 @@
+{
+  "base_commit": "0c64f3bc2a96535a0b0ec0c3de1d9518174d2d7a",
+  "binary_sha256": "98b72dfd60542b3c251a8623cc49ce940710d3c3f63660e6abc2c85f5d7180b1",
+  "product_patch_sha256": "2dc5ac0c982cbbcf6dbdfd8be7a38d8343cfcf270071699e90662416089a109d",
+  "probe_patch_sha256": "0a25ce58ce7442f1a0321a868426a9f2f9e048b4c49f03095abf5af6fe458ee9",
+  "source_sha256": {
+    "Cargo.lock": "bed1989722530fdd48b9571e4f11b6f56e94d2777973bdd13b6b2cbb218939e0",
+    "src-tauri/Cargo.toml": "5389e5d5d84985e440beccf2bf1385124debbb226e12dfe53c4c0c544c04e47d",
+    "src-tauri/src/lib.rs": "4269fc5974533675febe517d838cb7963a28677c9d98ff677e1b11c25a75f70a",
+    "src-tauri/src/recycle.rs": "3203ef72c0df0cf63e82ed717b4f4af275058b67723d0a90ff4d244133fa2c8d",
+    "src-tauri/src/m4_probe.rs": "1c17db6d47476aee3934b97970e25a1844c696025aa545b3959a9a3d158cd713",
+    "src-tauri/src/storage.rs": "d278d088dbe1f292be16ffa7c68c7acbcfc66f6a35dbb656fe8ec19ad17de726",
+    "src-tauri/src/agent_bridge.rs": "bb10ecf7423a2434b26ac248e4e6f928a5b8bda12c2553229e350969ea2657f8",
+    "src-tauri/src/driver_install.rs": "b92e800b562db3cfb8519812a2a38cf55849827c8d7d915a76d0cf38779d8247",
+    "ui/src/App.tsx": "e3978ba5468f548e0e9553477c6ce1740bda0e3dfc9f33ba7e54f4fff5d1a5ab",
+    "ui/src/Connections.tsx": "907bcf19a1dcf77944a9513abedab0824d3de0dc5af9b10e5453dbd8bd656aef",
+    "ui/src/QueryTab.tsx": "5baa06ae696706f9a688d68b1bf51be10aacca519ee76b1ba5f2cce21812ad6c",
+    "ui/src/NavigationTab.tsx": "ed1d20f05cdcea72976859474378019a3960b836f39fab7d544b306b010cd357",
+    "ui/src/api.ts": "f3ca71c97bbb22af17b819dd1bf55b05067cde2c36ea96764d444968530cbf8f",
+    "ui/src/recycle.ts": "0dae2af0557b473c241ece5a57bd64ea7c3fc7508644dfa4a6350b1dfb556953",
+    "ui/src/perf/resource.ts": "1974be72674c1565575a6fec9f2bbc403fa513bc49ae377eac7379fa58cec554"
+  }
+}

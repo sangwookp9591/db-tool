@@ -14,7 +14,7 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}},
     time::Duration,
 };
 use tauri::{Emitter, Manager};
@@ -33,6 +33,7 @@ pub(crate) struct Shared {
     pub(crate) app: Option<tauri::AppHandle>,
     config: std::path::PathBuf,
     permits: tokio::sync::Semaphore,
+    pub(crate) recycling: AtomicBool,
     token: String,
     ready: watch::Receiver<bool>,
     pending: Mutex<HashMap<String, oneshot::Sender<Value>>>,
@@ -63,6 +64,22 @@ impl Default for Bridge {
     }
 }
 impl Bridge {
+    pub(crate) async fn pause_for_recycle(&self) -> bool {
+        let running = self.running.lock().await;
+        if let Some(running) = running.as_ref() {
+            running.shared.recycling.store(true, Ordering::SeqCst);
+            if running.shared.permits.available_permits() != 64 || !running.shared.pending.lock().unwrap().is_empty() {
+                running.shared.recycling.store(false, Ordering::SeqCst);
+                return false;
+            }
+        }
+        self.ready.send_replace(false);
+        true
+    }
+    pub(crate) async fn resume_after_recycle(&self, config: &std::path::Path) -> Result<(), DbError> {
+        self.mark_ready(config).await
+    }
+
     pub(crate) async fn client_config(&self) -> Result<Value, DbError> {
         let running = self.running.lock().await;
         let running = running.as_ref().ok_or_else(|| DbError::query("먼저 MCP 브리지를 켜세요"))?;
@@ -83,6 +100,7 @@ impl Bridge {
         let running = self.running.lock().await;
         self.ready.send_replace(true);
         if let Some(running) = running.as_ref() {
+            running.shared.recycling.store(false, Ordering::SeqCst);
             publish(config, &running.discovery)?;
         }
         Ok(())
@@ -126,6 +144,7 @@ impl Bridge {
             app: Some(app),
             config: config.to_owned(),
             permits: tokio::sync::Semaphore::new(64),
+            recycling: AtomicBool::new(false),
             token: format!(
                 "{}{}",
                 uuid::Uuid::new_v4().simple(),
@@ -310,6 +329,14 @@ async fn rpc(
         "ping" => json!({}),
         "tools/list" | "tools/call" => {
             let _permit = match shared.permits.try_acquire() { Ok(p)=>p,Err(_)=>return Json(json!({"jsonrpc":"2.0","id":id,"result":{"error":{"kind":"Busy","message":"Too many pending agent requests"}}})).into_response() };
+            if shared.recycling.load(Ordering::SeqCst) {
+                if method == "tools/list" {
+                    return Json(json!({"jsonrpc":"2.0","id":id,"error":{"code":-32000,"message":"Workbench is restoring; retry this request","data":{"retryable":true}}})).into_response();
+                }
+                let error = json!({"error":{"kind":"Busy","message":"Workbench is restoring; retry this request","retryable":true}});
+                let result = if method == "tools/call" { json!({"content":[{"type":"text","text":error.to_string()}],"structuredContent":error,"isError":true}) } else { error };
+                return Json(json!({"jsonrpc":"2.0","id":id,"result":result})).into_response();
+            }
             let value = crate::agent_dispatch::dispatch(&shared,&client,method,request.get("params").cloned().unwrap_or(json!({}))).await;
             if method == "tools/call" {
                 json!({"content":[{"type":"text","text":value.to_string()}],"structuredContent":value,"isError":value.get("error").is_some()})
@@ -407,6 +434,7 @@ mod tests {
         let (sender, mut requests) = tokio::sync::mpsc::unbounded_channel();
         let shared = Arc::new(Shared {
             app: None, config: test_config("test-token"), permits: tokio::sync::Semaphore::new(64),
+            recycling: AtomicBool::new(false),
             token: "test-token".into(),
             ready: watch::channel(true).1,
             pending: Mutex::new(HashMap::new()),
@@ -438,6 +466,13 @@ mod tests {
         )
         .await
         .starts_with("HTTP/1.1 403"));
+        shared.recycling.store(true, Ordering::SeqCst);
+        let paused = request(address, auth, r#"{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"run_query"}}"#).await;
+        assert!(paused.contains("retryable") && paused.contains("Busy") && paused.contains("structuredContent"));
+        let listing = request(address, auth, r#"{"jsonrpc":"2.0","id":8,"method":"tools/list"}"#).await;
+        assert!(listing.contains("\"code\":-32000") && listing.contains("retryable") && !listing.contains("\"result\":"));
+        assert!(requests.try_recv().is_err(), "A paused request must never be forwarded or executed");
+        shared.recycling.store(false, Ordering::SeqCst);
         let response = request(address, auth, payload).await;
         assert!(response.contains("application/json"));
         assert!(response.contains("2025-11-25"));
@@ -486,6 +521,7 @@ mod tests {
         (
             Arc::new(Shared {
                 app: None, config: test_config("test"), permits: tokio::sync::Semaphore::new(64),
+            recycling: AtomicBool::new(false),
                 token: "test".into(),
                 ready,
                 pending: Mutex::new(HashMap::new()),

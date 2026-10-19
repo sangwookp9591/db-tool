@@ -1,0 +1,58 @@
+[
+  {
+    "name": "rust",
+    "command": [
+      "cargo",
+      "test",
+      "--workspace"
+    ],
+    "cwd": "/Users/iron/Project/psw/db-tool/target-m5/source",
+    "exit": 101,
+    "seconds": 119.99214600000414,
+    "log": "bench/results-m5-rust.txt"
+  },
+  {
+    "name": "clippy",
+    "command": [
+      "cargo",
+      "clippy",
+      "--workspace",
+      "--all-targets",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "cwd": "/Users/iron/Project/psw/db-tool/target-m5/source",
+    "exit": 0,
+    "seconds": 13.388566124995123,
+    "log": "bench/results-m5-clippy.txt"
+  },
+  {
+    "name": "tsc",
+    "command": [
+      "pnpm",
+      "--dir",
+      "ui",
+      "exec",
+      "tsc",
+      "--noEmit"
+    ],
+    "cwd": "/Users/iron/Project/psw/db-tool",
+    "exit": 0,
+    "seconds": 0.982070375001058,
+    "log": "bench/results-m5-tsc.txt"
+  },
+  {
+    "name": "ui",
+    "command": [
+      "pnpm",
+      "--dir",
+      "ui",
+      "test"
+    ],
+    "cwd": "/Users/iron/Project/psw/db-tool",
+    "exit": 0,
+    "seconds": 25.64430179199553,
+    "log": "bench/results-m5-ui.txt"
+  }
+]

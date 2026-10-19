@@ -474,3 +474,12 @@ Native는 격리된 dev/debug=0 앱, 1280×768/DPR2, load≤14와 짝 차이≤3
 MCP 읽기 부하 진단은 별도 비점수 회차다. reload/교체 각각 840건, 실패 0건이었지만 이 부하 자체가 호출 기록 UI와 footprint에 영향을 주므로 무부하 R2/L1 점수에 합치지 않는다. cold GPU가 높은 시작값, 교체 뒤 실제 103.8초가 걸린 '10초' 표본과 진단 활성화가 겹친 대조군의 창 배치 실패도 분리했다. 첫 페인트 무지연이나 깜빡임 부재를 검증한 결과가 아니다.
 
 제품 소스와 설정은 변경하지 않았다. 전용 dev/debug=0 앱과 target-m4만 사용했다. 호스트 195 passed / 7 ignored, clippy -D warnings, 제품 UI 146 passed / 1 skipped, 제품/실험 tsc는 통과했으나 조용한 교체 native E2E는 실패했다. [M4 보고서](M4_REPORT.md) · [상세 판정·재현](M4_WEBVIEW_RECYCLE.md) · [v3 짝 집계](../bench/results-m4-footprint-v3-summary.json) · [v4 진행 실패](../bench/results-m4-footprint-v4.json) · [MCP 진단](../bench/results-m4-bridge-v4.json) · [검증 명세](../bench/results-m4-validation.json).
+
+
+## M5: 유휴 WebView 재활용 정책과 활성화 기준 (2026-10-20)
+
+정책·설정·RAM 상태 복원과 MCP quiesce는 구현했지만 **기본 꺼짐을 유지**한다. 총 6쌍 중 startup 부하 차이 5.44인 한 쌍을 제외한 유효 5쌍에서 활성화 직후 footprint는 시작 +72.0~+87.0MiB(중앙값 +79.9MiB)로 +50MiB 목표에 모두 미달했다. 대조군보다 짝 차이 중앙값 191.8MiB를 반환했으나 목표 달성으로 보고하지 않는다. 초안·세션·사이드바는 모두 보존됐고 native 포커스→2rAF와 시각 조회 IPC의 상한은 92~245ms였다.
+
+Rust의 10초 sleep은 약 10,003ms에 끝났고, 짧은 NSProcessInfo activity도 숨김 WebView의 IPC 관측 지연을 없애지 못했다. 숨김 지연은 별도 기록하고 점수에서 제외했다. 실제 앱 E2E 21/21·5/5·13/13과 최종 호스트 단위 131 passed/4 ignored, 후속 정책 4검사, clippy·tsc·UI 147 passed/1 skipped는 통과했다. 첫 Rust 전체 305 passed/7 ignored 뒤 후속 전체는 기존 Mongo view 스냅숏 오류 1건으로 중단되어 최종 workspace green을 주장하지 않는다. 측정 바이너리와 이후 안전 보강 앱을 구분하며, 실제 타이밍/설치 경합·지속 MCP 부하·키체인·영상 깜빡임·release는 미검증이다.
+
+[M5 보고](M5_REPORT.md) · [상세 판정·한계](M5_WEBVIEW_RECYCLE.md) · [유효 5쌍 집계](../bench/results-m5-paired-summary.json) · [전체 실패 보존](../bench/results-m5-validation.json) · [최종 집중 검증](../bench/results-m5-focused-validation.json) · [실제 앱 E2E](../bench/results-m5-e2e.json).

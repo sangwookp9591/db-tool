@@ -1,0 +1,509 @@
+--- a/src-tauri/src/recycle.rs
++++ b/src-tauri/src/recycle.rs
+@@ -1,14 +1,25 @@
+ //! Idle WebView replacement; snapshots stay in host RAM and never contain result rows.
+ use crate::{agent_bridge, driver_install, storage, CommandResult, DbError, Host};
+ use serde_json::{json, Value};
+-use std::{sync::{mpsc, Mutex}, time::{Duration, Instant}};
++use std::{
++    sync::{mpsc, Mutex},
++    time::{Duration, Instant},
++};
+ use tauri::{Emitter, Manager};
+ 
+ const IDLE: Duration = Duration::from_secs(120);
+ // M5 adoption gate: keep opt-in until all paired measurements and native regressions pass.
+ const DEFAULT_ENABLED: bool = false;
+ #[derive(Default, Debug, PartialEq)]
+-enum Phase { #[default] Idle, Waiting, Preparing, Replacing }
++enum Phase {
++    #[default]
++    Idle,
++    Waiting,
++    Preparing,
++    Committing,
++    Replacing,
++    Failed,
++}
+ #[derive(Default)]
+ struct State {
+     phase: Phase,
+@@ -19,70 +30,139 @@
+     snapshot: Option<Value>,
+     activity: Option<mpsc::Sender<()>>,
+ }
++impl State {
++    fn reserve(&mut self, generation: u64) -> bool {
++        if self.generation != generation || self.phase != Phase::Preparing {
++            return false;
++        }
++        self.phase = Phase::Committing;
++        true
++    }
++    fn activate(&mut self) -> bool {
++        self.inactive = None;
++        let replacing = matches!(self.phase, Phase::Replacing | Phase::Failed);
++        if !replacing {
++            self.generation += 1;
++            self.phase = Phase::Idle;
++            self.activity.take();
++        }
++        replacing
++    }
++}
+ #[derive(Default)]
+ pub struct Recycler(Mutex<State>);
+ 
+ fn enabled(settings: &Value) -> bool {
+-    cfg!(target_os = "macos") && settings["idle_memory_cleanup"].as_bool().unwrap_or(DEFAULT_ENABLED)
++    cfg!(target_os = "macos")
++        && settings["idle_memory_cleanup"]
++            .as_bool()
++            .unwrap_or(DEFAULT_ENABLED)
+ }
+ fn eligible(state: &State, now: Instant) -> bool {
+-    state.enabled && state.large && state.phase == Phase::Waiting
+-        && state.inactive.is_some_and(|at| now.saturating_duration_since(at) >= IDLE)
++    state.enabled
++        && state.large
++        && state.phase == Phase::Waiting
++        && state
++            .inactive
++            .is_some_and(|at| now.saturating_duration_since(at) >= IDLE)
+ }
+ fn busy(host: &Host, installer: &driver_install::Installer) -> bool {
+-    !host.runs.lock().unwrap().is_empty() || !host.approvals.lock().unwrap().is_empty()
+-        || !host.previews.lock().unwrap().is_empty() || !installer.idle()
++    !host.runs.lock().unwrap().is_empty()
++        || !host.approvals.lock().unwrap().is_empty()
++        || !host.previews.lock().unwrap().is_empty()
++        || !installer.idle()
+ }
+ pub fn focus(app: &tauri::AppHandle, focused: bool) {
+-    let Some(recycler) = app.try_state::<Recycler>() else { return; };
++    let Some(recycler) = app.try_state::<Recycler>() else {
++        return;
++    };
+     let mut state = recycler.0.lock().unwrap();
+     if focused {
+-        if let Some(webview) = app.get_webview("main") { let _ = webview.set_focus(); }
+-        else if state.phase == Phase::Replacing {
+-            state.activity = Some(activity());
++        let recover = state.phase == Phase::Failed;
++        let replacing = state.activate();
++        drop(state);
++        if let Some(webview) = app.get_webview("main") {
++            let _ = webview.set_focus();
++        } else if replacing && recover {
++            {
++                let mut state = recycler.0.lock().unwrap();
++                state.phase = Phase::Replacing;
++                state.activity = Some(activity());
++            }
++            let mut restored = false;
+             if let Some(window) = app.get_window("main") {
+                 if let Ok(size) = window.inner_size() {
+                     let config = app.config().app.windows[0].clone();
+-                    let _ = window.add_child(tauri::webview::WebviewBuilder::from_config(&config).auto_resize(), tauri::PhysicalPosition::new(0,0), size);
++                    let result = window.add_child(
++                        tauri::webview::WebviewBuilder::from_config(&config).auto_resize(),
++                        tauri::PhysicalPosition::new(0, 0),
++                        size,
++                    );
++                    restored = result.is_ok();
+                 }
+             }
+-        }
+-        state.inactive = None;
+-        if state.phase != Phase::Replacing {
+-            state.generation += 1;
+-            state.phase = Phase::Idle;
+-            state.activity.take();
++            if !restored {
++                recycler.0.lock().unwrap().phase = Phase::Failed;
++            }
+         }
+         return;
+     }
+-    if state.phase == Phase::Replacing { return; }
++    if matches!(state.phase, Phase::Replacing | Phase::Failed) {
++        return;
++    }
+     state.inactive = Some(Instant::now());
+     state.phase = Phase::Waiting;
+     state.generation += 1;
+     let generation = state.generation;
++    drop(state);
+     let app = app.clone();
+     tauri::async_runtime::spawn(async move {
+         tokio::time::sleep(IDLE).await;
++        let Some(window) = app.get_window("main") else {
++            return;
++        };
++        // Never hold state while querying Wry: a native focus callback also takes this lock.
++        if window.is_focused().unwrap_or(true) {
++            return;
++        }
+         let recycler = app.state::<Recycler>();
+         let mut state = recycler.0.lock().unwrap();
+-        if state.generation != generation || !eligible(&state, Instant::now()) { return; }
+-        let Some(window) = app.get_window("main") else { return; };
+-        if window.is_focused().unwrap_or(true) || busy(&app.state::<Host>(), &app.state::<driver_install::Installer>()) { return; }
++        if state.generation != generation || !eligible(&state, Instant::now()) {
++            return;
++        }
++        if busy(
++            &app.state::<Host>(),
++            &app.state::<driver_install::Installer>(),
++        ) {
++            return;
++        }
+         state.phase = Phase::Preparing;
+         state.activity = Some(activity());
++        drop(state);
+         if app.emit_to("main", "recycle-prepare", generation).is_err() {
+-            state.phase = Phase::Idle;
+-            state.activity.take();
++            let mut state = recycler.0.lock().unwrap();
++            if state.generation == generation {
++                state.phase = Phase::Idle;
++                state.activity.take();
++            }
+         }
+     });
+ }
+ #[tauri::command]
+-pub async fn recycle_settings(host: tauri::State<'_, Host>, recycler: tauri::State<'_, Recycler>, value: Option<bool>) -> CommandResult<bool> {
++pub async fn recycle_settings(
++    host: tauri::State<'_, Host>,
++    recycler: tauri::State<'_, Recycler>,
++    value: Option<bool>,
++) -> CommandResult<bool> {
+     let _guard = host.storage.lock().await;
+     let mut settings = agent_bridge::read_settings(&host.paths.config)?;
+     if let Some(value) = value {
+         settings["idle_memory_cleanup"] = json!(value);
+-        storage::write_private(&host.paths.config.join("settings.json"), &serde_json::to_vec(&settings).map_err(|_|DbError::internal("Cannot encode settings"))?)?;
++        storage::write_private(
++            &host.paths.config.join("settings.json"),
++            &serde_json::to_vec(&settings)
++                .map_err(|_| DbError::internal("Cannot encode settings"))?,
++        )?;
+     }
+     let value = enabled(&settings);
+     let mut state = recycler.0.lock().unwrap();
+@@ -113,12 +193,21 @@
+     }
+ }
+ #[tauri::command]
+-pub async fn recycle_commit(app: tauri::AppHandle, generation: u64, snapshot: Option<Value>) -> CommandResult<bool> {
++pub async fn recycle_commit(
++    app: tauri::AppHandle,
++    generation: u64,
++    snapshot: Option<Value>,
++) -> CommandResult<bool> {
+     let recycler = app.state::<Recycler>();
+     {
+         let mut state = recycler.0.lock().unwrap();
+-        if state.generation != generation || state.phase != Phase::Preparing { return Ok(false); }
+-        if snapshot.as_ref().is_none_or(|value| !value.is_object() || value.to_string().len() > 2 * 1024 * 1024) {
++        if !state.reserve(generation) {
++            return Ok(false);
++        }
++        if snapshot
++            .as_ref()
++            .is_none_or(|value| !value.is_object() || value.to_string().len() > 2 * 1024 * 1024)
++        {
+             state.phase = Phase::Idle;
+             state.activity.take();
+             return Ok(false);
+@@ -127,7 +216,8 @@
+     let bridge = app.state::<agent_bridge::Bridge>();
+     if !bridge.pause_for_recycle().await {
+         let mut state = recycler.0.lock().unwrap();
+-        state.phase = Phase::Idle; state.activity.take();
++        state.phase = Phase::Idle;
++        state.activity.take();
+         return Ok(false);
+     }
+     let (send, receive) = tokio::sync::oneshot::channel();
+@@ -136,37 +226,81 @@
+         let result = replace(&handle, generation, snapshot.unwrap());
+         let _ = send.send(result);
+     });
+-    let result = if scheduled.is_err() { Err(DbError::internal("Cannot schedule idle cleanup")) }
+-        else { receive.await.unwrap_or_else(|_|Err(DbError::internal("Idle cleanup interrupted"))) };
++    let result = if scheduled.is_err() {
++        Err(DbError::internal("Cannot schedule idle cleanup"))
++    } else {
++        receive
++            .await
++            .unwrap_or_else(|_| Err(DbError::internal("Idle cleanup interrupted")))
++    };
+     if !matches!(result, Ok(true)) {
++        let has_view = app.get_webview("main").is_some();
+         {
+             let mut state = recycler.0.lock().unwrap();
+             state.activity.take();
+-            if app.get_webview("main").is_some() { state.phase=Phase::Idle; state.snapshot=None; }
+-        }
+-        bridge.resume_after_recycle(&app.state::<Host>().paths.config).await?;
++            if has_view {
++                state.phase = Phase::Idle;
++                state.snapshot = None;
++            } else {
++                state.phase = Phase::Failed;
++            }
++        }
++        if has_view {
++            bridge
++                .resume_after_recycle(&app.state::<Host>().paths.config)
++                .await?;
++        } else if app
++            .get_window("main")
++            .is_some_and(|window| window.is_focused().unwrap_or(false))
++        {
++            let handle = app.clone();
++            let _ = app.run_on_main_thread(move || focus(&handle, true));
++        }
+     }
+     result
+ }
+ fn replace(app: &tauri::AppHandle, generation: u64, snapshot: Value) -> CommandResult<bool> {
++    let window = app
++        .get_window("main")
++        .ok_or_else(|| DbError::internal("No workbench window"))?;
++    let host = app.state::<Host>();
++    let native_busy = window.is_focused().unwrap_or(true)
++        || busy(&host, &app.state::<driver_install::Installer>());
+     let recycler = app.state::<Recycler>();
+     let mut state = recycler.0.lock().unwrap();
+-    if state.generation != generation || state.phase != Phase::Preparing { return Ok(false); }
+-    let window = app.get_window("main").ok_or_else(||DbError::internal("No workbench window"))?;
+-    let host = app.state::<Host>();
+-    if !state.enabled || window.is_focused().unwrap_or(true) || busy(&host, &app.state::<driver_install::Installer>()) {
++    if state.generation != generation || state.phase != Phase::Committing {
++        return Ok(false);
++    }
++    if !state.enabled || native_busy {
+         state.phase = Phase::Idle;
+         state.activity.take();
+         return Ok(false);
+     }
+-    let size = window.inner_size().map_err(|_|DbError::internal("Cannot read window size"))?;
++    drop(state);
++    let size = window
++        .inner_size()
++        .map_err(|_| DbError::internal("Cannot read window size"))?;
+     let config = app.config().app.windows[0].clone();
+-    crate::m4_probe::stamp();
+-    state.snapshot = Some(snapshot);
+-    state.phase = Phase::Replacing;
+-    app.get_webview("main").ok_or_else(||DbError::internal("No workbench webview"))?.close().map_err(|_|DbError::internal("Cannot close idle webview"))?;
+-    window.add_child(tauri::webview::WebviewBuilder::from_config(&config).auto_resize(), tauri::PhysicalPosition::new(0,0), size)
+-        .map_err(|_|DbError::internal("Cannot restore workbench webview"))?;
++    {
++        let mut state = recycler.0.lock().unwrap();
++        if state.generation != generation || state.phase != Phase::Committing {
++            return Ok(false);
++        }
++        crate::m4_probe::stamp();
++        state.snapshot = Some(snapshot);
++        state.phase = Phase::Replacing;
++    }
++    app.get_webview("main")
++        .ok_or_else(|| DbError::internal("No workbench webview"))?
++        .close()
++        .map_err(|_| DbError::internal("Cannot close idle webview"))?;
++    window
++        .add_child(
++            tauri::webview::WebviewBuilder::from_config(&config).auto_resize(),
++            tauri::PhysicalPosition::new(0, 0),
++            size,
++        )
++        .map_err(|_| DbError::internal("Cannot restore workbench webview"))?;
+     Ok(true)
+ }
+ fn activity() -> mpsc::Sender<()> {
+@@ -177,11 +311,16 @@
+         std::thread::spawn(move || {
+             use objc2_foundation::{NSActivityOptions, NSProcessInfo, NSString};
+             let info = NSProcessInfo::processInfo();
+-            let token = info.beginActivityWithOptions_reason(NSActivityOptions::UserInitiatedAllowingIdleSystemSleep, &NSString::from_str("Restore idle workbench"));
++            let token = info.beginActivityWithOptions_reason(
++                NSActivityOptions::UserInitiatedAllowingIdleSystemSleep,
++                &NSString::from_str("Restore idle workbench"),
++            );
+             let _ = started.send(());
+             let _ = receive.recv_timeout(Duration::from_secs(12));
+             // The opaque token is created and ended on this thread exactly once.
+-            unsafe { info.endActivity(&token); }
++            unsafe {
++                info.endActivity(&token);
++            }
+         });
+         let _ = ready.recv();
+     }
+@@ -193,28 +332,103 @@
+ mod tests {
+     use super::*;
+     #[test]
++    fn a_prepare_ticket_can_be_committed_only_once() {
++        let mut state = State {
++            phase: Phase::Preparing,
++            generation: 7,
++            ..State::default()
++        };
++        assert!(!state.reserve(6));
++        assert_eq!(state.phase, Phase::Preparing);
++        assert!(state.reserve(7));
++        assert_eq!(state.phase, Phase::Committing);
++        assert!(!state.reserve(7));
++        state.activate();
++        assert!(!state.reserve(7));
++    }
++    #[test]
++    fn activation_cancels_before_close_and_preserves_an_in_progress_restore() {
++        for phase in [Phase::Waiting, Phase::Preparing, Phase::Committing] {
++            let mut state = State {
++                phase,
++                generation: 7,
++                inactive: Some(Instant::now()),
++                ..State::default()
++            };
++            assert!(!state.activate());
++            assert_eq!(state.phase, Phase::Idle);
++            assert_eq!(state.generation, 8);
++            assert!(state.inactive.is_none());
++        }
++        let mut state = State {
++            phase: Phase::Replacing,
++            generation: 7,
++            snapshot: Some(json!({"draft":"retain"})),
++            ..State::default()
++        };
++        assert!(state.activate());
++        assert_eq!(state.phase, Phase::Replacing);
++        assert_eq!(state.generation, 7);
++        assert_eq!(state.snapshot.as_ref().unwrap()["draft"], "retain");
++        state.phase = Phase::Failed;
++        assert!(state.activate());
++        assert_eq!(state.phase, Phase::Failed);
++        assert_eq!(state.snapshot.as_ref().unwrap()["draft"], "retain");
++    }
++    #[test]
+     fn running_queries_and_unused_approval_receipts_block_recycling() {
+         let dir = tempfile::tempdir().unwrap();
+-        let host = Host::new(storage::Paths {config:dir.path().into(), data:dir.path().into(), log:dir.path().into()});
+-        let installer=driver_install::Installer::default();
+-        assert!(!busy(&host,&installer));
+-        let run=host.run("session","query").unwrap();
+-        assert!(busy(&host,&installer)); drop(run);
+-        assert!(!busy(&host,&installer));
++        let host = Host::new(storage::Paths {
++            config: dir.path().into(),
++            data: dir.path().into(),
++            log: dir.path().into(),
++        });
++        let installer = driver_install::Installer::default();
++        assert!(!busy(&host, &installer));
++        let run = host.run("session", "query").unwrap();
++        assert!(busy(&host, &installer));
++        drop(run);
++        assert!(!busy(&host, &installer));
+         for approvals in [&host.approvals, &host.previews] {
+-            approvals.lock().unwrap().insert("receipt".into(), crate::permissions::Approval {fingerprint:"fixture".into(),created:Instant::now()});
+-            assert!(busy(&host,&installer)); approvals.lock().unwrap().clear();
++            approvals.lock().unwrap().insert(
++                "receipt".into(),
++                crate::permissions::Approval {
++                    fingerprint: "fixture".into(),
++                    created: Instant::now(),
++                },
++            );
++            assert!(busy(&host, &installer));
++            approvals.lock().unwrap().clear();
+         }
+     }
+     #[test]
+     fn idle_policy_requires_large_result_setting_and_full_two_minutes() {
+         let at = Instant::now();
+-        let mut state = State { enabled:true, large:true, phase:Phase::Waiting, inactive:Some(at), ..State::default() };
++        let mut state = State {
++            enabled: true,
++            large: true,
++            phase: Phase::Waiting,
++            inactive: Some(at),
++            ..State::default()
++        };
+         assert!(!eligible(&state, at + IDLE - Duration::from_millis(1)));
+         assert!(eligible(&state, at + IDLE));
+-        for phase in [Phase::Idle, Phase::Preparing, Phase::Replacing] { state.phase=phase; assert!(!eligible(&state,at+IDLE)); }
+-        state.phase=Phase::Waiting; state.large=false; assert!(!eligible(&state,at+IDLE));
+-        state.large=true; state.enabled=false; assert!(!eligible(&state,at+IDLE));
++        for phase in [
++            Phase::Idle,
++            Phase::Preparing,
++            Phase::Committing,
++            Phase::Replacing,
++            Phase::Failed,
++        ] {
++            state.phase = phase;
++            assert!(!eligible(&state, at + IDLE));
++        }
++        state.phase = Phase::Waiting;
++        state.large = false;
++        assert!(!eligible(&state, at + IDLE));
++        state.large = true;
++        state.enabled = false;
++        assert!(!eligible(&state, at + IDLE));
+         assert!(!enabled(&json!({})));
+     }
+ }
+--- a/src-tauri/src/agent_bridge.rs
++++ b/src-tauri/src/agent_bridge.rs
+@@ -330,6 +330,9 @@
+         "tools/list" | "tools/call" => {
+             let _permit = match shared.permits.try_acquire() { Ok(p)=>p,Err(_)=>return Json(json!({"jsonrpc":"2.0","id":id,"result":{"error":{"kind":"Busy","message":"Too many pending agent requests"}}})).into_response() };
+             if shared.recycling.load(Ordering::SeqCst) {
++                if method == "tools/list" {
++                    return Json(json!({"jsonrpc":"2.0","id":id,"error":{"code":-32000,"message":"Workbench is restoring; retry this request","data":{"retryable":true}}})).into_response();
++                }
+                 let error = json!({"error":{"kind":"Busy","message":"Workbench is restoring; retry this request","retryable":true}});
+                 let result = if method == "tools/call" { json!({"content":[{"type":"text","text":error.to_string()}],"structuredContent":error,"isError":true}) } else { error };
+                 return Json(json!({"jsonrpc":"2.0","id":id,"result":result})).into_response();
+@@ -466,6 +469,8 @@
+         shared.recycling.store(true, Ordering::SeqCst);
+         let paused = request(address, auth, r#"{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"run_query"}}"#).await;
+         assert!(paused.contains("retryable") && paused.contains("Busy") && paused.contains("structuredContent"));
++        let listing = request(address, auth, r#"{"jsonrpc":"2.0","id":8,"method":"tools/list"}"#).await;
++        assert!(listing.contains("\"code\":-32000") && listing.contains("retryable") && !listing.contains("\"result\":"));
+         assert!(requests.try_recv().is_err(), "A paused request must never be forwarded or executed");
+         shared.recycling.store(false, Ordering::SeqCst);
+         let response = request(address, auth, payload).await;
+--- a/ui/src/App.tsx
++++ b/ui/src/App.tsx
+@@ -113,7 +113,7 @@
+   function report(e: unknown, profileId?: string) { const normalized = normalizeError(e); if (normalized.kind === 'Connection') { setError(normalized); errorProfile.current = profileId ?? null; } else notify(normalized.message, "error"); if (normalized.kind === 'Connection' && profileId) setDead(previous => new Set([...previous, profileId])); }
+   function reportInTab(e: unknown, profileId: string) { if (normalizeError(e).kind === 'Connection') report(e, profileId); }
+   const recycle = useIdleRecycle((): WorkspaceSnapshot | null => {
+-    if (!loaded || axPage || driversOpen || settingsOpen || assistantMounted || commandOpen || connectPrompt || historyDelete || deletePending || error || tabs.some(tab => tab.kind !== 'query' || tab.runId || tab.dirty || tabResults[tab.id]) || document.querySelector('[role="dialog"], [aria-busy="true"], .change-preview, .ax-plan')) return null;
++    if (!loaded || updater.phase !== 'ready' || updater.saving || axPage || driversOpen || settingsOpen || assistantMounted || commandOpen || connectPrompt || historyDelete || deletePending || error || tabs.some(tab => tab.kind !== 'query' || tab.runId || tab.dirty || tabResults[tab.id]) || document.querySelector('[role="dialog"], [aria-busy="true"], .change-preview, .ax-query-plan')) return null;
+     const sidebar=sidebarSnapshot.current(); if(!sidebar)return null;
+     return { sidebar, sessions:sessionsRef.current, serverInfo, dead:[...dead], tabs:tabsRef.current.map(tab=>({...tab,text:handles.current.get(tab.id)?.text()??tab.text,draft:drafts.current.get(tab.id)})), active:activeRef.current, sidebarOpen, sidebarWidth, historyOpen, graphLimit, theme };
+   }, loaded, report);
+--- a/ui/src/recycle.ts
++++ b/ui/src/recycle.ts
+@@ -21,10 +21,11 @@
+       if (!alive) return;
+       const value = activeRequests === 0 ? latest.current() : null;
+       freezeRequests(true);
++      const wasInert = document.documentElement.inert;
+       document.documentElement.inert = true;
+       try { await invoke('recycle_commit', { generation: event.payload, snapshot: value }); }
+       catch (error) { report(error); }
+-      finally { freezeRequests(false); document.documentElement.inert = false; }
++      finally { freezeRequests(false); document.documentElement.inert = wasInert; }
+     });
+     void subscription.then(() => invoke('recycle_ready')).catch(report);
+     return () => { alive = false; void subscription.then(unlisten => unlisten()); };

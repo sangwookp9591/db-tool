@@ -1,0 +1,12 @@
+{
+  "new_links_passed": true,
+  "new_source_whitespace_passed": true,
+  "preexisting_missing_links": [
+    [
+      "docs/RESOURCE_OPT.md",
+      "../bench/results-m4-bridge-v4.json"
+    ]
+  ],
+  "git_diff_check_exit": 0,
+  "patch_apply_checks": "see source reconstruction receipts; diff context whitespace retained"
+}

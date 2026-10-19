@@ -374,6 +374,7 @@ dependencies = [
  "mimalloc",
  "mongodb",
  "native-tls",
+ "objc2-foundation",
  "percent-encoding",
  "redis",
  "reqwest",

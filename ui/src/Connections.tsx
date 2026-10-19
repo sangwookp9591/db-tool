@@ -3,7 +3,7 @@ import { lazy, Suspense } from 'preact/compat';
 const ProfileForm = lazy(() => import('./ProfileForm').then(m => ({ default: m.ProfileForm })));
 import { DriverRequired, openDrivers } from './drivers/DriverRequired';
 import './sidebar.css';
-import { loadSidebarPreferences, sidebarRatio, SIDEBAR_STORAGE_KEY } from './sidebar';
+import { loadSidebarPreferences, sidebarRatio, SIDEBAR_STORAGE_KEY, type SidebarPreferences } from './sidebar';
 import { Button } from './ui/Button';
 import { SpotlightCard } from './ui/SpotlightCard';
 import { FuseButton } from './ui/FuseButton';
@@ -13,7 +13,9 @@ import type { DriverManifest, Profile, ExplorerNode, NodeAction } from './contra
 import { api, isMock } from './api';
 import { Skeleton } from './ui/Skeleton';
 import { BranchGroup, BranchItem, reachIndex, reachState, toggleOpen, treeKey } from './ui/BranchedMenu';
-interface Props { editRequest?: {id:string;sequence:number} | null; onNodes?: (profileId: string, nodes: ExplorerNode[]) => void; addRequest?: number; drivers: DriverManifest[]; profiles: Profile[]; sessions: Record<string, string>; dead: Set<string>; onProfiles: () => Promise<void>; onConnect: (profile: Profile, secret?: string | null) => Promise<void>; onDisconnect: (profile: Profile) => Promise<void>; onQuery: (profile: Profile, text?: string) => void; onAction: (profile: Profile, node: ExplorerNode, action: NodeAction) => void; onError: (error: unknown, profileId?: string) => void }
+interface ExplorerState { sessionId: string; children: Record<string, ExplorerNode[]>; open: string[]; filter: string; active: string; limits: Record<string,number> }
+export interface ConnectionsState { view: SidebarPreferences; search: string; focusId: string | null; explorers: Record<string,ExplorerState> }
+interface Props { initialState?: ConnectionsState; onSnapshot?: (snapshot: () => ConnectionsState | null) => void; editRequest?: {id:string;sequence:number} | null; onNodes?: (profileId: string, nodes: ExplorerNode[]) => void; addRequest?: number; drivers: DriverManifest[]; profiles: Profile[]; sessions: Record<string, string>; dead: Set<string>; onProfiles: () => Promise<void>; onConnect: (profile: Profile, secret?: string | null) => Promise<void>; onDisconnect: (profile: Profile) => Promise<void>; onQuery: (profile: Profile, text?: string) => void; onAction: (profile: Profile, node: ExplorerNode, action: NodeAction) => void; onError: (error: unknown, profileId?: string) => void }
 export function Connections(props: Props) {
   const [view, setView] = useState(loadSidebarPreferences);
   const panels = useRef<HTMLDivElement>(null);
@@ -27,6 +29,19 @@ export function Connections(props: Props) {
   const [notice, setNotice] = useState('');
   const [search, setSearch] = useState('');
   const [focusId, setFocusId] = useState<string | null>(null);
+  const explorers = useRef(new Map<string, () => ExplorerState | null>());
+  useEffect(() => { if (props.initialState) { setView(props.initialState.view); setSearch(props.initialState.search); setFocusId(props.initialState.focusId); } }, [props.initialState]);
+  useEffect(() => { props.onSnapshot?.(() => {
+    if (pendingDelete || editing || busy) return null;
+    const snapshots: Record<string,ExplorerState> = {};
+    for (const [id,session] of Object.entries(props.sessions)) {
+      if (props.dead.has(id)) continue;
+      const saved=explorers.current.get(id)?.();
+      if (!saved || saved.sessionId!==session) return null;
+      snapshots[id]=saved;
+    }
+    return {view, search, focusId, explorers:snapshots};
+  }); }, [view, search, focusId, pendingDelete, editing, busy, props.sessions, props.dead]);
   const isLive = (id: string) => !!props.sessions[id] && !props.dead.has(id);
   // Only one connection's explorer is shown at a time; the rest collapse to their card.
   const activeId = focusId && isLive(focusId) ? focusId : props.profiles.find(profile => isLive(profile.id))?.id;
@@ -69,7 +84,7 @@ export function Connections(props: Props) {
     {props.profiles.map(profile => {
       const manifest = props.drivers.find(d => d.id === profile.driver_id);
       if (!manifest || !isLive(profile.id)) return null;
-      return <div class="explorer-region" key={profile.id} hidden={profile.id !== activeId}><Button morph={false} class="new-query" onClick={() => props.onQuery(profile)}><Plus />쿼리 · {manifest.query_language.display}</Button><Explorer onNodes={nodes => props.onNodes?.(profile.id, nodes)} sessionId={props.sessions[profile.id]} manifest={manifest} onAction={(node, action) => props.onAction(profile, node, action)} onError={e => props.onError(e, profile.id)} /></div>;
+      return <div class="explorer-region" key={profile.id} hidden={profile.id !== activeId}><Button morph={false} class="new-query" onClick={() => props.onQuery(profile)}><Plus />쿼리 · {manifest.query_language.display}</Button><Explorer initialState={props.initialState?.explorers[profile.id]} onSnapshot={snapshot=>explorers.current.set(profile.id,snapshot)} onNodes={nodes => props.onNodes?.(profile.id, nodes)} sessionId={props.sessions[profile.id]} manifest={manifest} onAction={(node, action) => props.onAction(profile, node, action)} onError={e => props.onError(e, profile.id)} /></div>;
     })}
     {!activeId && <p class="sidebar-explorer-empty">연결하면 탐색 항목이 표시됩니다.</p>}
     </div></section></div>
@@ -79,7 +94,7 @@ export function Connections(props: Props) {
   </aside>;
 }
 const GROUP_PAGE = 300;
-function Explorer({ sessionId, manifest, onAction, onError, onNodes }: { onNodes?: (nodes: ExplorerNode[]) => void; sessionId: string; manifest: DriverManifest; onAction: (node: ExplorerNode, action: NodeAction) => void; onError: (error: unknown) => void }) {
+function Explorer({ sessionId, manifest, onAction, onError, onNodes, initialState, onSnapshot }: { initialState?: ExplorerState; onSnapshot?: (snapshot: () => ExplorerState | null) => void; onNodes?: (nodes: ExplorerNode[]) => void; sessionId: string; manifest: DriverManifest; onAction: (node: ExplorerNode, action: NodeAction) => void; onError: (error: unknown) => void }) {
   const [children, setChildren] = useState<Record<string, ExplorerNode[]>>({});
   useEffect(() => { onNodes?.(Object.values(children).flat()); }, [children]);
   const [open, setOpen] = useState<Set<string>>(new Set());
@@ -91,7 +106,13 @@ function Explorer({ sessionId, manifest, onAction, onError, onNodes }: { onNodes
   const [menu, setMenu] = useState<{ node: ExplorerNode; x: number; y: number } | null>(null);
   const [version, setVersion] = useState(0);
   const tree = useRef<HTMLDivElement>(null);
+  const restored = useRef(false);
+  useEffect(() => { onSnapshot?.(() => loading.size || menu ? null : ({sessionId, children, open:[...open], filter, active, limits})); }, [sessionId, children, open, filter, active, limits, loading, menu]);
   useEffect(() => {
+    if (!restored.current && initialState?.sessionId === sessionId) {
+      restored.current=true; setChildren(initialState.children); setOpen(new Set(initialState.open)); setFilter(initialState.filter); setActive(initialState.active); setLimits(initialState.limits);
+      return;
+    }
     let current = true; setChildren({}); setOpen(new Set()); setActive(''); setLimits({}); setLoading(new Set(['$root']));
     void api('explorer_children', { sessionId, parent: null }).then(nodes => { if (current) setChildren({ $root: nodes }); }).catch(error => { if (current) onError(error); }).finally(() => { if (current) setLoading(new Set()); });
     return () => { current = false; };

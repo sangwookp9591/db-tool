@@ -1,0 +1,68 @@
+ M Cargo.lock
+ M docs/RESOURCE_OPT.md
+ M src-tauri/Cargo.toml
+ M src-tauri/src/agent_bridge.rs
+ M src-tauri/src/agent_results_e2e.rs
+ M src-tauri/src/driver_install.rs
+ M src-tauri/src/lib.rs
+ M ui/src/App.tsx
+ M ui/src/Connections.tsx
+ M ui/src/NavigationTab.tsx
+ M ui/src/QueryTab.tsx
+ M ui/src/api.test.ts
+ M ui/src/api.ts
+?? bench/m5-after-measurement.patch
+?? bench/m5-probe-measured.patch
+?? bench/m5-probe.patch
+?? bench/m5-product-measured.patch
+?? bench/m5-product.patch
+?? bench/m5_e2e.py
+?? bench/m5_memory.py
+?? bench/m5_summary.py
+?? bench/m5_validate.py
+?? bench/results-m5-before-lock-clippy.txt
+?? bench/results-m5-before-lock-rust.txt
+?? bench/results-m5-before-lock-tsc.txt
+?? bench/results-m5-before-lock-ui.txt
+?? bench/results-m5-before-lock-validation.json
+?? bench/results-m5-clippy-final.txt
+?? bench/results-m5-clippy.txt
+?? bench/results-m5-diagnostic-noactivity.json
+?? bench/results-m5-document-checks.json
+?? bench/results-m5-e2e-bridge.txt
+?? bench/results-m5-e2e.json
+?? bench/results-m5-final-artifacts.json
+?? bench/results-m5-final-build-v4.txt
+?? bench/results-m5-final-cleanup.json
+?? bench/results-m5-final-repro-check.json
+?? bench/results-m5-first-diagnostic.json
+?? bench/results-m5-fixture-cleanup.json
+?? bench/results-m5-focused-validation.json
+?? bench/results-m5-host-final.txt
+?? bench/results-m5-measured-artifacts.json
+?? bench/results-m5-paired-combined.json
+?? bench/results-m5-paired-extra.json
+?? bench/results-m5-paired-five-v2.json
+?? bench/results-m5-paired-five.json
+?? bench/results-m5-paired-summary.json
+?? bench/results-m5-permissions-e2e.txt
+?? bench/results-m5-policy-clippy-final.txt
+?? bench/results-m5-policy-final-validation.json
+?? bench/results-m5-policy-final.txt
+?? bench/results-m5-preview-e2e.txt
+?? bench/results-m5-probe-tsc-final.txt
+?? bench/results-m5-product-pilot.json
+?? bench/results-m5-quick-activity-v3.json
+?? bench/results-m5-quick-noactivity-v2.json
+?? bench/results-m5-quick-noactivity-v3.json
+?? bench/results-m5-repro-check.json
+?? bench/results-m5-rust.txt
+?? bench/results-m5-tsc-final.txt
+?? bench/results-m5-tsc.txt
+?? bench/results-m5-ui-final.txt
+?? bench/results-m5-ui.txt
+?? bench/results-m5-validation.json
+?? docs/M5_REPORT.md
+?? docs/M5_WEBVIEW_RECYCLE.md
+?? src-tauri/src/recycle.rs
+?? ui/src/recycle.ts

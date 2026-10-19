@@ -1,0 +1,61 @@
+[
+  {
+    "name": "host-final",
+    "command": [
+      "cargo",
+      "test",
+      "-p",
+      "axdb",
+      "--lib"
+    ],
+    "cwd": "/Users/iron/Project/psw/db-tool/target-m5/source",
+    "exit": 0,
+    "seconds": 26.891436083009467,
+    "log": "bench/results-m5-host-final.txt"
+  },
+  {
+    "name": "clippy-final",
+    "command": [
+      "cargo",
+      "clippy",
+      "-p",
+      "axdb",
+      "--all-targets",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "cwd": "/Users/iron/Project/psw/db-tool/target-m5/source",
+    "exit": 0,
+    "seconds": 13.088891124993097,
+    "log": "bench/results-m5-clippy-final.txt"
+  },
+  {
+    "name": "tsc-final",
+    "command": [
+      "pnpm",
+      "--dir",
+      "ui",
+      "exec",
+      "tsc",
+      "--noEmit"
+    ],
+    "cwd": "/Users/iron/Project/psw/db-tool",
+    "exit": 0,
+    "seconds": 1.0044902079971507,
+    "log": "bench/results-m5-tsc-final.txt"
+  },
+  {
+    "name": "ui-final",
+    "command": [
+      "pnpm",
+      "--dir",
+      "ui",
+      "test"
+    ],
+    "cwd": "/Users/iron/Project/psw/db-tool",
+    "exit": 0,
+    "seconds": 25.580355874990346,
+    "log": "bench/results-m5-ui-final.txt"
+  }
+]

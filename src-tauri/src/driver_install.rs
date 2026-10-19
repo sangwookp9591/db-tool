@@ -113,6 +113,9 @@ pub struct Installer {
     active: Mutex<Option<CancelToken>>,
     validated: Mutex<Option<ValidatedCatalog>>,
 }
+impl Installer {
+    pub(crate) fn idle(&self) -> bool { self.operation.try_lock().is_ok() }
+}
 impl Default for Installer {
     fn default() -> Self {
         Self {
