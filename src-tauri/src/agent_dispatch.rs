@@ -440,13 +440,12 @@ pub(crate) fn limit_result(host: &Host, client: &AgentClient, tool: &str, args: 
     if result.get("results").is_some() && args["session_id"].as_str().is_some_and(|s|host.session(s).is_err()) { return permissions::error("NotFound"); }
     bound(&mut result, client.max_rows.clamp(1,1000) as usize);
     let mut limited = crate::agent_bridge::results::project(&result, 0, client.max_result_rows.clamp(1,1000) as usize, client.max_result_bytes.clamp(8192,1024*1024));
-    if limited["truncated"] == true {
-        if let (Some(session), Some(profile)) = (args["session_id"].as_str(), profile) {
+    if limited["truncated"] == true
+        && let (Some(session), Some(profile)) = (args["session_id"].as_str(), profile) {
             let handle = host.agent_results.insert(&client.id, &client.token_hash, session, profile, std::mem::take(&mut result));
-            limited["result_id"] = json!(handle);
+        limited["result_id"] = json!(handle);
             if handle.is_none() { limited["result_handle_unavailable"] = json!("cache_size_limit"); }
         }
-    }
     if let Err(e) = permissions::audit_result(host, client, tool, profile, "returned", None, Some(limited["truncated"].as_bool().unwrap_or(false))) { return json!({"error":e}); }
     limited
 }
@@ -575,13 +574,13 @@ pub fn bound(value: &mut Value, limit: usize) {
             Value::Object(object) => {
                 let mut truncated = false;
                 for key in ["table", "before", "after"] {
-                    if let Some(table) = object.get_mut(key) {
-                        if let Some(items) = table.get_mut("rows").and_then(Value::as_array_mut) {
-                            let before = items.len();
-                            items.truncate(*rows);
-                            *rows = rows.saturating_sub(items.len());
-                            truncated |= before > items.len();
-                        }
+                    if let Some(table) = object.get_mut(key)
+                        && let Some(items) = table.get_mut("rows").and_then(Value::as_array_mut)
+                    {
+                        let before = items.len();
+                        items.truncate(*rows);
+                        *rows = rows.saturating_sub(items.len());
+                        truncated |= before > items.len();
                     }
                 }
                 if let Some(items) = object.get_mut("documents").and_then(Value::as_array_mut) {

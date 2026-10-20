@@ -106,17 +106,15 @@ fn schema_definition(sql: &str) -> Result<String, DbError> {
         if depth == 0
             && matches!(&token.token,Token::Word(w) if w.quote_style.is_none()&&w.value.eq_ignore_ascii_case("AUTO_INCREMENT"))
             && tokens.get(i + 1).is_some_and(|t| t.token == Token::Eq)
-        {
-            if let Some(value) = tokens.get(i + 2).filter(
+            && let Some(value) = tokens.get(i + 2).filter(
                 |t| matches!(&t.token,Token::Number(n,_) if n.bytes().all(|b|b.is_ascii_digit())),
             ) {
-                let mut start = offset(token.span.start);
-                let end = offset(value.span.end);
-                if start > 0 && sql.as_bytes()[start - 1] == b' ' {
-                    start -= 1;
-                }
-                return Ok(format!("{}{}", &sql[..start], &sql[end..]));
+            let mut start = offset(token.span.start);
+            let end = offset(value.span.end);
+            if start > 0 && sql.as_bytes()[start - 1] == b' ' {
+                start -= 1;
             }
+            return Ok(format!("{}{}", &sql[..start], &sql[end..]));
         }
     }
     Ok(sql.into())

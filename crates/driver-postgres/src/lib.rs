@@ -156,23 +156,23 @@ impl Driver for PostgresDriver {
         // libpq require encrypts without verification unless an explicit CA is supplied.
         connector.danger_accept_invalid_certs(!verify);
         connector.danger_accept_invalid_hostnames(mode != "verify-full");
-        if mode != "disable" {
-            if let Some(root) = root {
-                let pem = tokio::fs::read(root)
-                    .await
-                    .map_err(|_| DbError::new(ErrorKind::Connection, "Cannot read TLS CA file"))?;
-                let certificates = native_tls::Certificate::stack_from_pem(&pem)
-                    .map_err(|_| DbError::new(ErrorKind::Connection, "Invalid TLS CA PEM file"))?;
-                if certificates.is_empty() {
-                    return Err(DbError::new(
-                        ErrorKind::Connection,
-                        "TLS CA file contains no certificates",
-                    ));
-                }
-                connector.disable_built_in_roots(true);
-                for certificate in certificates {
-                    connector.add_root_certificate(certificate);
-                }
+        if mode != "disable"
+            && let Some(root) = root
+        {
+            let pem = tokio::fs::read(root)
+                .await
+                .map_err(|_| DbError::new(ErrorKind::Connection, "Cannot read TLS CA file"))?;
+            let certificates = native_tls::Certificate::stack_from_pem(&pem)
+                .map_err(|_| DbError::new(ErrorKind::Connection, "Invalid TLS CA PEM file"))?;
+            if certificates.is_empty() {
+                return Err(DbError::new(
+                    ErrorKind::Connection,
+                    "TLS CA file contains no certificates",
+                ));
+            }
+            connector.disable_built_in_roots(true);
+            for certificate in certificates {
+                connector.add_root_certificate(certificate);
             }
         }
         let tls = MakeTlsConnector::new(
@@ -459,10 +459,10 @@ impl PgSession {
         pin_mut!(stream);
         let mut rows = Vec::new();
         while let Some(message) = stream.next().await {
-            if let SimpleQueryMessage::Row(row) = message.map_err(|e| self.error(e))? {
-                if rows.len() <= limit {
-                    rows.push(row);
-                }
+            if let SimpleQueryMessage::Row(row) = message.map_err(|e| self.error(e))?
+                && rows.len() <= limit
+            {
+                rows.push(row);
             }
         }
         Ok(rows)
@@ -668,9 +668,18 @@ impl Session for PgSession {
         let Some(Value::Json(raw)) = raw else { return Err(DbError::query("Missing JSON explain plan")); };
         let raw: serde_json::Value = serde_json::from_str(raw).map_err(|_| DbError::query("Invalid JSON explain plan"))?;
         let mut plan = PlanTree::postgres(&raw[0]["Plan"]);
-        fn scans(raw: &serde_json::Value, out: &mut Vec<(String,String)>) {
-            if raw["Node Type"] == "Seq Scan" { if let (Some(schema),Some(table))=(raw["Schema"].as_str(),raw["Relation Name"].as_str()) { out.push((schema.into(),table.into())); } }
-            if let Some(children)=raw["Plans"].as_array() { for c in children { scans(c,out); } }
+        fn scans(raw: &serde_json::Value, out: &mut Vec<(String, String)>) {
+            if raw["Node Type"] == "Seq Scan"
+                && let (Some(schema), Some(table)) =
+                    (raw["Schema"].as_str(), raw["Relation Name"].as_str())
+            {
+                out.push((schema.into(), table.into()));
+            }
+            if let Some(children) = raw["Plans"].as_array() {
+                for c in children {
+                    scans(c, out);
+                }
+            }
         }
         let mut tables=vec![]; scans(&raw[0]["Plan"],&mut tables);
         for (schema,table) in tables {

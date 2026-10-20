@@ -65,9 +65,8 @@ impl NeoSession {
         for r in rels {
             let Value::Map(props)=r else {continue;};
             let get=|key:&str| props.iter().find(|(k,_)|k==key).and_then(|(_,v)|text(v));
-            if let (Some(id),Some(name),Some(from),Some(to))=(get("id"),get("name"),get("start").and_then(|s|labels.get(s)),get("end").and_then(|s|labels.get(s))) {
-                if scope.is_none()||graph.entities.iter().any(|e| &e.id==from||&e.id==to) {graph.relations.push(SchemaRelation {id:id.into(),name:name.into(),from:from.clone(),to:to.clone(),from_fields:vec![],to_fields:vec![],kind:name.into()});}
-            }
+            if let (Some(id),Some(name),Some(from),Some(to))=(get("id"),get("name"),get("start").and_then(|s|labels.get(s)),get("end").and_then(|s|labels.get(s)))
+                && (scope.is_none()||graph.entities.iter().any(|e| &e.id==from||&e.id==to)) {graph.relations.push(SchemaRelation {id:id.into(),name:name.into(),from:from.clone(),to:to.clone(),from_fields:vec![],to_fields:vec![],kind:name.into()});}
         }
         let props=self.internal("CALL db.schema.nodeTypeProperties() YIELD nodeLabels,propertyName,propertyTypes,mandatory RETURN nodeLabels,propertyName,propertyTypes,mandatory".into(),Default::default()).await?;
         if let Some(t)=props.table {for row in &t.rows {
@@ -142,15 +141,15 @@ impl NeoSession {
             Ok(result) => {
                 if let Some(table) = result.table {
                     for row in &table.rows {
-                        if let Some(name) = cell(&table, row, "propertyName").and_then(text) {
-                            if let Some(Value::List(types)) = cell(&table, row, "propertyTypes") {
-                                for typ in types {
-                                    if let Some(typ) = text(typ) {
-                                        properties
-                                            .entry(name.into())
-                                            .or_default()
-                                            .insert(typ.into());
-                                    }
+                        if let Some(name) = cell(&table, row, "propertyName").and_then(text)
+                            && let Some(Value::List(types)) = cell(&table, row, "propertyTypes")
+                        {
+                            for typ in types {
+                                if let Some(typ) = text(typ) {
+                                    properties
+                                        .entry(name.into())
+                                        .or_default()
+                                        .insert(typ.into());
                                 }
                             }
                         }

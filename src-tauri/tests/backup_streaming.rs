@@ -47,10 +47,10 @@ impl ProgressSink for Progress {
             values.push(n);
         }
         drop(values);
-        if n > 1024 * 1024 {
-            if let Some(cancel) = &self.cancel {
-                cancel.cancel();
-            }
+        if n > 1024 * 1024
+            && let Some(cancel) = &self.cancel
+        {
+            cancel.cancel();
         }
         Ok(())
     }

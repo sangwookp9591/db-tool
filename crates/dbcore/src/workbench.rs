@@ -165,19 +165,19 @@ pub fn quote_identifier(s: &str) -> String {
 fn drop_sql(object: &SchemaObject) -> Result<String, DbError> {
     if object.kind == "constraint" {
         let tokens = crate::preview::tokens(&object.definition)?;
-        if tokens.len() > 5 && tokens[0].is("ALTER") && tokens[1].is("TABLE") {
-            if let Some(i) = tokens
+        if tokens.len() > 5
+            && tokens[0].is("ALTER")
+            && tokens[1].is("TABLE")
+            && let Some(i) = tokens
                 .windows(2)
                 .position(|t| t[0].is("ADD") && t[1].is("CONSTRAINT"))
-            {
-                if let Some(name) = tokens.get(i + 2) {
-                    return Ok(format!(
-                        "{}DROP CONSTRAINT {}",
-                        &object.definition[..tokens[i].start],
-                        name.text
-                    ));
-                }
-            }
+            && let Some(name) = tokens.get(i + 2)
+        {
+            return Ok(format!(
+                "{}DROP CONSTRAINT {}",
+                &object.definition[..tokens[i].start],
+                name.text
+            ));
         }
         return Err(DbError::query("Invalid constraint definition"));
     }

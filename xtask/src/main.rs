@@ -183,7 +183,7 @@ fn package_drivers(args: &[String]) -> Result<()> {
                         target_relative.display()
                     ))
                     .args([
-                        "rust:1.94",
+                        "rust:1.99.1",
                         "cargo",
                         "build",
                         "--release",

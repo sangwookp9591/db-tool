@@ -90,16 +90,16 @@ pub fn focus(app: &tauri::AppHandle, focused: bool) {
                 state.activity = Some(activity());
             }
             let mut restored = false;
-            if let Some(window) = app.get_window("main") {
-                if let Ok(size) = window.inner_size() {
-                    let config = app.config().app.windows[0].clone();
-                    let result = window.add_child(
-                        tauri::webview::WebviewBuilder::from_config(&config).auto_resize(),
-                        tauri::PhysicalPosition::new(0, 0),
-                        size,
-                    );
-                    restored = result.is_ok();
-                }
+            if let Some(window) = app.get_window("main")
+                && let Ok(size) = window.inner_size()
+            {
+                let config = app.config().app.windows[0].clone();
+                let result = window.add_child(
+                    tauri::webview::WebviewBuilder::from_config(&config).auto_resize(),
+                    tauri::PhysicalPosition::new(0, 0),
+                    size,
+                );
+                restored = result.is_ok();
             }
             if !restored {
                 recycler.0.lock().unwrap().phase = Phase::Failed;

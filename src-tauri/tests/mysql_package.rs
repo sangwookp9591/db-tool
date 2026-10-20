@@ -137,7 +137,7 @@ async fn measure(session: &dyn Session, request: &ExecRequest) -> serde_json::Va
 #[tokio::test]
 #[ignore = "manual MySQL 100k measurement after R2 quiet window; requires both test flags"]
 async fn mysql_100k_plugin_measurement() {
-    extern "C" {
+    unsafe extern "C" {
         fn mi_option_set(option: std::ffi::c_int, value: std::ffi::c_long);
     }
     // Match the app and SDK's immediate purge policy before paired measurements.

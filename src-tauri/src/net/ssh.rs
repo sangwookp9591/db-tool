@@ -78,15 +78,15 @@ fn known(path: &Path, host: &str, key: &str) -> Result<bool, DbError> {
         Err(_) => return Err(error("SSH_KNOWN_HOSTS_UNREADABLE")),
     };
     for line in text.lines() {
-        if let Some((h, k)) = line.split_once(' ') {
-            if h == host {
-                let mut saved = k.split_whitespace();
-                let mut supplied = key.split_whitespace();
-                if saved.next() == supplied.next() && saved.next() == supplied.next() {
-                    return Ok(true);
-                }
-                return Err(error("SSH_HOST_KEY_CHANGED"));
+        if let Some((h, k)) = line.split_once(' ')
+            && h == host
+        {
+            let mut saved = k.split_whitespace();
+            let mut supplied = key.split_whitespace();
+            if saved.next() == supplied.next() && saved.next() == supplied.next() {
+                return Ok(true);
             }
+            return Err(error("SSH_HOST_KEY_CHANGED"));
         }
     }
     Ok(false)

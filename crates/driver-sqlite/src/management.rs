@@ -9,7 +9,7 @@ impl SqliteSession {
             let mut stmt=c.prepare("SELECT name,type,sql FROM sqlite_master WHERE type IN ('table','view','index','trigger') AND name NOT LIKE 'sqlite_%' AND sql IS NOT NULL ORDER BY type,name").map_err(sql_error)?;
             let objects=stmt.query_map([],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,String>(2)?))).map_err(sql_error)?.collect::<Result<Vec<_>,_>>().map_err(sql_error)?;
             for (name,kind,definition) in objects {
-                let columns=if kind=="table"||kind=="view" {let mut s=c.prepare("SELECT name,type,\"notnull\",dflt_value FROM pragma_table_xinfo(?1) ORDER BY cid").map_err(sql_error)?;let rows=s.query_map([&name],|r|Ok(SnapshotColumn{name:r.get(0)?,type_name:r.get(1)?,nullable:r.get::<_,i64>(2)?==0,default:r.get(3)?})).map_err(sql_error)?.collect::<Result<Vec<_>,_>>().map_err(sql_error)?;rows}else{vec![]};
+                let columns=if kind=="table"||kind=="view" {let mut s=c.prepare("SELECT name,type,\"notnull\",dflt_value FROM pragma_table_xinfo(?1) ORDER BY cid").map_err(sql_error)?;s.query_map([&name],|r|Ok(SnapshotColumn{name:r.get(0)?,type_name:r.get(1)?,nullable:r.get::<_,i64>(2)?==0,default:r.get(3)?})).map_err(sql_error)?.collect::<Result<Vec<_>,_>>().map_err(sql_error)?}else{vec![]};
                 snapshot.objects.push(SchemaObject{namespace:String::new(),name,kind,definition,columns});
             }
             snapshot.normalize()?;Ok(snapshot)

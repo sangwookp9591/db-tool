@@ -28,22 +28,22 @@ pub fn registry(root: &Path) -> Registry {
         Vec::new()
     });
     #[cfg(debug_assertions)]
-    if let Some(dir) = std::env::var_os("AXDB_DRIVER_DIR") {
-        if let Ok(entries) = std::fs::read_dir(dir) {
-            let mut debug: Vec<std::path::PathBuf> = entries
-                .filter_map(Result::ok)
-                .map(|entry| entry.path())
-                .filter(|path| {
-                    path.is_file()
-                        && path.file_name().and_then(|s| s.to_str()).is_some_and(|s| {
+    if let Some(dir) = std::env::var_os("AXDB_DRIVER_DIR")
+        && let Ok(entries) = std::fs::read_dir(dir)
+    {
+        let mut debug: Vec<std::path::PathBuf> = entries
+            .filter_map(Result::ok)
+            .map(|entry| entry.path())
+            .filter(|path| {
+                path.is_file()
+                    && path.file_name().and_then(|s| s.to_str()).is_some_and(|s| {
                             s.starts_with("axdb-driver-")
                                 && (!s.contains('.') || s.ends_with(".exe"))
-                        })
-                })
-                .collect();
-            debug.sort();
-            executables.extend(debug);
-        }
+                    })
+            })
+            .collect();
+        debug.sort();
+        executables.extend(debug);
     }
     if executables.is_empty() {
         return registry;

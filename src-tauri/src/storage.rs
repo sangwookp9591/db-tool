@@ -71,10 +71,10 @@ impl Paths {
 pub fn strip_secrets(profile: &mut Profile, manifest: &DriverManifest) -> Option<String> {
     let mut secret = None;
     for field in manifest.connection_fields.iter().filter(|f| f.secret) {
-        if let Some(value) = profile.fields.remove(&field.key) {
-            if !value.is_empty() {
-                secret = Some(value);
-            }
+        if let Some(value) = profile.fields.remove(&field.key)
+            && !value.is_empty()
+        {
+            secret = Some(value);
         }
     }
     secret

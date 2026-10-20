@@ -160,18 +160,16 @@ pub(super) fn run(
                 }
                 let values = values.iter().map(value).collect::<Result<Vec<_>, _>>()?;
                 let mut statement = StatementPreview::new(sql.clone(), kind.clone());
-                if preview {
-                    if let Some(before) = before {
-                        statement.before = Some(
-                            table(
-                                conn,
-                                &before,
-                                &values,
-                                req.preview_sample_limit.min(1000) as usize,
-                            )?
-                            .0,
-                        );
-                    }
+                if preview && let Some(before) = before {
+                    statement.before = Some(
+                        table(
+                            conn,
+                            &before,
+                            &values,
+                            req.preview_sample_limit.min(1000) as usize,
+                        )?
+                        .0,
+                    );
                 }
                 let (after, _) = table(
                     conn,

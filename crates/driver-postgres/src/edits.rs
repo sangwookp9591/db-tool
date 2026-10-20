@@ -59,12 +59,12 @@ impl PgSession {
                     let convert=|output:Vec<tokio_postgres::Row>|->Result<Table,DbError>{
                         Ok(Table{columns:rows.iter().map(|r|Column{name:r.get(0),type_name:r.get(2)}).collect(),rows:output.into_iter().take(req.preview_sample_limit.min(1000) as usize).map(|r|rows.iter().enumerate().map(|(i,c)|map_value(&Type::from_oid(c.get(3)).unwrap_or(Type::TEXT),r.get(i))).collect()).collect::<Result<_,_>>()?})
                     };
-                    if preview {if let Some(before)=plan.before {
+                    if preview&& let Some(before)=plan.before {
                         let before=before.replacen("SELECT *",&format!("SELECT {select}"),1);
                         let types=plan.values.iter().map(|v|if matches!(v,Value::Bytes{..}){Type::BYTEA}else{Type::TEXT}).collect::<Vec<_>>();
                         let stmt=self.client.prepare_typed(&before,&types).await.map_err(|e|self.error(e))?;
                         statement.before=Some(convert(self.client.query(&stmt,&params).await.map_err(|e|self.error(e))?)?);
-                    }}
+                    }
                     let sql=format!("{} RETURNING {returning}",plan.sql);
                     let types=plan.values.iter().map(|v|if matches!(v,Value::Bytes{..}){Type::BYTEA}else{Type::TEXT}).collect::<Vec<_>>();
                     let stmt=self.client.prepare_typed(&sql,&types).await.map_err(|e|self.error(e))?;

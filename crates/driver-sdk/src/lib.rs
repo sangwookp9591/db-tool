@@ -3,7 +3,7 @@
 // immediately, so a driver process does not keep 100k-row peaks resident after the query.
 #[global_allocator]
 static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
-extern "C" {
+unsafe extern "C" {
     fn mi_option_set(option: std::ffi::c_int, value: std::ffi::c_long);
 }
 // mi_option_purge_delay in mimalloc v2 (libmimalloc-sys 0.1.49, pinned by mimalloc =0.1.52).
@@ -134,12 +134,12 @@ async fn write_message<W: AsyncWrite + Unpin>(writer: &mut W, message: Message) 
         match encode(&message) {
             Ok(bytes) => write_encoded_frame(writer, &bytes).await?,
             Err(error) => {
-                if let Message::Chunk { id, chunk } = message {
-                    if let Some((first, second)) = chunk.split() {
-                        pending.push(Message::Chunk { id, chunk: second });
-                        pending.push(Message::Chunk { id, chunk: first });
-                        continue;
-                    }
+                if let Message::Chunk { id, chunk } = message
+                    && let Some((first, second)) = chunk.split()
+                {
+                    pending.push(Message::Chunk { id, chunk: second });
+                    pending.push(Message::Chunk { id, chunk: first });
+                    continue;
                 }
                 return Err(error);
             }
@@ -442,7 +442,7 @@ mod tests {
         .await
         .unwrap();
         let mut input = bytes.as_slice();
-        for expected in [b'a', b'b'] {
+        for expected in *b"ab" {
             let Some(Message::Chunk {
                 chunk: ExecuteChunk::Rows { rows, .. },
                 ..

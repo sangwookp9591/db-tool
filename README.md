@@ -12,7 +12,7 @@
 
 <p align="center">
   <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white">
-  <img alt="Rust" src="https://img.shields.io/badge/Rust-1.94-B7410E?logo=rust&logoColor=white">
+  <img alt="Rust" src="https://img.shields.io/badge/Rust-1.99.1-B7410E?logo=rust&logoColor=white">
   <img alt="Preact" src="https://img.shields.io/badge/Preact-11-673AB8?logo=preact&logoColor=white">
   <img alt="MCP" src="https://img.shields.io/badge/MCP-scoped%20tokens-8B7BFF">
   <img alt="Tests" src="https://img.shields.io/badge/tests-157%20Rust%20%C2%B7%20113%20UI%20%C2%B7%2039%20E2E-34D399">
@@ -245,7 +245,7 @@ Windows 설치 파일에는 코드 서명이 없습니다. 처음 실행할 때 
 
 ## 개발
 
-필요한 도구는 Rust 1.94 이상, Node 22 이상, pnpm입니다.
+필요한 도구는 `rust-toolchain.toml`에 고정한 Rust 1.99.1, Node 22 이상, pnpm입니다. workspace는 Rust 2024 edition과 최소 Rust 1.99를 사용하며, rustup 전역 기본값은 바꾸지 않습니다.
 
 ### 빌드와 실행
 

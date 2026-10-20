@@ -87,7 +87,7 @@ pub fn map_value(value: &BoltType) -> Result<Value, DbError> {
             }
             let mut rels = Vec::new();
             let mut current = 0;
-            for pair in indices.chunks_exact(2) {
+            for pair in indices.as_chunks::<2>().0 {
                 let rel_index = pair[0].value;
                 let next = usize::try_from(pair[1].value).map_err(conversion)?;
                 let rel = raw_rels

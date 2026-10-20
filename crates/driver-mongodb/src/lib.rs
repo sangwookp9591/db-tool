@@ -332,10 +332,9 @@ impl MongoSession {
         if matches!(
             name.as_str(),
             "aggregate" | "listCollections" | "listIndexes"
-        ) {
-            if let Ok(cursor) = command.get_document_mut("cursor") {
-                cursor.insert("batchSize", batch);
-            }
+        ) && let Ok(cursor) = command.get_document_mut("cursor")
+        {
+            cursor.insert("batchSize", batch);
         }
         let db = self.db();
         let mut session = self
@@ -396,19 +395,19 @@ impl MongoSession {
             documents.truncate(limit);
             return Ok(document_result(documents, truncated));
         }
-        if let Ok(errors) = response.get_array("writeErrors") {
-            if let Some(Bson::Document(error)) = errors.first() {
-                return Err(DbError {
-                    kind: ErrorKind::Query,
-                    message: "MongoDB write failed".into(),
-                    detail: Some(format!(
-                        "code={} codeName={}",
-                        error.get_i32("code").unwrap_or(0),
-                        error.get_str("codeName").unwrap_or("WriteError")
-                    )),
-                    position: None,
-                });
-            }
+        if let Ok(errors) = response.get_array("writeErrors")
+            && let Some(Bson::Document(error)) = errors.first()
+        {
+            return Err(DbError {
+                kind: ErrorKind::Query,
+                message: "MongoDB write failed".into(),
+                detail: Some(format!(
+                    "code={} codeName={}",
+                    error.get_i32("code").unwrap_or(0),
+                    error.get_str("codeName").unwrap_or("WriteError")
+                )),
+                position: None,
+            });
         }
         if response.contains_key("writeConcernError") {
             return Err(DbError::query(
@@ -877,13 +876,13 @@ fn check_pipeline(pipeline: &[Bson]) -> Result<(), DbError> {
                     )?;
                 }
             }
-            if matches!(name.as_str(), "$lookup" | "$unionWith") {
-                if let Some(v) = doc.get("pipeline") {
-                    check_pipeline(
-                        v.as_array()
-                            .ok_or_else(|| DbError::query("Nested pipeline must be an array"))?,
-                    )?;
-                }
+            if matches!(name.as_str(), "$lookup" | "$unionWith")
+                && let Some(v) = doc.get("pipeline")
+            {
+                check_pipeline(
+                    v.as_array()
+                        .ok_or_else(|| DbError::query("Nested pipeline must be an array"))?,
+                )?;
             }
         }
     }

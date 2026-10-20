@@ -13,16 +13,15 @@ pub struct PlanTree {
 }
 impl PlanTree {
     pub fn warn_estimate(&mut self) {
-        if let (Some(estimate), Some(actual)) = (self.est_rows, self.actual_rows) {
-            if estimate != actual
-                && (estimate == 0.0
-                    || actual == 0.0
-                    || estimate / actual >= 10.0
-                    || actual / estimate >= 10.0)
-            {
-                self.warnings
-                    .push("Estimated and actual rows differ by at least 10x".into());
-            }
+        if let (Some(estimate), Some(actual)) = (self.est_rows, self.actual_rows)
+            && estimate != actual
+            && (estimate == 0.0
+                || actual == 0.0
+                || estimate / actual >= 10.0
+                || actual / estimate >= 10.0)
+        {
+            self.warnings
+                .push("Estimated and actual rows differ by at least 10x".into());
         }
     }
     pub fn postgres(value: &serde_json::Value) -> Self {

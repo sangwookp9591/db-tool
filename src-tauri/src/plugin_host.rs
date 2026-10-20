@@ -188,10 +188,16 @@ struct PendingResponse {
 }
 impl PendingResponse {
     fn admit(&mut self,message:&Message,bytes:usize)->bool {
-        if self.backup_stream {
-            if let Message::Chunk{chunk:ExecuteChunk::Backup{data},..}=message {
-                return data.data.len()<=BACKUP_CHUNK_BYTES && data.format.is_empty() && data.counts.is_empty() && bytes<=BACKUP_CHUNK_BYTES.div_ceil(3)*4+1024;
-            }
+        if self.backup_stream
+            && let Message::Chunk {
+                chunk: ExecuteChunk::Backup { data },
+                ..
+            } = message
+        {
+            return data.data.len() <= BACKUP_CHUNK_BYTES
+                && data.format.is_empty()
+                && data.counts.is_empty()
+                && bytes <= BACKUP_CHUNK_BYTES.div_ceil(3) * 4 + 1024;
         }
         self.add(bytes)
     }
@@ -292,10 +298,7 @@ impl Process {
             let mut line = Vec::new();
             let mut overflow = false;
             let mut bytes = [0; 1024];
-            loop {
-                let Ok(n) = stderr.read(&mut bytes).await else {
-                    break;
-                };
+            while let Ok(n) = stderr.read(&mut bytes).await {
                 if n == 0 {
                     break;
                 }

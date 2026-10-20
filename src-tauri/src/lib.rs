@@ -182,10 +182,10 @@ impl Host {
         Ok(storage::read_profiles(&self.paths.config.join("profiles.json"))?.into_iter().find(|p|p.id==record.profile.id).map(|p|p.access_mode).unwrap_or(record.profile.access_mode))
     }
     fn observe<T>(&self, record: &SessionRecord, result: Result<T, DbError>) -> Result<T, DbError> {
-        if let Err(error) = &result {
-            if error.kind == ErrorKind::Connection {
-                record.dead.store(true, Ordering::Release);
-            }
+        if let Err(error) = &result
+            && error.kind == ErrorKind::Connection
+        {
+            record.dead.store(true, Ordering::Release);
         }
         result
     }
@@ -636,17 +636,18 @@ pub fn run() {
         .plugin(tauri_plugin_opener::Builder::new().build())
         .manage(recycle::Recycler::default())
         .on_window_event(|window, event| {
-            if window.label() == "main" {
-                if let tauri::WindowEvent::Focused(focused) = event { recycle::focus(window.app_handle(), *focused); }
+            if window.label() == "main"
+                && let tauri::WindowEvent::Focused(focused) = event
+            {
+                recycle::focus(window.app_handle(), *focused);
             }
         })
         .manage(export::Exports::default())
         .manage(driver_install::Installer::default())
         .on_page_load(|webview, payload| {
-            if webview.label() == "main" && matches!(payload.event(), tauri::webview::PageLoadEvent::Started) {
-                if let (Some(bridge), Some(host)) = (webview.try_state::<agent_bridge::Bridge>(), webview.try_state::<Host>()) {
-                    bridge.loading(&host.paths.config);
-                }
+            if webview.label() == "main" && matches!(payload.event(), tauri::webview::PageLoadEvent::Started)
+                && let (Some(bridge), Some(host)) = (webview.try_state::<agent_bridge::Bridge>(), webview.try_state::<Host>()) {
+                bridge.loading(&host.paths.config);
             }
         })
         .setup(|app| {

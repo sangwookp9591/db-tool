@@ -212,10 +212,10 @@ async fn import_run(
         }
     };
     let mut result = host.observe(&record, result);
-    if let Ok(ImportOutput::Preview(p)) = &result {
-        if p.committed || p.statements.is_empty() {
-            return Err(DbError::query("Driver did not produce a rollback preview"));
-        }
+    if let Ok(ImportOutput::Preview(p)) = &result
+        && (p.committed || p.statements.is_empty())
+    {
+        return Err(DbError::query("Driver did not produce a rollback preview"));
     }
     if let Ok(ImportOutput::Preview(p)) = &mut result {
         let mut remaining = 100usize;

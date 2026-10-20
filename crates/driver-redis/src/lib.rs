@@ -653,7 +653,9 @@ fn pairs(v: Vec<Resp>) -> Result<Vec<Vec<Value>>, DbError> {
     if !v.len().is_multiple_of(2) {
         return Err(DbError::query("Expected Redis pairs"));
     }
-    Ok(v.chunks_exact(2)
+    Ok(v.as_chunks::<2>()
+        .0
+        .iter()
         .map(|p| vec![map_value(p[0].clone()), map_value(p[1].clone())])
         .collect())
 }

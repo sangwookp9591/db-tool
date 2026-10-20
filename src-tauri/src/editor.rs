@@ -283,10 +283,10 @@ pub fn lint(text: &str, language: &str) -> Result<Vec<Diagnostic>, DbError> {
     }
 }
 fn single_query(statements: &[Statement]) -> Result<(&Query, &Select), DbError> {
-    if let [Statement::Query(q)] = statements {
-        if let SetExpr::Select(s) = q.body.as_ref() {
-            return Ok((q, s));
-        }
+    if let [Statement::Query(q)] = statements
+        && let SetExpr::Select(s) = q.body.as_ref()
+    {
+        return Ok((q, s));
     }
     Err(DbError::unsupported("Refactor requires one SELECT query"))
 }
@@ -469,19 +469,19 @@ pub fn refactor(
             impl Visitor for References<'_> {
                 type Break = ();
                 fn pre_visit_expr(&mut self, e: &Expr) -> ControlFlow<()> {
-                    if let Expr::Identifier(id) = e {
-                        if same_identifier(id, self.name) {
-                            self.ambiguous = true;
-                        }
+                    if let Expr::Identifier(id) = e
+                        && same_identifier(id, self.name)
+                    {
+                        self.ambiguous = true;
                     }
-                    if let Expr::CompoundIdentifier(ids) = e {
-                        if ids.first().is_some_and(|i| same_identifier(i, self.name)) {
-                            self.edits.push(span_edit(
-                                self.text,
-                                ids[0].span,
-                                self.replacement.into(),
-                            ));
-                        }
+                    if let Expr::CompoundIdentifier(ids) = e
+                        && ids.first().is_some_and(|i| same_identifier(i, self.name))
+                    {
+                        self.edits.push(span_edit(
+                            self.text,
+                            ids[0].span,
+                            self.replacement.into(),
+                        ));
                     }
                     ControlFlow::Continue(())
                 }
@@ -506,14 +506,10 @@ pub fn refactor(
                     SelectItemQualifiedWildcardKind::ObjectName(name),
                     _,
                 ) = item
+                    && let [part] = name.0.as_slice()
+                    && let Some(id) = part.as_ident().filter(|i| same_identifier(i, &alias.name))
                 {
-                    if let [part] = name.0.as_slice() {
-                        if let Some(id) =
-                            part.as_ident().filter(|i| same_identifier(i, &alias.name))
-                        {
-                            edits.push(span_edit(text, id.span, replacement.clone()));
-                        }
-                    }
+                    edits.push(span_edit(text, id.span, replacement.clone()));
                 }
             }
         }
@@ -664,43 +660,40 @@ pub async fn lint_query(
     }
     let language = &driver.manifest().query_language.id;
     let mut diagnostics = lint(&query, language)?;
-    if diagnostics.iter().any(|d| d.rule_id == "select_star") {
-        if let Ok(schema) = projection_schema(record.session.as_ref(), &query, language).await {
-            if let Ok(edits) = refactor(&query, language, RefactorAction::ExpandStar, &schema) {
-                for d in diagnostics
-                    .iter_mut()
-                    .filter(|d| d.rule_id == "select_star")
-                {
-                    d.quick_fix = (!edits.is_empty()).then(|| QuickFix {
-                        title: "Expand explicit columns".into(),
-                        edits: edits.clone(),
-                    });
-                }
-            }
+    if diagnostics.iter().any(|d| d.rule_id == "select_star")
+        && let Ok(schema) = projection_schema(record.session.as_ref(), &query, language).await
+        && let Ok(edits) = refactor(&query, language, RefactorAction::ExpandStar, &schema)
+    {
+        for d in diagnostics
+            .iter_mut()
+            .filter(|d| d.rule_id == "select_star")
+        {
+            d.quick_fix = (!edits.is_empty()).then(|| QuickFix {
+                title: "Expand explicit columns".into(),
+                edits: edits.clone(),
+            });
         }
     }
     if driver.manifest().capabilities.explain
         && language == "sql"
         && !diagnostics.iter().any(|d| d.severity == "error")
-    {
-        if let Ok(plan) = record
+        && let Ok(plan) = record
             .session
             .explain(&query, false, CancelToken::new())
             .await
-        {
-            fn large_scan(p: &PlanTree) -> bool {
-                p.warnings
-                    .iter()
-                    .any(|w| w.starts_with("Large table full scan:"))
-                    || ((p.op.contains("Seq Scan")
-                        || p.op.contains("COLLSCAN")
-                        || p.op.contains("AllNodesScan"))
-                        && p.est_rows.is_some_and(|n| n >= 10000.0))
-                    || p.children.iter().any(large_scan)
-            }
-            if large_scan(&plan) {
-                diagnostics.push(Diagnostic { rule_id: "large_table_scan".into(), start: 0, end: query.encode_utf16().count(), severity: "warning".into(), message: "Planner statistics estimate a full scan of at least 10,000 rows; review predicates and indexes".into(), quick_fix: None });
-            }
+    {
+        fn large_scan(p: &PlanTree) -> bool {
+            p.warnings
+                .iter()
+                .any(|w| w.starts_with("Large table full scan:"))
+                || ((p.op.contains("Seq Scan")
+                    || p.op.contains("COLLSCAN")
+                    || p.op.contains("AllNodesScan"))
+                    && p.est_rows.is_some_and(|n| n >= 10000.0))
+                || p.children.iter().any(large_scan)
+        }
+        if large_scan(&plan) {
+            diagnostics.push(Diagnostic { rule_id: "large_table_scan".into(), start: 0, end: query.encode_utf16().count(), severity: "warning".into(), message: "Planner statistics estimate a full scan of at least 10,000 rows; review predicates and indexes".into(), quick_fix: None });
         }
     }
     Ok(diagnostics)

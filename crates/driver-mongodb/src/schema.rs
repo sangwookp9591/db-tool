@@ -41,13 +41,11 @@ impl Samples {
         }
         if let (Ok(target), Some(Bson::ObjectId(id))) =
             (document.get_str("$ref"), document.get("$id"))
+            && !prefix.is_empty()
+            && (!document.contains_key("$db")
+                || document.get_str("$db").ok() == Some(self.database.as_str()))
         {
-            if !prefix.is_empty()
-                && (!document.contains_key("$db")
-                    || document.get_str("$db").ok() == Some(self.database.as_str()))
-            {
-                self.reference(&format!("{prefix}.$id"), target, *id);
-            }
+            self.reference(&format!("{prefix}.$id"), target, *id);
         }
         for (key, value) in document {
             let path = if prefix.is_empty() {
@@ -64,15 +62,14 @@ impl Samples {
                 .0
                 .insert(type_name(value).to_ascii_lowercase());
             seen.insert(path.clone());
-            if let Bson::ObjectId(id) = value {
-                if let Some(base) = key
+            if let Bson::ObjectId(id) = value
+                && let Some(base) = key
                     .strip_suffix("Id")
                     .or_else(|| key.strip_suffix("_id"))
                     .filter(|s| !s.is_empty())
-                {
-                    self.reference(&path, base, *id);
-                    self.reference(&path, &format!("{base}s"), *id);
-                }
+            {
+                self.reference(&path, base, *id);
+                self.reference(&path, &format!("{base}s"), *id);
             }
             match value {
                 Bson::Document(child) => {

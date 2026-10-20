@@ -317,35 +317,33 @@ impl MysqlSession {
                     edit_sql(&plan.sql)?
                 };
                 let mut p = StatementPreview::new(sql.clone(), plan.kind.clone());
-                if preview {
-                    if let Some(before) = &plan.before {
-                        let key_count = match &req.edits[index] {
-                            RowEdit::Update { key, .. } | RowEdit::Delete { key } => key.len(),
-                            _ => 0,
-                        };
-                        let params = plan.values[plan.values.len() - key_count..]
-                            .iter()
-                            .map(value::bound)
-                            .collect::<Result<Vec<_>, _>>()?;
-                        p.before = collect(
-                            conn.exec_iter(
-                                format!(
-                                    "{} LIMIT {}",
-                                    edit_sql(before)?,
-                                    req.preview_sample_limit.min(1000)
-                                ),
-                                Params::Positional(params),
-                            )
-                            .await
-                            .map_err(error)?,
-                            req.preview_sample_limit.min(1000) as usize,
-                            "Before edit",
-                            true,
+                if preview && let Some(before) = &plan.before {
+                    let key_count = match &req.edits[index] {
+                        RowEdit::Update { key, .. } | RowEdit::Delete { key } => key.len(),
+                        _ => 0,
+                    };
+                    let params = plan.values[plan.values.len() - key_count..]
+                        .iter()
+                        .map(value::bound)
+                        .collect::<Result<Vec<_>, _>>()?;
+                    p.before = collect(
+                        conn.exec_iter(
+                            format!(
+                                "{} LIMIT {}",
+                                edit_sql(before)?,
+                                req.preview_sample_limit.min(1000)
+                            ),
+                            Params::Positional(params),
                         )
-                        .await?
-                        .remove(0)
-                        .table;
-                    }
+                        .await
+                        .map_err(error)?,
+                        req.preview_sample_limit.min(1000) as usize,
+                        "Before edit",
+                        true,
+                    )
+                    .await?
+                    .remove(0)
+                    .table;
                 }
                 let mut end = index + 1;
                 if matches!(plan.kind, StatementKind::Insert) && !plan.values.is_empty() {

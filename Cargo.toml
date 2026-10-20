@@ -1,11 +1,12 @@
 [workspace]
 members = ["crates/driver-package", "xtask", "crates/driver-protocol", "crates/driver-sdk", "crates/dbcore", "crates/driver-postgres", "crates/driver-neo4j", "src-tauri", "crates/driver-sqlite", "crates/driver-example-kv", "crates/driver-mongodb", "crates/driver-redis", "crates/driver-mysql"]
-resolver = "2"
+resolver = "3"
 exclude = ["vendor/neo4rs"]
 
 [workspace.package]
 version = "0.3.0"
-edition = "2021"
+edition = "2024"
+rust-version = "1.99"
 license = "MIT"
 
 [workspace.dependencies]

@@ -228,9 +228,8 @@ pub async fn ai_models(host: tauri::State<'_, Host>, provider: Option<String>) -
         catalog_models(cache.as_ref().map(|v|&v["models"]).unwrap_or(&default), &selected,state,true,&settings.auth)
     };
     let Ok(credential)=credential else { return fallback(status); };
-    if let Some(cache)=&cache {
-        if now_seconds().saturating_sub(cache["fetched_at"].as_u64().unwrap_or(0)) < 3600 { return fallback(status); }
-    }
+    if let Some(cache)=&cache
+        && now_seconds().saturating_sub(cache["fetched_at"].as_u64().unwrap_or(0)) < 3600 { return fallback(status); }
     let fetched=async {
         let mut request=oauth::client()?.get(if selected=="openai" {"https://api.openai.com/v1/models"} else {"https://api.anthropic.com/v1/models"});
         request=match &credential {

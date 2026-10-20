@@ -69,6 +69,10 @@ impl Credential {
 }
 // GUI apps on macOS do not inherit the shell PATH, so check the usual install locations first.
 fn ant_cli() -> Option<std::path::PathBuf> {
+    #[cfg(test)]
+    if let Some(path) = ant_test_path().lock().unwrap().clone() {
+        return Some(path);
+    }
     #[cfg(debug_assertions)]
     if let Some(path) = std::env::var_os("AXDB_ANT_CLI") {
         return Some(path.into()); // debug-only test seam for a fake ant
@@ -128,6 +132,11 @@ fn login_slot() -> &'static tokio::sync::Mutex<Option<Login>> {
     SLOT.get_or_init(|| tokio::sync::Mutex::new(None))
 }
 #[cfg(test)]
+fn ant_test_path() -> &'static std::sync::Mutex<Option<std::path::PathBuf>> {
+    static PATH: std::sync::Mutex<Option<std::path::PathBuf>> = std::sync::Mutex::new(None);
+    &PATH
+}
+#[cfg(test)]
 fn ant_test_lock() -> &'static tokio::sync::Mutex<()> {
     static LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
     &LOCK
@@ -144,10 +153,10 @@ fn collect(
             if n == 0 {
                 break;
             }
-            if let Ok(mut out) = output.lock() {
-                if out.len() < 64_000 {
-                    out.push_str(&String::from_utf8_lossy(&buf[..n]));
-                }
+            if let Ok(mut out) = output.lock()
+                && out.len() < 64_000
+            {
+                out.push_str(&String::from_utf8_lossy(&buf[..n]));
             }
         }
     });
@@ -468,10 +477,10 @@ impl Sse {
                                     ),
                                 );
                             }
-                            if let Some(content) = item["content"].as_array() {
-                                if content.iter().any(|c| c["type"] == "refusal") {
-                                    self.stop = Some("refusal".into());
-                                }
+                            if let Some(content) = item["content"].as_array()
+                                && content.iter().any(|c| c["type"] == "refusal")
+                            {
+                                self.stop = Some("refusal".into());
                             }
                         }
                     }
@@ -881,7 +890,7 @@ mod tests {
         // Mimics ant: prints the authorize URL, prompts "Code:" without newline, validates the pasted code.
         std::fs::write(&fake, "#!/bin/sh\necho 'Opening your browser to authenticate...'\necho '  https://platform.claude.com/oauth/authorize?client_id=x&state=y'\nprintf 'Code: '\nread code\n[ \"$code\" = good-code ] && echo '  ✓ Logged in to Test Org as t@example.com (profile \"default\").' && exit 0\necho 'invalid code' >&2; exit 1\n").unwrap();
         std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
-        std::env::set_var("AXDB_ANT_CLI", &fake);
+        *ant_test_path().lock().unwrap() = Some(fake.clone());
         let started = ai_login_start().await.unwrap();
         assert_eq!(started["waiting_for_code"], true);
         assert!(started["url"]
@@ -913,7 +922,7 @@ mod tests {
         ai_login_start().await.unwrap();
         tokio::time::sleep(Duration::from_millis(1500)).await;
         assert_eq!(ai_login_poll().await.unwrap()["state"], "failed");
-        std::env::remove_var("AXDB_ANT_CLI");
+        *ant_test_path().lock().unwrap() = None;
         std::fs::remove_dir_all(dir).unwrap();
     }
     #[tokio::test]

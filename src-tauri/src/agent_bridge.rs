@@ -250,16 +250,15 @@ pub async fn agent_bridge_reply(
     request_id: String,
     result: Value,
 ) -> Result<(), DbError> {
-    if let Some(running) = bridge.running.lock().await.as_ref() {
-        if let Some(reply) = running
+    if let Some(running) = bridge.running.lock().await.as_ref()
+        && let Some(reply) = running
             .shared
             .pending
             .lock()
             .map_err(|_| DbError::internal("Bridge lock unavailable"))?
             .remove(&request_id)
-        {
-            let _ = reply.send(result);
-        }
+    {
+        let _ = reply.send(result);
     }
     Ok(())
 }
@@ -282,13 +281,12 @@ async fn authorize(State(shared): State<Arc<Shared>>, mut request: Request, next
         _=>return StatusCode::UNAUTHORIZED.into_response(),
     };
     request.extensions_mut().insert(client);
-    if let Some(version) = request.headers().get("mcp-protocol-version") {
-        if !matches!(
+    if let Some(version) = request.headers().get("mcp-protocol-version")
+        && !matches!(
             version.to_str(),
             Ok("2025-11-25" | "2025-06-18" | "2025-03-26")
         ) {
-            return StatusCode::BAD_REQUEST.into_response();
-        }
+        return StatusCode::BAD_REQUEST.into_response();
     }
     next.run(request).await
 }

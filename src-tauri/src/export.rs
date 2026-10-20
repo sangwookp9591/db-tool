@@ -30,10 +30,10 @@ fn selected_path(path: PathBuf) -> Result<PathBuf, String> {
         .canonicalize()
         .map_err(|e| e.to_string())?;
     let path = parent.join(name);
-    if let Ok(meta) = path.symlink_metadata() {
-        if !meta.is_file() || meta.file_type().is_symlink() {
-            return Err("일반 파일 경로만 저장할 수 있습니다".into());
-        }
+    if let Ok(meta) = path.symlink_metadata()
+        && (!meta.is_file() || meta.file_type().is_symlink())
+    {
+        return Err("일반 파일 경로만 저장할 수 있습니다".into());
     }
     Ok(path)
 }

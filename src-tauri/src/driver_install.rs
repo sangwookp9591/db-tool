@@ -434,10 +434,10 @@ impl Installer {
     ) -> CommandResult<reqwest::Response> {
         let mut request = self.client.get(self.validate_url(url)?);
         // An ETag belongs to its URL; legacy caches have no URL and must refetch once.
-        if source_url == Some(url) {
-            if let Some(etag) = etag {
-                request = request.header(reqwest::header::IF_NONE_MATCH, etag);
-            }
+        if source_url == Some(url)
+            && let Some(etag) = etag
+        {
+            request = request.header(reqwest::header::IF_NONE_MATCH, etag);
         }
         request.send().await.map_err(error)
     }

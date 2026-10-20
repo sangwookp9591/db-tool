@@ -12,7 +12,7 @@ use std::{
     time::{Duration, Instant},
 };
 #[link(name = "proc")]
-extern "C" {
+unsafe extern "C" {
     fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut std::ffi::c_void) -> i32;
 }
 fn memory(pid: u32) -> Option<(u64, u64)> {

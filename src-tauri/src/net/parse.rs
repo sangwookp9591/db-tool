@@ -203,27 +203,27 @@ fn psql(input: &str) -> Result<Parsed, DbError> {
     let mut p = empty("postgres");
     let mut iter = tokens.iter().skip(1);
     while let Some(token) = iter.next() {
-        if token.starts_with("--") {
-            if let Some((flag, value)) = token.split_once('=') {
-                let key = match flag {
-                    "--host" => "host",
-                    "--port" => "port",
-                    "--username" => "user",
-                    "--dbname" => "database",
-                    _ => return Err(error("UNSUPPORTED_PSQL_OPTION")),
-                };
-                if key == "database" && (value.contains("://") || value.contains('=')) {
-                    let parsed = parse(value)?;
-                    if parsed.driver_id != "postgres" {
-                        return Err(error("INVALID_PSQL_COMMAND"));
-                    }
-                    p.fields.extend(parsed.fields);
-                    p.secret = parsed.secret;
-                } else {
-                    p.fields.insert(key.into(), value.into());
+        if token.starts_with("--")
+            && let Some((flag, value)) = token.split_once('=')
+        {
+            let key = match flag {
+                "--host" => "host",
+                "--port" => "port",
+                "--username" => "user",
+                "--dbname" => "database",
+                _ => return Err(error("UNSUPPORTED_PSQL_OPTION")),
+            };
+            if key == "database" && (value.contains("://") || value.contains('=')) {
+                let parsed = parse(value)?;
+                if parsed.driver_id != "postgres" {
+                    return Err(error("INVALID_PSQL_COMMAND"));
                 }
-                continue;
+                p.fields.extend(parsed.fields);
+                p.secret = parsed.secret;
+            } else {
+                p.fields.insert(key.into(), value.into());
             }
+            continue;
         }
         let key = match token.as_str() {
             "-h" | "--host" => "host",
