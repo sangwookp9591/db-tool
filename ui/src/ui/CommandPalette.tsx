@@ -3,10 +3,11 @@ import { Button } from './Button';
 // Interaction reference: shadcn/ui Command (MIT), https://21st.dev/@shadcn/components/command; independent Preact implementation.
 import { useId, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { Dialog } from '../Dialog';
-import { Clock3, Database, FileCode2, Table2 } from 'lucide-preact';
+import { Clock3, CornerDownLeft, Database, FileCode2, Search, Sparkles, Table2 } from 'lucide-preact';
 import type { MicroAccessibility } from './accessibility';
 import './micro.css';
 
+const groupLabels: Record<string, string> = { Operation: '작업', Connections: '연결' };
 export interface CommandItem { id: string; label: string; group?: string; kind?: 'connection' | 'table' | 'query' | 'history'; keywords?: string; disabled?: boolean; onSelect: () => void }
 export function filterCommands(items: readonly CommandItem[], query: string) {
   const words = query.normalize('NFC').toLocaleLowerCase().trim().split(/\s+/);
@@ -36,7 +37,7 @@ export function CommandPalette({ open, onOpenChange, items, onIntent, ...accessi
   if (!open) return null;
   return <Dialog title="작업공간 검색" label={accessibility['aria-label'] ?? accessibility.ariaLabel ?? 'Command palette'} onClose={() => onOpenChange(false)}>
     <div className="command-palette micro" data-testid={accessibility['data-testid'] ?? accessibility.testId}>
-      <div className="command-palette__search"><input autoFocus autocorrect="off" autocapitalize="off" spellcheck={false} role="combobox" aria-label="Search commands" aria-expanded="true" aria-autocomplete="list" aria-controls={listId}
+      <div className="command-palette__search"><Search aria-hidden="true" /><input autoFocus autocorrect="off" autocapitalize="off" spellcheck={false} role="combobox" aria-label="Search commands" aria-expanded="true" aria-autocomplete="list" aria-controls={listId}
         aria-activedescendant={current ? `${listId}-${visible.indexOf(current)}` : undefined} value={query} placeholder="작업 검색 또는 자연어로 의도 입력…"
         onInput={e => { setQuery(e.currentTarget.value); setSelected(''); }} onKeyDown={e => {
           if (e.isComposing) return;
@@ -49,11 +50,11 @@ export function CommandPalette({ open, onOpenChange, items, onIntent, ...accessi
       <div ref={list} id={listId} role="listbox" aria-label="Commands" className="command-palette__list">
         {visible.map((item, i) => <div key={item.id} id={`${listId}-${i}`} role="option" aria-selected={current?.id === item.id} aria-disabled={item.disabled || undefined}
           onPointerMove={() => { if (!item.disabled) setSelected(item.id); }} onMouseDown={e => e.preventDefault()} onClick={() => select(item)}>
-          {(() => { const Icon = item.kind === 'connection' || item.group === 'Connections' ? Database : item.kind === 'table' || item.id.startsWith('node:') ? Table2 : item.kind === 'history' || item.id === 'history' ? Clock3 : item.kind === 'query' || item.group?.startsWith('Recent ·') ? FileCode2 : null; return Icon ? <Icon aria-hidden="true" /> : null; })()}<span>{item.label}</span>{item.group && <small>{item.group}</small>}
+          {(() => { const Icon = item.kind === 'connection' || item.group === 'Connections' ? Database : item.kind === 'table' || item.id.startsWith('node:') ? Table2 : item.kind === 'history' || item.id === 'history' ? Clock3 : item.kind === 'query' || item.group?.startsWith('Recent ·') ? FileCode2 : item.id.startsWith('ax:') ? Sparkles : CornerDownLeft; return <Icon aria-hidden="true" />; })()}<span>{item.label}</span>{item.group && <small>{groupLabels[item.group] ?? item.group}</small>}
         </div>)}
       </div>
       {!visible.length && <p role="status">일치하는 항목이 없습니다</p>}
-      <p className="command-palette__hint">↑ ↓ 선택 · Enter 열기 · Escape 닫기</p>
+      <p className="command-palette__hint"><span><kbd>↑</kbd><kbd>↓</kbd> 선택</span><span><kbd>Enter</kbd> 열기</span><span><kbd>Esc</kbd> 닫기</span></p>
     </div>
   </Dialog>;
 }
