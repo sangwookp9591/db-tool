@@ -1,4 +1,4 @@
-export interface ChatMessage { id: string; role: 'user' | 'assistant'; text: string; complete: boolean; contextLabels?:string[]; sensitive?: boolean; error?: string; phase?:number; startedAt?:number; elapsedMs?:number; context?:{schema:string;elapsedMs:number}; versions?:{text:string;error?:string}[]; version?:number; feedback?:import('../ui/MessageActions').Feedback }
+export interface ChatMessage { session?:string; files?:import('./review').FileChange[]; tools?:import('./ToolApproval').ToolState[]; id: string; role: 'user' | 'assistant'; text: string; complete: boolean; contextLabels?:string[]; sensitive?: boolean; error?: string; phase?:number; startedAt?:number; elapsedMs?:number; context?:{schema:string;elapsedMs:number}; versions?:{text:string;error?:string}[]; version?:number; feedback?:import('../ui/MessageActions').Feedback }
 export interface MarkdownBlock { kind: 'text' | 'code'; text: string; language?: string }
 // Keep committed blocks stable; only the unfinished tail is scanned on each 50ms flush.
 export function blockStream() {
@@ -28,7 +28,7 @@ export function blockStream() {
 }
 export function conversationContext(messages: ChatMessage[]) {
   let bytes = 0;
-  return messages.filter(m => m.complete && !m.error && !m.sensitive).slice(-20).reverse().filter(m => {
+  return messages.filter(m => m.complete && !m.error && !m.sensitive && !!m.text.trim()).slice(-20).reverse().filter(m => {
     bytes += new TextEncoder().encode(m.text).length;
     return bytes <= 32000;
   }).reverse().map(m => ({role:m.role,content:m.text}));

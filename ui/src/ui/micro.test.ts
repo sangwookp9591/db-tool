@@ -85,6 +85,13 @@ it('fuse commits once at the deadline; undo cancels the pending commit', () => {
   expect(undo).toHaveBeenCalledTimes(1); expect(commit).toHaveBeenCalledTimes(1);
 });
 
+it('fuse hover/visibility pause preserves remaining active time and cancellation wins', () => {
+  vi.useFakeTimers();const now=vi.spyOn(performance,'now').mockReturnValue(0),commit=vi.fn(),undo=vi.fn();
+  const fuse=startFuse(commit,undo,4000,'cancel');vi.advanceTimersByTime(1000);now.mockReturnValue(1000);fuse.pause();
+  expect(fuse.remaining()).toBe(3000);vi.advanceTimersByTime(10000);expect(commit).not.toHaveBeenCalled();
+  now.mockReturnValue(11000);fuse.resume();vi.advanceTimersByTime(2999);expect(commit).not.toHaveBeenCalled();fuse.undo();vi.advanceTimersByTime(1);expect(undo).toHaveBeenCalledOnce();expect(commit).not.toHaveBeenCalled();now.mockRestore();
+});
+
 it('unmount policy commits by default and cancels when explicitly selected', () => {
   vi.useFakeTimers();
   const commit = vi.fn(), undo = vi.fn();

@@ -7,6 +7,9 @@ import type { Channel } from '@tauri-apps/api/core';
 import { invoke } from '@tauri-apps/api/core';
 import type { DriverManifest, Profile, ExplorerNode, ResultSet, ExecRequest, HistoryEntry, ChangePreview, AgentClient, AgentAudit, SchemaGraph, Value, EditRequest, EditResult } from './contract';
 export interface Commands extends EditorCommands, ConnectionCommands {
+  editor_history_mode: {args:{owner:string;active:boolean};result:void};
+  ai_tool_policy: {args:{sessionId:string;request:import('./ai/review').ToolRequest;readOnly:boolean};result:import('./ai/review').ToolPolicy};
+  ai_tool_decide: {args:{sessionId:string;request:import('./ai/review').ToolRequest;readOnly:boolean;decision:'allow'|'deny'|'apply'};result:{preview?:ChangePreview;row_count?:number;elapsed_ms?:number;denied?:boolean}};
   context_get: { args: { sessionId: string; scope: Scope }; result: Record<string, unknown> };
   context_error: { args: { runId: string }; result: Record<string, unknown> };
   ai_settings: { args: Record<string, never>; result: { settings: AiSettings; has_key: boolean; has_ant_cli: boolean; usage?: Partial<Record<import('./ax/aiContract').Provider, import('./ax/aiContract').Usage>>; accounts?: {id: string; label: string; active: boolean; logged_in?: boolean; expired?:boolean}[] } };
@@ -17,7 +20,7 @@ export interface Commands extends EditorCommands, ConnectionCommands {
   ai_login_status: { args: Record<string, never>; result: { installed: boolean; logged_in: boolean } };
   ai_logout: { args: Record<string, never>; result: void };
   ai_configure: { args: { settings: AiSettings; apiKey: string | null }; result: void };
-  ai_request: { args: { sessionId: string; scope: Scope; question: string; channel: Channel<string>; runId?: string; history?: {role: 'user' | 'assistant'; content: string}[]; onEvent?: Channel<{phase:number;schema?:string;context_elapsed_ms?:number}> }; result: AiReply };
+  ai_request: { args: { sessionId: string; scope: Scope; question: string; overrideSettings?:AiSettings; channel: Channel<string>; runId?: string; history?: {role: 'user' | 'assistant'; content: string}[]; onEvent?: Channel<{phase:number;schema?:string;context_elapsed_ms?:number}> }; result: AiReply };
 
   agent_clients_list: { args: Record<string, never>; result: AgentClient[] };
   agent_client_save: { args: { input: Omit<AgentClient, 'id' | 'revoked'> & { id?: string } }; result: { client: AgentClient; token: string | null } };

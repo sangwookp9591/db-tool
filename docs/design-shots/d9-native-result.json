@@ -1,0 +1,48 @@
+{
+  "checkpoint": 32,
+  "checks": [
+    "Native model popup: header/composer access, connected-provider selection, effort keyboard step, session-only choice, shared default save, request model/effort metadata, 28px header title",
+    "3 file proposals: reject 1, resolve 2 paths without saving, accept 2 into new tabs, native Cmd+Z undoes one complete transaction",
+    "Immediate card undo restores the other accepted file",
+    "Repeated file proposals reuse existing open tabs and batch undo preserves their original contents",
+    "Read approval executes SELECT under host read-only policy and collapses into ToolCallGroup",
+    "Read-only session allow-cache reuses tool permission after a fresh host policy check",
+    "DELETE: native FuseButton arm/hover pause/Escape cancel without execution → rearm/4s fuseEnd → rollback preview → explicit apply → test DB execution",
+    "Saved MCP read agent → shared bridge dispatch → lint_query → successful trace",
+    "Actual connection read-only setting disables pending write approval with a reason"
+  ],
+  "client": "e3e453e4-f0a9-4d54-b67d-436f3e1d6498",
+  "complete": true,
+  "header": {
+    "ellipsis": true,
+    "height": 28,
+    "lineHeight": "28px",
+    "textWidth": 228.92822265625,
+    "width": 162.890625
+  },
+  "inputEvents": [],
+  "requestModel": {
+    "effort": "xhigh",
+    "model": "gpt-6.1-sol"
+  },
+  "stage": "d9-readonly-disabled-daylight",
+  "native_pointer": [
+    {
+      "x": 1313.5,
+      "y": 465.5,
+      "coordinates": "screen",
+      "action": "fuse-arm",
+      "activation": "AXPress"
+    },
+    {
+      "x": 1313.5,
+      "y": 465.5,
+      "coordinates": "screen",
+      "action": "fuse-run",
+      "activation": "AXPress"
+    }
+  ],
+  "test_db": "127.0.0.1:55432/axdb_test",
+  "no_automatic_file_write": true,
+  "audit_sanitized": true
+}

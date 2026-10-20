@@ -130,20 +130,29 @@ pub async fn export_save_dialog(
         return Err("지원하지 않는 파일 이름 또는 형식입니다".into());
     }
     let (tx, rx) = tokio::sync::oneshot::channel();
-    window
-        .dialog()
-        .file()
-        .set_parent(&window)
-        .set_file_name(filename)
-        .add_filter("내보내기", &[&extension])
-        .save_file(move |path| {
-            let _ = tx.send(path);
-        });
+    let picker = window.dialog().file().set_parent(&window).set_file_name(filename).add_filter("내보내기", &[&extension]);
+    #[cfg(debug_assertions)]
+    let picker = if std::env::var_os("AXDB_AI_FIXTURE").is_some() && std::env::var("AXDB_BENCH_TARGET").as_deref() == Ok("d9") {
+        picker.set_directory(&window.state::<crate::Host>().paths.config)
+    } else { picker };
+    picker.save_file(move |path| { let _ = tx.send(path); });
     let Some(path) = rx.await.map_err(|e| e.to_string())? else {
         return Ok(None);
     };
     let path = path.into_path().map_err(|e| e.to_string())?;
     Ok(Some(window.state::<Exports>().remember(path)?))
+}
+#[tauri::command]
+pub async fn query_file_read(window: WebviewWindow, path: PathBuf, token: String) -> Result<String, String> {
+    main_window(&window)?;
+    let path = window.state::<Exports>().take_path(&token, &path)?;
+    if path.extension().and_then(|e| e.to_str()) != Some("sql") { return Err("SQL 파일만 열 수 있습니다".into()); }
+    match std::fs::metadata(&path) {
+        Ok(meta) if meta.len() > 256*1024 => Err("SQL 파일은 256 KiB 이하여야 합니다".into()),
+        Ok(_) => std::fs::read_to_string(path).map_err(|e| e.to_string()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(String::new()),
+        Err(e) => Err(e.to_string()),
+    }
 }
 #[tauri::command]
 pub async fn export_write(

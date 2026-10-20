@@ -469,6 +469,8 @@ Copyright (c) 2026 David Haz. Source: https://github.com/DavidHDev/react-bits an
 
 GlassIcons, JellyRadio, SwipeRow, CometDial, WakeSlider, CodeSlots (including NumberSlots), LatticeLoader, BorderGlow, SpringCheck, FuseButton, SpotlightCard, PulseHeart and StatusMark in `ui/src/ui/` adapt the supplied TypeScript/plain CSS interaction references to Preact. React, motion and Hugeicons code/dependencies are not bundled by these ports. Motion, color and accessibility behavior is changed to follow `docs/DESIGN.md`; the components are distributed only as part of AxDB.
 
+The deferred FuseButton variant in `ui/src/ui/FuseButton.tsx` and `FuseButton.css` ports the user-supplied JavaScript/CSS reference from https://reactbits.dev/micro/fuse-button (2026-10-20). It uses Preact, lucide-preact and app color tokens; it retains the existing controlled FuseButton API. The upstream license was checked again on 2026-10-20: MIT + Commons Clause License Condition v1.0, Copyright (c) 2026 David Haz. Full current terms: https://github.com/DavidHDev/react-bits/blob/main/LICENSE.md . The component is used only inside AxDB, not distributed as a standalone component.
+
 License text retrieved from the upstream LICENSE.md on 2026-10-16:
 
 ```text
@@ -557,4 +559,4 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 Thinking Loader (clean style), Message Actions / MessageText, Tool Call Card / ToolCallGroup, and Button (clean): 사용자 제공 UI 예제 기반 (2026-10-20). Adapted to Preact and separate CSS using AxDB theme tokens; existing Button and ToolCall implementations are reused. No speech or idle animation is included.
 
-Kokonut UI: MIT, Copyright (c) 2025 kokonutUI. AI Prompt, Context Meter and Diff Review 동작·디자인 참고. https://github.com/kokonut-labs/kokonutui . Reimplemented using existing Preact/CSS/CodeMirror without motion or Tailwind dependencies. No PRO source is used.
+Kokonut UI: MIT, Copyright (c) 2025 kokonutUI. AI Prompt, Context Meter, Diff Review, Tool Approval and Model Selector 동작·디자인 참고. https://github.com/kokonut-labs/kokonutui . Reimplemented using existing Preact/CSS/CodeMirror without motion or Tailwind dependencies. No PRO source is used.

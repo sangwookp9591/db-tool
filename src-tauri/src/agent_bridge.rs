@@ -64,6 +64,11 @@ impl Default for Bridge {
     }
 }
 impl Bridge {
+    pub(crate) async fn call_tool(&self, client: &permissions::AgentClient, name: &str, arguments: Value) -> Result<Value, DbError> {
+        let shared = self.running.lock().await.as_ref().map(|r| r.shared.clone()).ok_or_else(|| DbError::query("먼저 MCP 브리지를 켜세요"))?;
+        Ok(crate::agent_dispatch::dispatch(&shared, client, "tools/call", json!({"name":name,"arguments":arguments})).await)
+    }
+
     pub(crate) async fn pause_for_recycle(&self) -> bool {
         let running = self.running.lock().await;
         if let Some(running) = running.as_ref() {

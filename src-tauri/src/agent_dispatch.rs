@@ -43,7 +43,7 @@ fn driver_read(host: &Host, id: Option<&str>) -> bool {
         .and_then(|p| host.driver(&p.driver_id).ok())
         .is_some_and(|d| d.manifest().capabilities.read_only_exec)
 }
-fn valid_arguments(tool: &str, args: &Value) -> bool {
+pub(crate) fn valid_arguments(tool: &str, args: &Value) -> bool {
     let Some(args) = args.as_object() else {
         return false;
     };

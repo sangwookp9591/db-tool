@@ -3,9 +3,9 @@ import { chromium, type Browser, type Page } from 'playwright';
 import { createServer, type ViteDevServer } from 'vite';
 let server:ViteDevServer,browser:Browser,page:Page;
 beforeAll(async()=>{
- server=await createServer({configFile:false,plugins:[{name:'permission-test',resolveId(id){if(id==='virtual:permission-test')return id;},load(id){if(id==='virtual:permission-test')return `import {h,render} from 'preact';import {PermissionMode} from '/src/ai/PermissionMode.tsx';const root=document.createElement('div');document.body.replaceChildren(root);let readOnly=false;const mount=()=>render(h(PermissionMode,{readOnly,locked:false,connection:'Test',onChange:value=>{readOnly=value;mount();}}),root);mount();`;}}],optimizeDeps:{rolldownOptions:{transform:{jsx:{runtime:'automatic',importSource:'preact'}}}},cacheDir:`node_modules/.vite-permission-${crypto.randomUUID()}`,server:{host:'127.0.0.1',port:0,hmr:false},logLevel:'error'});
+ server=await createServer({configFile:false,plugins:[{name:'permission-test',configureServer(server){server.middlewares.use('/permission-test',(_req,res)=>{res.setHeader('Content-Type','text/html');res.end('<html><body></body></html>');});},resolveId(id){if(id==='virtual:permission-test')return id;},load(id){if(id==='virtual:permission-test')return `import {h,render} from 'preact';import {PermissionMode} from '/src/ai/PermissionMode.tsx';const root=document.createElement('div');document.body.replaceChildren(root);let readOnly=false;const mount=()=>render(h(PermissionMode,{readOnly,locked:false,connection:'Test',onChange:value=>{readOnly=value;mount();}}),root);mount();`;}}],optimizeDeps:{rolldownOptions:{transform:{jsx:{runtime:'automatic',importSource:'preact'}}}},cacheDir:`node_modules/.vite-permission-${crypto.randomUUID()}`,server:{host:'127.0.0.1',port:0,hmr:false},logLevel:'error'});
  await server.listen();browser=await chromium.launch({headless:true});page=await browser.newPage();
- await page.goto(server.resolvedUrls!.local[0]);
+ await page.goto(server.resolvedUrls!.local[0]+'permission-test');
  await page.addScriptTag({type:'module',url:'/@id/virtual:permission-test'});
  await page.locator('.ai-permission').waitFor();
 },30000);

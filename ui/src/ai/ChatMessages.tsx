@@ -1,3 +1,6 @@
+import { FileReview } from './FileReview';
+import { ToolApproval, type ToolState } from './ToolApproval';
+import type { FileReviewActions } from './review';
 import { QueryCode } from './QueryCode';
 import { memo } from 'preact/compat';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
@@ -7,15 +10,15 @@ import { MessageActions, MessageText } from '../ui/MessageActions';
 import { ToolCallGroup } from '../ui/ToolCall';
 import { Button } from '../ui/Button';
 import { blockStream, type ChatMessage, type MarkdownBlock } from './chat';
-export type QueryAction = (query: string, mode: 'insert' | 'diff' | 'new' | 'file') => void;
+export type QueryAction = (query: string, mode: 'insert' | 'diff' | 'new' | 'file' | 'tool') => void;
 function inline(text: string): ComponentChildren {
   return text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).map(part => part.startsWith('**') ? <strong>{part.slice(2,-2)}</strong> : part.startsWith('`') ? <code>{part.slice(1,-1)}</code> : part);
 }
 const Block = memo(({block, action, enabled}: {block:MarkdownBlock;action:QueryAction;enabled:boolean}) => block.kind === 'code'
-  ? <div class="ai-code"><small>{block.language || '쿼리'} · 실행 전 검토</small><QueryCode text={block.text} language={block.language}/><div class="ai-actions"><Button morph={false} disabled={!enabled} onClick={()=>action(block.text,'insert')}>적용</Button><Button morph={false} disabled={!enabled} onClick={()=>action(block.text,'diff')}>diff 보기</Button><Button morph={false} disabled={!enabled} onClick={()=>action(block.text,'new')}>새 탭</Button><Button morph={false} onClick={()=>void navigator.clipboard.writeText(block.text).catch(()=>window.alert('복사하지 못했습니다. 코드를 선택해 복사하세요.'))}>복사</Button>{block.language?.toLowerCase()==='sql'&&<Button morph={false} disabled={!enabled} onClick={()=>action(block.text,'file')}>.sql 파일 만들기</Button>}</div></div>
+  ? <div class="ai-code"><small>{block.language || '쿼리'} · 실행 전 검토</small><QueryCode text={block.text} language={block.language}/><div class="ai-actions"><Button morph={false} disabled={!enabled} onClick={()=>action(block.text,'insert')}>적용</Button><Button morph={false} disabled={!enabled} onClick={()=>action(block.text,'diff')}>diff 보기</Button><Button morph={false} disabled={!enabled} onClick={()=>action(block.text,'new')}>새 탭</Button><Button morph={false} disabled={!enabled} onClick={()=>action(block.text,'tool')}>실행 승인 요청</Button><Button morph={false} onClick={()=>void navigator.clipboard.writeText(block.text).catch(()=>window.alert('복사하지 못했습니다. 코드를 선택해 복사하세요.'))}>복사</Button>{block.language?.toLowerCase()==='sql'&&<Button morph={false} disabled={!enabled} onClick={()=>action(block.text,'file')}>.sql 파일 만들기</Button>}</div></div>
   : <div class="ai-prose">{block.text.trim().split('\n').map(line => /^#{1,6} /.test(line) ? <strong class="ai-heading">{inline(line.replace(/^#+ /,''))}</strong> : <p>{inline(line)}</p>)}</div>);
-interface Actions { visible:boolean;busy:boolean;regenerate:(id:string)=>void;change:(id:string,patch:Partial<ChatMessage>)=>void }
-function Message({message,action,measure,visible,busy,regenerate,change}: Actions & {message:ChatMessage;action:QueryAction;measure:(id:string,height:number)=>void}) {
+interface Actions { fileReview:FileReviewActions;readOnly:boolean;remembered:Set<string>; toolChange:(message:string,id:string,patch:Partial<ToolState>)=>void; visible:boolean;busy:boolean;regenerate:(id:string)=>void;change:(id:string,patch:Partial<ChatMessage>)=>void }
+function Message({message,action,measure,visible,busy,regenerate,change,fileReview,readOnly,remembered,toolChange}: Actions & {message:ChatMessage;action:QueryAction;measure:(id:string,height:number)=>void}) {
   const parse=useRef(blockStream()), root=useRef<HTMLElement>(null),parsedVersion=useRef(message.version);
   if(parsedVersion.current!==message.version){parse.current=blockStream();parsedVersion.current=message.version;}
   const parsed=message.role==='assistant'?parse.current(message.text,message.complete):null;
@@ -23,9 +26,11 @@ function Message({message,action,measure,visible,busy,regenerate,change}: Action
   return <article ref={root} class={`ai-message ai-message--${message.role}`}>
     {message.role==='assistant'&&<><ThinkingLoader phase={message.phase} done={message.complete} doneLabel={message.error?'응답 중지 · 오류':undefined} seconds={Math.round((message.elapsedMs??0)/1000)} visible={visible}/>{message.context&&<details class="ai-work"><summary>작업 내역 · {(message.elapsedMs??message.context.elapsedMs)<1000?'1초 미만':`${Math.round((message.elapsedMs??message.context.elapsedMs)/1000)}초`}</summary>{visible&&<ToolCallGroup calls={[{id:'context',name:'get_work_context',summary:'스키마·테이블·작업 맥락 조회',status:'success',durationMs:message.context.elapsedMs,result:{schema:message.context.schema}}]}/>}</details>}</>}
     {message.contextLabels&&<div class="ai-message-context">{message.contextLabels.map(label=><span>{label}</span>)}</div>}
-    <MessageText version={message.version??0}>{parsed?<>{parsed.blocks.map((block,i)=><Block key={`${message.version??0}-${i}`} block={block} action={action} enabled={message.complete&&!message.error}/>)}{parsed.tail&&<pre class="ai-tail">{parsed.tail}</pre>}</>:<p>{message.text}</p>}</MessageText>
+    <MessageText version={message.version??0}>{parsed?<>{parsed.blocks.filter(block=>!message.files?.length||block.kind!=='code'||!/^sql(?:\s|$)|\.sql$/i.test(block.language??'')).filter(block=>!message.tools?.length||block.kind!=='code'||!/^(tool|mcp)$/i.test(block.language??'')).map((block,i)=><Block key={`${message.version??0}-${i}`} block={block} action={action} enabled={message.complete&&!message.error}/>)}{parsed.tail&&<pre class="ai-tail">{parsed.tail}</pre>}</>:<p>{message.text}</p>}</MessageText>
+    {message.files?.length&&message.session?<FileReview files={message.files} session={message.session} actions={fileReview} onChange={files=>change(message.id,{files})}/>:null}
+    {visible&&message.tools?.map(tool=><ToolApproval key={tool.id} tool={tool} readOnly={readOnly} remembered={remembered} onChange={patch=>toolChange(message.id,tool.id,patch)}/>)}
     {message.error&&<p role="status" class="invalid">{message.error}</p>}
-    <div class="ai-message-footer">{message.role==='assistant'&&message.complete&&<MessageActions text={message.text} versions={message.versions?.length??1} version={message.version??0} disabled={busy} onVersion={version=>{const chosen=message.versions?.[version];if(chosen)change(message.id,{...chosen,version});}} onRegenerate={()=>regenerate(message.id)} feedback={message.feedback} onFeedback={feedback=>change(message.id,{feedback})}/>}
+    <div class="ai-message-footer">{message.role==='assistant'&&message.complete&&!!message.text.trim()&&<MessageActions text={message.text} versions={message.files?.length||message.tools?.length?1:message.versions?.length??1} version={message.version??0} disabled={busy||!!message.files?.some(f=>f.decision==='accepted')||!!message.tools?.some(t=>t.status!=='pending'&&t.status!=='denied'&&t.status!=='error')} onVersion={version=>{const chosen=message.versions?.[version];if(chosen)change(message.id,{...chosen,version});}} onRegenerate={()=>regenerate(message.id)} feedback={message.feedback} onFeedback={feedback=>change(message.id,{feedback})}/>}
     {message.startedAt&&<time>{new Date(message.startedAt).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</time>}</div>
   </article>;
 }

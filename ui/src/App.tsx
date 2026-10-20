@@ -1,3 +1,5 @@
+import { listen } from '@tauri-apps/api/event';
+import type { FileChange, FileReviewActions } from './ai/review';
 import './ax/ConnectionLive.css';
 import { noteLargeResult, restoreWorkspace, useIdleRecycle, type QueryDraft } from './recycle';
 import { DriverLogo } from './drivers/DriverLogo';
@@ -109,6 +111,7 @@ export function App() {
   useEffect(()=>{const shortcut=(e:KeyboardEvent)=>{if(!(e.metaKey||e.ctrlKey)||e.altKey||document.querySelector('dialog[open]'))return;if(e.code==='KeyJ'){e.preventDefault();setAssistantMounted(true);setAssistantOpen(value=>!value);}if(e.code==='KeyL'&&(e.target as HTMLElement).closest('.editor')){e.preventDefault();setAssistantMounted(true);setAssistantOpen(true);setAskSequence(value=>value+1);}};const ask=()=>{setAssistantMounted(true);setAssistantOpen(true);setAskSequence(value=>value+1);};window.addEventListener('ax:ask-panel',ask);window.addEventListener('keydown',shortcut);return()=>{window.removeEventListener('keydown',shortcut);window.removeEventListener('ax:ask-panel',ask);};},[]);
   useEffect(()=>{window.dispatchEvent(new Event('ax:work-context'));},[active,sessions,tabResults]);
   const credentialReply = useRef<((secret: string | null) => void) | null>(null);
+  useEffect(()=>{if(isMock)return;let disposed=false;let stop:(()=>void)|undefined;void listen<'undo'|'redo'>('editor-history',event=>window.dispatchEvent(new CustomEvent('ax:editor-history',{detail:event.payload}))).then(unlisten=>{if(disposed)unlisten();else stop=unlisten;});return()=>{disposed=true;stop?.();};},[]);
   const handles = useRef(new Map<string, EditorHandle>());
   const drafts = useRef(new Map<string, QueryDraft>());
   const sidebarSnapshot = useRef<() => ConnectionsState | null>(()=>null);
@@ -219,6 +222,45 @@ export function App() {
     const profile = profiles.find(p => p.name === entry.profile_name && sessions[p.id]); if (profile) newQuery(profile, entry.text);
     else setError({ kind: 'Connection', message: '이력을 불러오려면 연결한 뒤 쿼리 탭을 여세요.', detail: null, position: null });
   }
+  function reviewTab(session:string,path:string) {
+    const profileId=profiles.find(p=>sessionsRef.current[p.id]===session)?.id;
+    const queries=tabsRef.current.filter(t=>t.profileId===profileId&&t.kind==='query');
+    const exact=queries.filter(t=>t.filePath===path||t.filePath?.endsWith('/'+path)||t.title===path);
+    const candidates=exact.length?exact:queries.filter(t=>t.filePath&&t.title===path.split(/[\\/]/).at(-1));
+    if(candidates.length>1)throw new Error('같은 이름의 탭이 여러 개입니다. 전체 파일 경로로 다시 제안하세요.');
+    return candidates[0];
+  }
+  const fileReview:FileReviewActions={
+    targets:session=>tabsRef.current.filter(t=>t.kind==='query'&&sessionsRef.current[t.profileId]===session&&handles.current.has(t.id)).map(t=>({label:t.title,tabId:t.id,before:handles.current.get(t.id)!.text(),targetPath:t.filePath})),
+    snapshot:(session,path)=>{const tab=reviewTab(session,path),handle=tab&&handles.current.get(tab.id);return tab&&handle?{tabId:tab.id,before:handle.text(),targetPath:tab.filePath}:{};},
+    resolve:async(session,file,source)=>{
+      const snapshot=source==='file'?{}:fileReview.snapshot(session,file.path);if(snapshot.tabId)return {...file,...snapshot};if(source==='tab')throw new Error('일치하는 열린 SQL 파일 탭이 없습니다. 파일 위치를 선택하세요.');
+      const filename=file.path.split(/[\\/]/).at(-1)??'proposal.sql';
+      const selection=await invoke<{path:string;token:string}|null>('export_save_dialog',{filename,extension:'sql'});if(!selection)return null;
+      const existing=reviewTab(session,selection.path);if(existing){const handle=handles.current.get(existing.id);if(!handle)throw new Error('편집기가 아직 준비되지 않았습니다.');return {...file,tabId:existing.id,before:handle.text(),targetPath:selection.path};}
+      const before=await invoke<string>('query_file_read',selection);
+      return {...file,before,targetPath:selection.path};
+    },
+    apply:async(session,file)=>{
+      const profile=profiles.find(p=>sessionsRef.current[p.id]===session);if(!profile)throw new Error('원래 연결이 닫혔습니다.');
+      let tab=file.tabId?tabsRef.current.find(t=>t.id===file.tabId):file.targetPath?reviewTab(session,file.targetPath):undefined;
+      if(!tab&&file.tabId)throw new Error('검토한 탭이 닫혔습니다. 다시 제안하세요.');
+      if(!tab){const id=newQuery(profile,file.before??'',undefined,true);if(!id)throw new Error('탭을 열 수 없습니다.');
+        const title=file.targetPath?.split(/[\\/]/).at(-1)??file.path;
+        tabsRef.current=tabsRef.current.map(t=>t.id===id?{...t,filePath:file.targetPath,title}:t);setTabs(tabsRef.current);tab=tabsRef.current.find(t=>t.id===id);
+      }
+      const tabId=tab!.id;const deadline=Date.now()+5000;
+      while(!handles.current.has(tabId)){if(Date.now()>deadline)throw new Error('편집기를 열지 못했습니다.');await new Promise(r=>requestAnimationFrame(r));}
+      if(activeRef.current!==tabId){activeRef.current=tabId;setActive(tabId);await new Promise(r=>requestAnimationFrame(r));}
+      const handle=handles.current.get(tabId)!;
+      if(handle.text()!==file.before||sessionsRef.current[profile.id]!==session)throw new Error('검토 중 내용 또는 연결이 바뀌었습니다. 덮어쓰지 않았습니다.');
+      handle.replace(file.after);setActive(tabId);return {...file,tabId,decision:'accepted',revision:handle.revision()};
+    },
+    undo:(session,file)=>{const tab=tabsRef.current.find(t=>t.id===file.tabId),handle=tab&&handles.current.get(tab.id);
+      if(!tab||!handle||sessionsRef.current[tab.profileId]!==session||handle.text()!==file.after||handle.revision()!==file.revision)throw new Error('수락 이후 편집되었거나 탭이 닫혔습니다. 해당 편집기의 ⌘Z를 사용하세요.');
+      if(!handle.undo())throw new Error('되돌릴 편집 이력이 없습니다.');setActive(tab.id);return {...file,decision:'pending',revision:undefined};
+    }
+  };
   async function saveQueryFile(text?:string, session?:string) {
     const tab=tabsRef.current.find(t=>t.id===activeRef.current&&t.kind==='query');
     const profile=session?profiles.find(p=>sessionsRef.current[p.id]===session):profiles.find(p=>p.id===tab?.profileId);
@@ -325,7 +367,7 @@ export function App() {
           {tabs.map(tab => { const p = profiles.find(p => p.id === tab.profileId); const manifest = drivers.find(d => d.id === p?.driver_id); const sessionId = sessions[tab.profileId]; return manifest && !sessionId ? <section class="tab-body disconnected-tab" hidden={active!==tab.id} key={tab.id}><p>연결 끊김 · 다시 연결</p><Button morph={false} onClick={()=>{if(p)void connect(p).catch(report);}}>다시 연결</Button></section> : manifest && sessionId && <section class="tab-body" hidden={active !== tab.id} key={tab.id} aria-label={tab.aria ?? tab.title}>{<Suspense fallback={<p role="status">편집기를 불러오는 중…</p>}><NavigationTab draft={tab.draft} onDraft={draft=>drafts.current.set(tab.id,draft)} onDirty={dirty => setTabs(previous => previous.map(item => item.id === tab.id && item.dirty !== dirty ? { ...item, dirty } : item))} aiSuggested={tab.aiSuggested} readOnly={p?.access_mode === 'read_only'} kind={tab.kind} scope={tab.scope} nodeId={tab.nodeId} title={tab.title} initialText={tab.text} onResults={results => { results.forEach(result=>noteLargeResult(result.row_count)); lastResults.current = results; lastResultsTab.current = tab.id; setTabResults(previous => ({ ...previous, [tab.id]: results[0] })); if (results[0]) notify(`${results[0].row_count.toLocaleString()}행 · ${results[0].elapsed_ms.toLocaleString()} ms`); }} active={active===tab.id} sessionId={sessionId} manifest={manifest} graphLimit={graphLimit} onRun={runId=>onRun(tab.id,runId)} onReady={handle=>{if(handle)handles.current.set(tab.id,handle);else handles.current.delete(tab.id);}} onHistory={()=>void refreshHistory()} onError={e=>reportInTab(e,tab.profileId)}/></Suspense>}</section>; })}</>}
         <section class="history" hidden={!historyOpen} aria-label="Execution history"><div class="section-title"><strong>이력 <small>{history.length.toLocaleString()}</small></strong><span><Button morph={false} onClick={() => void refreshHistory()} aria-label="Refresh history"><RefreshCw /></Button><Button morph={false} onClick={() => setHistoryOpen(false)} aria-label="Close history"><PanelLeftClose /></Button></span></div><div class="history-list">{history.map((entry, i) => <SwipeRow key={`${entry.timestamp}:${entry.profile_name}:${i}`} label={`History ${i + 1}`} open={historyActions === `${i}`} onOpenChange={open => setHistoryActions(open ? `${i}` : null)} actions={[{id:'open',label:'새 탭에서 열기',icon:<SquarePlus />,onSelect:()=>fromHistory(entry,true)},{id:'copy',label:'쿼리 복사',icon:<Copy />,onSelect:()=>{void navigator.clipboard.writeText(entry.text).then(() => notify('쿼리를 복사했습니다')).catch(report);}},{id:'delete',label:'이력 삭제',icon:<Trash2 />,onSelect:()=>{setHistoryDelete(entry);setDeletePending(false);}}]}><Button bare class="history-entry" onClick={() => fromHistory(entry)} title={entry.text}><time title={new Date(entry.timestamp).toLocaleString()}>{new Date(entry.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</time><span>{entry.profile_name} · {entry.source === 'agent' ? '에이전트' : 'UI'}</span><code>{entry.text}</code><small class={entry.error ? 'invalid' : ''}>{entry.error ?? `${entry.row_count.toLocaleString()}행 · ${entry.elapsed_ms.toLocaleString()} ms`}</small></Button></SwipeRow>)}{!history.length && <p class="muted">실행 이력이 없습니다.</p>}</div></section>
       </div></div></main>
-      <Suspense fallback={null}>{assistantMounted&&<AssistantPanel askSequence={askSequence} open={assistantOpen} work={workContext} notify={notify} createFile={(session,text)=>void saveQueryFile(text,session)} table={()=>lastResultsTab.current===activeRef.current?lastResults.current.find(r=>r.table)?.table??undefined:undefined} insert={(session,text)=>{const profile=profiles.find(p=>sessionsRef.current[p.id]===session);return profile?newQuery(profile,text,undefined,true):undefined;}} edit={(session,text,before)=>{const tab=tabsRef.current.find(t=>t.id===activeRef.current&&t.kind==='query');const handle=tab&&handles.current.get(tab.id);if(!tab||!handle||sessionsRef.current[tab.profileId]!==session||(before!==undefined&&handle.text()!==before))return false;if(before!==undefined)handle.replace(text);else handle.insert(text);return true;}} close={()=>setAssistantOpen(false)}/>}</Suspense>
+      <Suspense fallback={null}>{assistantMounted&&<AssistantPanel fileReview={fileReview} askSequence={askSequence} open={assistantOpen} work={workContext} notify={notify} createFile={(session,text)=>void saveQueryFile(text,session)} table={()=>lastResultsTab.current===activeRef.current?lastResults.current.find(r=>r.table)?.table??undefined:undefined} insert={(session,text)=>{const profile=profiles.find(p=>sessionsRef.current[p.id]===session);return profile?newQuery(profile,text,undefined,true):undefined;}} edit={(session,text,before)=>{const tab=tabsRef.current.find(t=>t.id===activeRef.current&&t.kind==='query');const handle=tab&&handles.current.get(tab.id);if(!tab||!handle||sessionsRef.current[tab.profileId]!==session||(before!==undefined&&handle.text()!==before))return false;if(before!==undefined)handle.replace(text);else handle.insert(text);return true;}} close={()=>setAssistantOpen(false)}/>}</Suspense>
     </div>
     {connectionProgress&&<section class="connection-live" aria-label="실제 연결 진행"><strong>{connectionProgress.profile.name} · {connectionProgress.state==='done'?'연결됨 ✓':connectionProgress.state==='failed'?'연결 실패':'연결 중…'}</strong>{drivers.find(d=>d.id===connectionProgress.profile.driver_id)&&<ConnectionTimeline events={connectionProgress.events} manifest={drivers.find(d=>d.id===connectionProgress.profile.driver_id)!} network={connectionProgress.profile.network??{}} running={connectionProgress.state==='running'}/>} {connectionProgress.error&&<p role="alert">{connectionProgress.error}</p>}{connectionProgress.state==='failed'&&<div class="ai-actions"><Button onClick={()=>void connect(connectionProgress.profile).catch(report)}>다시 시도</Button><Button onClick={()=>setConnectionProgress(null)}>닫기</Button></div>}</section>}
     <StarPrompt blocked={!loaded||onboarding.open||whatsNew.open||!!error||tabs.some(tab=>!!tab.runId)} pulse={queryPulse?.sequence??0}/><footer class="statusbar" aria-label="Workspace status"><HostKeyDialog/><span class={`status-dot ${activeProfile && sessions[activeProfile.id] && !dead.has(activeProfile.id) ? 'connected' : ''}`} /><span class="status-name" title={activeProfile?.name}>{activeProfile?.name ?? '연결을 선택하세요'}</span><span class="status-driver" title={activeProfile ? serverVersionTitle(serverInfo[activeProfile.id]) ?? (serverInfo[activeProfile.id]===null?"서버 정보를 읽을 수 없습니다":"서버 정보 확인 중") : undefined}>{shortServerVersion(activeProfile && serverInfo[activeProfile.id], activeDriver?.display_name || "AxDB")}</span>{activeProfile?.access_mode === 'read_only' && <span class="read-only-badge"><ShieldCheck />읽기 전용</span>}{activeProfile&&<Button morph={false} onClick={()=>void (sessions[activeProfile.id]?disconnect(activeProfile):connect(activeProfile)).catch(report)}>{sessions[activeProfile.id]?'연결 해제':'연결 끊김 · 다시 연결'}</Button>}<span class="status-spacer" /><UpdateBadge updater={updater} />{toasts.length > 0 && <Button morph={false} class="notification-count" aria-label="Show notifications" onClick={() => setSidebarOpen(true)}>알림 {toasts.length.toLocaleString()}</Button>}{statusResult && <span>{statusResult.elapsed_ms.toLocaleString()} ms · {statusResult.row_count.toLocaleString()}행</span>}<div class="agent-controls"><AgentPanel queryPulse={queryPulse} openRequest={agentRequest} onProfileSelect={editConnection} ready={loaded} registrationKey={JSON.stringify([drivers, profiles.map(p => [p.id, p.driver_id, p.name, p.access_mode]), sessions])} host={{

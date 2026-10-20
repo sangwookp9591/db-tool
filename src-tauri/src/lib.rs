@@ -12,6 +12,7 @@ mod agent_dispatch;
 mod permissions;
 mod edits;
 mod editor;
+mod editor_menu;
 mod export;
 pub mod drivers;
 pub mod plugin_host;
@@ -673,7 +674,9 @@ pub fn run() {
                 bridge.loading(&host.paths.config);
             }
         })
+        .on_menu_event(|app, event| editor_menu::event(app, event.id().as_ref()))
         .setup(|app| {
+            editor_menu::install(app)?;
             let paths = Paths::create(
                 app.path().app_config_dir()?,
                 app.path().app_data_dir()?,
@@ -723,6 +726,10 @@ pub fn run() {
             context::context_get,
             context::context_error,
             assistant::ai_settings,
+            assistant::tools::ai_tool_policy,
+            assistant::tools::ai_tool_decide,
+            export::query_file_read,
+            editor_menu::editor_history_mode,
             assistant::ai_configure,
             assistant::ai_request,
             assistant::ai_login_start,
@@ -1109,6 +1116,37 @@ mod tests {
         session_close(app.state(),session).await.unwrap();std::fs::remove_dir_all(dir).unwrap();
     }
 
+    #[tokio::test]
+    async fn ai_tools_recheck_permissions_and_never_apply_without_matching_preview() {
+        use assistant::tools::{ai_tool_decide, ai_tool_policy, ToolRequest};
+        let (app,dir)=setup(); app.manage(agent_bridge::Bridge::default());
+        let profile=Profile{id:"ai-test".into(),name:"AI fixture".into(),driver_id:"sqlite".into(),fields:std::collections::BTreeMap::from([("path".into(),dir.join("ai.sqlite").to_string_lossy().into())]),save_secret:false,network:None,auth:Default::default(),access_mode:Default::default()};
+        storage::write_private(&dir.join("profiles.json"),&serde_json::to_vec(&vec![profile.clone()]).unwrap()).unwrap();
+        let session=session_open(app.state(),profile.id.clone(),None).await.unwrap();
+        execute(app.state(),session.clone(),"setup".into(),request("CREATE TABLE items(id integer); INSERT INTO items VALUES(1)",1000)).await.unwrap();
+        let tool=|sql:&str| ToolRequest{name:"run_query".into(),arguments:serde_json::json!({"session_id":session,"text":sql}),client_id:None};
+        let read=ai_tool_policy(app.state(),session.clone(),tool("SELECT 1"),true).unwrap(); assert!(read.allowed&&read.read_only);
+        let write=ai_tool_policy(app.state(),session.clone(),tool("DELETE FROM items"),true).unwrap(); assert!(!write.allowed&&write.destructive);
+        let mut readonly_request=tool("DELETE FROM items");readonly_request.arguments["read_only"]=serde_json::json!(true);assert!(!ai_tool_policy(app.state(),session.clone(),readonly_request,false).unwrap().allowed);
+        let run=ai_tool_decide(app.state(),app.state(),session.clone(),tool("SELECT 1"),false,"allow".into()).await.unwrap(); assert_eq!(run["row_count"],1);assert!(run.get("results").is_none());
+        assert!(ai_tool_decide(app.state(),app.state(),session.clone(),tool("DELETE FROM items"),false,"apply".into()).await.is_err());
+        let plan=ai_tool_decide(app.state(),app.state(),session.clone(),tool("DELETE FROM items"),false,"allow".into()).await.unwrap();assert!(plan.get("preview").is_some());
+        let rows=execute(app.state(),session.clone(),"rolled-back".into(),request("SELECT * FROM items",1000)).await.unwrap();assert_eq!(rows[0].row_count,1);
+        let mut readonly=profile.clone();readonly.access_mode=permissions::AccessMode::ReadOnly;
+        storage::write_private(&dir.join("profiles.json"),&serde_json::to_vec(&vec![readonly]).unwrap()).unwrap();
+        assert!(ai_tool_decide(app.state(),app.state(),session.clone(),tool("DELETE FROM items"),false,"apply".into()).await.is_err());
+        storage::write_private(&dir.join("profiles.json"),&serde_json::to_vec(&vec![profile.clone()]).unwrap()).unwrap();
+        let created=permissions::agent_client_save(app.state(),permissions::ClientInput{id:None,name:"preview-agent".into(),connections:std::collections::BTreeMap::from([(profile.id.clone(),permissions::Permission::Preview)]),allowed_tools:vec!["run_query".into(),"preview_changes".into()],max_rows:3,max_result_rows:3,max_result_bytes:8192,expires_at:None}).unwrap();
+        let client_id=created["client"]["id"].as_str().unwrap().to_owned();
+        let mut preview_tool=tool("DELETE FROM items");preview_tool.name="preview_changes".into();preview_tool.client_id=Some(client_id.clone());
+        let preview_policy=ai_tool_policy(app.state(),session.clone(),preview_tool.clone(),false).unwrap();assert!(preview_policy.allowed&&!preview_policy.can_apply);assert_eq!(preview_policy.mode,"preview");
+        assert!(ai_tool_decide(app.state(),app.state(),session.clone(),preview_tool,false,"apply".into()).await.is_err());
+        permissions::agent_client_revoke(app.state(),client_id.clone()).unwrap();
+        let mut scoped=tool("SELECT 1");scoped.client_id=Some(client_id);assert!(ai_tool_policy(app.state(),session.clone(),scoped,false).is_err());
+        ai_tool_decide(app.state(),app.state(),session.clone(),tool("SELECT 'private-row-value'"),false,"deny".into()).await.unwrap();
+        let audit=std::fs::read_to_string(dir.join("agent-audit.jsonl")).unwrap(); assert!(!audit.contains("private-row-value")&&!audit.contains(created["token"].as_str().unwrap()));
+        session_close(app.state(),session.clone()).await.unwrap();std::fs::remove_dir_all(dir).unwrap();
+    }
     #[tokio::test]
     async fn client_crud_rotation_and_private_audit_commands() {
         let (app,dir)=setup();

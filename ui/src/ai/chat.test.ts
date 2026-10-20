@@ -10,7 +10,7 @@ describe('bounded assistant conversation',()=>{
  });
  it('never resends opted-in rows or failed/incomplete responses and uses a UTF-8 budget',()=>{
   const base:ChatMessage={id:'1',role:'assistant',text:'safe',complete:true};
-  expect(conversationContext([base,{...base,sensitive:true,text:'rows'},{...base,error:'cancelled'},{...base,complete:false}])).toEqual([{role:'assistant',content:'safe'}]);
+  expect(conversationContext([base,{...base,text:''},{...base,sensitive:true,text:'rows'},{...base,error:'cancelled'},{...base,complete:false}])).toEqual([{role:'assistant',content:'safe'}]);
   expect(conversationContext([{...base,text:'한'.repeat(11000)}])).toEqual([]);
   expect(conversationContext(Array.from({length:30},()=>base))).toHaveLength(20);
  });
