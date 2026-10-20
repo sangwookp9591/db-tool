@@ -1,0 +1,31 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling axdb v0.3.0 (/Users/iron/Project/psw/db-tool-d10/src-tauri)
+warning: use of deprecated method `std::sync::atomic::Atomic::<usize>::fetch_update`: renamed to `try_update` for consistency
+  --> vendor/neo4rs/src/routing/load_balancing/round_robin_strategy.rs:49:27
+   |
+49 |             let _ = index.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |i| {
+   |                           ^^^^^^^^^^^^
+   |
+   = note: `#[warn(deprecated)]` on by default
+help: replace the use of the deprecated method
+   |
+49 -             let _ = index.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |i| {
+49 +             let _ = index.try_update(Ordering::Relaxed, Ordering::Relaxed, |i| {
+   |
+
+warning: `neo4rs` (lib) generated 1 warning (run `cargo fix --lib -p neo4rs` to apply 1 suggestion)
+   Compiling driver-mongodb v0.3.0 (/Users/iron/Project/psw/db-tool-d10/crates/driver-mongodb)
+    Finished `test` profile [unoptimized] target(s) in 36.25s
+     Running tests/plugin_contracts.rs (target/debug/deps/plugin_contracts-2ca562ccd01d0bc2)
+
+running 6 tests
+test mongo_explain::explain_reads_only_and_exposes_execution_stats ... ok
+test mongo_schema::real_mongodb_schema_graph ... ok
+test mongo::find_edit_preview_apply_and_conflict ... ok
+test mongo_management::snapshot_indexes_and_standalone_import_refusal ... ok
+test mongo_schema::real_mongodb_schema_collection_limit ... ok
+test mongo::real_mongodb_contract ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 39 filtered out; finished in 1.65s

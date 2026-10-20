@@ -9,6 +9,7 @@ import { finish, frame, painted, perf, sampleFrames, start } from './index';
 async function waitFor(test: () => boolean, timeout = 60000) { const until = performance.now() + timeout; while (!test()) { if (performance.now() > until) throw new Error('Native benchmark timed out'); await frame(); } }
 async function run() {
   const resourceTarget = await invoke<string>('viewer_bench_target');
+  if (resourceTarget === 'd10') { await (await import('./d10')).d10Bench(); return; }
   if (resourceTarget === 'd7') { await (await import('./d7')).d7Bench(); return; }
   if (resourceTarget === 'connections') { await (await import('./connections')).connectionBench(); return; }
   if (resourceTarget.startsWith('resource')) { await (await import('./resource')).resourceBench(resourceTarget === 'resource-leak'); return; }

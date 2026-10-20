@@ -1,0 +1,19 @@
+{
+  "checks": [
+    {
+      "suite": "e2e-bridge",
+      "ok": true
+    },
+    {
+      "suite": "preview-e2e",
+      "ok": true
+    },
+    {
+      "suite": "permissions-e2e",
+      "ok": true
+    }
+  ],
+  "config": "/var/folders/_p/fy8jj5b95c38w41rttwnnll40000gn/T/axdb-d10-e2e-a1I37I",
+  "pid": 81200,
+  "credentials": "private debug fixture file; OS keychain not exercised"
+}

@@ -1,0 +1,15 @@
+
+> axdb-ui@0.3.0 test /Users/iron/Project/psw/db-tool-d10/ui
+> vitest run
+
+
+ RUN  v5.0.5 /Users/iron/Project/psw/db-tool-d10/ui
+
+
+ Test Files  41 passed (41)
+      Tests  156 passed (156)
+   Start at  14:14:31
+   Duration  44.64s (tests 89%, import 9%, transform 2%)
+
+    Isolate  41 workers spawned · ~328ms startup each (spawn + environment, per file)
+             at least ~6.40s faster with isolate: false — reuses workers across files instead of one per file
