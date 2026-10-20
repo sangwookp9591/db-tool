@@ -32,3 +32,5 @@
 :root .edit-table{min-width:0}
 :root .edit-table td{min-width:0}.tab-body:has(.canvas-wrap){min-height:462px}
 :is(input,textarea,[contenteditable],.cm-editor,td,pre,code,details,.driver-error,.row-inspector,.document-tree,.json-view,.result-title,.message,.notice){-webkit-user-select:text;user-select:text}
+
+.edit-table td[aria-disabled="true"] { opacity: .55; cursor: not-allowed; background: var(--surface-secondary); }

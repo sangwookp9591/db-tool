@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatJson, inputValue, valueText } from './values';
+import { editValueText, formatJson, inputValue, valueText } from './values';
 import { mergeGraph, nodeCaption } from './graph';
 import { visibleRange } from './virtual';
 import type { Graph } from './contract';
@@ -78,4 +78,14 @@ describe('inputValue', () => {
     expect(inputValue('NULL', { name: 'note', type_name: 'text' }, { t: 'Null' })).toEqual({ t: 'Null' });
     expect(() => inputValue('nope', { name: 'id', type_name: 'int4' }, { t: 'Int', v: '1' })).toThrow();
   });
+});
+
+it('preserves BSON field types while editing document results', () => {
+  expect(inputValue('507f1f77bcf86cd799439011',{name:'id',type_name:'ObjectId'},{t:'Other',v:{type_name:'ObjectId',text:'507f1f77bcf86cd799439012'}})).toEqual({t:'Other',v:{type_name:'ObjectId',text:'507f1f77bcf86cd799439011'}});
+  expect(()=>inputValue('invalid',{name:'id',type_name:'ObjectId'},{t:'Other',v:{type_name:'ObjectId',text:'507f1f77bcf86cd799439012'}})).toThrow(/ObjectId/);
+  expect(inputValue('{"v":2}',{name:'nested',type_name:'Document'},{t:'Map',v:[]})).toEqual({t:'Json',v:'{"v":2}'});
+});
+
+it('keeps nested BSON integers and ObjectIds lossless in the edit input', () => {
+  expect(JSON.parse(editValueText({t:'Map',v:[['big',{t:'Int',v:'9223372036854775807'}],['id',{t:'Other',v:{type_name:'ObjectId',text:'507f1f77bcf86cd799439011'}}]]}))).toEqual({big:{$numberLong:'9223372036854775807'},id:{$oid:'507f1f77bcf86cd799439011'}});
 });
