@@ -17,7 +17,7 @@ export interface Commands extends EditorCommands, ConnectionCommands {
   ai_login_status: { args: Record<string, never>; result: { installed: boolean; logged_in: boolean } };
   ai_logout: { args: Record<string, never>; result: void };
   ai_configure: { args: { settings: AiSettings; apiKey: string | null }; result: void };
-  ai_request: { args: { sessionId: string; scope: Scope; question: string; channel: Channel<string> }; result: AiReply };
+  ai_request: { args: { sessionId: string; scope: Scope; question: string; channel: Channel<string>; runId?: string; history?: {role: 'user' | 'assistant'; content: string}[]; onEvent?: Channel<{phase:number;schema?:string;context_elapsed_ms?:number}> }; result: AiReply };
 
   agent_clients_list: { args: Record<string, never>; result: AgentClient[] };
   agent_client_save: { args: { input: Omit<AgentClient, 'id' | 'revoked'> & { id?: string } }; result: { client: AgentClient; token: string | null } };
@@ -35,7 +35,8 @@ export interface Commands extends EditorCommands, ConnectionCommands {
   profile_delete: { args: { profileId: string }; result: void };
   connection_test: { args: { profile: Profile; secret: string | null }; result: string };
   session_info: { args: { sessionId: string }; result: string };
-  session_open: { args: { profileId: string; secret: string | null }; result: string };
+  session_open_progress: { args: { profileId: string; secret: string | null; onEvent: Channel<import('./ax/connectionContract').ConnectionEvent> }; result: string };
+  session_open: { args: { profileId: string; secret: string | null; onEvent?: Channel<import('./ax/connectionContract').ConnectionEvent> }; result: string };
   session_close: { args: { sessionId: string }; result: void };
   explorer_children: { args: { sessionId: string; parent: string | null }; result: ExplorerNode[] };
   schema_graph: { args: { sessionId: string; scope: string | null }; result: SchemaGraph };

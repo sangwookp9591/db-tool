@@ -1,0 +1,6 @@
+import { useEffect,useRef } from 'preact/hooks';
+export function QueryCode({text,language}:{text:string;language?:string}) {
+ const root=useRef<HTMLDivElement>(null);
+ useEffect(()=>{if(language!=='sql'||!root.current)return;let disposed=false;let destroy:(()=>void)|undefined;void Promise.all([import('@codemirror/state'),import('@codemirror/view'),import('@codemirror/lang-sql'),import('@codemirror/language')]).then(([state,view,sql,lang])=>{if(disposed||!root.current)return;root.current.textContent='';const editor=new view.EditorView({parent:root.current,state:state.EditorState.create({doc:text,extensions:[sql.sql(),lang.syntaxHighlighting(lang.HighlightStyle.define(lang.defaultHighlightStyle.specs.map(spec=>spec.color?{...spec,color:`var(--syntax-${String(spec.color).slice(1)}, ${spec.color})`}:spec))),state.EditorState.readOnly.of(true),view.EditorView.editable.of(false),view.EditorView.lineWrapping,view.EditorView.theme({'&':{fontSize:'11px',background:'var(--bg-base)'},'.cm-content':{fontFamily:'var(--mono)'},'.cm-scroller':{maxHeight:'300px',overflow:'auto'}})]})});destroy=()=>editor.destroy();}).catch(()=>{});return()=>{disposed=true;destroy?.();};},[text,language]);
+ return <div class="ai-query-code" ref={root}><pre><code>{text}</code></pre></div>;
+}

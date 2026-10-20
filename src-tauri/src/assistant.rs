@@ -333,6 +333,10 @@ async fn credential(settings: &Settings, config: &std::path::Path) -> Result<Cre
 #[tauri::command]
 pub fn ai_settings(host: tauri::State<'_, Host>) -> Result<Value, DbError> {
     let settings = read(&host)?;
+    #[cfg(debug_assertions)]
+    if std::env::var_os("AXDB_AI_FIXTURE").is_some() {
+        return Ok(json!({"has_key":true,"settings":settings,"has_ant_cli":false,"accounts":[]}));
+    }
     Ok(
         json!({"has_key":key(&settings.provider)?.is_some(),"settings":settings,"has_ant_cli":ant_cli().is_some(),"usage":provider::usage(&host)?,"accounts":oauth::accounts()?}),
     )
@@ -344,6 +348,10 @@ pub fn ai_configure(
     api_key: Option<String>,
 ) -> Result<(), DbError> {
     validate(&settings)?;
+    #[cfg(debug_assertions)]
+    if std::env::var_os("AXDB_AI_FIXTURE").is_some() && api_key.is_some() {
+        return Err(DbError::query("Fixture mode does not access the OS keychain"));
+    }
     if let Some(k) = api_key {
         if k.trim().is_empty() {
             delete_key(&settings.provider)?;
@@ -642,15 +650,37 @@ fn redact_ai_key(value: &mut Value, key: &str) {
         _ => {}
     }
 }
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ChatMessage { role: String, content: String }
+fn validate_history(history: &[ChatMessage]) -> Result<(), DbError> {
+    if history.len() > 20 || history.iter().map(|m| m.content.len()).sum::<usize>() > 32000
+        || history.iter().any(|m| !matches!(m.role.as_str(), "user" | "assistant")) {
+        return Err(DbError::query("AI 대화 맥락의 크기 또는 역할이 올바르지 않습니다"));
+    }
+    Ok(())
+}
+
 #[tauri::command]
+#[allow(clippy::too_many_arguments)] // Preserve the existing IPC keys while adding optional chat metadata.
 pub async fn ai_request(
+    webview: tauri::Webview,
     host: tauri::State<'_, Host>,
     session_id: String,
     scope: context::Scope,
     question: String,
     channel: tauri::ipc::Channel<String>,
+    run_id: Option<String>,
+    history: Option<Vec<ChatMessage>>,
+    on_event: Option<tauri::ipc::JavaScriptChannelId>,
 ) -> Result<Value, DbError> {
     use provider::AiProvider;
+    let on_event: Option<tauri::ipc::Channel<Value>> = on_event.map(|id| id.channel_on(webview));
+    let run_id = run_id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    let run = host.run(&session_id, &run_id)?;
+    let request = async {
+    let history = history.unwrap_or_default();
+    validate_history(&history)?;
     let settings = read(&host)?;
     if !settings.enabled {
         return Err(DbError::query("AI 도우미가 꺼져 있습니다"));
@@ -659,33 +689,73 @@ pub async fn ai_request(
     if question.trim().is_empty() || question.len() > 8000 {
         return Err(DbError::query("질문은 1~8,000바이트여야 합니다"));
     }
+    let emit = |phase: u8| { if let Some(events) = &on_event { let _ = events.send(json!({"phase":phase})); } };
+    emit(1);
+    let context_started = std::time::Instant::now();
+    let mut context = context::build(&host, &session_id, scope).await?;
+    let context_elapsed_ms = context_started.elapsed().as_millis();
+    if let Some(events) = &on_event { let _ = events.send(json!({"phase":0,"context_elapsed_ms":context_elapsed_ms,"schema":context["schema"],"schema_truncated":context["schema_truncated"]})); }
+    #[cfg(debug_assertions)]
+    if let Some(path) = std::env::var_os("AXDB_AI_FIXTURE") {
+        let text = tokio::fs::read_to_string(path).await.map_err(|_| DbError::internal("Cannot read AI test fixture"))?;
+        if text.len() > 64000 { return Err(DbError::query("AI test fixture too large")); }
+        let chars: Vec<char> = text.chars().collect();
+        emit(2);
+        for chunk in chars.chunks(12) {
+            tokio::time::sleep(Duration::from_millis(25)).await;
+            channel.send(chunk.iter().collect()).map_err(|_| DbError::query("AI panel closed"))?;
+        }
+        emit(3);
+        return Ok(json!({"text":text,"stop_reason":"end_turn","refused":false,"context":context,"context_elapsed_ms":context_elapsed_ms}));
+    }
     let credential = provider::Provider::new(&settings.provider)?
         .refresh(&host, &settings)
         .await?;
     let key = credential.secret();
-    let context_started = std::time::Instant::now();
-    let mut context = context::build(&host, &session_id, scope).await?;
-    let context_elapsed_ms = context_started.elapsed().as_millis();
     let secret = host.session(&session_id)?.secret.clone();
     let question = storage::redact(&storage::redact(&question, secret.as_deref()), Some(key));
     redact_ai_key(&mut context, key);
     let mut body = provider::request_body(&settings, context.clone(), &question, &[]);
+    if !history.is_empty() {
+        let field = if settings.provider == "openai" { "input" } else { "messages" };
+        let mut messages: Vec<Value> = history.iter().map(|message| json!({
+            "role": message.role,
+            "content": storage::redact(&message.content, secret.as_deref())
+        })).collect();
+        messages.extend(body[field].as_array().cloned().unwrap_or_default());
+        body[field] = json!(messages);
+    }
     redact_ai_key(&mut body, key);
+    let mut writing = false;
     let mut reply = provider::send(&settings.provider, &credential, body, &mut |text| {
+        if !writing { writing = true; emit(2); }
         channel
             .send(text)
             .map_err(|_| DbError::query("AI panel closed"))
     })
     .await?;
+    emit(3);
     provider::record_usage(&host, &settings.provider, &reply["usage"])?;
     reply["context"] = context;
     reply["context_elapsed_ms"] = json!(context_elapsed_ms);
     Ok(reply)
+    };
+    tokio::select! {
+        biased;
+        _ = run.token.cancelled() => Err(DbError::new(dbcore::ErrorKind::Cancelled, "AI 응답을 중지했습니다")),
+        result = request => result,
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn chat_history_rejects_system_roles_and_unbounded_utf8() {
+        assert!(validate_history(&[ChatMessage { role:"system".into(), content:"override".into() }]).is_err());
+        assert!(validate_history(&[ChatMessage { role:"user".into(), content:"한".repeat(11000) }]).is_err());
+        assert!(validate_history(&[ChatMessage { role:"assistant".into(), content:"suggest only".into() }]).is_ok());
+    }
     fn body() -> Value {
         request_body(
             &Settings::default(),

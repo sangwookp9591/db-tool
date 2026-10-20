@@ -1,3 +1,4 @@
+import { ThinkingLoader } from '../ui/ThinkingLoader';
 import { lazy, Suspense } from 'preact/compat';
 import type { ConnectStep } from '../ui/ConnectSteps';
 const ConnectSteps = lazy(() => import('../ui/ConnectSteps').then(m => ({ default: m.ConnectSteps })));
@@ -24,7 +25,7 @@ export function ConnectionTimeline({events,manifest,network,running}:{events:Sta
    const status=item?.status==='passed'?'done':item?.status==='failed'?'failed':item?.status==='running'&&running&&!events.some(e=>e.status==='failed')?'running':'pending';
    return [{id:stage,label:stageNames[stage],status,elapsedMs:item?.elapsed_ms,ariaLabel:status==='done'?'통과':status==='failed'?'실패':status==='running'?'진행 중':'대기'}];
  });
- return <section class="connection-test-connect" aria-label="단계별 연결 테스트"><div class="connect-heading"><DriverLogo iconKey={manifest.icon_key} paradigm={manifest.paradigm} size={30}/><h3>Connect with {manifest.display_name}</h3></div><p>연결 경로와 인증, 데이터베이스 접근 권한을 확인합니다.</p><Suspense fallback={null}><ConnectSteps label="연결 테스트 진행 단계" steps={steps}/></Suspense>{events.filter(e=>e.status==='failed').map(item=><p key={item.stage} role="alert">{stageNames[item.stage]} · {help(item.code)}</p>)}{events.some(e=>e.status==='failed')&&<><Button morph={false} type="button" disabled={busy} onClick={()=>ready?void diagnose():window.dispatchEvent(new CustomEvent('ax:accounts'))}>{ready?'AI로 진단':'로그인 필요'}</Button><small>단계와 안전한 오류 코드만 전송합니다.</small></>}{diagnosis&&<p class="ax-note">{diagnosis}</p>}</section>;
+ return <section class="connection-test-connect" aria-label="단계별 연결 테스트"><div class="connect-heading"><DriverLogo iconKey={manifest.icon_key} paradigm={manifest.paradigm} size={30}/><h3>Connect with {manifest.display_name}</h3></div><p>연결 경로와 인증, 데이터베이스 접근 권한을 확인합니다.</p><Suspense fallback={null}><ConnectSteps label="연결 테스트 진행 단계" steps={steps}/></Suspense>{events.filter(e=>e.status==='failed').map(item=><p key={item.stage} role="alert">{stageNames[item.stage]} · {help(item.code)}</p>)}{events.some(e=>e.status==='failed')&&<><Button morph={false} type="button" disabled={busy} onClick={()=>ready?void diagnose():window.dispatchEvent(new CustomEvent('ax:accounts'))}>{ready?'AI로 진단':'로그인 필요'}</Button><small>단계와 안전한 오류 코드만 전송합니다.</small></>}{busy&&<ThinkingLoader phase={0}/>} {diagnosis&&<p class="ax-note">{diagnosis}</p>}</section>;
 }
 const codes=['dns_failed','connection_refused','timeout','host_key_unknown','host_key_mismatch','key_permissions','ssh_auth_failed','proxy_auth_failed','tls_failed','db_auth_failed','permission_denied','unsupported','unknown'];
 function safeCode(code:string|null){if(!code)return null;const normalized=code.toLowerCase();return codes.includes(normalized)?normalized:'unknown';}

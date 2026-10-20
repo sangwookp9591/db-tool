@@ -215,6 +215,10 @@ pub async fn ai_models(host: tauri::State<'_, Host>, provider: Option<String>) -
     let mut settings = read(&host)?;
     let selected = provider.unwrap_or_else(|| settings.provider.clone());
     Provider::new(&selected)?;
+    #[cfg(debug_assertions)]
+    if std::env::var_os("AXDB_AI_FIXTURE").is_some() {
+        return catalog_models(&json!([{"id":if selected=="anthropic" {"claude-opus-5-5"} else {"gpt-6.1-sol"}}]), &selected, "connected", true, "api_key");
+    }
     if selected != settings.provider {
         settings.provider=selected.clone();
         settings.auth=if key(&selected)?.is_some() { "api_key" } else if selected=="openai" { "chatgpt_login" } else { "claude_login" }.into();

@@ -552,3 +552,9 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
+
+## D7 AI chat components
+
+Thinking Loader (clean style), Message Actions / MessageText, Tool Call Card / ToolCallGroup, and Button (clean): 사용자 제공 UI 예제 기반 (2026-10-20). Adapted to Preact and separate CSS using AxDB theme tokens; existing Button and ToolCall implementations are reused. No speech or idle animation is included.
+
+Kokonut UI: MIT, Copyright (c) 2025 kokonutUI. AI Prompt, Context Meter and Diff Review 동작·디자인 참고. https://github.com/kokonut-labs/kokonutui . Reimplemented using existing Preact/CSS/CodeMirror without motion or Tailwind dependencies. No PRO source is used.

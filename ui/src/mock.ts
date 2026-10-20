@@ -89,6 +89,8 @@ async function execute(sessionId: string, runId: string, req: ExecRequest, sourc
 export async function mockInvoke<K extends keyof Commands>(command: K, args: Commands[K]['args']): Promise<Commands[K]['result']> {
   if (['connection_parse', 'connection_test_steps', 'connection_host_key_confirm', 'connection_credentials_save', 'iam_profiles'].includes(command)) return (await import('./ax/connectionContract')).connectionMock(command, args) as Promise<Commands[K]['result']>;
   const a = args as Record<string, unknown>;
+  if(command==='ai_request')return (await import('./ai/chatMock')).chatMock(args as Commands['ai_request']['args']) as Commands[K]['result'];
+  if(command==='cancel')(await import('./ai/chatMock')).cancelChat(String(a.runId));
   const ax = await import('./ax/mock');
   if (ax.axMockCommands.includes(command)) return await ax.axMock(command,a) as Commands[K]['result'];
   let result: unknown;
@@ -123,7 +125,7 @@ export async function mockInvoke<K extends keyof Commands>(command: K, args: Com
     case 'profile_delete': profiles = profiles.filter(p => p.id !== a.profileId); break;
     case 'connection_test': if ((a.profile as Profile).fields.host === 'bad') throw failure('Connection', 'Cannot reach host'); result = '모의 서버 · 연결됨'; break;
     case 'session_info': result = drivers.find(driver => driver.id === session(a.sessionId as string).driver_id)?.display_name ?? '모의 서버'; break;
-    case 'session_open': { const p = profiles.find(p => p.id === a.profileId); if (!p) throw failure('Connection', '프로필을 찾을 수 없습니다.'); const id = crypto.randomUUID(); sessions.set(id, p); result = id; break; }
+    case 'session_open_progress': case 'session_open': { const events=a.onEvent as import('@tauri-apps/api/core').Channel<import('./ax/connectionContract').ConnectionEvent>|undefined;for(const stage of ['dns','ssh','tunnel','tls','db_auth','permissions'] as const){events?.onmessage({event:'stage',stage,status:['ssh','tunnel','tls'].includes(stage)?'skipped':'passed',elapsed_ms:12,code:null,help_key:null});} const p = profiles.find(p => p.id === a.profileId); if (!p) throw failure('Connection', '프로필을 찾을 수 없습니다.'); const id = crypto.randomUUID(); sessions.set(id, p); result = id; break; }
     case 'session_close': sessions.delete(a.sessionId as string); break;
     case 'explorer_children': {
       const profile = session(a.sessionId as string);

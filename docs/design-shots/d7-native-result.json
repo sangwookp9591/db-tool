@@ -1,0 +1,30 @@
+{
+  "checkpoint": 11,
+  "checks": [
+    "native credential prompt → session_open_progress → editor",
+    "live DNS/auth/permissions timeline success",
+    "native ai_configure persisted + immediate enabled state",
+    "saved button + toast",
+    "native configuration failure visible + toast, no keychain mutation",
+    "native fixture Channel streaming + ThinkingLoader",
+    "SQL apply changes editor + dirty without execution",
+    "single undo restores original query",
+    "diff approval applies without execution",
+    "regeneration preserves previous version",
+    "host cancellation terminates request",
+    "actual authentication failure shows failed stage and reason",
+    "retry + credential prompt reconnects same query tab and clears stale network status",
+    "history empty: no automatic DB execution",
+    "new-tab action updates live context without execution",
+    "idle assistant has zero infinite animations",
+    "1000-message fixture mounts at most 20 messages",
+    "read-only connection disables write permission option",
+    "permission menu roles, arrow navigation, selection, Escape and focus restoration",
+    "fixed rows toggle, hidden horizontal scrollbar, opaque context strip and separated message viewport",
+    "both themes: 280px permission menu anchored 8px above chip within composer side edges",
+    "actual read-only PG connection: write option disabled with reason, keyboard skips it",
+    "native both-theme screenshots: live connection done, real connection test success, AI login modal idle steps without starting provider login"
+  ],
+  "complete": true,
+  "stage": "d8-connect-account-daylight"
+}

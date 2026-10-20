@@ -11,8 +11,10 @@ pub const SCHEMA_BYTES: usize = 6000; // Conservative bound: at most one token p
 pub struct Scope {
     pub focus: Option<String>,
     pub text: String,
+    pub selection: String,
     pub run: Option<String>,
     pub include_rows: bool,
+    pub read_only: bool,
     pub selected_rows: Option<Table>,
     pub masked_columns: Vec<String>,
 }
@@ -318,9 +320,9 @@ pub async fn build(host: &Host, session_id: &str, scope: Scope) -> Result<Value,
     )
     .await
     .map_err(|_| DbError::new(ErrorKind::Timeout, "Schema context timed out"))??;
-    let mode = host.access_mode(&record)?;
+    let mode = if scope.read_only { AccessMode::ReadOnly } else { host.access_mode(&record)? };
     let value = json!({"session_id":session_id,"schema_note":summary.is_empty().then_some("No schema metadata was returned by the driver graph or explorer"),"schema":summary,"schema_truncated":truncated,"schema_byte_limit":SCHEMA_BYTES,
-        "query_language":manifest.query_language,"paradigm":manifest.paradigm,"text":clipped(&storage::redact(&scope.text,record.secret.as_deref()),8000),
+        "query_language":manifest.query_language,"paradigm":manifest.paradigm,"text":clipped(&storage::redact(&scope.text,record.secret.as_deref()),8000),"selection":clipped(&storage::redact(&scope.selection,record.secret.as_deref()),8000),
         "run":recent.as_ref().map(|r|&r.run),"run_context_expired":scope.run.is_some() && recent.is_none(),"error":recent.as_ref().and_then(|r|r.error.as_ref()),
         "results":last_results,"run_text":recent.as_ref().map(|r|&r.text),"access_mode":mode,
         "permissions":{"read":true,"write":mode!=AccessMode::ReadOnly,"write_requires_preview_and_approval":true},
@@ -518,6 +520,7 @@ mod tests {
             result.as_deref(),
         );
         for focus in [None, Some(entity.into()), Some(root_focus.into())] {
+            let read_only = focus.is_some();
             let value = build(
                 &host,
                 "s",
@@ -528,6 +531,7 @@ mod tests {
                         "SELECT 'private-password'".into()
                     },
                     focus,
+                    read_only,
                     run: Some("r".into()),
                     ..Default::default()
                 },
@@ -548,6 +552,7 @@ mod tests {
             }
             assert!(!value.to_string().contains("private-password"));
             assert!(!value.to_string().contains("row-private-value"));
+            assert_eq!(value["permissions"]["write"], !read_only);
             assert!(value["selected_rows"].is_null());
             assert_eq!(value["results"][0]["row_count"], 1);
             assert_eq!(value["results"][0]["columns"][0]["name"], "note");

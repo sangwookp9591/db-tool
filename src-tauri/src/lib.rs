@@ -314,10 +314,18 @@ async fn session_info(host: tauri::State<'_, Host>, session_id: String) -> Comma
 }
 
 #[tauri::command]
-async fn session_open(
-    host: tauri::State<'_, Host>,
+async fn session_open(host: tauri::State<'_, Host>, profile_id: String, secret: Option<String>) -> CommandResult<String> {
+    session_open_impl(&host, profile_id, secret, None).await
+}
+#[tauri::command]
+async fn session_open_progress(host: tauri::State<'_, Host>, profile_id: String, secret: Option<String>, on_event: tauri::ipc::Channel<net::Event>) -> CommandResult<String> {
+    session_open_impl(&host, profile_id, secret, Some(on_event)).await
+}
+async fn session_open_impl(
+    host: &Host,
     profile_id: String,
     secret: Option<String>,
+    on_event: Option<tauri::ipc::Channel<net::Event>>,
 ) -> CommandResult<String> {
     let _bench = viewer_bench::span("session_open");
     let profile = {
@@ -327,7 +335,21 @@ async fn session_open(
             .find(|p| p.id == profile_id)
             .ok_or_else(|| DbError::query("연결 프로필을 찾을 수 없습니다"))?
     };
-    let (session, secret, tunnel) = host.connect(&profile, secret).await?;
+    let progress = on_event.map(net::Progress::new).unwrap_or_default();
+    net::connection_preflight(host, &profile, &progress).await?;
+    let start = Instant::now();
+    let (session, secret, tunnel) = host.connect_progress(&profile, secret, progress.clone()).await.inspect_err(|e| {
+        let safe = net::database_error(e, !matches!(profile.auth, net::model::Auth::Password)).1;
+        progress.failure(&safe, start);
+    })?;
+    let start = Instant::now();
+    progress.stage("permissions", "running", start, None);
+    if let Err(e) = async { session.ping().await?; session.list_children(None).await.map(|_| ()) }.await {
+        progress.stage("permissions", "failed", start, Some(&DbError::query("PERMISSION_DENIED")));
+        session.close().await;
+        return Err(e);
+    }
+    progress.stage("permissions", "passed", start, None);
     let id = uuid::Uuid::new_v4().to_string();
     host.sessions
         .lock()
@@ -342,6 +364,7 @@ async fn session_open(
                 dead: AtomicBool::new(false),
             }),
         );
+    host.network.emit(net::Event::Network { profile_id, state:"connected".into(), attempt:0, code:None });
     Ok(id)
 }
 #[tauri::command]
@@ -728,6 +751,7 @@ pub fn run() {
             profile_delete,
             connection_test,
             session_open,
+            session_open_progress,
             session_info,
             session_close,
             star::star_prompt,
@@ -977,9 +1001,20 @@ mod tests {
                 .unwrap()
                 .contains("PostgreSQL")
         );
-        let id = session_open(app.state(), profile.id, Some("testpw".into()))
+        let stages = Arc::new(std::sync::Mutex::new(Vec::<serde_json::Value>::new()));
+        let collected = stages.clone();
+        let channel = tauri::ipc::Channel::new(move |body| {
+            if let tauri::ipc::InvokeResponseBody::Json(text) = body {
+                collected.lock().unwrap().push(serde_json::from_str(&text).unwrap());
+            }
+            Ok(())
+        });
+        let id = session_open_impl(&app.state(), profile.id, Some("testpw".into()), Some(channel))
             .await
             .unwrap();
+        for stage in ["dns", "db_auth", "permissions"] {
+            assert!(stages.lock().unwrap().iter().any(|event| event["stage"] == stage && event["status"] == "passed"));
+        }
         let result = execute(
             app.state(),
             id.clone(),

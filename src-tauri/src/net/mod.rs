@@ -132,7 +132,7 @@ pub struct Progress {
     latest: Arc<Mutex<Option<(String, String)>>>,
 }
 impl Progress {
-    fn new(channel: tauri::ipc::Channel<Event>) -> Self {
+    pub(crate) fn new(channel: tauri::ipc::Channel<Event>) -> Self {
         Self {
             channel: Some(channel),
             ..Default::default()
@@ -152,7 +152,7 @@ impl Progress {
             });
         }
     }
-    fn failure(&self, error: &DbError, start: Instant) {
+    pub(crate) fn failure(&self, error: &DbError, start: Instant) {
         let latest = self.latest.lock().ok().and_then(|s| s.clone());
         if latest
             .as_ref()
@@ -620,14 +620,7 @@ pub fn iam_profiles() -> Result<iam::Profiles, DbError> {
     iam::profiles()
 }
 
-#[tauri::command]
-pub async fn connection_test_steps(
-    host: tauri::State<'_, crate::Host>,
-    profile: crate::storage::Profile,
-    secret: Option<String>,
-    on_event: tauri::ipc::Channel<Event>,
-) -> Result<String, DbError> {
-    let progress = Progress::new(on_event);
+pub(crate) async fn connection_preflight(host: &crate::Host, profile: &crate::storage::Profile, progress: &Progress) -> Result<(), DbError> {
     let network = profile
         .network
         .as_ref()
@@ -656,6 +649,18 @@ pub async fn connection_test_steps(
         progress.stage("ssh", "skipped", Instant::now(), None);
         progress.stage("tunnel", "skipped", Instant::now(), None);
     }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn connection_test_steps(
+    host: tauri::State<'_, crate::Host>,
+    profile: crate::storage::Profile,
+    secret: Option<String>,
+    on_event: tauri::ipc::Channel<Event>,
+) -> Result<String, DbError> {
+    let progress = Progress::new(on_event);
+    connection_preflight(&host, &profile, &progress).await?;
     let start = Instant::now();
     let connected = host
         .connect_progress(&profile, secret, progress.clone())

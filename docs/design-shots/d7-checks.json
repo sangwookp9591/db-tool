@@ -1,0 +1,26 @@
+{
+  "rust_full": {
+    "command": "CARGO_TARGET_DIR=target-d7 AXDB_DRIVER_DIR=target-d7/debug cargo test -p axdb",
+    "passed": 200,
+    "failed": 0,
+    "ignored": 7
+  },
+  "rust_final_lib": {
+    "passed": 133,
+    "ignored": 4
+  },
+  "ui": {
+    "command": "pnpm --dir ui test",
+    "passed": 149,
+    "skipped": 1
+  },
+  "tsc": "passed",
+  "clippy": "cargo clippy -p axdb --all-targets -- -D warnings passed; existing vendor neo4rs deprecation warning",
+  "test_environment_names": [
+    "AXDB_TEST_PG",
+    "AXDB_TEST_NEO4J",
+    "AXDB_TEST_MONGO",
+    "AXDB_TEST_REDIS"
+  ],
+  "external_provider_calls": false
+}
