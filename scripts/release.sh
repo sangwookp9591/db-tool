@@ -50,7 +50,7 @@ xcrun stapler staple "$dmg"
 xcrun stapler validate "$dmg"
 archive="$out/AxDB_${version}_universal.app.tar.gz"
 COPYFILE_DISABLE=1 tar -czf "$archive" -C "$(dirname "$app")" AxDB.app
-pnpm dlx @tauri-apps/cli@2.12.3 signer sign -f "$key_path" "$archive" >/dev/null
+env -u TAURI_SIGNING_PRIVATE_KEY pnpm dlx @tauri-apps/cli@2.12.3 signer sign -f "$key_path" "$archive" >/dev/null
 cp "$dmg" "$out/"
 rm "$out/notarize-app.zip"
 # Apple signing is macOS-only; Windows uses the independent updater signature.
