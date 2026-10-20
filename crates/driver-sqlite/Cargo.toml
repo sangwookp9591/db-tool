@@ -12,7 +12,9 @@ dbcore.workspace = true
 async-trait.workspace = true
 tokio.workspace = true
 fallible-iterator = "0.3"
-rusqlite = { version = "0.40.2", features = ["bundled", "column_decltype", "hooks", "backup"] }
+rusqlite = { version = "0.40.2", features = ["bundled", "column_decltype", "column_metadata", "hooks", "backup"] }
+
+sqlparser = "0.63"
 
 [dev-dependencies]
 serde_json.workspace = true

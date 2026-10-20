@@ -3,6 +3,7 @@ mod administration;
 mod catalog;
 mod management;
 mod query_stream;
+mod query_edit;
 mod value;
 use async_trait::async_trait;
 use dbcore::*;
@@ -488,9 +489,13 @@ async fn collect_to<P: Protocol + Unpin>(
     utc: bool,
     sink: Option<&dyn AsyncResultSink>,
     started: Instant,
+    editing: (Result<EditTarget, &'static str>, bool),
 ) -> Result<Vec<ResultSet>, DbError> {
+    let (candidate, read_only) = editing;
     let Some(sink) = sink else {
-        return collect(result, limit, title, utc).await;
+        let mut results=collect(result, limit, title, utc).await?;
+        for item in &mut results {dbcore::query_edit::finish(item,candidate.clone(),read_only);}
+        return Ok(results);
     };
     let outcome = async {
         let mut out = vec![];
@@ -568,6 +573,7 @@ async fn collect_to<P: Protocol + Unpin>(
                 sink.rows(index, rows).await?;
             }
             item.elapsed_ms = started.elapsed().as_millis() as u64;
+            dbcore::query_edit::finish(&mut item,candidate.clone(),read_only);
             sink.end(index, &item).await?;
             out.push(item);
         }
@@ -589,6 +595,7 @@ async fn query_to(
     started: Instant,
 ) -> Result<Vec<ResultSet>, DbError> {
     let limit = clamp_row_limit(req.row_limit) as usize;
+    let candidate=query_edit::target(conn,&req.text).await;
     if req.params.is_empty() {
         collect_to(
             conn.query_iter(&req.text).await.map_err(error)?,
@@ -597,6 +604,7 @@ async fn query_to(
             utc,
             sink,
             started,
+            (candidate, req.read_only),
         )
         .await
     } else {
@@ -609,6 +617,7 @@ async fn query_to(
             utc,
             sink,
             started,
+            (candidate, req.read_only),
         )
         .await
     }

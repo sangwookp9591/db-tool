@@ -22,7 +22,7 @@ async fn atomic_import_snapshot_and_migration() {
         .await
         .unwrap();
     s.execute(&req("CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL); CREATE INDEX item_name ON items(name); CREATE VIEW names AS SELECT name FROM items"),CancelToken::new()).await.unwrap();
-    let make = |names: Vec<&str>| EditRequest {
+    let make = |names: Vec<&str>| EditRequest {originals: vec![],
         create_table: None,
         node_id: "table:items".into(),
         edits: names
@@ -152,7 +152,7 @@ async fn atomic_import_snapshot_and_migration() {
     token.cancel();
     assert!(s.import_rows(&make(vec!["c"]), false, token).await.is_err());
     assert_eq!(count().await, Value::Int("2".into()));
-    let fresh = EditRequest {
+    let fresh = EditRequest {originals: vec![],
         create_table: Some(vec![Column {
             name: "value".into(),
             type_name: "integer".into(),

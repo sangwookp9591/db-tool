@@ -16,15 +16,17 @@ impl MongoSession {
                 return Err(DbError::query("MongoDB snapshot exceeds object cap"));
             }
             let spec = cursor.deserialize_current().map_err(|e| self.error(e))?;
+            let is_view = spec.collection_type == mongodb::results::CollectionType::View;
             let opts = serde_json::to_value(&spec.options)
                 .map_err(|_| DbError::query("Invalid collection options"))?;
             snapshot.objects.push(SchemaObject {
                 namespace: self.database.clone(),
                 name: spec.name.clone(),
-                kind: "collection".into(),
+                kind: if is_view {"view"} else {"collection"}.into(),
                 definition: serde_json::json!({"create":spec.name,"options":opts}).to_string(),
                 columns: vec![],
             });
+            if is_view {continue;}
             let mut indexes = self
                 .db()
                 .collection::<Document>(&spec.name)

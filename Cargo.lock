@@ -1380,6 +1380,7 @@ dependencies = [
  "base64 0.22.1",
  "serde",
  "serde_json",
+ "sqlparser",
  "tokio-util",
 ]
 
@@ -1751,6 +1752,7 @@ dependencies = [
  "postgres-native-tls",
  "serde",
  "serde_json",
+ "sqlparser",
  "tempfile",
  "tokio",
  "tokio-postgres",
@@ -1780,6 +1782,7 @@ dependencies = [
  "fallible-iterator 0.3.0",
  "rusqlite",
  "serde_json",
+ "sqlparser",
  "tempfile",
  "tokio",
 ]

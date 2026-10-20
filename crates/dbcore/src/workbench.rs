@@ -361,7 +361,7 @@ mod tests {
     }
     #[test]
     fn new_import_table_types_are_allowlisted() {
-        let mut req = EditRequest {
+        let mut req = EditRequest {originals: vec![],
             node_id: "table:new".into(),
             create_table: None,
             edits: vec![RowEdit::Insert { values: vec![] }],

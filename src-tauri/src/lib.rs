@@ -521,7 +521,10 @@ async fn execute_impl(
                 Err(DbError::new(ErrorKind::Timeout, "실행 시간이 초과되었습니다"))
             }
         };
-    let result = host.observe(&record, result);
+    let mut result = host.observe(&record, result);
+    if matches!(source, HistorySource::Agent) && let Ok(results) = &mut result {
+        for result in results { result.edit_target=None; result.edit_disabled_reason=Some("MCP·에이전트 결과는 읽기 전용입니다".into()); }
+    }
     context::remember(host, &session_id, &run_id, &req.text, result.as_deref());
     let entry = HistoryEntry {
         kind: "execute".into(),

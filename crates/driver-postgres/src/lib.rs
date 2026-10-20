@@ -1,6 +1,7 @@
 //! PostgreSQL text-protocol driver; no dependency on the desktop host.
 mod preview;
 mod edits;
+mod query_edit;
 mod schema;
 mod split;
 use async_trait::async_trait;
@@ -299,6 +300,7 @@ impl PgSession {
             if cancel.is_cancelled() {
                 return Err(DbError::new(ErrorKind::Cancelled, "실행이 취소되었습니다"));
             }
+            let edit_candidate = if split_statements(&req.text)?.len()==1 {self.query_edit_target(&sql, statement.columns()).await} else {Err("단일 SELECT 결과만 편집할 수 있습니다")};
             let mut result = if statement.columns().is_empty() {
                 let messages = self
                     .client
@@ -351,6 +353,7 @@ impl PgSession {
                     result.row_count = count;
                     result.truncated = truncated;
                     result.elapsed_ms = start.elapsed().as_millis() as u64;
+                    dbcore::query_edit::finish(&mut result, edit_candidate, req.read_only);
                     sink.end(index, &result).await?;
                     results.push(result);
                     continue;
@@ -378,6 +381,7 @@ impl PgSession {
                     ..Default::default()
                 }
             };
+            dbcore::query_edit::finish(&mut result, edit_candidate, req.read_only);
             result.title = result_title(sql.lines().next().unwrap_or(""));
             result.elapsed_ms = start.elapsed().as_millis() as u64;
             if let Some(sink) = sink { let index = results.len(); sink.start(index, &result).await?; sink.end(index, &result).await?; }
@@ -798,7 +802,7 @@ impl Session for PgSession {
             preview_sample_limit: default_preview_sample_limit(),
         };
         let mut result = self.execute(&req, CancelToken::new()).await?.remove(0);
-        if !keys.is_empty() && path[2] == "tables" { result.edit_target = Some(EditTarget {node_id:node_id.into(),key_columns:keys.iter().map(|r|r.get(0)).collect()}); }
+        if !keys.is_empty() && path[2] == "tables" { result.edit_target = Some(EditTarget {columns: vec![],node_id:node_id.into(),key_columns:keys.iter().map(|r|r.get(0)).collect()}); }
         result.page = Some(PageInfo {
             offset: page.offset,
             limit,

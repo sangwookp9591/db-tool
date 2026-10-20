@@ -17,7 +17,7 @@ export interface Table { columns: Column[]; rows: Value[][] }
 export interface GNode { id: string; labels: string[]; props: [string, Value][] }
 export interface GRel { id: string; rel_type: string; start: string; end: string; props: [string, Value][] }
 export interface Graph { nodes: GNode[]; rels: GRel[] }
-export interface ResultSet { title: string; table: Table | null; graph: Graph | null; documents: Value[] | null; message: string | null; affected: number | null; row_count: number; truncated: boolean; page: PageInfo | null; elapsed_ms: number; edit_target?: { node_id: string; key_columns: string[] } | null }
+export interface ResultSet { title: string; table: Table | null; graph: Graph | null; documents: Value[] | null; message: string | null; affected: number | null; row_count: number; truncated: boolean; page: PageInfo | null; elapsed_ms: number; edit_target?: EditTarget | null; edit_disabled_reason?: string | null }
 export type Value = { t: 'Null' } | { t: 'Bool'; v: boolean } | { t: 'Int' | 'Decimal' | 'Text' | 'Date' | 'Time' | 'DateTime' | 'DateTimeTz' | 'Duration' | 'Uuid' | 'Json'; v: string } | { t: 'Float'; v: number | 'NaN' | 'Infinity' | '-Infinity' } | { t: 'Bytes'; v: { len: number; hex: string } } | { t: 'List'; v: Value[] } | { t: 'Map'; v: [string, Value][] } | { t: 'Node'; v: GNode } | { t: 'Rel'; v: GRel } | { t: 'Path'; v: Graph } | { t: 'Point'; v: { srid: number; x: number; y: number; z: number | null } } | { t: 'Other'; v: { type_name: string; text: string } };
 export type ErrorKind = 'Connection' | 'Auth' | 'Query' | 'Timeout' | 'Cancelled' | 'Unsupported' | 'Conflict' | 'Internal';
 export interface DbError { kind: ErrorKind; message: string; detail: string | null; position: number | null }
@@ -31,9 +31,9 @@ export interface SchemaDiff { added: string[]; removed: string[]; changed: strin
 export interface StatementPreview { text: string; kind: 'Insert' | 'Update' | 'Delete' | 'Ddl' | 'GraphWrite' | 'Other'; affected: number | null; before: Table | null; after: Table | null; schema_diff: SchemaDiff | null; counters: [string, number][]; warnings: string[] }
 export interface ChangePreview { statements: StatementPreview[]; committed: false; notes: string[] }
 export type RowEdit = { op: 'Update'; key: [string, Value][]; set: [string, Value][] } | { op: 'Insert'; values: [string, Value][] } | { op: 'Delete'; key: [string, Value][] };
-export interface EditRequest { node_id: string; edits: RowEdit[]; timeout_ms?: number; preview_sample_limit?: number }
+export interface EditRequest { originals?: [string, Value][][]; node_id: string; edits: RowEdit[]; timeout_ms?: number; preview_sample_limit?: number }
 export interface EditResult { affected: number[]; statements: string[] }
-export interface EditTarget { node_id: string; key_columns: string[] }
+export interface EditTarget { columns?: (string | null)[]; node_id: string; key_columns: string[] }
 
 export interface SchemaField { name: string; type_name: string; pk: boolean; nullable: boolean }
 export interface SchemaEntity { id: string; name: string; kind: string; fields: SchemaField[] }

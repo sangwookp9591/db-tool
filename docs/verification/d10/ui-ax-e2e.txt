@@ -1,0 +1,1 @@
+PASS: AX mock UI, both themes, approval gates, minimum 960x600; screenshots saved.

@@ -198,7 +198,7 @@ mod tests {
         (host, dir)
     }
     fn request() -> EditRequest {
-        EditRequest {create_table: None,
+        EditRequest {originals: vec![],create_table: None,
             node_id: "table:c2".into(),
             edits: vec![RowEdit::Update {
                 key: vec![("id".into(), Value::Int("1".into()))],

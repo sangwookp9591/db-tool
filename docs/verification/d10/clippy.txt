@@ -1,0 +1,17 @@
+warning: use of deprecated method `std::sync::atomic::Atomic::<usize>::fetch_update`: renamed to `try_update` for consistency
+  --> vendor/neo4rs/src/routing/load_balancing/round_robin_strategy.rs:49:27
+   |
+49 |             let _ = index.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |i| {
+   |                           ^^^^^^^^^^^^
+   |
+   = note: `#[warn(deprecated)]` on by default
+help: replace the use of the deprecated method
+   |
+49 -             let _ = index.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |i| {
+49 +             let _ = index.try_update(Ordering::Relaxed, Ordering::Relaxed, |i| {
+   |
+
+warning: `neo4rs` (lib) generated 1 warning (run `cargo clippy --fix --lib -p neo4rs -- -D warnings` to apply 1 suggestion)
+    Checking driver-mongodb v0.3.0 (/Users/iron/Project/psw/db-tool-d10/crates/driver-mongodb)
+   Compiling axdb v0.3.0 (/Users/iron/Project/psw/db-tool-d10/src-tauri)
+    Finished `dev` profile [unoptimized] target(s) in 16.80s

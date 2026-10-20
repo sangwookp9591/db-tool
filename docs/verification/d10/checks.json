@@ -1,0 +1,31 @@
+{
+  "rust": {
+    "passed": 322,
+    "failed": 0,
+    "existing_ignored": 7,
+    "package_ignored_test_separately_passed": 1
+  },
+  "ui": {
+    "passed": 156,
+    "failed": 0,
+    "skipped": 0
+  },
+  "typescript_exit": 0,
+  "build_exit": 0,
+  "clippy_exit": 0,
+  "desktop_e2e": {
+    "bridge": 21,
+    "preview": 5,
+    "permissions": 13
+  },
+  "browser_e2e_suites": 4,
+  "native": {
+    "checks": 15,
+    "captures": 19,
+    "complete": true
+  },
+  "remaining_d10_mongo_databases": 0,
+  "production_or_installed_app_touched": false,
+  "push_or_main_merge": false,
+  "mongo_boundary_and_cleanup_focused_tests": 6
+}

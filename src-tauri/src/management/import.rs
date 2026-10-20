@@ -372,7 +372,7 @@ pub fn parse(
     if !errors.is_empty() {
         edits.clear();
     }
-    Ok(ImportPlan{format,columns:mapping,sample,row_count:data.len() as u64,errors,warnings:vec!["Preview checks constraints by executing all valid rows and rolling back; sequences and external trigger effects may persist".into()],request:EditRequest{create_table: None,node_id,edits,timeout_ms:30000,preview_sample_limit:100}})
+    Ok(ImportPlan{format,columns:mapping,sample,row_count:data.len() as u64,errors,warnings:vec!["Preview checks constraints by executing all valid rows and rolling back; sequences and external trigger effects may persist".into()],request:EditRequest{originals: vec![],create_table: None,node_id,edits,timeout_ms:30000,preview_sample_limit:100}})
 }
 #[cfg(test)]
 mod tests {

@@ -32,7 +32,7 @@ async fn atomic_import_snapshot_and_migration() {
     let s = PostgresDriver::new().connect(&cfg).await.unwrap();
     let name = format!("axdb_w3_{}", std::process::id());
     s.execute(&req(&format!("CREATE SCHEMA {name}; CREATE TABLE {name}.items (id integer PRIMARY KEY, name text UNIQUE NOT NULL); CREATE INDEX item_name ON {name}.items(name); CREATE VIEW {name}.names AS SELECT name FROM {name}.items")),CancelToken::new()).await.unwrap();
-    let make = |names: Vec<&str>| EditRequest {
+    let make = |names: Vec<&str>| EditRequest {originals: vec![],
         create_table: None,
         node_id: serde_json::to_string(&["table", &name, "tables", "items"]).unwrap(),
         edits: names
@@ -166,7 +166,7 @@ async fn atomic_import_snapshot_and_migration() {
         .objects
         .iter()
         .any(|o| o.name == "migrated"));
-    let fresh = EditRequest {
+    let fresh = EditRequest {originals: vec![],
         create_table: Some(vec![Column {
             name: "value".into(),
             type_name: "integer".into(),

@@ -1,0 +1,21 @@
+D10 native PID 38216, config /var/folders/_p/fy8jj5b95c38w41rttwnnll40000gn/T/axdb-d10-native-AoUEbV
+Captured postgres-edit
+Captured postgres-preview
+Captured postgres-approval
+Captured postgres-requery
+Captured postgres-join-disabled
+Captured mysql-edit
+Captured mysql-preview
+Captured mysql-approval
+Captured mysql-requery
+Captured mysql-join-disabled
+Captured sqlite-edit
+Captured sqlite-preview
+Captured sqlite-approval
+Captured sqlite-requery
+Captured sqlite-join-disabled
+Captured mongodb-edit
+Captured mongodb-preview
+Captured mongodb-approval
+Captured mongodb-requery
+PASS 15 native checks

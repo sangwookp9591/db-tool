@@ -32,7 +32,13 @@ async function click(pattern) {
   while (Date.now() < until) {
     const tree = await gui('get-app-state');
     const match = tree.split('\n').map(l => l.match(/^\s*(\d+) (.*)$/)).find(m => m && pattern.test(m[2]));
-    if (match) { await gui('click', '--element-index', match[1]); return; }
+    if (match) {
+      try { await gui('click', '--element-index', match[1]); return; }
+      catch (error) {
+        let code;try { code=JSON.parse(error.stdout??'{}').error?.code; } catch {}
+        if(code!=='element_not_found')throw error;
+      }
+    }
     await delay(100);
   }
   throw new Error(`native control missing: ${pattern}`);

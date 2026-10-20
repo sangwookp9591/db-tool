@@ -18,6 +18,9 @@ const releaseDates = Object.fromEntries(readdirSync(notesDir).filter(name => /^v
   return [version, date];
 }));
 export default defineConfig({
+  // Browser suites launch Chromium per file; cap concurrency to avoid starving their real UI waits.
+  test: { maxWorkers: 2 },
+  optimizeDeps: { rolldownOptions: { transform: { jsx: { runtime: 'automatic', importSource: 'preact' } } } },
   build: { target: 'es2022', assetsInlineLimit: 0 }, clearScreen: false,
   server: { fs: { allow: [fileURLToPath(new URL('.', import.meta.url)), fileURLToPath(notesDir)] } },
   define: {

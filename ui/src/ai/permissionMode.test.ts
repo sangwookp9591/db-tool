@@ -21,3 +21,13 @@ it('opens from keyboard, selects with Enter, cycles arrows, and restores focus o
  await page.keyboard.press('Escape');expect(await trigger.evaluate(el=>el===document.activeElement)).toBe(true);
  expect(await page.locator('details').getAttribute('open')).toBeNull();
 });
+
+it('keeps keyboard focus when the opening toggle event arrives late',async()=>{
+ const trigger=page.locator('.ai-permission summary');await trigger.focus();await page.keyboard.press('ArrowDown');
+ const write=page.getByRole('menuitemradio',{name:'승인 후 쓰기',exact:true});
+ await page.waitForFunction(()=>document.activeElement?.getAttribute('aria-label')==='읽기 전용');
+ await page.keyboard.press('ArrowDown');
+ await page.locator('details').evaluate(details=>details.dispatchEvent(new Event('toggle')));
+ expect(await write.evaluate(el=>el===document.activeElement)).toBe(true);
+ await page.keyboard.press('Escape');
+});

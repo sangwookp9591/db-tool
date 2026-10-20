@@ -95,6 +95,7 @@ pub(super) fn run(
     cancel: &CancelToken,
     deadline: Instant,
     preview: bool,
+    stop_interrupts: impl FnOnce(),
 ) -> Result<RunOutput, DbError> {
     if req.edits.len() > dbcore_limit(req) {
         return Err(DbError::unsupported("편집/가져오기 행 수 상한을 초과했습니다"));
@@ -218,6 +219,7 @@ pub(super) fn run(
             Ok(RunOutput::Edit(changed))
         }
     })();
+    stop_interrupts();
     let hooks = conn.progress_handler(0, None::<fn() -> bool>);
     let cleanup = if result.is_err() || preview || hooks.is_err() {
         "ROLLBACK TO axdb_row_edit; RELEASE axdb_row_edit"

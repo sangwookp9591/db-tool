@@ -21,6 +21,9 @@ pub fn plan(
     if keys.is_empty() && req.edits.iter().any(|e| !matches!(e,RowEdit::Insert{..})) {
         return Err(DbError::unsupported("편집하려면 테이블에 기본 키가 있어야 합니다"));
     }
+    if !req.originals.is_empty() && req.originals.len() != req.edits.len() {
+        return Err(DbError::query("원래 값과 편집 행 수가 일치하지 않습니다"));
+    }
     req.edits
         .iter()
         .enumerate()
@@ -35,7 +38,8 @@ pub fn plan(
                     }
                     RowEdit::Delete { key } => (&[][..], key.as_slice(), StatementKind::Delete),
                 };
-                for pairs in [fields, key] {
+                let original = req.originals.get(index).map(Vec::as_slice).unwrap_or(&[]);
+                for pairs in [fields, key, original] {
                     let mut seen = HashSet::new();
                     for (name, _) in pairs {
                         if !columns.contains(name) || !seen.insert(name) {
@@ -68,7 +72,7 @@ pub fn plan(
                     .map(|(n, v)| format!("{} = {}", quote(n), bind(n, v)))
                     .collect::<Vec<_>>();
                 let condition = key
-                    .iter()
+                    .iter().chain(original.iter())
                     .map(|(n, v)| format!("{} IS NOT DISTINCT FROM {}", quote(n), bind(n, v)))
                     .collect::<Vec<_>>()
                     .join(" AND ");
@@ -150,6 +154,17 @@ fn dbcore_limit(req: &EditRequest) -> usize { if req.edits.iter().all(|e|matches
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn original_values_are_bound_and_validated() {
+        let mut req:EditRequest=serde_json::from_value(serde_json::json!({"node_id":"t","edits":[{"op":"Update","key":[["id",{"t":"Int","v":"1"}]],"set":[["name",{"t":"Text","v":"new"}]]}],"originals":[[["name",{"t":"Null"}]]]})).unwrap();
+        let make=|req:&EditRequest|plan(req,"items",&["id".into(),"name".into()],&["id".into()],|n|format!("\"{n}\""),|i,_,_|format!("${i}"));
+        let plans=make(&req).unwrap();
+        assert_eq!(plans[0].values.len(),3);
+        assert!(plans[0].sql.contains("\"name\" IS NOT DISTINCT FROM $3"));
+        assert_eq!(plans[0].values[2],Value::Null);
+        req.originals[0].push(("unknown".into(),Value::Null));assert!(make(&req).is_err());
+        req.originals=vec![vec![],vec![]];assert!(make(&req).is_err());
+    }
     #[test]
     fn additive_contract_defaults_and_roundtrip() {
         let mut result = serde_json::to_value(ResultSet::default()).unwrap();

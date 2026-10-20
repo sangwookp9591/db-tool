@@ -42,6 +42,22 @@ export function valueText(value: Value, detail = false): string {
 }
 export function valueClass(v: Value): string { return v.t === 'Null' ? 'value-null' : ['Int', 'Decimal', 'Float'].includes(v.t) ? 'value-number' : v.t === 'Bool' ? 'value-boolean' : ['Date', 'Time', 'DateTime', 'DateTimeTz', 'Duration'].includes(v.t) ? 'value-date' : v.t === 'Bytes' ? 'value-binary' : ['Json', 'List', 'Map', 'Node', 'Rel', 'Path', 'Point'].includes(v.t) ? 'value-json' : 'value-string'; }
 export function valueTitle(v: Value): string { return v.t === 'Other' ? v.v.type_name : v.t; }
+export function isCompleteValue(value: Value): boolean { return value.t!=='Bytes'||value.v.hex.length===value.v.len*2; }
+export function editValueText(value: Value): string {
+  const nested = (value: Value): unknown => {
+    switch(value.t) {
+      case 'Null': return null;
+      case 'Int': return {$numberLong:value.v};
+      case 'Decimal': return {$numberDecimal:value.v};
+      case 'DateTimeTz': return {$date:value.v};
+      case 'Other': return {$oid:value.v.text};
+      case 'Map': return Object.fromEntries(value.v.map(([name,value])=>[name,nested(value)]));
+      case 'List': return value.v.map(nested);
+      default: return value.v;
+    }
+  };
+  return value.t==='Map'||value.t==='List' ? JSON.stringify(nested(value)) : value.t==='Null' ? '' : value.t==='Bytes' ? `0x${value.v.hex}` : valueText(value);
+}
 export function inputValue(input: string, column: Column, original: Value): Value {
   const type = column.type_name.toLowerCase();
   if (original.t === 'Null' && input.trim().toUpperCase() === 'NULL') return { t: 'Null' };
@@ -72,6 +88,14 @@ export function inputValue(input: string, column: Column, original: Value): Valu
     const parsed = Number(input.trim());
     if (!Number.isFinite(parsed)) throw new Error(`${column.name}: 유한한 숫자를 입력하세요.`);
     return { t: 'Float', v: parsed };
+  }
+  if (original.t === 'Other' && original.v.type_name === 'ObjectId') {
+    if(!/^[a-f0-9]{24}$/i.test(input.trim()))throw new Error(`${column.name}: 올바른 ObjectId를 입력하세요.`);
+    return {t:'Other',v:{type_name:'ObjectId',text:input.trim()}};
+  }
+  if (original.t === 'List' || original.t === 'Map') {
+    try { JSON.parse(input); } catch { throw new Error(`${column.name}: 올바른 JSON을 입력하세요.`); }
+    return {t:'Json',v:input};
   }
   if (original.t === 'Json' || /json/.test(type)) {
     try { JSON.parse(input); } catch { throw new Error(`${column.name}: 올바른 JSON을 입력하세요.`); }

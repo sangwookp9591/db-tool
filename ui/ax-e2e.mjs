@@ -12,6 +12,17 @@ try {
   await context.addInitScript(theme=>localStorage.setItem('axdb-theme',theme),theme);
   const page=await context.newPage();
   page.on('pageerror',error=>{failures.push(error.message);console.error('PAGEERROR',error.message);});
+  const login=async name=>{
+    await page.getByRole('button',{name:`${name}로 로그인`,exact:true}).click();
+    const modal=page.getByRole('dialog',{name:`${name} 연결`,exact:true});
+    await modal.getByRole('button',{name:'연결',exact:true}).click();
+    if(name==='Claude'){
+      await modal.getByLabel('Claude 인증 코드',{exact:true}).fill('mock-code-not-a-real-token');
+      await modal.getByRole('button',{name:'코드 확인',exact:true}).click();
+    }
+    await modal.getByText(`${name} 계정이 연결되었습니다. 모델 선택기에서 사용할 모델을 고르세요.`,{exact:true}).waitFor();
+    await modal.getByRole('button',{name:'닫기',exact:true}).click();
+  };
   await page.goto(base);await page.getByTestId('connect-connection').first().waitFor();
   const previewPlan=async()=>{await page.getByRole('button',{name:'미리보기',exact:true}).click();await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(button=>button.textContent?.trim()==='검토한 계획 적용'&&!button.disabled));};
   const shot=async name=>{assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`${name}: horizontal overflow`);assert.equal(await page.evaluate(()=>document.getAnimations().filter(animation=>animation.playState==='running'&&animation.effect?.getTiming().iterations===Infinity).length),0,`${name}: idle repeating animation`);await page.screenshot({path:`${output}ax-${name}-${theme}.png`});};
@@ -78,12 +89,12 @@ try {
   await page.getByLabel('또는 스냅숏 파일',{exact:true}).setInputFiles({name:'schema.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(snapshot))});
   await page.getByRole('button',{name:'스키마 비교',exact:true}).click();await page.getByRole('heading',{name:'변경 트리',exact:true}).waitFor();await previewPlan();await shot('schema-diff');
   await page.getByRole('tab',{name:'AI 작업 계획',exact:true}).click();await page.getByLabel('AI 작업 의도').fill('이 스키마의 느린 쿼리를 개선할 계획');assert.equal(await page.getByRole('button',{name:'로그인 필요',exact:true}).count(),1);await shot('intent-login');
-  await page.getByRole('button',{name:'로그인 필요',exact:true}).click();await page.locator('.ax-provider').filter({has:page.getByRole('heading',{name:'ChatGPT · OpenAI'})}).getByRole('button',{name:'선택',exact:true}).click();await page.getByRole('button',{name:'ChatGPT로 로그인',exact:true}).click();await page.getByText('로그인되었습니다.',{exact:true}).waitFor();await page.getByRole('tab',{name:'AI 작업 계획',exact:true}).click();await page.getByLabel('AI 작업 의도').fill('느린 쿼리 분석 계획');await page.getByRole('button',{name:'AI 계획 후보 만들기',exact:true}).click();await page.getByText('AI가 만든 검토용 계획입니다. 실행하지 않았습니다.',{exact:true}).waitFor();await shot('intent-plan');
+  await page.getByRole('button',{name:'로그인 필요',exact:true}).click();await page.locator('.ax-provider').filter({has:page.getByRole('heading',{name:'ChatGPT · OpenAI'})}).getByRole('button',{name:'선택',exact:true}).click();await login('ChatGPT');await page.getByRole('tab',{name:'AI 작업 계획',exact:true}).click();await page.getByLabel('AI 작업 의도').fill('느린 쿼리 분석 계획');await page.getByRole('button',{name:'AI 계획 후보 만들기',exact:true}).click();await page.getByText('AI가 만든 검토용 계획입니다. 실행하지 않았습니다.',{exact:true}).waitFor();await shot('intent-plan');
   await page.getByRole('button',{name:'Command palette',exact:true}).click();await page.getByRole('combobox',{name:'Search commands'}).fill('people 테이블 성능을 분석해 줘');await page.getByRole('listbox',{name:'Commands'}).getByRole('option').first().waitFor();await shot('command');await page.keyboard.press('Escape');
   await page.setViewportSize({width:960,height:600});await page.getByRole('tab',{name:'AI 계정',exact:true}).click();await page.getByRole('heading',{name:'Claude · Anthropic'}).waitFor();await shot('minimum-960');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   await page.setViewportSize({width:1280,height:800});
   await page.locator('.ax-provider').filter({has:page.getByRole('heading',{name:'Claude · Anthropic'})}).getByRole('button',{name:'선택',exact:true}).click();
-  await page.getByRole('button',{name:'Claude로 로그인',exact:true}).click();await page.getByText('로그인되었습니다.',{exact:true}).waitFor();
+  await login('Claude');
   await page.getByRole('tab',{name:'AI 작업 계획',exact:true}).click();await page.getByLabel('AI 작업 의도').fill('people 쿼리 계획');await page.getByRole('button',{name:'AI 계획 후보 만들기',exact:true}).click();await page.getByRole('button',{name:'쿼리 탭에서 검토',exact:true}).waitFor();await shot('ai-proposal');
   assert.equal(await page.getByRole('button',{name:'검토한 계획 적용',exact:true}).count(),0);
   await page.getByRole('button',{name:'쿼리 탭에서 검토',exact:true}).click();assert.match(await page.getByTestId('run-query').last().innerText(),/읽기 전용 실행/);

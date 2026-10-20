@@ -1,6 +1,7 @@
 //! SQLite driver. Every connection operation runs on the blocking pool.
 mod preview;
 mod edits;
+mod query_edit;
 mod administration;
 mod backup_stream;
 mod schema;
@@ -217,12 +218,16 @@ impl SqliteSession {
         });
         tokio::task::spawn_blocking(move || {
             let conn = guard.as_ref().expect("connection lease");
+            let stop_interrupts = || {
+                let _lease = interrupt_gate.lock().expect("interrupt gate");
+                done.cancel();
+            };
             let result = if let Some(edit) = edits {
-                edits::run(conn, &edit, &cancel, deadline, preview)
+                edits::run(conn, &edit, &cancel, deadline, preview, stop_interrupts)
             } else if preview {
-                preview::run(conn, &req, &cancel, deadline).map(RunOutput::Preview)
+                preview::run(conn, &req, &cancel, deadline, stop_interrupts).map(RunOutput::Preview)
             } else {
-                run(conn, &req, &cancel, deadline).map(RunOutput::Execute)
+                run(conn, &req, &cancel, deadline, stop_interrupts).map(RunOutput::Execute)
             };
             if result
                 .as_ref()
@@ -361,7 +366,7 @@ impl Session for SqliteSession {
         req.row_limit = limit;
         let mut result = self.execute(&req, CancelToken::new()).await?.remove(0);
         let owned=node_id.to_string();
-        result.edit_target=self.with_connection(move |c| edits::target(c,&owned).map(|(_,keys)| if keys.is_empty(){None}else{Some(EditTarget{node_id:owned,key_columns:keys})})).await?;
+        result.edit_target=self.with_connection(move |c| edits::target(c,&owned).map(|(_,keys)| if keys.is_empty(){None}else{Some(EditTarget{columns: vec![],node_id:owned,key_columns:keys})})).await?;
         result.page = Some(PageInfo {
             offset: page.offset,
             limit,
@@ -415,6 +420,7 @@ fn run(
     req: &ExecRequest,
     cancel: &CancelToken,
     deadline: Instant,
+    stop_interrupts: impl FnOnce(),
 ) -> Result<Vec<ResultSet>, DbError> {
     let original: bool = conn
         .pragma_query_value(None, "query_only", |r| r.get(0))
@@ -452,6 +458,7 @@ fn run(
                 break;
             };
             let start = Instant::now();
+            let candidate = dbcore::query_edit::source(&req.text, &sqlparser::dialect::SQLiteDialect {}).and_then(|_| query_edit::target(conn, &stmt));
             let mut result = ResultSet {
                 title: result_title(&req.text),
                 ..Default::default()
@@ -491,11 +498,13 @@ fn run(
                     rows: output,
                 });
             }
+            dbcore::query_edit::finish(&mut result,candidate,req.read_only || original);
             result.elapsed_ms = start.elapsed().as_millis() as u64;
             results.push(result);
         }
         Ok(results)
     })();
+    stop_interrupts();
     conn.progress_handler(0, None::<fn() -> bool>)
         .map_err(sql_error)?;
     conn.authorizer(None::<fn(AuthContext<'_>) -> Authorization>)

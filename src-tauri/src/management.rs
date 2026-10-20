@@ -409,7 +409,7 @@ mod tests {
     #[tokio::test]
     async fn import_approval_is_bound_single_use_and_history_has_no_values() {
         let (host, dir) = fixture().await;
-        let req = EditRequest {
+        let req = EditRequest {originals: vec![],
             create_table: None,
             node_id: "table:imported".into(),
             edits: vec![RowEdit::Insert {

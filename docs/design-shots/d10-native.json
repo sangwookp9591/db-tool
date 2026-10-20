@@ -1,0 +1,26 @@
+{
+  "checks": [
+    "postgres: SELECT/find -> field edit -> preview leaves DB unchanged -> confirmation -> apply -> original query refresh",
+    "postgres: JOIN disabled with reason",
+    "postgres: failed query clears stale result and cannot change the refresh request",
+    "postgres: read-only and agent tabs disable editing",
+    "mysql: SELECT/find -> field edit -> preview leaves DB unchanged -> confirmation -> apply -> original query refresh",
+    "mysql: JOIN disabled with reason",
+    "mysql: failed query clears stale result and cannot change the refresh request",
+    "mysql: read-only and agent tabs disable editing",
+    "sqlite: SELECT/find -> field edit -> preview leaves DB unchanged -> confirmation -> apply -> original query refresh",
+    "sqlite: JOIN disabled with reason",
+    "sqlite: failed query clears stale result and cannot change the refresh request",
+    "sqlite: read-only and agent tabs disable editing",
+    "mongodb: SELECT/find -> field edit -> preview leaves DB unchanged -> confirmation -> apply -> original query refresh",
+    "mongodb: failed query clears stale result and cannot change the refresh request",
+    "mongodb: read-only and agent tabs disable editing"
+  ],
+  "checkpoint": 19,
+  "sqlitePath": "/tmp/axdb-d10-1792474731395.sqlite",
+  "stage": "mongodb-requery",
+  "complete": true,
+  "config": "/var/folders/_p/fy8jj5b95c38w41rttwnnll40000gn/T/axdb-d10-native-AoUEbV",
+  "appPid": 38216,
+  "transport": "real debug Tauri/WKWebView + real drivers; screenshots via Orca computer"
+}

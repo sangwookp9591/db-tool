@@ -6,6 +6,7 @@ async fn explain_reads_only_and_exposes_execution_stats() {
     let Ok(uri) = std::env::var("AXDB_TEST_MONGO") else {
         return;
     };
+    let test_database=format!("axdbt_d10_explain_{}",mongodb::bson::oid::ObjectId::new().to_hex());
     let options = mongodb::options::ClientOptions::parse(uri).await.unwrap();
     assert_eq!(
         options.hosts,
@@ -20,7 +21,7 @@ async fn explain_reads_only_and_exposes_execution_stats() {
                 ("uri".into(), "mongodb://127.0.0.1:57017".into()),
                 ("user".into(), "axdb".into()),
                 ("authSource".into(), "admin".into()),
-                ("database".into(), "axdb_test".into()),
+                ("database".into(), test_database.as_str().into()),
             ]),
             secret: options.credential.and_then(|c| c.password),
             connect_timeout_ms: 5000,

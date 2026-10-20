@@ -692,7 +692,7 @@ async fn change_preview_ignores_concurrent_ddl_from_other_sessions() {
     s.close().await;
 }
 
-fn edit_request(node: &str, edits: Vec<RowEdit>) -> EditRequest {EditRequest{create_table: None,node_id:node.into(),edits,timeout_ms:5000,preview_sample_limit:2}}
+fn edit_request(node: &str, edits: Vec<RowEdit>) -> EditRequest {EditRequest{originals: vec![],create_table: None,node_id:node.into(),edits,timeout_ms:5000,preview_sample_limit:2}}
 fn edit_key(id:i64)->Vec<(String,Value)>{vec![("id".into(),Value::Int(id.to_string()))]}
 #[tokio::test]
 async fn c2_bound_edits_preview_apply_conflicts_and_catalog(){
@@ -712,7 +712,7 @@ async fn c2_bound_edits_preview_apply_conflicts_and_catalog(){
     assert_eq!(browse.edit_target.unwrap().key_columns,vec!["id"]);
     assert!(s.browse(&view_node,PageRequest{offset:0,limit:10,filter:vec![]}).await.unwrap().edit_target.is_none());
     assert!(s.browse(&no_key_node,PageRequest{offset:0,limit:10,filter:vec![]}).await.unwrap().edit_target.is_none());
-    assert!(c2_run(s.as_ref(),&format!("SELECT * FROM {table}")).await.edit_target.is_none());
+    assert!(c2_run(s.as_ref(),&format!("SELECT * FROM {table}")).await.edit_target.is_some());
     let injection="'; DROP TABLE x; -- ' \\ 한글 🦀";
     let request=edit_request(&node,vec![
         RowEdit::Update{key:edit_key(1),set:vec![("t".into(),Value::Text(injection.into()))]},
@@ -792,3 +792,31 @@ async fn c2_binary_edit_binds_and_reads_bytea() {
 }
 
 async fn c2_run(s:&dyn Session,sql:&str)->ResultSet{run(s,sql).await.remove(0)}
+
+#[tokio::test]
+async fn query_result_edit_provenance_and_conflict() {
+    let Some(cfg)=config() else {return;};
+    let s=PostgresDriver::new().connect(&cfg).await.unwrap();
+    run(&*s,"CREATE TEMP TABLE d10_query(id int PRIMARY KEY, name text); INSERT INTO d10_query VALUES(1,'old'),(2,'old'); CREATE TEMP VIEW d10_view AS SELECT * FROM d10_query").await;
+    let result=run(&*s,"SELECT id AS alias_id,name,id+1 AS computed FROM d10_query WHERE id=1").await.remove(0);
+    let target=result.edit_target.unwrap();
+    assert_eq!(target.columns,vec![Some("id".into()),Some("name".into()),None]);
+    for sql in ["SELECT name FROM d10_query", "SELECT DISTINCT id,name FROM d10_query", "SELECT id,count(*) FROM d10_query GROUP BY id", "SELECT a.id,a.name FROM d10_query a JOIN d10_query b ON a.id=b.id", "SELECT * FROM d10_view"] {assert!(run(&*s,sql).await[0].edit_target.is_none(),"{sql}");}
+    let request:EditRequest=serde_json::from_value(serde_json::json!({"node_id":target.node_id,"edits":[{"op":"Update","key":[["id",{"t":"Int","v":"1"}]],"set":[["name",{"t":"Text","v":"edited"}]]}],"originals":[[["name",{"t":"Text","v":"old"}]]]})).unwrap();
+    s.preview_edits(&request,CancelToken::new()).await.unwrap();
+    assert_eq!(run(&*s,"SELECT name FROM d10_query WHERE id=1").await[0].table.as_ref().unwrap().rows[0][0],Value::Text("old".into()));
+    s.apply_edits(&request,CancelToken::new()).await.unwrap();
+    assert_eq!(run(&*s,"SELECT name FROM d10_query WHERE id=1").await[0].table.as_ref().unwrap().rows[0][0],Value::Text("edited".into()));
+    assert!(matches!(s.apply_edits(&request,CancelToken::new()).await,Err(DbError{kind:ErrorKind::Conflict,..})));
+    let mut conflicting=request.clone();
+    if let RowEdit::Update{set,..}=&mut conflicting.edits[0]{set[0].1=Value::Text("should rollback".into());}
+    conflicting.originals=vec![vec![("name".into(),Value::Text("edited".into()))],vec![("name".into(),Value::Text("stale".into()))]];
+    conflicting.edits.push(RowEdit::Update{key:vec![("id".into(),Value::Int("2".into()))],set:vec![("name".into(),Value::Text("second".into()))]});
+    assert!(matches!(s.apply_edits(&conflicting,CancelToken::new()).await,Err(DbError{kind:ErrorKind::Conflict,..})));
+    assert_eq!(run(&*s,"SELECT name FROM d10_query WHERE id=1").await[0].table.as_ref().unwrap().rows[0][0],Value::Text("edited".into()));
+    let mut bounded=req("SELECT * FROM d10_query");bounded.row_limit=1;
+    assert!(s.execute(&bounded,CancelToken::new()).await.unwrap()[0].edit_target.is_none());
+    bounded.row_limit=100;bounded.read_only=true;
+    assert!(s.execute(&bounded,CancelToken::new()).await.unwrap()[0].edit_target.is_none());
+    s.close().await;
+}
