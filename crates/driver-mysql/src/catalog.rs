@@ -362,7 +362,7 @@ impl MysqlSession {
             has_more: r.truncated,
         });
         if !keys.is_empty() {
-            r.edit_target = Some(EditTarget {
+            r.edit_target = Some(EditTarget {columns: vec![],
                 node_id: node.into(),
                 key_columns: keys,
             });

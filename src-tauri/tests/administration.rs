@@ -136,7 +136,7 @@ async fn admin_pg_roundtrip_roles_copy_progress() {
     let target = d.connect(&cfg(target_db.clone())).await.unwrap();
     let result=AssertUnwindSafe(async {
         exec(&*source,"CREATE TABLE items(id SERIAL PRIMARY KEY, value TEXT UNIQUE NOT NULL, optional TEXT, bytes BYTEA); CREATE INDEX by_optional ON items(optional); CREATE VIEW item_names AS SELECT id,value FROM items").await;
-        let request=EditRequest{node_id:serde_json::json!(["table","public","tables","items"]).to_string(),create_table:None,edits:(0..251).map(|i|RowEdit::Insert{values:vec![("value".into(),Value::Text(format!("value-{i}\t\\N\n한글"))),("optional".into(),if i%2==0{Value::Null}else{Value::Text("\\N".into())}),("bytes".into(),Value::Bytes{len:2,hex:"00ff".into()})]}).collect(),timeout_ms:30000,preview_sample_limit:100};
+        let request=EditRequest{originals: vec![],node_id:serde_json::json!(["table","public","tables","items"]).to_string(),create_table:None,edits:(0..251).map(|i|RowEdit::Insert{values:vec![("value".into(),Value::Text(format!("value-{i}\t\\N\n한글"))),("optional".into(),if i%2==0{Value::Null}else{Value::Text("\\N".into())}),("bytes".into(),Value::Bytes{len:2,hex:"00ff".into()})]}).collect(),timeout_ms:30000,preview_sample_limit:100};
         source.import_rows(&request,true,CancelToken::new()).await.unwrap();let progress=Progress(Mutex::new(vec![]));
         let applied=source.import_rows_progress(&request,false,CancelToken::new(),&progress).await.unwrap();assert!(matches!(applied,ImportOutput::Applied(r) if r.statements[0].starts_with("COPY ")&&r.affected==vec![251]));assert!(progress.0.lock().unwrap().contains(&100));assert!(progress.0.lock().unwrap().contains(&200));
         let backup=source.backup(CancelToken::new()).await.unwrap();assert_eq!(backup.counts,vec![("\"public\".\"items\"".into(),251)]);target.restore(&backup,false,CancelToken::new()).await.unwrap();let restored=target.backup(CancelToken::new()).await.unwrap();assert_eq!(backup.counts,restored.counts);assert_eq!(digest(&backup),digest(&restored));assert!(target.restore(&backup,false,CancelToken::new()).await.is_err());
@@ -227,7 +227,7 @@ async fn admin_redis_atomic_import_and_acl_no_secrets() {
         .unwrap();
     let prefix = format!("axdb_test_w4_{}:", std::process::id());
     let keys = [format!("{prefix}a"), format!("{prefix}b")];
-    let request = EditRequest {
+    let request = EditRequest {originals: vec![],
         node_id: serde_json::json!(["scan", prefix.as_bytes(), "*", 0]).to_string(),
         create_table: None,
         edits: ["a", "b"]

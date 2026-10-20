@@ -399,7 +399,7 @@ async fn dispatch_inner(shared: &Shared, client: &AgentClient, method: &str, par
                 None,
             )
             .await
-            .map(|r| json!({"results":[r]})),
+            .map(|mut r| {r.edit_target=None; r.edit_disabled_reason=Some("MCP·에이전트 결과는 읽기 전용입니다".into()); json!({"results":[r]})}),
         ),
         "expand_node" => encoded(
             crate::expand(

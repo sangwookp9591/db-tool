@@ -333,3 +333,32 @@ async fn real_contract() {
     s.close().await;
     assert_eq!(s.ping().await.unwrap_err().kind, ErrorKind::Connection);
 }
+
+#[tokio::test]
+async fn find_edit_preview_apply_and_conflict() {
+    let Ok(uri)=std::env::var("AXDB_TEST_MONGO") else {return;};
+    assert_eq!(uri,"mongodb://axdb:testmongo@127.0.0.1:57017/?authSource=admin");
+    let client=Client::with_uri_str(&uri).await.unwrap();
+    let name=format!("d10_edit_{}",ObjectId::new().to_hex());
+    let db=client.database("axdb_test");let collection=db.collection::<Document>(&name);let id=ObjectId::new();
+    collection.insert_one(doc!{"_id":id,"name":"old","nested":doc!{"v":1}}).await.unwrap();
+    let config=ConnectConfig{fields:BTreeMap::from([("uri".into(),"mongodb://127.0.0.1:57017".into()),("database".into(),"axdb_test".into()),("user".into(),"axdb".into()),("authSource".into(),"admin".into())]),secret:Some("testmongo".into()),connect_timeout_ms:3000};
+    let s=MongoDriver::new().connect(&config).await.unwrap();
+    let query:ExecRequest=serde_json::from_value(serde_json::json!({"text":serde_json::json!({"find":name,"filter":{}}).to_string()})).unwrap();
+    let result=s.execute(&query,CancelToken::new()).await.unwrap().remove(0);let target=result.edit_target.unwrap();
+    let request:EditRequest=serde_json::from_value(serde_json::json!({"node_id":target.node_id,"edits":[{"op":"Update","key":[["_id",{"t":"Other","v":{"type_name":"ObjectId","text":id.to_hex()}}]],"set":[["name",{"t":"Text","v":"edited"}]]}],"originals":[[["name",{"t":"Text","v":"old"}]]]})).unwrap();
+    let preview=s.preview_edits(&request,CancelToken::new()).await.unwrap();assert!(preview.statements[0].text.contains("updateOne"));
+    assert_eq!(collection.find_one(doc!{"_id":id}).await.unwrap().unwrap().get_str("name").unwrap(),"old");
+    s.apply_edits(&request,CancelToken::new()).await.unwrap();
+    assert_eq!(collection.find_one(doc!{"_id":id}).await.unwrap().unwrap().get_str("name").unwrap(),"edited");
+    assert!(matches!(s.apply_edits(&request,CancelToken::new()).await,Err(DbError{kind:ErrorKind::Conflict,..})));
+    let mut projected=query.clone();projected.text=serde_json::json!({"find":name,"filter":{},"projection":{"name":1}}).to_string();
+    assert!(s.execute(&projected,CancelToken::new()).await.unwrap()[0].edit_target.is_some());
+    projected.text=serde_json::json!({"find":name,"filter":{},"projection":{"_id":0,"name":1}}).to_string();
+    assert!(s.execute(&projected,CancelToken::new()).await.unwrap()[0].edit_target.is_none());
+    let mut aggregate=query.clone();aggregate.text=serde_json::json!({"aggregate":name,"pipeline":[],"cursor":{}}).to_string();
+    assert!(s.execute(&aggregate,CancelToken::new()).await.unwrap()[0].edit_target.is_none());
+    let mut readonly=query.clone();readonly.read_only=true;
+    assert!(s.execute(&readonly,CancelToken::new()).await.unwrap()[0].edit_target.is_none());
+    collection.drop().await.unwrap();s.close().await;
+}

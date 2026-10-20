@@ -1,6 +1,7 @@
 //! SQLite driver. Every connection operation runs on the blocking pool.
 mod preview;
 mod edits;
+mod query_edit;
 mod administration;
 mod backup_stream;
 mod schema;
@@ -361,7 +362,7 @@ impl Session for SqliteSession {
         req.row_limit = limit;
         let mut result = self.execute(&req, CancelToken::new()).await?.remove(0);
         let owned=node_id.to_string();
-        result.edit_target=self.with_connection(move |c| edits::target(c,&owned).map(|(_,keys)| if keys.is_empty(){None}else{Some(EditTarget{node_id:owned,key_columns:keys})})).await?;
+        result.edit_target=self.with_connection(move |c| edits::target(c,&owned).map(|(_,keys)| if keys.is_empty(){None}else{Some(EditTarget{columns: vec![],node_id:owned,key_columns:keys})})).await?;
         result.page = Some(PageInfo {
             offset: page.offset,
             limit,
@@ -452,6 +453,7 @@ fn run(
                 break;
             };
             let start = Instant::now();
+            let candidate = dbcore::query_edit::source(&req.text, &sqlparser::dialect::SQLiteDialect {}).and_then(|_| query_edit::target(conn, &stmt));
             let mut result = ResultSet {
                 title: result_title(&req.text),
                 ..Default::default()
@@ -491,6 +493,7 @@ fn run(
                     rows: output,
                 });
             }
+            dbcore::query_edit::finish(&mut result,candidate,req.read_only || original);
             result.elapsed_ms = start.elapsed().as_millis() as u64;
             results.push(result);
         }

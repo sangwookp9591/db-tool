@@ -23,7 +23,7 @@ async fn import_rollback_commit_and_schema() {
         .await
         .unwrap();
     let label = format!("AxdbW3{}", std::process::id());
-    let edit = EditRequest {
+    let edit = EditRequest {originals: vec![],
         create_table: None,
         node_id: serde_json::to_string(&["label", &label]).unwrap(),
         edits: vec![RowEdit::Insert {

@@ -281,6 +281,7 @@ impl dbcore::ResultSink for LiveResults {
             .unwrap_or_default();
         let start = ResultSet {
             edit_target: result.edit_target.clone(),
+            edit_disabled_reason: result.edit_disabled_reason.clone(),
             title: result.title.clone(),
             table: result.table.as_ref().map(|_| Table {
                 columns: columns.clone(),

@@ -1,5 +1,6 @@
 //! MongoDB command documents using the host-independent document/table contracts.
 mod schema;
+mod edits;
 use async_trait::async_trait;
 use dbcore::*;
 use mongodb::{
@@ -102,7 +103,7 @@ impl MongoDriver {
                     paged_browse: true,
                     graph_expand: false,
                     multi_statement: false,
-                    edit_rows: false,
+                    edit_rows: true,
                     ..Default::default()
                 },
                 default_query: r#"{"find":"users","filter":{},"limit":50}"#.into(),
@@ -288,6 +289,8 @@ impl MongoSession {
             check_read_only(&command)?;
         }
         let name = command.keys().next().unwrap().clone();
+        let projection_is_original = command.get_document("projection").map(|projection| projection.values().all(|value|matches!(value,Bson::Boolean(_)|Bson::Int32(0|1)|Bson::Int64(0|1)))).unwrap_or(!command.contains_key("projection"));
+        let find_collection = if name=="find" && projection_is_original {command.get_str("find").ok().map(str::to_owned)} else {None};
         if command.contains_key("$db")
             || command.contains_key("lsid")
             || command.contains_key("txnNumber")
@@ -393,7 +396,10 @@ impl MongoSession {
             }
             let truncated = documents.len() > limit;
             documents.truncate(limit);
-            return Ok(document_result(documents, truncated));
+            let candidate=if let Some(collection)=find_collection {self.find_target(&collection,&documents).await} else {Err("집계 또는 projection 결과는 편집할 수 없습니다")};
+            let mut result=document_result(documents, truncated);
+            dbcore::query_edit::finish(&mut result,candidate,req.read_only);
+            return Ok(result);
         }
         if let Ok(errors) = response.get_array("writeErrors")
             && let Some(Bson::Document(error)) = errors.first()
@@ -466,6 +472,8 @@ impl Drop for CursorCleanup {
 
 #[async_trait]
 impl Session for MongoSession {
+    async fn preview_edits(&self, req: &EditRequest, cancel: CancelToken) -> Result<ChangePreview,DbError> {Ok(self.edit_document(req,cancel,true).await?.1)}
+    async fn apply_edits(&self, req: &EditRequest, cancel: CancelToken) -> Result<EditResult,DbError> {Ok(self.edit_document(req,cancel,false).await?.0)}
     async fn restore_options(&self)->Result<RestoreOptions,DbError>{Ok(RestoreOptions{overwrite:false,new_database:true,guidance:"빈 대상에 복원한 뒤 행 수와 인덱스를 확인하고 연결을 교체하세요. 기존 대상 덮어쓰기는 지원하지 않습니다.".into()})}
     async fn restore_database(&self,summary:&BackupSummary,source:&mut (dyn std::io::Read+Send),name:&str,cancel:CancelToken)->Result<(),DbError>{
         validate_restore_database(name)?;

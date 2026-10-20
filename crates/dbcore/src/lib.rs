@@ -392,6 +392,8 @@ pub fn clamp_row_limit(limit: u32) -> u32 {
 pub struct ResultSet {
     #[serde(default)]
     pub edit_target: Option<EditTarget>,
+    #[serde(default)]
+    pub edit_disabled_reason: Option<String>,
     pub title: String,
     pub table: Option<Table>,
     pub graph: Option<Graph>,
@@ -554,6 +556,9 @@ impl Registry {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct EditTarget {
+    /// Query projection index to original column name; empty for full-table browse.
+    #[serde(default)]
+    pub columns: Vec<Option<String>>,
     pub node_id: String,
     pub key_columns: Vec<String>,
 }
@@ -573,6 +578,9 @@ pub enum RowEdit {
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct EditRequest {
+    /// Original projected values for each operation, compared with NULL-safe equality.
+    #[serde(default)]
+    pub originals: Vec<Vec<(String, Value)>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub create_table: Option<Vec<Column>>,
     pub node_id: String,
@@ -595,3 +603,5 @@ pub use workbench::*;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag="status", content="result", rename_all="snake_case")]
 pub enum ImportOutput { Preview(ChangePreview), Applied(EditResult) }
+
+pub mod query_edit;

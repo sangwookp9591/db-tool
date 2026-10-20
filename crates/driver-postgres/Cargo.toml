@@ -19,6 +19,8 @@ native-tls = "0.2"
 postgres-native-tls = "0.5"
 futures-util = "0.3"
 
+sqlparser = "0.63"
+
 [dev-dependencies]
 axdb-driver-protocol = { path = "../driver-protocol" }
 tracing = "0.1"

@@ -319,7 +319,7 @@ impl MysqlSession {
                 let mut p = StatementPreview::new(sql.clone(), plan.kind.clone());
                 if preview && let Some(before) = &plan.before {
                     let key_count = match &req.edits[index] {
-                        RowEdit::Update { key, .. } | RowEdit::Delete { key } => key.len(),
+                        RowEdit::Update { key, .. } | RowEdit::Delete { key } => key.len() + req.originals.get(index).map_or(0, Vec::len),
                         _ => 0,
                     };
                     let params = plan.values[plan.values.len() - key_count..]

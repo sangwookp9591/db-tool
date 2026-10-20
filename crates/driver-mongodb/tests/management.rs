@@ -41,7 +41,7 @@ async fn snapshot_indexes_and_standalone_import_refusal() {
         .unwrap()
         .changes
         .is_empty());
-    let edit = EditRequest {
+    let edit = EditRequest {originals: vec![],
         create_table: None,
         node_id: serde_json::to_string(&["collection", "axdb_test", &name]).unwrap(),
         edits: vec![RowEdit::Insert {

@@ -496,7 +496,7 @@ async fn schema_graph_and_filtered_browse() {
     let result=s.browse(&fk.to,PageRequest {offset:0,limit:10,filter:vec![("tenant".into(),Value::Text("a' OR TRUE--".into()))]}).await.unwrap();assert_eq!(result.row_count,0);
 }
 
-fn edit_request(node: &str, edits: Vec<RowEdit>) -> EditRequest {EditRequest{create_table: None,node_id:node.into(),edits,timeout_ms:5000,preview_sample_limit:2}}
+fn edit_request(node: &str, edits: Vec<RowEdit>) -> EditRequest {EditRequest{originals: vec![],create_table: None,node_id:node.into(),edits,timeout_ms:5000,preview_sample_limit:2}}
 fn edit_key(id:i64)->Vec<(String,Value)>{vec![("id".into(),Value::Int(id.to_string()))]}
 #[tokio::test]
 async fn c2_bound_edits_preview_apply_conflicts_and_catalog(){
@@ -591,4 +591,26 @@ async fn c2_binary_edit_keeps_blob_storage_and_exact_bytes() {
     let table = result.table.unwrap();
     assert_eq!(table.rows[0][0], Value::Bytes { len: 4, hex: "00a1b2ff".into() });
     assert_eq!(table.rows[0][1], Value::Text("blob".into()));
+}
+
+#[tokio::test]
+async fn query_result_edit_provenance_and_conflict() {
+    let (_dir, s) = fixture().await;
+    let result = run(&*s, "SELECT id, t, id+1 AS calculated FROM sample WHERE id > 0").await;
+    assert!(result.edit_target.is_some(), "single-table query with its primary key must be editable");
+    for sql in ["SELECT t FROM sample", "SELECT DISTINCT id,t FROM sample", "SELECT id,count(*) FROM sample GROUP BY id", "SELECT a.id,a.t FROM sample a JOIN sample b ON a.id=b.id", "SELECT * FROM sample_view"] {
+        assert!(run(&*s, sql).await.edit_target.is_none(), "must be read-only: {sql}");
+    }
+    let request: EditRequest = serde_json::from_value(serde_json::json!({"node_id":"table:sample","edits":[{"op":"Update","key":[["id",{"t":"Int","v":i64::MAX.to_string()}]],"set":[["t",{"t":"Text","v":"edited"}]]}],"originals":[[["t",{"t":"Null"}]]]})).unwrap();
+    s.preview_edits(&request, CancelToken::new()).await.unwrap();
+    assert_eq!(run(&*s, "SELECT t FROM sample").await.table.unwrap().rows[0][0], Value::Null);
+    run(&*s, "UPDATE sample SET t='concurrent'").await;
+    assert!(matches!(s.apply_edits(&request, CancelToken::new()).await, Err(DbError{kind: ErrorKind::Conflict,..})));
+    assert_eq!(run(&*s, "SELECT t FROM sample").await.table.unwrap().rows[0][0], Value::Text("concurrent".into()));
+    let mut conflicting=request.clone();
+    conflicting.originals=vec![vec![("t".into(),Value::Text("concurrent".into()))],vec![]];
+    conflicting.edits.push(RowEdit::Update{key:vec![("id".into(),Value::Int("999".into()))],set:vec![("t".into(),Value::Text("missing".into()))]});
+    assert!(matches!(s.apply_edits(&conflicting,CancelToken::new()).await,Err(DbError{kind:ErrorKind::Conflict,..})));
+    assert_eq!(run(&*s,"SELECT t FROM sample").await.table.unwrap().rows[0][0],Value::Text("concurrent".into()));
+
 }
