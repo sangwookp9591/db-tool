@@ -25,13 +25,14 @@ command -v llvm-dlltool >/dev/null || { echo 'LLVM tools are required for Window
 : "${APPLE_SIGNING_IDENTITY:?Set APPLE_SIGNING_IDENTITY to the Developer ID Application identity}"
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-target-u1}"
 [[ "$CARGO_TARGET_DIR" = /* ]] || CARGO_TARGET_DIR="$PWD/$CARGO_TARGET_DIR"
-export TAURI_SIGNING_PRIVATE_KEY_PATH="$HOME/.tauri/axdb-updater.key"
-[[ -f "$TAURI_SIGNING_PRIVATE_KEY_PATH" ]] || { echo 'Updater signing key is missing' >&2; exit 1; }
+key_path="$HOME/.tauri/axdb-updater.key"
+[[ -f "$key_path" ]] || { echo 'Updater signing key is missing' >&2; exit 1; }
 export TAURI_SIGNING_PRIVATE_KEY_PASSWORD
 TAURI_SIGNING_PRIVATE_KEY_PASSWORD="$(security find-generic-password -s axdb-updater -a signing-key-password -w)"
-# Tauri build accepts a key path through PRIVATE_KEY; signer sign also supports PRIVATE_KEY_PATH.
-export TAURI_SIGNING_PRIVATE_KEY="$TAURI_SIGNING_PRIVATE_KEY_PATH"
-trap 'unset TAURI_SIGNING_PRIVATE_KEY_PASSWORD TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PATH' EXIT
+# tauri build reads the key path from TAURI_SIGNING_PRIVATE_KEY; signer sign takes it explicitly with -f.
+# The signer rejects KEY and KEY_PATH together; KEY accepts a path, so set only that.
+export TAURI_SIGNING_PRIVATE_KEY="$key_path"
+trap 'unset TAURI_SIGNING_PRIVATE_KEY_PASSWORD TAURI_SIGNING_PRIVATE_KEY' EXIT
 out="$PWD/dist/release/$version"
 mkdir -p "$out"
 pnpm --dir ui install --frozen-lockfile
@@ -49,7 +50,7 @@ xcrun stapler staple "$dmg"
 xcrun stapler validate "$dmg"
 archive="$out/AxDB_${version}_universal.app.tar.gz"
 COPYFILE_DISABLE=1 tar -czf "$archive" -C "$(dirname "$app")" AxDB.app
-pnpm dlx @tauri-apps/cli@2.12.3 signer sign --app-version "$version" "$archive" >/dev/null
+pnpm dlx @tauri-apps/cli@2.12.3 signer sign -f "$key_path" "$archive" >/dev/null
 cp "$dmg" "$out/"
 rm "$out/notarize-app.zip"
 # Apple signing is macOS-only; Windows uses the independent updater signature.
@@ -57,7 +58,7 @@ env -u APPLE_SIGNING_IDENTITY pnpm dlx @tauri-apps/cli@2.12.3 build --config src
 installer="$CARGO_TARGET_DIR/x86_64-pc-windows-msvc/release/bundle/nsis/AxDB_${version}_x64-setup.exe"
 cp "$installer" "$installer.sig" "$out/"
 python3 scripts/release-manifest.py "$version" "$out"
-unset TAURI_SIGNING_PRIVATE_KEY_PASSWORD TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PATH
+unset TAURI_SIGNING_PRIVATE_KEY_PASSWORD TAURI_SIGNING_PRIVATE_KEY
 if [[ "${2:-}" == --publish ]]; then
   gh release create "v$version" --repo sangwookp9591/db-tool --latest --title "AxDB $version" --notes-file "docs/release-notes/v$version.md" "$out"/*.dmg "$out"/*.tar.gz "$out"/*.exe "$out"/*.sig "$out/latest.json"
 else
