@@ -16,7 +16,7 @@ export function PermissionMode({readOnly,locked,connection,onChange}:{readOnly:b
    const index=options.indexOf(document.activeElement as HTMLButtonElement);
    options[(index+(event.key==='ArrowDown'?1:options.length-1)+options.length)%options.length]?.focus();
   }
- }} onToggle={()=>{if(root.current?.open)root.current.querySelector<HTMLButtonElement>('[aria-checked=true]')?.focus();}}>
+ }} onToggle={()=>{if(root.current?.open&&!root.current.querySelector('[role=menuitemradio]:focus'))root.current.querySelector<HTMLButtonElement>('[aria-checked=true]')?.focus();}}>
   <summary aria-label="AI 권한 모드" aria-haspopup="menu" title={`${selected?'읽기 전용':'승인 후 쓰기'} · ${connection}`} data-read-only={selected}><ShieldCheck/><span class="ai-permission-dot"/><span>{selected?'읽기 전용':'승인 후 쓰기'}</span></summary>
   <div class="ai-permission-menu" role="menu" aria-label={`${connection} · AI가 제안할 작업 범위`}>
    <header><strong>{connection}</strong><p>AI가 제안할 작업 범위</p></header>
