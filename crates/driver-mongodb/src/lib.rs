@@ -289,8 +289,8 @@ impl MongoSession {
             check_read_only(&command)?;
         }
         let name = command.keys().next().unwrap().clone();
-        let projection_is_original = command.get_document("projection").map(|projection| projection.values().all(|value|matches!(value,Bson::Boolean(_)|Bson::Int32(0|1)|Bson::Int64(0|1)))).unwrap_or(!command.contains_key("projection"));
-        let find_collection = if name=="find" && projection_is_original {command.get_str("find").ok().map(str::to_owned)} else {None};
+        let projection_is_original = command.get_document("projection").map(|projection| projection.iter().all(|(name,value)|!name.contains('.') && matches!(value,Bson::Boolean(_)|Bson::Int32(0|1)|Bson::Int64(0|1)))).unwrap_or(!command.contains_key("projection"));
+        let find_collection = if name=="find" && projection_is_original && matches!(command.get("returnKey"),None|Some(Bson::Boolean(false))) {command.get_str("find").ok().map(str::to_owned)} else {None};
         if command.contains_key("$db")
             || command.contains_key("lsid")
             || command.contains_key("txnNumber")

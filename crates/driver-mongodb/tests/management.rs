@@ -78,5 +78,6 @@ async fn snapshot_indexes_and_standalone_import_refusal() {
     .await
     .unwrap();
     s.execute(&req(&serde_json::json!({"drop":view}).to_string()),CancelToken::new()).await.unwrap();
+    s.execute(&req(&serde_json::json!({"dropDatabase":1}).to_string()),CancelToken::new()).await.unwrap();
     s.close().await;
 }

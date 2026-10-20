@@ -165,6 +165,7 @@ async fn real_mongodb_schema_graph() {
     for name in [view, orders, users, empty, sampled] {
         db.collection::<Document>(&name).drop().await.unwrap();
     }
+    db.drop().await.unwrap();
     client.shutdown().await;
 }
 

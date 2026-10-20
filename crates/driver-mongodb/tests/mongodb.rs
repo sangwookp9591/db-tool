@@ -357,6 +357,11 @@ async fn find_edit_preview_apply_and_conflict() {
     assert!(matches!(s.apply_edits(&request,CancelToken::new()).await,Err(DbError{kind:ErrorKind::Conflict,..})));
     let mut projected=query.clone();projected.text=serde_json::json!({"find":name,"filter":{},"projection":{"name":1}}).to_string();
     assert!(s.execute(&projected,CancelToken::new()).await.unwrap()[0].edit_target.is_some());
+    projected.text=serde_json::json!({"find":name,"filter":{},"projection":{"nested.v":1,"name":1}}).to_string();
+    assert!(s.execute(&projected,CancelToken::new()).await.unwrap()[0].edit_target.is_none());
+    collection.create_index(mongodb::IndexModel::builder().keys(doc!{"name":1,"_id":1}).build()).await.unwrap();
+    projected.text=serde_json::json!({"find":name,"filter":{},"returnKey":true,"hint":{"name":1,"_id":1}}).to_string();
+    assert!(s.execute(&projected,CancelToken::new()).await.unwrap()[0].edit_target.is_none());
     projected.text=serde_json::json!({"find":name,"filter":{},"projection":{"_id":0,"name":1}}).to_string();
     assert!(s.execute(&projected,CancelToken::new()).await.unwrap()[0].edit_target.is_none());
     let mut aggregate=query.clone();aggregate.text=serde_json::json!({"aggregate":name,"pipeline":[],"cursor":{}}).to_string();
