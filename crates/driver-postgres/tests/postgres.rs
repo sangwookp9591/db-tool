@@ -712,7 +712,7 @@ async fn c2_bound_edits_preview_apply_conflicts_and_catalog(){
     assert_eq!(browse.edit_target.unwrap().key_columns,vec!["id"]);
     assert!(s.browse(&view_node,PageRequest{offset:0,limit:10,filter:vec![]}).await.unwrap().edit_target.is_none());
     assert!(s.browse(&no_key_node,PageRequest{offset:0,limit:10,filter:vec![]}).await.unwrap().edit_target.is_none());
-    assert!(c2_run(s.as_ref(),&format!("SELECT * FROM {table}")).await.edit_target.is_none());
+    assert!(c2_run(s.as_ref(),&format!("SELECT * FROM {table}")).await.edit_target.is_some());
     let injection="'; DROP TABLE x; -- ' \\ 한글 🦀";
     let request=edit_request(&node,vec![
         RowEdit::Update{key:edit_key(1),set:vec![("t".into(),Value::Text(injection.into()))]},

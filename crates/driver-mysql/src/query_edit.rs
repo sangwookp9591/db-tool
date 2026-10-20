@@ -32,7 +32,7 @@ pub(super) async fn target(conn: &mut Conn, sql: &str) -> Result<EditTarget, &'s
         return Err("뷰 결과는 편집할 수 없습니다");
     }
     let keys:Vec<String>=conn.exec("SELECT COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA=? AND TABLE_NAME=? AND CONSTRAINT_NAME='PRIMARY' ORDER BY ORDINAL_POSITION",(&db,&table)).await.map_err(|_|"기본 키를 확인할 수 없습니다")?;
-    let writable:Vec<String>=conn.exec("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=? AND TABLE_NAME=? AND EXTRA NOT LIKE '%GENERATED%'",(&db,&table)).await.map_err(|_|"컬럼을 확인할 수 없습니다")?;
+    let writable:Vec<String>=conn.exec("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=? AND TABLE_NAME=? AND (GENERATION_EXPRESSION IS NULL OR GENERATION_EXPRESSION='')",(&db,&table)).await.map_err(|_|"컬럼을 확인할 수 없습니다")?;
     let origins = columns
         .iter()
         .map(|c| {

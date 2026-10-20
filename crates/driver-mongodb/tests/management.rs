@@ -10,6 +10,7 @@ async fn snapshot_indexes_and_standalone_import_refusal() {
         return;
     };
     assert!(uri.contains("@127.0.0.1:57017/"));
+    let test_database=format!("axdbt_d10_snapshot_{}",mongodb::bson::oid::ObjectId::new().to_hex());
     let options = mongodb::options::ClientOptions::parse(&uri).await.unwrap();
     let s = MongoDriver::new()
         .connect(&ConnectConfig {
@@ -17,7 +18,7 @@ async fn snapshot_indexes_and_standalone_import_refusal() {
                 ("uri".into(), "mongodb://127.0.0.1:57017".into()),
                 ("user".into(), "axdb".into()),
                 ("authSource".into(), "admin".into()),
-                ("database".into(), "axdb_test".into()),
+                ("database".into(), test_database.as_str().into()),
             ]),
             secret: options.credential.and_then(|c| c.password),
             connect_timeout_ms: 3000,
@@ -32,7 +33,10 @@ async fn snapshot_indexes_and_standalone_import_refusal() {
     .await
     .unwrap();
     s.execute(&req(&serde_json::json!({"createIndexes":name,"indexes":[{"key":{"name":1},"name":"by_name","unique":true}]}).to_string()),CancelToken::new()).await.unwrap();
+    let view=format!("{name}_view");
+    s.execute(&req(&serde_json::json!({"create":view,"viewOn":name,"pipeline":[]}).to_string()),CancelToken::new()).await.unwrap();
     let snapshot = s.schema_snapshot(None).await.unwrap();
+    assert!(snapshot.objects.iter().any(|o|o.kind=="view" && o.name==view));
     assert!(snapshot
         .objects
         .iter()
@@ -43,7 +47,7 @@ async fn snapshot_indexes_and_standalone_import_refusal() {
         .is_empty());
     let edit = EditRequest {originals: vec![],
         create_table: None,
-        node_id: serde_json::to_string(&["collection", "axdb_test", &name]).unwrap(),
+        node_id: serde_json::to_string(&["collection", test_database.as_str(), &name]).unwrap(),
         edits: vec![RowEdit::Insert {
             values: vec![("name".into(), Value::Text("test".into()))],
         }],
@@ -73,5 +77,6 @@ async fn snapshot_indexes_and_standalone_import_refusal() {
     )
     .await
     .unwrap();
+    s.execute(&req(&serde_json::json!({"drop":view}).to_string()),CancelToken::new()).await.unwrap();
     s.close().await;
 }

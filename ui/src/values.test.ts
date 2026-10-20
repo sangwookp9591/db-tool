@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { editValueText, formatJson, inputValue, valueText } from './values';
+import { editValueText, isCompleteValue, formatJson, inputValue, valueText } from './values';
 import { mergeGraph, nodeCaption } from './graph';
 import { visibleRange } from './virtual';
 import type { Graph } from './contract';
@@ -88,4 +88,9 @@ it('preserves BSON field types while editing document results', () => {
 
 it('keeps nested BSON integers and ObjectIds lossless in the edit input', () => {
   expect(JSON.parse(editValueText({t:'Map',v:[['big',{t:'Int',v:'9223372036854775807'}],['id',{t:'Other',v:{type_name:'ObjectId',text:'507f1f77bcf86cd799439011'}}]]}))).toEqual({big:{$numberLong:'9223372036854775807'},id:{$oid:'507f1f77bcf86cd799439011'}});
+});
+
+it('does not offer a truncated binary preview as a complete editable value',()=>{
+ expect(isCompleteValue({t:'Bytes',v:{len:100,hex:'00ff'}})).toBe(false);
+ expect(isCompleteValue({t:'Bytes',v:{len:2,hex:'00ff'}})).toBe(true);
 });

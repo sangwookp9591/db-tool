@@ -31,12 +31,13 @@ try{for(const theme of ['midnight','daylight']){
  await page.getByRole('dialog',{name:'Claude 연결',exact:true}).getByText('Claude 계정이 연결되었습니다. 모델 선택기에서 사용할 모델을 고르세요.',{exact:true}).waitFor();
  await page.getByRole('dialog',{name:'Claude 연결',exact:true}).getByRole('button',{name:'닫기',exact:true}).click();
  await page.getByRole('button',{name:'AI 도우미',exact:true}).click();
- await page.getByRole('dialog',{name:'AI 도우미',exact:true}).getByLabel('AI 모델 선택',{exact:true}).click();await page.getByRole('dialog',{name:'AI 도우미',exact:true}).getByLabel('모델 검색',{exact:true}).waitFor();
- await page.getByRole('dialog',{name:'AI 도우미',exact:true}).getByRole('navigation',{name:'anthropic 모델',exact:true}).getByRole('button',{name:/claude-opus-5-5 · 모의/}).waitFor();
+ await page.getByRole('complementary',{name:'AI 도우미',exact:true}).getByLabel('AI 모델 선택',{exact:true}).click();await page.getByRole('complementary',{name:'AI 도우미',exact:true}).getByLabel('모델 검색',{exact:true}).waitFor();
+ await page.getByRole('complementary',{name:'AI 도우미',exact:true}).getByRole('navigation',{name:'anthropic 모델',exact:true}).getByRole('button',{name:/claude-opus-5-5 · 모의/}).waitFor();
  await page.screenshot({path:`${output}w7-model-picker-${theme}.png`});
- await page.getByRole('dialog',{name:'AI 도우미',exact:true}).getByRole('navigation',{name:'anthropic 모델',exact:true}).getByRole('button',{name:/claude-opus-5-5 · 모의/}).click();
- await page.getByRole('dialog',{name:'AI 도우미',exact:true}).getByRole('combobox',{name:'Effort ⇧⌘.',exact:true}).click();await page.getByRole('option',{name:'Effort · high',exact:true}).click();
- await page.waitForFunction(()=>document.querySelector('dialog[aria-label="AI 도우미"] [aria-label="Effort ⇧⌘."]')?.textContent?.includes('high')); 
+ await page.getByRole('complementary',{name:'AI 도우미',exact:true}).getByRole('navigation',{name:'anthropic 모델',exact:true}).getByRole('button',{name:/claude-opus-5-5 · 모의/}).click();
+ await page.getByRole('complementary',{name:'AI 도우미',exact:true}).getByRole('combobox',{name:'Effort ⇧⌘.',exact:true}).click();await page.getByRole('option',{name:'high',exact:true}).click();
+ await page.waitForFunction(()=>document.querySelector('aside[aria-label="AI 도우미"] [aria-label="Effort ⇧⌘."]')?.textContent?.includes('high'));
+ await page.waitForFunction(()=>document.querySelector('aside[aria-label="AI 도우미"] [aria-label="Effort ⇧⌘."]')?.disabled===false);
  await page.keyboard.press('Shift+Meta+Period');await page.getByRole('listbox',{name:'Effort ⇧⌘.',exact:true}).waitFor();await page.keyboard.press('Escape');
  await context.close();
 }assert.deepEqual(errors,[]);console.log('W7 mock E2E passed: disconnect preserves query, star manual preview, model/effort selection and shortcut; six captures.');}finally{await browser.close();}

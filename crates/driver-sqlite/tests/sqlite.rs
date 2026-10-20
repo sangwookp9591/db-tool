@@ -510,7 +510,7 @@ async fn c2_bound_edits_preview_apply_conflicts_and_catalog(){
     assert_eq!(browse.edit_target.unwrap().key_columns,vec!["id"]);
     assert!(s.browse(&view_node,PageRequest{offset:0,limit:10,filter:vec![]}).await.unwrap().edit_target.is_none());
     assert!(s.browse(&no_key_node,PageRequest{offset:0,limit:10,filter:vec![]}).await.unwrap().edit_target.is_none());
-    assert!(run(s.as_ref(),&format!("SELECT * FROM {table}")).await.edit_target.is_none());
+    assert!(run(s.as_ref(),&format!("SELECT * FROM {table}")).await.edit_target.is_some());
     let injection="'; DROP TABLE x; -- ' \\ 한글 🦀";
     let request=edit_request(&node,vec![
         RowEdit::Update{key:edit_key(1),set:vec![("t".into(),Value::Text(injection.into()))]},
@@ -601,6 +601,10 @@ async fn query_result_edit_provenance_and_conflict() {
     for sql in ["SELECT t FROM sample", "SELECT DISTINCT id,t FROM sample", "SELECT id,count(*) FROM sample GROUP BY id", "SELECT a.id,a.t FROM sample a JOIN sample b ON a.id=b.id", "SELECT * FROM sample_view"] {
         assert!(run(&*s, sql).await.edit_target.is_none(), "must be read-only: {sql}");
     }
+    run(&*s,"CREATE TABLE d10_many(id INTEGER PRIMARY KEY,name TEXT); WITH RECURSIVE r(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM r WHERE x<1001) INSERT INTO d10_many SELECT x,'name' FROM r").await;
+    let mut many=req("SELECT * FROM d10_many");many.row_limit=2000;
+    let bounded=s.execute(&many,CancelToken::new()).await.unwrap().remove(0);
+    assert_eq!(bounded.row_count,1001);assert!(!bounded.truncated);assert!(bounded.edit_target.is_none());assert!(bounded.edit_disabled_reason.unwrap().contains("1,000"));
     let request: EditRequest = serde_json::from_value(serde_json::json!({"node_id":"table:sample","edits":[{"op":"Update","key":[["id",{"t":"Int","v":i64::MAX.to_string()}]],"set":[["t",{"t":"Text","v":"edited"}]]}],"originals":[[["t",{"t":"Null"}]]]})).unwrap();
     s.preview_edits(&request, CancelToken::new()).await.unwrap();
     assert_eq!(run(&*s, "SELECT t FROM sample").await.table.unwrap().rows[0][0], Value::Null);

@@ -375,6 +375,11 @@ impl MysqlSession {
                 if !matches!(plan.kind, StatementKind::Insert) && affected != 1 {
                     return Err(DbError::new(ErrorKind::Conflict,"Edit must affect exactly one row; all edits rolled back (unchanged UPDATE is also a conflict)"));
                 }
+                if preview && let RowEdit::Update {key,..} = &req.edits[index] {
+                    let condition=key.iter().map(|(name,_)|format!("{} <=> ?",quote(name))).collect::<Vec<_>>().join(" AND ");
+                    let params=key.iter().map(|(_,value)|value::bound(value)).collect::<Result<Vec<_>,_>>()?;
+                    p.after=collect(conn.exec_iter(format!("SELECT * FROM {} WHERE {condition} LIMIT {}",qualified(&db,&table),req.preview_sample_limit.min(1000)),Params::Positional(params)).await.map_err(error)?,req.preview_sample_limit.min(1000) as usize,"After edit",true).await?.remove(0).table;
+                }
                 p.affected = Some(affected);
                 samples.push(p);
                 changed.statements.push(sql);

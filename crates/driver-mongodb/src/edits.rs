@@ -133,7 +133,19 @@ impl MongoSession {
         }
         let filter = doc! {"$and":conditions};
         let update = doc! {"$set":updates};
-        let text=serde_json::json!({"updateOne":{"collection":path[2],"filter":Bson::Document(filter.clone()).into_canonical_extjson(),"update":Bson::Document(update.clone()).into_canonical_extjson()}}).to_string();
+        let projection = key
+            .iter()
+            .chain(original)
+            .map(|(name, _)| (name.clone(), Bson::Int32(1)))
+            .collect::<Document>();
+        let placeholders = |pairs: &[(String, Value)]| {
+            pairs
+                .iter()
+                .map(|(name, _)| (name.clone(), serde_json::json!("?")))
+                .collect::<serde_json::Map<String, serde_json::Value>>()
+        };
+        // History stores statement text; values belong only in the transient before/after samples.
+        let text=serde_json::json!({"updateOne":{"collection":path[2],"filter":placeholders(&key.iter().chain(original).cloned().collect::<Vec<_>>()),"update":{"$set":placeholders(set)}}}).to_string();
         let db = self.client.database(&path[1]);
         let collection = db.collection::<Document>(&path[2]);
         let work = async {
@@ -142,6 +154,7 @@ impl MongoSession {
             }
             let before = collection
                 .find_one(filter.clone())
+                .projection(projection)
                 .await
                 .map_err(|e| self.error(e))?
                 .ok_or_else(|| {

@@ -46,8 +46,9 @@ async fn real_contract() {
         uri, "mongodb://axdb:testmongo@127.0.0.1:57017/?authSource=admin",
         "test connects only to the isolated MongoDB"
     );
+    let test_database=format!("axdbt_d10_contract_{}",mongodb::bson::oid::ObjectId::new().to_hex());
     let client = Client::with_uri_str(&uri).await.unwrap();
-    let db = client.database("axdb_test");
+    let db = client.database(test_database.as_str());
     let types = db.collection::<Document>(&fixture_name("m1_types"));
     let oid = ObjectId::parse_str("507f1f77bcf86cd799439011").unwrap();
     let decimal = "123456789012345678901234567890.1234";
@@ -67,7 +68,7 @@ async fn real_contract() {
     let cfg = ConnectConfig {
         fields: BTreeMap::from([
             ("uri".into(), "mongodb://127.0.0.1:57017".into()),
-            ("database".into(), "axdb_test".into()),
+            ("database".into(), test_database.as_str().into()),
             ("user".into(), "axdb".into()),
             ("authSource".into(), "admin".into()),
         ]),
@@ -241,7 +242,7 @@ async fn real_contract() {
     );
     s.ping().await.unwrap();
     let roots = s.list_children(None).await.unwrap();
-    let database = roots.iter().find(|n| n.label == "axdb_test").unwrap();
+    let database = roots.iter().find(|n| n.label == test_database.as_str()).unwrap();
     let collections = s.list_children(Some(&database.id)).await.unwrap();
     let collection = collections
         .iter()
@@ -338,16 +339,18 @@ async fn real_contract() {
 async fn find_edit_preview_apply_and_conflict() {
     let Ok(uri)=std::env::var("AXDB_TEST_MONGO") else {return;};
     assert_eq!(uri,"mongodb://axdb:testmongo@127.0.0.1:57017/?authSource=admin");
+    let test_database=format!("axdbt_d10_find_{}",mongodb::bson::oid::ObjectId::new().to_hex());
     let client=Client::with_uri_str(&uri).await.unwrap();
     let name=format!("d10_edit_{}",ObjectId::new().to_hex());
-    let db=client.database("axdb_test");let collection=db.collection::<Document>(&name);let id=ObjectId::new();
+    let db=client.database(test_database.as_str());let collection=db.collection::<Document>(&name);let id=ObjectId::new();
     collection.insert_one(doc!{"_id":id,"name":"old","nested":doc!{"v":1}}).await.unwrap();
-    let config=ConnectConfig{fields:BTreeMap::from([("uri".into(),"mongodb://127.0.0.1:57017".into()),("database".into(),"axdb_test".into()),("user".into(),"axdb".into()),("authSource".into(),"admin".into())]),secret:Some("testmongo".into()),connect_timeout_ms:3000};
+    let config=ConnectConfig{fields:BTreeMap::from([("uri".into(),"mongodb://127.0.0.1:57017".into()),("database".into(),test_database.as_str().into()),("user".into(),"axdb".into()),("authSource".into(),"admin".into())]),secret:Some("testmongo".into()),connect_timeout_ms:3000};
     let s=MongoDriver::new().connect(&config).await.unwrap();
     let query:ExecRequest=serde_json::from_value(serde_json::json!({"text":serde_json::json!({"find":name,"filter":{}}).to_string()})).unwrap();
     let result=s.execute(&query,CancelToken::new()).await.unwrap().remove(0);let target=result.edit_target.unwrap();
     let request:EditRequest=serde_json::from_value(serde_json::json!({"node_id":target.node_id,"edits":[{"op":"Update","key":[["_id",{"t":"Other","v":{"type_name":"ObjectId","text":id.to_hex()}}]],"set":[["name",{"t":"Text","v":"edited"}]]}],"originals":[[["name",{"t":"Text","v":"old"}]]]})).unwrap();
-    let preview=s.preview_edits(&request,CancelToken::new()).await.unwrap();assert!(preview.statements[0].text.contains("updateOne"));
+    let preview=s.preview_edits(&request,CancelToken::new()).await.unwrap();assert!(preview.statements[0].text.contains("updateOne"));assert!(!preview.statements[0].text.contains("edited"));assert!(!preview.statements[0].text.contains("old"));
+    assert!(preview.statements[0].after.as_ref().unwrap().rows[0].contains(&Value::Text("edited".into())));
     assert_eq!(collection.find_one(doc!{"_id":id}).await.unwrap().unwrap().get_str("name").unwrap(),"old");
     s.apply_edits(&request,CancelToken::new()).await.unwrap();
     assert_eq!(collection.find_one(doc!{"_id":id}).await.unwrap().unwrap().get_str("name").unwrap(),"edited");

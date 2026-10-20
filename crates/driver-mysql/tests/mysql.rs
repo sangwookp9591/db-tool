@@ -622,13 +622,15 @@ async fn query_edit_contract(key: &str, port: u16) {
     let Some(config)=cfg(key,port) else {return;};
     let s=MysqlDriver::new().connect(&config).await.unwrap();
     let name=format!("d10_query_{}",std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos());
-    run(&*s,&format!("CREATE TABLE {name}(id int PRIMARY KEY,name varchar(100)) ENGINE=InnoDB; INSERT INTO {name} VALUES(1,'old'),(2,'old')")).await;
-    let result=run(&*s,&format!("SELECT id AS alias_id,name,id+1 AS computed FROM {name} WHERE id=1")).await.remove(0);
+    run(&*s,&format!("CREATE TABLE {name}(id int PRIMARY KEY,name varchar(100),created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,derived int GENERATED ALWAYS AS (id+1) STORED) ENGINE=InnoDB; INSERT INTO {name}(id,name) VALUES(1,'old'),(2,'old')")).await;
+    let result=run(&*s,&format!("SELECT id AS alias_id,name,created,derived,id+1 AS computed FROM {name} WHERE id=1")).await.remove(0);
     let target=result.edit_target.unwrap();
-    assert_eq!(target.columns,vec![Some("id".into()),Some("name".into()),None]);
+    assert_eq!(target.columns,vec![Some("id".into()),Some("name".into()),Some("created".into()),None,None]);
     for sql in [format!("SELECT name FROM {name}"),format!("SELECT DISTINCT id,name FROM {name}"),format!("SELECT id,count(*) FROM {name} GROUP BY id"),format!("SELECT a.id,a.name FROM {name} a JOIN {name} b ON a.id=b.id")] {assert!(run(&*s,&sql).await[0].edit_target.is_none(),"{sql}");}
     let request:EditRequest=serde_json::from_value(serde_json::json!({"node_id":target.node_id,"edits":[{"op":"Update","key":[["id",{"t":"Int","v":"1"}]],"set":[["name",{"t":"Text","v":"edited"}]]}],"originals":[[["name",{"t":"Text","v":"old"}]]]})).unwrap();
-    s.preview_edits(&request,CancelToken::new()).await.unwrap();
+    let preview=s.preview_edits(&request,CancelToken::new()).await.unwrap();
+    let after=preview.statements[0].after.as_ref().unwrap();
+    assert!(after.rows[0].contains(&Value::Text("edited".into())));
     assert_eq!(scalar(&run(&*s,&format!("SELECT name FROM {name} WHERE id=1")).await),&Value::Text("old".into()));
     s.apply_edits(&request,CancelToken::new()).await.unwrap();
     assert_eq!(scalar(&run(&*s,&format!("SELECT name FROM {name} WHERE id=1")).await),&Value::Text("edited".into()));

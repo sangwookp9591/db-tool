@@ -100,7 +100,7 @@ fn simple_tag(value: &Value) -> Option<&'static str> {
 pub enum StreamEvent {
     Start {
         index: usize,
-        result: ResultSet,
+        result: Box<ResultSet>,
     },
     Rows {
         index: usize,
@@ -145,7 +145,7 @@ pub async fn send_results(
         result.graph = graph;
         result.documents = documents;
         result.row_count = 0;
-        send(channel, StreamEvent::Start { index, result })?;
+        send(channel, StreamEvent::Start { index, result: Box::new(result) })?;
         if let Some(table) = table {
             let mut rows = table.rows.into_iter();
             let mut offset = 0;
@@ -306,7 +306,7 @@ impl dbcore::ResultSink for LiveResults {
             &self.channel,
             StreamEvent::Start {
                 index,
-                result: start,
+                result: Box::new(start),
             },
         )?;
         *current = Some(CurrentResult {

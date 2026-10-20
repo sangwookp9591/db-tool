@@ -42,6 +42,7 @@ export function valueText(value: Value, detail = false): string {
 }
 export function valueClass(v: Value): string { return v.t === 'Null' ? 'value-null' : ['Int', 'Decimal', 'Float'].includes(v.t) ? 'value-number' : v.t === 'Bool' ? 'value-boolean' : ['Date', 'Time', 'DateTime', 'DateTimeTz', 'Duration'].includes(v.t) ? 'value-date' : v.t === 'Bytes' ? 'value-binary' : ['Json', 'List', 'Map', 'Node', 'Rel', 'Path', 'Point'].includes(v.t) ? 'value-json' : 'value-string'; }
 export function valueTitle(v: Value): string { return v.t === 'Other' ? v.v.type_name : v.t; }
+export function isCompleteValue(value: Value): boolean { return value.t!=='Bytes'||value.v.hex.length===value.v.len*2; }
 export function editValueText(value: Value): string {
   const nested = (value: Value): unknown => {
     switch(value.t) {

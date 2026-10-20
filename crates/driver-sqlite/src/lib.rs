@@ -218,12 +218,16 @@ impl SqliteSession {
         });
         tokio::task::spawn_blocking(move || {
             let conn = guard.as_ref().expect("connection lease");
+            let stop_interrupts = || {
+                let _lease = interrupt_gate.lock().expect("interrupt gate");
+                done.cancel();
+            };
             let result = if let Some(edit) = edits {
-                edits::run(conn, &edit, &cancel, deadline, preview)
+                edits::run(conn, &edit, &cancel, deadline, preview, stop_interrupts)
             } else if preview {
-                preview::run(conn, &req, &cancel, deadline).map(RunOutput::Preview)
+                preview::run(conn, &req, &cancel, deadline, stop_interrupts).map(RunOutput::Preview)
             } else {
-                run(conn, &req, &cancel, deadline).map(RunOutput::Execute)
+                run(conn, &req, &cancel, deadline, stop_interrupts).map(RunOutput::Execute)
             };
             if result
                 .as_ref()
@@ -416,6 +420,7 @@ fn run(
     req: &ExecRequest,
     cancel: &CancelToken,
     deadline: Instant,
+    stop_interrupts: impl FnOnce(),
 ) -> Result<Vec<ResultSet>, DbError> {
     let original: bool = conn
         .pragma_query_value(None, "query_only", |r| r.get(0))
@@ -499,6 +504,7 @@ fn run(
         }
         Ok(results)
     })();
+    stop_interrupts();
     conn.progress_handler(0, None::<fn() -> bool>)
         .map_err(sql_error)?;
     conn.authorizer(None::<fn(AuthContext<'_>) -> Authorization>)

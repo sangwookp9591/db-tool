@@ -16,8 +16,9 @@ async fn real_mongodb_schema_graph() {
         uri,
         "mongodb://axdb:testmongo@127.0.0.1:57017/?authSource=admin"
     );
+    let test_database=format!("axdbt_d10_schema_{}",mongodb::bson::oid::ObjectId::new().to_hex());
     let client = Client::with_uri_str(uri).await.unwrap();
-    let db = client.database("axdb_test");
+    let db = client.database(test_database.as_str());
     let prefix = format!("axdbt_{}_", ObjectId::new().to_hex());
     let users = format!("{prefix}users");
     let orders = format!("{prefix}orders");
@@ -47,7 +48,7 @@ async fn real_mongodb_schema_graph() {
     db.collection::<Document>(&orders)
         .insert_one(doc! {
             "userId":id, &user_field:id, &user_snake:id, &missing_field:ObjectId::new(),
-            "ref":{"$ref":&users,"$id":id,"$db":"axdb_test"},
+            "ref":{"$ref":&users,"$id":id,"$db":test_database.as_str()},
             "cross":{"$ref":&users,"$id":id,"$db":"other_database"},
             "items":[{"price":1},{"price":"varies"}],
         })
@@ -63,7 +64,7 @@ async fn real_mongodb_schema_graph() {
     let cfg = ConnectConfig {
         fields: BTreeMap::from([
             ("uri".into(), "mongodb://127.0.0.1:57017".into()),
-            ("database".into(), "axdb_test".into()),
+            ("database".into(), test_database.as_str().into()),
             ("user".into(), "axdb".into()),
         ]),
         secret: Some("testmongo".into()),
@@ -73,7 +74,7 @@ async fn real_mongodb_schema_graph() {
     assert!(driver.manifest().capabilities.schema_graph);
     let session = driver.connect(&cfg).await.unwrap();
     let roots = session.list_children(None).await.unwrap();
-    let database = roots.iter().find(|n| n.label == "axdb_test").unwrap();
+    let database = roots.iter().find(|n| n.label == test_database.as_str()).unwrap();
     let action = database.actions.iter().find(|a| a.id == "diagram").unwrap();
     assert_eq!(
         action.kind,

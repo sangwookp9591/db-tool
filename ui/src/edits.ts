@@ -1,3 +1,4 @@
+import { isCompleteValue } from './values';
 import type { EditRequest, EditTarget, RowEdit, Table, Value } from './contract';
 
 export interface PendingEdits { updates: Record<number, Record<string, Value>>; deleted: number[]; added: { id: string; values: Value[] }[] }
@@ -6,7 +7,7 @@ export function pendingCount(edits: PendingEdits): number { return Object.keys(e
 export function buildEditRequest(target: EditTarget, table: Table, edits: PendingEdits): EditRequest {
   const keys = new Set(target.key_columns);
   const origins = table.columns.map((column,index) => target.columns?.length ? target.columns[index] : column.name);
-  const original = (row: Value[]): [string,Value][] => origins.flatMap((name,index) => name && !(row[index].t==='Bytes' && row[index].v.hex.length!==row[index].v.len*2) ? [[name,row[index]] as [string,Value]] : []);
+  const original = (row: Value[]): [string,Value][] => origins.flatMap((name,index) => name && isCompleteValue(row[index]) ? [[name,row[index]] as [string,Value]] : []);
   const pairs = (row: Value[], names: string[]) => names.map(name => { const index = origins.findIndex(origin => origin === name); if (index < 0) throw new Error(`키 컬럼 ${name}이(가) 결과에 없습니다.`); return [name, row[index]] as [string, Value]; });
   const operations: RowEdit[] = [];
   const originals: [string,Value][][] = [];

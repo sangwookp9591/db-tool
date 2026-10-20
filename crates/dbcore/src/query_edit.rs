@@ -115,8 +115,11 @@ pub fn finish(
     candidate: Result<EditTarget, &'static str>,
     read_only: bool,
 ) {
+    // shortcut: EditableTable mounts all rows; raise this cap only after editor virtualization.
     let candidate = if read_only {
         Err("읽기 전용 연결 또는 실행입니다")
+    } else if result.row_count > 1000 {
+        Err("쿼리 결과 편집은 1,000행까지 지원합니다. 조회 범위를 줄이세요")
     } else if result.truncated {
         Err("행 상한을 초과한 결과는 편집할 수 없습니다")
     } else {

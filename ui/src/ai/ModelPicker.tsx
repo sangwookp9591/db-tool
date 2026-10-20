@@ -16,7 +16,14 @@ export function ModelPicker({settings,onChange,disabled,onSettings,compact=false
   const effort=useRef<HTMLDivElement>(null),menu=useRef<HTMLDetailsElement>(null);
   useEffect(()=>{const changed=()=>setRevision(value=>value+1);window.addEventListener('ax:ai-changed',changed);return()=>window.removeEventListener('ax:ai-changed',changed);},[]);
   useEffect(()=>{let alive=true;for(const provider of ['anthropic','openai'] as const)void api('ai_models',{provider}).then(models=>{if(alive)setCatalog(previous=>({...previous,[provider]:models}));}).catch(e=>{if(alive)setError(String(e));});return()=>{alive=false;};},[settings.provider,settings.auth,revision]);
-  useEffect(()=>{const key=(event:KeyboardEvent)=>{if(event.shiftKey&&(event.metaKey||event.ctrlKey)&&event.code==='Period'){const dialogs=[...document.querySelectorAll('dialog[open]')];if((dialogs.length&&effort.current?.closest('dialog')!==dialogs.at(-1))||effort.current?.closest('[hidden]'))return;event.preventDefault();effort.current?.querySelector<HTMLButtonElement>('button')?.click();}};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[]);
+  useEffect(()=>{const key=(event:KeyboardEvent)=>{
+    if(event.defaultPrevented||!event.shiftKey||!(event.metaKey||event.ctrlKey)||event.code!=='Period')return;
+    const dialog=[...document.querySelectorAll('dialog[open]')].at(-1);
+    const visible=[...document.querySelectorAll<HTMLElement>('.model-picker')].filter(node=>!node.closest('[hidden]')&&node.getClientRects().length&&(!dialog||node.closest('dialog')===dialog));
+    const owner=visible.find(node=>node.contains(document.activeElement))??visible.find(node=>node.closest('.ai-dock'))??visible[0];
+    if(owner!==effort.current?.parentElement)return;
+    event.preventDefault();effort.current?.querySelector<HTMLButtonElement>('button')?.click();
+  };window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[]);
   const model=catalog[settings.provider??'anthropic']?.find(model=>model.id===settings.model),efforts=model?.efforts??[];
   async function choose(next:AiSettings){if(savingRef.current)return;savingRef.current=true;setSaving(true);try{await onChange(next);menu.current?.removeAttribute('open');setError('');}catch(e){setError(String(e));}finally{savingRef.current=false;setSaving(false);}}
   return <div class="model-picker"><details ref={menu}><summary title={settings.model} aria-label="AI 모델 선택" aria-disabled={disabled||saving} onClick={e=>{if(disabled||saving)e.preventDefault();}}>{settings.provider==='openai'?<Bot/>:<Sparkles/>} {compact?settings.model.replace(/^(claude-|gpt-)/,''):settings.model} <ChevronDown/></summary><div class="model-picker__menu"><input aria-label="모델 검색" placeholder="모델 검색…" value={search} onInput={e=>setSearch(e.currentTarget.value)}/>{(['anthropic','openai'] as const).map(provider=>{

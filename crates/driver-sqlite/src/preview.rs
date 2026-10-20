@@ -54,6 +54,7 @@ pub(super) fn run(
     req: &ExecRequest,
     cancel: &CancelToken,
     deadline: Instant,
+    stop_interrupts: impl FnOnce(),
 ) -> Result<ChangePreview, DbError> {
     if !conn.is_autocommit() {
         return Ok(ChangePreview { notes: vec!["사용자 트랜잭션 안에서는 미리보기를 거부했습니다: SQLite의 중단·충돌 처리로 바깥 트랜잭션이 롤백될 수 있으니 먼저 트랜잭션을 마치세요.".into()], ..Default::default() });
@@ -163,7 +164,8 @@ pub(super) fn run(
         }
         Ok(())
     })();
-    // Disable cancellation hooks before cleanup so cancellation cannot leave a savepoint behind.
+    // Stop external interrupts as well as progress hooks before rolling back the owned savepoint.
+    stop_interrupts();
     let progress = conn
         .progress_handler(0, None::<fn() -> bool>)
         .map_err(sql_error);
@@ -184,4 +186,20 @@ pub(super) fn run(
     result?;
     preview.notes.push("모든 데이터·DDL 변경을 롤백했습니다. 스키마 변경은 sqlite_master 정의로 확인하세요. 트리거가 외부 함수를 호출할 수 있고, 롤백 전까지 잠금이 유지됩니다.".into());
     Ok(preview)
+}
+
+#[cfg(test)]
+mod cleanup_tests {
+    use super::*;
+    #[test]
+    fn cancellation_at_cleanup_rolls_back_before_reusing_the_connection() {
+        let conn=Connection::open_in_memory().unwrap();
+        conn.execute_batch("CREATE TABLE items(id INTEGER PRIMARY KEY,n TEXT); INSERT INTO items VALUES(1,'old')").unwrap();
+        let req:ExecRequest=serde_json::from_value(serde_json::json!({"text":"UPDATE items SET n='new'"})).unwrap();
+        let cancel=CancelToken::new();
+        let stopped=std::cell::Cell::new(false);
+        run(&conn,&req,&cancel,Instant::now()+Duration::from_secs(5),||{assert!(!conn.is_autocommit());stopped.set(true);cancel.cancel();}).unwrap();
+        assert!(stopped.get());assert!(conn.is_autocommit());
+        assert_eq!(conn.query_row("SELECT n FROM items",[],|r|r.get::<_,String>(0)).unwrap(),"old");
+    }
 }

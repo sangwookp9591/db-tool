@@ -651,13 +651,14 @@ mod tests {
             uri,
             "mongodb://axdb:testmongo@127.0.0.1:57017/?authSource=admin"
         );
+        let test_database=format!("axdbt_d10_context_{}",uuid::Uuid::new_v4().simple());
         let collection = format!("ai1b_{}", uuid::Uuid::new_v4().simple());
         verify(
             Arc::new(driver_mongodb::MongoDriver::new()),
             ConnectConfig {
                 fields: BTreeMap::from([
                     ("uri".into(), "mongodb://127.0.0.1:57017".into()),
-                    ("database".into(), "axdb_test".into()),
+                    ("database".into(), test_database.clone()),
                     ("user".into(), "axdb".into()),
                 ]),
                 secret: Some("testmongo".into()),
@@ -667,7 +668,7 @@ mod tests {
             &json!({"drop": collection}).to_string(),
             &collection,
             "collection",
-            "axdb_test",
+            &test_database,
         )
         .await;
     }

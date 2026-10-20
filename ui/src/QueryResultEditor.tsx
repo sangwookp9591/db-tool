@@ -16,7 +16,7 @@ export function QueryResultEditor({ result, context, children }: { result: Resul
   useEffect(()=>{context.onPending(pending);return()=>context.onPending(false);},[pending,context.onPending]);
   useEffect(()=>()=>{mounted.current=false;},[]);
   useEffect(()=>{setEditing(false);setEdits(emptyEdits());setPreview(null);setConfirm(false);},[result.table?.columns,context.readOnly]);
-  const reason=!context.supported?'이 드라이버는 결과 편집을 지원하지 않습니다':context.readOnly?'읽기 전용 연결 또는 권한 모드':context.busy?'실행이 끝난 후 편집할 수 있습니다':result.truncated?'행 상한을 초과한 결과는 편집할 수 없습니다':result.edit_disabled_reason??(!result.edit_target?'편집 가능한 원본 테이블과 기본 키가 필요합니다':undefined);
+  const reason=!context.supported?'이 드라이버는 결과 편집을 지원하지 않습니다':context.readOnly?'읽기 전용 연결 또는 권한 모드':context.busy?'실행이 끝난 후 편집할 수 있습니다':(result.table?.rows.length??0)>1000?'쿼리 결과 편집은 1,000행까지 지원합니다':result.truncated?'행 상한을 초과한 결과는 편집할 수 없습니다':result.edit_disabled_reason??(!result.edit_target?'편집 가능한 원본 테이블과 기본 키가 필요합니다':undefined);
   const enabled=!reason && !!result.edit_target && !!result.table;
   const request=enabled?buildEditRequest(result.edit_target!,result.table!,edits):null;
   const current=request?JSON.stringify(request):'';
