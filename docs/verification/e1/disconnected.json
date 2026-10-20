@@ -1,0 +1,23 @@
+{
+  "ok": true,
+  "checks": [
+    "status bar disconnect preserves a query tab and shows disconnected state",
+    "midnight disconnected screenshot",
+    "daylight disconnected screenshot",
+    "reconnect button opens connection progress popup",
+    "original SELECT restored and runs against test PostgreSQL"
+  ],
+  "appPid": 21041,
+  "config": "/var/folders/_p/fy8jj5b95c38w41rttwnnll40000gn/T/axdb-e1-reconnect-K4rhyz",
+  "history": {
+    "elapsed_ms": 11,
+    "error": null,
+    "kind": "execute",
+    "profile_id": "e1-reconnect-pg",
+    "profile_name": "e1-reconnect-pg",
+    "row_count": 1,
+    "source": "ui",
+    "text": "SELECT 42 AS reconnect_check",
+    "timestamp": "2026-10-20T06:39:43.812267Z"
+  }
+}

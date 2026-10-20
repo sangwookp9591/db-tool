@@ -1,0 +1,43 @@
+{
+  "verified_at": "2026-10-20T06:42:10.130470+00:00",
+  "passed": 39,
+  "total": 39,
+  "app_stopped": true,
+  "isolated_config_removed": true,
+  "fixtures_before_after_identical": true,
+  "keychain_entries_created": 0,
+  "product_source_changes": false,
+  "commits_created": 0,
+  "starting_file_sha256": {
+    "README.md": "df9779d8ded8362aa4b6c828ca122954f0ae3daf7b1ebedc6003345104e4e639",
+    "bench/results-w4b-streaming-plugin.json": "e8b904f2b202759afdd1dc975a88eeafb0574cd032b307709a57fa9d2cfe8e6b"
+  },
+  "candidate_pids_stopped": [
+    27562,
+    98451,
+    21041
+  ],
+  "isolated_configs_removed": [
+    "/var/folders/_p/fy8jj5b95c38w41rttwnnll40000gn/T/axdb-e1-e2e-ie2Vrb",
+    "/var/folders/_p/fy8jj5b95c38w41rttwnnll40000gn/T/axdb-e1-e2e-ShWoed",
+    "/var/folders/_p/fy8jj5b95c38w41rttwnnll40000gn/T/axdb-e1-reconnect-K4rhyz"
+  ],
+  "additional_native_checks_passed": 5,
+  "additional_native_checks_total": 5,
+  "compiled_version": "0.3.0",
+  "unbuilt_parallel_version_change": "0.3.1",
+  "ending_file_sha256": {
+    "README.md": "8f210507122000fdae70d806f8b4416b871e6b9105e5cbfb5d1a056609d25a49",
+    "bench/results-w4b-streaming-plugin.json": "e8b904f2b202759afdd1dc975a88eeafb0574cd032b307709a57fa9d2cfe8e6b"
+  },
+  "final_tracked_dirty_files": [
+    "Cargo.toml",
+    "README.md",
+    "bench/results-w4b-streaming-plugin.json",
+    "src-tauri/tauri.conf.json",
+    "ui/package.json",
+    "ui/src/App.tsx",
+    "ui/src/style.css"
+  ],
+  "readme_changed_by_this_worker": false
+}

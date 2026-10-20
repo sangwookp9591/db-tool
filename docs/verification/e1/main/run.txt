@@ -1,0 +1,77 @@
+E1 regression PID 98451, config /var/folders/_p/fy8jj5b95c38w41rttwnnll40000gn/T/axdb-e1-e2e-ShWoed
+PASS e2e-bridge
+{
+  "id": "3fadee0d-9725-47fd-a460-6626a8fb1eee",
+  "ok": true,
+  "result": {
+    "runId": "run_2e3726a383f9",
+    "dispatchId": "ctx_01cb53d7c03c",
+    "deliveryId": null,
+    "messages": [],
+    "count": 0,
+    "replayed": false,
+    "acknowledged": null,
+    "timedOut": false,
+    "cancelled": false,
+    "connectionLost": false,
+    "mutation": {
+      "requestId": "3207a486-d637-4d98-bb4a-695397b7c366",
+      "replayed": false
+    }
+  },
+  "_meta": {
+    "runtimeId": "d2fcaff7-5fdf-4948-a650-0696bbd95868"
+  }
+}
+
+PASS preview-e2e
+{
+  "id": "d004d921-3e38-49e6-a5c0-f95c216a9c4d",
+  "ok": true,
+  "result": {
+    "runId": "run_2e3726a383f9",
+    "dispatchId": "ctx_01cb53d7c03c",
+    "deliveryId": null,
+    "messages": [],
+    "count": 0,
+    "replayed": false,
+    "acknowledged": null,
+    "timedOut": false,
+    "cancelled": false,
+    "connectionLost": false,
+    "mutation": {
+      "requestId": "0a5bb1fb-d2f6-4ef6-a4ff-01677cd3472a",
+      "replayed": false
+    }
+  },
+  "_meta": {
+    "runtimeId": "d2fcaff7-5fdf-4948-a650-0696bbd95868"
+  }
+}
+
+PASS permissions-e2e
+{
+  "id": "0c3a3c02-78e7-45c9-b608-3a6f0aa7e536",
+  "ok": true,
+  "result": {
+    "runId": "run_2e3726a383f9",
+    "dispatchId": "ctx_01cb53d7c03c",
+    "deliveryId": null,
+    "messages": [],
+    "count": 0,
+    "replayed": false,
+    "acknowledged": null,
+    "timedOut": false,
+    "cancelled": false,
+    "connectionLost": false,
+    "mutation": {
+      "requestId": "6ac04a6e-5fce-4b83-b5c8-a5bc92bf2fd6",
+      "replayed": false
+    }
+  },
+  "_meta": {
+    "runtimeId": "d2fcaff7-5fdf-4948-a650-0696bbd95868"
+  }
+}
+
+Cleanup: candidate app stopped; isolated config, SQLite fixture, and debug secrets removed; no keychain entries created.

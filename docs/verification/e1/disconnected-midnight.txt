@@ -1,0 +1,61 @@
+App=axdb (pid 21041)
+Window: "AxDB", App: axdb.
+
+0 standard window AxDB
+	1 scroll area
+		2 HTML content AxDB
+			3 container Workspace tools
+				4 text AxDB
+				5 toggle button Connections panel, Value: 1
+				6 toggle button Execution history panel, Value: 0
+				7 button Command palette
+				8 toggle button AX 워크벤치, Value: 0
+				9 toggle button 드라이버, Value: 0
+				10 button AI 도우미
+				11 toggle button Workspace settings, Value: 0
+			12 container Connections
+				13 text 작업공간
+				14 text 연결된 데이터베이스를 탐색하세요.
+				15 container 연결 섹션
+					16 button (expanded) 연결 1
+					17 button Add connection
+					18 container
+						19 text field (settable) Search connections, Placeholder: 연결 검색…
+						20 text ⌘ K
+					21 toggle button 컴팩트 보기, Value: 0
+					22 container e1-reconnect-pg
+						23 text e1-reconnect-pg
+					24 text PostgreSQL
+					25 button Connect or disconnect e1-reconnect-pg
+					26 summary Connection actions for e1-reconnect-pg, Value: 0
+				27 splitter 연결과 탐색기 높이 조절, Value: 35
+				28 container 탐색기 섹션
+					29 button (expanded) 탐색기
+					30 text 연결하면 탐색 항목이 표시됩니다.
+			31 splitter Resize connections sidebar, Value: 270
+			32 container
+				33 tab group Workspace tabs
+					34 tab e1-reconnect-pg / 쿼리 1, Value: 0
+					35 button Close Query 1
+					36 tab (selected) e1-reconnect-pg / 쿼리 2, Value: 1
+					37 button Close Query 2
+				38 heading 연결이 끊겼습니다
+				39 text e1-reconnect-pg 연결을 다시 열면 이 탭의 작업을 이어서 할 수 있습니다.
+				40 button 다시 연결
+			41 container Workspace status
+				42 text 네트워크 연결 끊김
+				43 text e1-reconnect-pg
+				44 text PostgreSQL
+				45 button 연결 끊김 · 다시 연결
+				46 container 에이전트 활동
+					47 text 에이전트 활동 · 2
+				48 container
+					49 checkbox Localhost MCP bridge, Value: 1
+					50 text MCP 브리지
+				51 button 에이전트 클라이언트
+	52 close button
+	53 full screen button, Secondary Actions: zoom the window
+	54 minimize button
+	55 text AxDB
+
+The focused UI element is 2 HTML content AxDB.

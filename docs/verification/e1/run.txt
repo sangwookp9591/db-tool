@@ -1,0 +1,5 @@
+E1 regression PID 27562, config /var/folders/_p/fy8jj5b95c38w41rttwnnll40000gn/T/axdb-e1-e2e-ie2Vrb
+PASS e2e-bridge
+PASS preview-e2e
+PASS permissions-e2e
+Cleanup: candidate app stopped; isolated config, SQLite fixture, and debug secrets removed; no keychain entries created.

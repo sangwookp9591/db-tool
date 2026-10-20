@@ -1,0 +1,27 @@
+{
+  "checks": [
+    {
+      "suite": "e2e-bridge",
+      "ok": true,
+      "passed": 21,
+      "total": 21
+    },
+    {
+      "suite": "preview-e2e",
+      "ok": true,
+      "passed": 5,
+      "total": 5
+    },
+    {
+      "suite": "permissions-e2e",
+      "ok": true,
+      "passed": 13,
+      "total": 13
+    }
+  ],
+  "commit": "3e169e7fa9002434f9ef145eb73f3692db675539",
+  "config": "/var/folders/_p/fy8jj5b95c38w41rttwnnll40000gn/T/axdb-e1-e2e-ShWoed",
+  "pid": 98451,
+  "target": "/Users/iron/Project/psw/db-tool/target-d7/debug",
+  "credentials": "private debug fixture file; OS keychain not exercised"
+}

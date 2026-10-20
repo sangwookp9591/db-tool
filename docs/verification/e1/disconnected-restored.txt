@@ -1,0 +1,97 @@
+App=axdb (pid 21041)
+Window: "AxDB", App: axdb.
+
+0 standard window AxDB
+	1 scroll area
+		2 HTML content AxDB
+			3 container Workspace tools
+				4 text AxDB
+				5 toggle button Connections panel, Value: 1
+				6 toggle button Execution history panel, Value: 0
+				7 button Command palette
+				8 toggle button AX 워크벤치, Value: 0
+				9 toggle button 드라이버, Value: 0
+				10 button AI 도우미
+				11 toggle button Workspace settings, Value: 0
+			12 container Connections
+				13 text 작업공간
+				14 text 연결된 데이터베이스를 탐색하세요.
+				15 container 연결 섹션
+					16 button (expanded) 연결 1
+					17 button Add connection
+					18 container
+						19 text field (settable) Search connections, Placeholder: 연결 검색…
+						20 text ⌘ K
+					21 toggle button 컴팩트 보기, Value: 0
+					22 container e1-reconnect-pg
+						23 text e1-reconnect-pg
+					24 text PostgreSQL
+					25 button Connect or disconnect e1-reconnect-pg
+					26 summary Connection actions for e1-reconnect-pg, Value: 0
+				27 splitter 연결과 탐색기 높이 조절, Value: 35
+				28 container 탐색기 섹션
+					29 button (expanded) 탐색기
+					30 button 쿼리 · SQL
+					31 text field (settable) Filter explorer, Placeholder: 탐색 항목 필터
+					32 button Refresh explorer
+					33 button Expand ai1b_scope_6b2fc23f48a3430b9cfd586579e16a50
+					34 button ai1b_scope_6b2fc23f48a3430b9cfd586579e16a50
+					35 button Actions for ai1b_scope_6b2fc23f48a3430b9cfd586579e16a50
+					36 button Expand ai1b_scope_79db26b39d0d4895b699aab12dfb0345
+					37 button ai1b_scope_79db26b39d0d4895b699aab12dfb0345
+					38 button Actions for ai1b_scope_79db26b39d0d4895b699aab12dfb0345
+					39 button Expand e2e
+					40 button e2e
+					41 button Actions for e2e
+					42 button Expand e2e_fk
+					43 button e2e_fk
+					44 button Actions for e2e_fk
+					45 button Expand public
+					46 button public
+					47 button Actions for public
+			48 splitter Resize connections sidebar, Value: 270
+			49 container
+				50 tab group Workspace tabs
+					51 tab e1-reconnect-pg / 쿼리 1, Value: 0
+					52 button Close Query 1
+					53 tab (selected) e1-reconnect-pg / 쿼리 2, Value: 1
+					54 button Close Query 2
+				55 container Query 2
+					56 button Run query
+					57 button Preview changes
+					58 button (disabled) Cancel query
+					59 text 30초 · 1,000행
+					60 summary Execution options, Value: 0
+					61 text SQL
+					62 text 읽기
+					63 summary 리팩터링 ⌘ ., Value: 0
+					64 text 결정적 쿼리 분석
+					65 button 패널에 묻기 ⌘L
+					66 text entry area (settable) Query editor SELECT 42 AS reconnect_check
+						67 text SELECT 42 AS reconnect_check
+					68 splitter Resize editor and results, Value: 186
+					69 tab group 쿼리 출력
+						70 tab (selected) 결과, Value: 1
+						71 tab 계획, Value: 0
+					72 container, Text: 쿼리를 실행하면 여기에 결과가 표시됩니다. ⌘/Ctrl ↵로 쿼리를 실행하세요.
+			73 container Workspace status
+				74 text e1-reconnect-pg
+				75 text PostgreSQL 16.15
+				76 button 연결 해제
+				77 button Show notifications
+				78 container 에이전트 활동
+					79 text 에이전트 활동 · 2
+				80 container
+					81 checkbox Localhost MCP bridge, Value: 1
+					82 text MCP 브리지
+				83 button 에이전트 클라이언트
+			84 container Notifications
+				85 container e1-reconnect-pg 연결됨
+					86 text e1-reconnect-pg 연결됨
+				87 button Dismiss e1-reconnect-pg 연결됨
+	88 close button
+	89 full screen button, Secondary Actions: zoom the window
+	90 minimize button
+	91 text AxDB
+
+The focused UI element is 2 HTML content AxDB.

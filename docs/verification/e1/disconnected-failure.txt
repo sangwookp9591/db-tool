@@ -1,0 +1,90 @@
+App=axdb (pid 15553)
+Window: "AxDB", App: axdb.
+
+0 standard window AxDB
+	1 scroll area
+		2 HTML content AxDB
+			3 container Workspace tools
+				4 text AxDB
+				5 toggle button Connections panel, Value: 1
+				6 toggle button Execution history panel, Value: 0
+				7 button Command palette
+				8 toggle button AX 워크벤치, Value: 0
+				9 toggle button 드라이버, Value: 0
+				10 button AI 도우미
+				11 toggle button Workspace settings, Value: 1
+			12 container Workspace settings
+				13 heading 작업공간 설정
+				14 button Close settings
+				15 container
+					16 text 테마
+					17 combo box (expanded, settable) Appearance, Value: 데이라이트
+				18 slider (settable) Graph node limit slider, Value: 300, Secondary Actions: increment, decrement
+				19 container
+					20 text 그래프 노드 한도
+					21 number field (settable) Graph node limit, Value: 300
+						22 stepper, Value: 0
+							23 unknown
+							24 unknown
+				25 container
+					26 checkbox 유휴 시 메모리 정리, Value: 0
+					27 text 유휴 시 메모리 정리
+				28 button AI 대화 기록 지우기
+				29 button 사용법 다시 보기
+				30 button 새로운 기능
+				31 container
+					32 text 업데이트 자동 확인
+					33 checkbox 업데이트 자동 확인, Value: 1
+				34 button 업데이트 확인…
+				35 toggle button GitHub에서 ⭐ Star, Value: 0
+				36 text 테마는 이 기기에 저장됩니다.
+			37 container Connections
+				38 text 작업공간
+				39 text 연결된 데이터베이스를 탐색하세요.
+				40 container 연결 섹션
+					41 button (expanded) 연결 1
+					42 button Add connection
+					43 container
+						44 text field (settable) Search connections, Placeholder: 연결 검색…
+						45 text ⌘ K
+					46 toggle button 컴팩트 보기, Value: 0
+					47 container e1-reconnect-pg
+						48 text e1-reconnect-pg
+					49 text PostgreSQL
+					50 button Connect or disconnect e1-reconnect-pg
+					51 summary Connection actions for e1-reconnect-pg, Value: 0
+				52 splitter 연결과 탐색기 높이 조절, Value: 35
+				53 container 탐색기 섹션
+					54 button (expanded) 탐색기
+					55 text 연결하면 탐색 항목이 표시됩니다.
+			56 splitter Resize connections sidebar, Value: 270
+			57 container
+				58 tab group Workspace tabs
+					59 tab e1-reconnect-pg / 쿼리 1, Value: 0
+					60 button Close Query 1
+					61 tab (selected) e1-reconnect-pg / 쿼리 2, Value: 1
+					62 button Close Query 2
+				63 heading 연결이 끊겼습니다
+				64 text e1-reconnect-pg 연결을 다시 열면 이 탭의 작업을 이어서 할 수 있습니다.
+				65 button 다시 연결
+			66 container Workspace status
+				67 text 네트워크 연결 끊김
+				68 text e1-reconnect-pg
+				69 text PostgreSQL
+				70 button 연결 끊김 · 다시 연결
+				71 container 에이전트 활동
+					72 text 에이전트 활동 · 2
+				73 container
+					74 checkbox Localhost MCP bridge, Value: 1
+					75 text MCP 브리지
+				76 button 에이전트 클라이언트
+			77 list Appearance
+				78 text 미드나이트
+				79 text (selected) 데이라이트
+				80 text 시스템
+	81 close button
+	82 full screen button, Secondary Actions: zoom the window
+	83 minimize button
+	84 text AxDB
+
+The focused UI element is 79 text (selected) 데이라이트.

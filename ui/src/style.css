@@ -128,4 +128,7 @@ main{display:flex;flex-direction:column;min-height:0;min-width:0;flex:1;backgrou
 /* 데스크톱 앱 크롬은 선택 불가(⌘A·드래그로 UI 전체가 선택되어 회색 박스가 생기는 문제). 데이터·입력·코드만 선택 가능 */
 body{-webkit-user-select:none;user-select:none}
 
-.disconnected-tab{padding:24px}
+.disconnected-tab{display:grid;place-items:center;padding:24px}.disconnected-tab .empty-workspace{display:grid;justify-items:center;gap:8px;max-width:360px;text-align:center}.disconnected-tab h2{margin:8px 0 0;font-size:16px}.disconnected-tab p{margin:0 0 8px;color:var(--text-secondary);font-size:12px;line-height:1.6}.disconnected-tab__icon{display:grid;place-items:center;width:48px;height:48px;border-radius:12px;background:var(--surface-secondary);border:1px solid var(--border-subtle)}.disconnected-tab .ax-button svg{width:14px;height:14px}
+
+.settings-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border-subtle)}.settings-footer>small{color:var(--text-muted);font-size:11px;line-height:1.4}.settings-footer .pulse-heart{flex-shrink:0}
+.settings-popover>label:has(>input[type=checkbox]:first-child){flex-direction:row-reverse;justify-content:space-between}.settings-popover>.ax-button{margin:4px 4px 12px 0}

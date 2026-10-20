@@ -1,0 +1,149 @@
+PASS drivers declared via manifests example-kv:KeyValue,mongodb:Document,mysql:Relational,neo4j:Graph,postgres:Relational,redis:KeyValue,sqlite:Relational
+PASS pg open (credential from keychain) 
+PASS pg explore schema>table>columns/indexes (lazy) id integer · NOT NULL · PK | big bigint · NULL | amount numeric · NULL | note text · NULL
+PASS pg exact types (int8 max/min, numeric, NULL, timestamptz, jsonb big, bytea, uuid, array, unicode) columns: id:int4, big:int8, amount:numeric, note:text, created:timestamptz, d:date, doc:jsonb, raw:bytea, uid:uuid, nums:_int4 | created=2026-10-15 03:34:56+00
+PASS pg browse paging page1 rows=100 page2 first id=101
+PASS pg large result bounded (250k rows, row_limit 1000) row_count=1000 truncated=true elapsed=5ms
+PASS pg query error with position relation "e2e.nope" does not exist
+PASS pg timeout cancels server-side, session survives timeout after 719ms; follow-up ok
+PASS pg multiple result sets SELECT 1 AS a / SELECT 'x' AS b, 2 AS c
+PASS pg agent read-only enforced at DB level cannot execute CREATE TABLE in a read-only transaction
+PASS connection failure classified PostgreSQL connection failed or was closed
+PASS neo4j open 
+PASS neo4j explore labels / rel types / property keys 레이블(5), 관계 유형(3), 속성 키(17), 인덱스·제약 조건(2)
+PASS neo4j params + mixed path/node/rel/list/map result -> graph + table nodes=2 rels=1 cols=a:Node,r:Relationship,b:Node,p:Path,l:List,m:Map,big:Integer,seen:DateTime,loc:Point
+PASS neo4j expand neighbours expanded nodes=3 rels=2
+PASS neo4j graph limits (1200+ nodes requested) row_count=602 graph nodes=0 truncated=true
+PASS neo4j syntax error Invalid input 'RETURN': expected a graph pattern, a parameter, ')', ':', 'IS', '
+PASS neo4j timeout, session survives timeout after 709ms; follow-up ok
+PASS neo4j agent read-only enforced Writing in read access mode not allowed. Attempted write to neo4j
+PASS history records agent source 14 entries
+PASS close connections 
+
+21/21 passed
+[
+  {
+    "name": "drivers declared via manifests",
+    "ok": true,
+    "ms": 15,
+    "note": "example-kv:KeyValue,mongodb:Document,mysql:Relational,neo4j:Graph,postgres:Relational,redis:KeyValue,sqlite:Relational"
+  },
+  {
+    "name": "pg open (credential from keychain)",
+    "ok": true,
+    "ms": 96
+  },
+  {
+    "name": "pg explore schema>table>columns/indexes (lazy)",
+    "ok": true,
+    "ms": 250,
+    "note": "id integer · NOT NULL · PK | big bigint · NULL | amount numeric · NULL | note text · NULL"
+  },
+  {
+    "name": "pg exact types (int8 max/min, numeric, NULL, timestamptz, jsonb big, bytea, uuid, array, unicode)",
+    "ok": true,
+    "ms": 22,
+    "note": "columns: id:int4, big:int8, amount:numeric, note:text, created:timestamptz, d:date, doc:jsonb, raw:bytea, uid:uuid, nums:_int4 | created=2026-10-15 03:34:56+00"
+  },
+  {
+    "name": "pg browse paging",
+    "ok": true,
+    "ms": 49,
+    "note": "page1 rows=100 page2 first id=101"
+  },
+  {
+    "name": "pg large result bounded (250k rows, row_limit 1000)",
+    "ok": true,
+    "ms": 40,
+    "note": "row_count=1000 truncated=true elapsed=5ms"
+  },
+  {
+    "name": "pg query error with position",
+    "ok": true,
+    "ms": 8,
+    "note": "relation \"e2e.nope\" does not exist"
+  },
+  {
+    "name": "pg timeout cancels server-side, session survives",
+    "ok": true,
+    "ms": 737,
+    "note": "timeout after 719ms; follow-up ok"
+  },
+  {
+    "name": "pg multiple result sets",
+    "ok": true,
+    "ms": 18,
+    "note": "SELECT 1 AS a / SELECT 'x' AS b, 2 AS c"
+  },
+  {
+    "name": "pg agent read-only enforced at DB level",
+    "ok": true,
+    "ms": 9,
+    "note": "cannot execute CREATE TABLE in a read-only transaction"
+  },
+  {
+    "name": "connection failure classified",
+    "ok": true,
+    "ms": 36,
+    "note": "PostgreSQL connection failed or was closed"
+  },
+  {
+    "name": "neo4j open",
+    "ok": true,
+    "ms": 151
+  },
+  {
+    "name": "neo4j explore labels / rel types / property keys",
+    "ok": true,
+    "ms": 113,
+    "note": "레이블(5), 관계 유형(3), 속성 키(17), 인덱스·제약 조건(2)"
+  },
+  {
+    "name": "neo4j params + mixed path/node/rel/list/map result -> graph + table",
+    "ok": true,
+    "ms": 35,
+    "note": "nodes=2 rels=1 cols=a:Node,r:Relationship,b:Node,p:Path,l:List,m:Map,big:Integer,seen:DateTime,loc:Point"
+  },
+  {
+    "name": "neo4j expand neighbours",
+    "ok": true,
+    "ms": 33,
+    "note": "expanded nodes=3 rels=2"
+  },
+  {
+    "name": "neo4j graph limits (1200+ nodes requested)",
+    "ok": true,
+    "ms": 118,
+    "note": "row_count=602 graph nodes=0 truncated=true"
+  },
+  {
+    "name": "neo4j syntax error",
+    "ok": true,
+    "ms": 25,
+    "note": "Invalid input 'RETURN': expected a graph pattern, a parameter, ')', ':', 'IS', '"
+  },
+  {
+    "name": "neo4j timeout, session survives",
+    "ok": true,
+    "ms": 730,
+    "note": "timeout after 709ms; follow-up ok"
+  },
+  {
+    "name": "neo4j agent read-only enforced",
+    "ok": true,
+    "ms": 11,
+    "note": "Writing in read access mode not allowed. Attempted write to neo4j"
+  },
+  {
+    "name": "history records agent source",
+    "ok": true,
+    "ms": 5,
+    "note": "14 entries"
+  },
+  {
+    "name": "close connections",
+    "ok": true,
+    "ms": 64
+  }
+]
+

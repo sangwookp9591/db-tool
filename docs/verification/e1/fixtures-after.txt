@@ -1,0 +1,11 @@
+axdb_test|2
+250000
+1|t
+2|f
+0
+count(p)
+603
+count(n)
+0
+count(n)
+0
