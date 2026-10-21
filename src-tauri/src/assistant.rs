@@ -71,7 +71,7 @@ impl Credential {
 // GUI apps on macOS do not inherit the shell PATH, so check the usual install locations first.
 fn ant_cli() -> Option<std::path::PathBuf> {
     #[cfg(test)]
-    if let Some(path) = ant_test_path().lock().unwrap().clone() {
+    if let Some(path) = ant_test_path().lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone() {
         return Some(path);
     }
     #[cfg(debug_assertions)]
@@ -186,9 +186,9 @@ pub async fn ai_login_start() -> Result<Value, DbError> {
         .spawn()
         .map_err(|_| DbError::query("ant CLI를 실행할 수 없습니다"))?;
     let output = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
-    collect(child.stdout.take().expect("piped stdout"), output.clone());
-    collect(child.stderr.take().expect("piped stderr"), output.clone());
-    let stdin = child.stdin.take().expect("piped stdin");
+    collect(child.stdout.take().ok_or_else(|| DbError::internal("Cannot capture ant CLI output"))?, output.clone());
+    collect(child.stderr.take().ok_or_else(|| DbError::internal("Cannot capture ant CLI output"))?, output.clone());
+    let stdin = child.stdin.take().ok_or_else(|| DbError::internal("Cannot write ant CLI input"))?;
     let deadline = tokio::time::Instant::now() + Duration::from_secs(20);
     loop {
         let text = output.lock().map(|o| o.clone()).unwrap_or_default();
@@ -975,7 +975,7 @@ mod tests {
         // Mimics ant: prints the authorize URL, prompts "Code:" without newline, validates the pasted code.
         std::fs::write(&fake, "#!/bin/sh\necho 'Opening your browser to authenticate...'\necho '  https://platform.claude.com/oauth/authorize?client_id=x&state=y'\nprintf 'Code: '\nread code\n[ \"$code\" = good-code ] && echo '  ✓ Logged in to Test Org as t@example.com (profile \"default\").' && exit 0\necho 'invalid code' >&2; exit 1\n").unwrap();
         std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
-        *ant_test_path().lock().unwrap() = Some(fake.clone());
+        *ant_test_path().lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(fake.clone());
         let started = ai_login_start().await.unwrap();
         assert_eq!(started["waiting_for_code"], true);
         assert!(started["url"]
@@ -1007,7 +1007,7 @@ mod tests {
         ai_login_start().await.unwrap();
         tokio::time::sleep(Duration::from_millis(1500)).await;
         assert_eq!(ai_login_poll().await.unwrap()["state"], "failed");
-        *ant_test_path().lock().unwrap() = None;
+        *ant_test_path().lock().unwrap_or_else(std::sync::PoisonError::into_inner) = None;
         std::fs::remove_dir_all(dir).unwrap();
     }
     #[tokio::test]

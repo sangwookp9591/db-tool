@@ -50,7 +50,7 @@ fn dialect(language: &str) -> Box<dyn Dialect> {
 fn parse(text: &str, language: &str) -> Result<Vec<Statement>, DbError> {
     if text.len() > 256 * 1024 {
         return Err(DbError::query(
-            "Query exceeds editor analysis limit (256 KiB)",
+            "쿼리가 편집기 분석 한도(256 KiB)를 초과했습니다.",
         ));
     }
     Parser::parse_sql(dialect(language).as_ref(), text).map_err(|e| DbError::query(e.to_string()))
@@ -112,7 +112,7 @@ impl Visitor for Linter<'_> {
                 statement.span(),
                 "missing_where",
                 "error",
-                "UPDATE/DELETE without WHERE affects every matching row; add a reviewed predicate",
+                "WHERE 없는 UPDATE/DELETE는 일치하는 모든 행에 적용됩니다. 검토한 조건을 추가하세요.",
             ));
         }
         ControlFlow::Continue(())
@@ -128,7 +128,7 @@ impl Visitor for Linter<'_> {
                     item.span(),
                     "select_star",
                     "warning",
-                    "Select explicit columns to avoid excess data and schema drift",
+                    "필요한 컬럼만 명시해 불필요한 데이터 전송과 스키마 변경 영향을 줄이세요.",
                 );
                 self.diagnostics.push(d);
             }
@@ -145,7 +145,7 @@ impl Visitor for Linter<'_> {
                 select.span(),
                 "cartesian_product",
                 "warning",
-                "Cartesian product can multiply result rows; review JOIN predicates",
+                "카테시안 곱으로 결과 행이 늘어날 수 있습니다. JOIN 조건을 검토하세요.",
             ));
         }
         ControlFlow::Continue(())
@@ -201,12 +201,12 @@ fn cypher_code(text: &str) -> String {
         code[start..i].fill(b' ');
     }
     // Mask whole UTF-8 literals/comments with ASCII spaces, keeping original byte offsets.
-    String::from_utf8(code).expect("Only complete quoted/comment spans are masked")
+    String::from_utf8(code).unwrap_or_else(|error| String::from_utf8_lossy(error.as_bytes()).into_owned())
 }
 pub fn lint(text: &str, language: &str) -> Result<Vec<Diagnostic>, DbError> {
     if text.len() > 256 * 1024 {
         return Err(DbError::query(
-            "Query exceeds editor analysis limit (256 KiB)",
+            "쿼리가 편집기 분석 한도(256 KiB)를 초과했습니다.",
         ));
     }
     if language == "cypher" {
@@ -241,12 +241,12 @@ pub fn lint(text: &str, language: &str) -> Result<Vec<Diagnostic>, DbError> {
                         start: text[..t.start].encode_utf16().count(),
                         end: text[..t.start + 1].encode_utf16().count(),
                         severity: "warning".into(),
-                        message: "Variable-length relationship has no upper bound".into(),
+                        message: "가변 길이 관계의 상한이 지정되지 않았습니다.".into(),
                         quick_fix: None,
                     };
                     if bound.is_empty() {
                         d.quick_fix = Some(QuickFix {
-                            title: "Limit to 5 hops".into(),
+                            title: "최대 5단계로 제한".into(),
                             edits: vec![edit(text, t.start, t.start + 1, "*1..5".into())],
                         });
                     }
@@ -288,13 +288,13 @@ fn single_query(statements: &[Statement]) -> Result<(&Query, &Select), DbError> 
     {
         return Ok((q, s));
     }
-    Err(DbError::unsupported("Refactor requires one SELECT query"))
+    Err(DbError::unsupported("리팩터링하려면 SELECT 쿼리 하나가 필요합니다."))
 }
 fn simple_table(select: &Select) -> Result<&TableFactor, DbError> {
     match select.from.as_slice() {
         [table] if table.joins.is_empty() => Ok(&table.relation),
         _ => Err(DbError::unsupported(
-            "Refactor requires a single source table",
+            "리팩터링하려면 원본 테이블 하나만 사용해야 합니다.",
         )),
     }
 }
@@ -310,7 +310,7 @@ fn same_identifier(a: &Ident, b: &Ident) -> bool {
 }
 fn identifier(name: &str) -> Result<String, DbError> {
     if name.is_empty() || name.chars().count() > 63 || name.chars().any(|c| c == '\0') {
-        return Err(DbError::query("Invalid identifier"));
+        return Err(DbError::query("식별자가 올바르지 않습니다."));
     }
     Ok(format!("\"{}\"", name.replace('"', "\"\"")))
 }
@@ -336,7 +336,7 @@ pub fn refactor(
                 )
             }) {
                 return Err(DbError::unsupported(
-                    "Format with comments is not supported; comments are preserved",
+                    "주석이 포함된 쿼리는 서식 정리를 지원하지 않습니다. 주석은 유지됩니다.",
                 ));
             }
             let formatted = statements
@@ -360,7 +360,7 @@ pub fn refactor(
             let (q, select) = single_query(&statements)?;
             if q.with.is_some() {
                 return Err(DbError::unsupported(
-                    "Expand star over CTEs requires resolved schema",
+                    "CTE의 별표를 펼치려면 스키마 정보가 필요합니다.",
                 ));
             }
             let TableFactor::Table {
@@ -370,11 +370,11 @@ pub fn refactor(
                 ..
             } = simple_table(select)?
             else {
-                return Err(DbError::unsupported("Expand star requires a schema table"));
+                return Err(DbError::unsupported("별표를 펼치려면 스키마가 있는 테이블이 필요합니다."));
             };
             if alias.as_ref().is_some_and(|a| !a.columns.is_empty()) {
                 return Err(DbError::unsupported(
-                    "Column aliases require resolved schema",
+                    "컬럼 별칭을 처리하려면 스키마 정보가 필요합니다.",
                 ));
             }
             let table_name = name.to_string();
@@ -383,7 +383,7 @@ pub fn refactor(
                 .last()
                 .and_then(|p| p.as_ident())
                 .map(|i| i.value.as_str())
-                .ok_or_else(|| DbError::query("Invalid table identifier"))?;
+                .ok_or_else(|| DbError::query("테이블 식별자가 올바르지 않습니다."))?;
             let matches: Vec<_> = schema
                 .entities
                 .iter()
@@ -394,10 +394,10 @@ pub fn refactor(
                 })
                 .collect();
             let [entity] = matches.as_slice() else {
-                return Err(DbError::query("Table schema is missing or ambiguous"));
+                return Err(DbError::query("테이블 스키마가 없거나 여러 테이블과 일치합니다."));
             };
             if entity.fields.is_empty() {
-                return Err(DbError::query("Table has no known columns"));
+                return Err(DbError::query("테이블의 컬럼 정보를 확인할 수 없습니다."));
             }
             let qualifier = alias
                 .as_ref()
@@ -421,7 +421,7 @@ pub fn refactor(
                         && !(alias.is_none() && raw == format!("{leaf}.*"))
                     {
                         return Err(DbError::unsupported(
-                            "Wildcard modifiers or unknown qualifiers are not supported",
+                            "와일드카드 한정자 또는 알 수 없는 한정자는 지원하지 않습니다.",
                         ));
                     }
                     edits.push(span_edit(text, item.span(), replacement.clone()));
@@ -435,11 +435,11 @@ pub fn refactor(
             } = simple_table(select)?
             else {
                 return Err(DbError::unsupported(
-                    "Rename requires one named table alias",
+                    "이름을 바꾸려면 이름이 지정된 테이블 별칭 하나가 필요합니다.",
                 ));
             };
             if alias.name.value != from {
-                return Err(DbError::query("Alias not found"));
+                return Err(DbError::query("별칭을 찾을 수 없습니다."));
             }
             struct ScopeCount {
                 queries: usize,
@@ -455,7 +455,7 @@ pub fn refactor(
             let _ = q.visit(&mut scopes);
             if scopes.queries != 1 || q.with.is_some() {
                 return Err(DbError::unsupported(
-                    "Nested alias scopes require semantic resolution",
+                    "중첩 별칭 범위를 처리하려면 의미 분석이 필요합니다.",
                 ));
             }
             let replacement = identifier(&to)?;
@@ -496,7 +496,7 @@ pub fn refactor(
             let _ = q.visit(&mut refs);
             if refs.ambiguous {
                 return Err(DbError::unsupported(
-                    "Unqualified whole-row alias references need semantic resolution",
+                    "한정되지 않은 전체 행 별칭 참조를 처리하려면 의미 분석이 필요합니다.",
                 ));
             }
             edits = refs.edits;
@@ -517,12 +517,12 @@ pub fn refactor(
             let (q, select) = single_query(&statements)?;
             if q.with.is_some() {
                 return Err(DbError::unsupported(
-                    "Extraction into existing WITH requires name resolution",
+                    "기존 WITH 절에 추출하려면 이름 확인이 필요합니다.",
                 ));
             }
             let TableFactor::Derived { lateral: false, .. } = simple_table(select)? else {
                 return Err(DbError::unsupported(
-                    "Extract requires one non-lateral FROM subquery",
+                    "추출하려면 FROM 절에 비-lateral 하위 쿼리 하나가 필요합니다.",
                 ));
             };
             let tokens = dbcore::preview::tokens(text)?;
@@ -531,7 +531,7 @@ pub fn refactor(
                     || t.text == identifier(&name).unwrap_or_default()
             }) {
                 return Err(DbError::query(
-                    "CTE name collides with an existing identifier",
+                    "CTE 이름이 기존 식별자와 겹칩니다.",
                 ));
             }
             let name = identifier(&name)?;
@@ -539,16 +539,16 @@ pub fn refactor(
             let from = tokens
                 .iter()
                 .position(|t| t.depth == 0 && t.is("FROM"))
-                .ok_or_else(|| DbError::query("Missing FROM"))?;
+                .ok_or_else(|| DbError::query("FROM 절을 찾을 수 없습니다."))?;
             let open = tokens
                 .get(from + 1)
                 .filter(|t| t.text == "(")
-                .ok_or_else(|| DbError::query("Missing subquery"))?;
+                .ok_or_else(|| DbError::query("하위 쿼리를 찾을 수 없습니다."))?;
             let close = tokens
                 .iter()
                 .skip(from + 2)
                 .find(|t| t.text == ")" && t.depth == 0)
-                .ok_or_else(|| DbError::query("Missing closing parenthesis"))?;
+                .ok_or_else(|| DbError::query("닫는 괄호를 찾을 수 없습니다."))?;
             let inner = &text[open.start + 1..close.start];
             edits.push(edit(text, 0, 0, format!("WITH {name} AS ({inner})\n")));
             edits.push(edit(text, open.start, close.start + 1, name));
@@ -567,14 +567,14 @@ async fn projection_schema(
     let (q, select) = single_query(&statements)?;
     if q.with.is_some() {
         return Err(DbError::unsupported(
-            "CTE projection schema is not resolved",
+            "CTE의 컬럼 스키마를 확인할 수 없습니다.",
         ));
     }
     let TableFactor::Table {
         name, args: None, ..
     } = simple_table(select)?
     else {
-        return Err(DbError::unsupported("Projection schema requires a table"));
+        return Err(DbError::unsupported("컬럼 스키마를 확인하려면 테이블이 필요합니다."));
     };
     // Zero-row metadata resolves search_path, quoted names and temporary tables without sampling data.
     let req = dbcore::ExecRequest {
@@ -591,7 +591,7 @@ async fn projection_schema(
         .into_iter()
         .next()
         .and_then(|r| r.table)
-        .ok_or_else(|| DbError::query("No projection metadata returned"))?;
+        .ok_or_else(|| DbError::query("컬럼 메타데이터가 반환되지 않았습니다."))?;
     Ok(SchemaGraph {
         entities: vec![dbcore::SchemaEntity {
             id: name.to_string(),
@@ -621,7 +621,7 @@ pub async fn explain_query(
     analyze: bool,
 ) -> CommandResult<PlanTree> {
     if query.len() > 256 * 1024 {
-        return Err(DbError::query("Query exceeds editor analysis limit"));
+        return Err(DbError::query("쿼리가 편집기 분석 한도(256 KiB)를 초과했습니다."));
     }
     let record = host.session(&session_id)?;
     if !host
@@ -630,12 +630,12 @@ pub async fn explain_query(
         .capabilities
         .explain
     {
-        return Err(DbError::unsupported("Driver does not support explain"));
+        return Err(DbError::unsupported("이 드라이버는 실행 계획 분석을 지원하지 않습니다."));
     }
     if analyze && host.access_mode(&record)? == crate::permissions::AccessMode::ReadOnly {
         return Err(DbError::new(
             ErrorKind::Auth,
-            "ANALYZE is unavailable on read-only connections",
+            "읽기 전용 연결에서는 ANALYZE를 사용할 수 없습니다.",
         ));
     }
     let run = host.run(&session_id, &run_id)?;
@@ -656,47 +656,12 @@ pub async fn lint_query(
     let record = host.session(&session_id)?;
     let driver = host.driver(&record.profile.driver_id)?;
     if !driver.manifest().capabilities.lint {
-        return Err(DbError::unsupported("Driver language has no lint rules"));
+        return Err(DbError::unsupported("이 드라이버 언어에는 린트 규칙이 없습니다."));
     }
-    let language = &driver.manifest().query_language.id;
-    let mut diagnostics = lint(&query, language)?;
-    if diagnostics.iter().any(|d| d.rule_id == "select_star")
-        && let Ok(schema) = projection_schema(record.session.as_ref(), &query, language).await
-        && let Ok(edits) = refactor(&query, language, RefactorAction::ExpandStar, &schema)
-    {
-        for d in diagnostics
-            .iter_mut()
-            .filter(|d| d.rule_id == "select_star")
-        {
-            d.quick_fix = (!edits.is_empty()).then(|| QuickFix {
-                title: "Expand explicit columns".into(),
-                edits: edits.clone(),
-            });
-        }
-    }
-    if driver.manifest().capabilities.explain
-        && language == "sql"
-        && !diagnostics.iter().any(|d| d.severity == "error")
-        && let Ok(plan) = record
-            .session
-            .explain(&query, false, CancelToken::new())
-            .await
-    {
-        fn large_scan(p: &PlanTree) -> bool {
-            p.warnings
-                .iter()
-                .any(|w| w.starts_with("Large table full scan:"))
-                || ((p.op.contains("Seq Scan")
-                    || p.op.contains("COLLSCAN")
-                    || p.op.contains("AllNodesScan"))
-                    && p.est_rows.is_some_and(|n| n >= 10000.0))
-                || p.children.iter().any(large_scan)
-        }
-        if large_scan(&plan) {
-            diagnostics.push(Diagnostic { rule_id: "large_table_scan".into(), start: 0, end: query.encode_utf16().count(), severity: "warning".into(), message: "Planner statistics estimate a full scan of at least 10,000 rows; review predicates and indexes".into(), quick_fix: None });
-        }
-    }
-    Ok(diagnostics)
+    // Automatic editor lint runs after each pause in typing. Keep it local: metadata
+    // and planner calls queue behind foreground work and cannot be cancelled by
+    // this command's API. Explicit refactoring/explain own those database reads.
+    lint(&query, &driver.manifest().query_language.id)
 }
 #[tauri::command]
 pub async fn refactor_query(
@@ -708,7 +673,7 @@ pub async fn refactor_query(
     let record = host.session(&session_id)?;
     let driver = host.driver(&record.profile.driver_id)?;
     if driver.manifest().query_language.editor_mode != "sql" {
-        return Err(DbError::unsupported("SQL refactoring only"));
+        return Err(DbError::unsupported("SQL 리팩터링만 지원합니다."));
     }
     let schema = if matches!(action, RefactorAction::ExpandStar) {
         projection_schema(
@@ -734,6 +699,42 @@ pub async fn refactor_query(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn automatic_lint_never_reads_the_database() {
+        use dbcore::*;
+        use std::sync::{Arc, LazyLock, atomic::AtomicBool};
+        use tauri::Manager;
+        struct Offline;
+        #[async_trait::async_trait]
+        impl Session for Offline {
+            async fn ping(&self) -> Result<(), DbError> { panic!("lint pinged database") }
+            async fn server_info(&self) -> Result<String, DbError> { panic!("lint read server info") }
+            async fn list_children(&self, _: Option<&str>) -> Result<Vec<ExplorerNode>, DbError> { panic!("lint read catalog") }
+            async fn browse(&self, _: &str, _: PageRequest) -> Result<ResultSet, DbError> { panic!("lint browsed data") }
+            async fn execute(&self, _: &ExecRequest, _: CancelToken) -> Result<Vec<ResultSet>, DbError> { panic!("lint executed metadata query") }
+            async fn explain(&self, _: &str, _: bool, _: CancelToken) -> Result<PlanTree, DbError> { panic!("lint executed EXPLAIN") }
+            async fn expand(&self, _: &str, _: u32) -> Result<ResultSet, DbError> { panic!("lint expanded data") }
+            async fn close(&self) {}
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let mut host = Host::new(crate::storage::Paths {config:dir.path().into(),data:dir.path().into(),log:dir.path().into()});
+        host.registry = LazyLock::new(Box::new(|| {
+            let registry = Registry::new();
+            registry.register(Arc::new(driver_postgres::PostgresDriver::new()));
+            registry
+        }));
+        host.sessions.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert("offline".into(), Arc::new(crate::SessionRecord {
+            session: Arc::new(Offline),
+            profile: crate::storage::Profile { id:"p".into(),name:"test".into(),driver_id:"postgres".into(),fields:Default::default(),save_secret:false,network:None,auth:Default::default(),access_mode:Default::default() },
+            secret:None,_tunnel:None,dead:AtomicBool::new(false),
+        }));
+        let app = tauri::test::mock_builder().manage(host).build(tauri::test::mock_context(tauri::test::noop_assets())).unwrap();
+        let diagnostics = lint_query(app.state(), "offline".into(), "SELECT * FROM people".into()).await.unwrap();
+        assert!(diagnostics.iter().any(|d| d.rule_id == "select_star"));
+        assert!(diagnostics.iter().all(|d| d.quick_fix.is_none()));
+        assert!(lint_query(app.state(), "offline".into(), "SELECT 1".into()).await.unwrap().is_empty());
+    }
+
     fn schema() -> SchemaGraph {
         SchemaGraph {
             entities: vec![dbcore::SchemaEntity {

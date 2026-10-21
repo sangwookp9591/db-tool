@@ -67,16 +67,16 @@ fn eligible(state: &State, now: Instant) -> bool {
             .is_some_and(|at| now.saturating_duration_since(at) >= IDLE)
 }
 fn busy(host: &Host, installer: &driver_install::Installer) -> bool {
-    !host.runs.lock().unwrap().is_empty()
-        || !host.approvals.lock().unwrap().is_empty()
-        || !host.previews.lock().unwrap().is_empty()
+    !host.runs.lock().unwrap_or_else(std::sync::PoisonError::into_inner).is_empty()
+        || !host.approvals.lock().unwrap_or_else(std::sync::PoisonError::into_inner).is_empty()
+        || !host.previews.lock().unwrap_or_else(std::sync::PoisonError::into_inner).is_empty()
         || !installer.idle()
 }
 pub fn focus(app: &tauri::AppHandle, focused: bool) {
     let Some(recycler) = app.try_state::<Recycler>() else {
         return;
     };
-    let mut state = recycler.0.lock().unwrap();
+    let mut state = recycler.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     if focused {
         let recover = state.phase == Phase::Failed;
         let replacing = state.activate();
@@ -85,7 +85,7 @@ pub fn focus(app: &tauri::AppHandle, focused: bool) {
             let _ = webview.set_focus();
         } else if replacing && recover {
             {
-                let mut state = recycler.0.lock().unwrap();
+                let mut state = recycler.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
                 state.phase = Phase::Replacing;
                 state.activity = Some(activity());
             }
@@ -102,7 +102,7 @@ pub fn focus(app: &tauri::AppHandle, focused: bool) {
                 restored = result.is_ok();
             }
             if !restored {
-                recycler.0.lock().unwrap().phase = Phase::Failed;
+                recycler.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).phase = Phase::Failed;
             }
         }
         return;
@@ -126,7 +126,7 @@ pub fn focus(app: &tauri::AppHandle, focused: bool) {
             return;
         }
         let recycler = app.state::<Recycler>();
-        let mut state = recycler.0.lock().unwrap();
+        let mut state = recycler.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         if state.generation != generation || !eligible(&state, Instant::now()) {
             return;
         }
@@ -140,7 +140,7 @@ pub fn focus(app: &tauri::AppHandle, focused: bool) {
         state.activity = Some(activity());
         drop(state);
         if app.emit_to("main", "recycle-prepare", generation).is_err() {
-            let mut state = recycler.0.lock().unwrap();
+            let mut state = recycler.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
             if state.generation == generation {
                 state.phase = Phase::Idle;
                 state.activity.take();
@@ -165,7 +165,7 @@ pub async fn recycle_settings(
         )?;
     }
     let value = enabled(&settings);
-    let mut state = recycler.0.lock().unwrap();
+    let mut state = recycler.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     state.enabled = value;
     if !value && state.phase != Phase::Replacing {
         state.generation += 1;
@@ -176,15 +176,15 @@ pub async fn recycle_settings(
 }
 #[tauri::command]
 pub fn recycle_large(recycler: tauri::State<'_, Recycler>) {
-    recycler.0.lock().unwrap().large = true;
+    recycler.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).large = true;
 }
 #[tauri::command]
 pub fn recycle_restore(recycler: tauri::State<'_, Recycler>) -> Option<Value> {
-    recycler.0.lock().unwrap().snapshot.clone()
+    recycler.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).snapshot.clone()
 }
 #[tauri::command]
 pub fn recycle_ready(recycler: tauri::State<'_, Recycler>) {
-    let mut state = recycler.0.lock().unwrap();
+    let mut state = recycler.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     if state.phase == Phase::Replacing {
         state.phase = Phase::Idle;
         state.large = false;
@@ -200,7 +200,7 @@ pub async fn recycle_commit(
 ) -> CommandResult<bool> {
     let recycler = app.state::<Recycler>();
     {
-        let mut state = recycler.0.lock().unwrap();
+        let mut state = recycler.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         if !state.reserve(generation) {
             return Ok(false);
         }
@@ -215,7 +215,7 @@ pub async fn recycle_commit(
     }
     let bridge = app.state::<agent_bridge::Bridge>();
     if !bridge.pause_for_recycle().await {
-        let mut state = recycler.0.lock().unwrap();
+        let mut state = recycler.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         state.phase = Phase::Idle;
         state.activity.take();
         return Ok(false);
@@ -223,7 +223,7 @@ pub async fn recycle_commit(
     let (send, receive) = tokio::sync::oneshot::channel();
     let handle = app.clone();
     let scheduled = app.run_on_main_thread(move || {
-        let result = replace(&handle, generation, snapshot.unwrap());
+        let result = snapshot.map(|snapshot| replace(&handle, generation, snapshot)).unwrap_or_else(|| Err(DbError::internal("Idle cleanup snapshot unavailable")));
         let _ = send.send(result);
     });
     let result = if scheduled.is_err() {
@@ -236,7 +236,7 @@ pub async fn recycle_commit(
     if !matches!(result, Ok(true)) {
         let has_view = app.get_webview("main").is_some();
         {
-            let mut state = recycler.0.lock().unwrap();
+            let mut state = recycler.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
             state.activity.take();
             if has_view {
                 state.phase = Phase::Idle;
@@ -267,7 +267,7 @@ fn replace(app: &tauri::AppHandle, generation: u64, snapshot: Value) -> CommandR
     let native_busy = window.is_focused().unwrap_or(true)
         || busy(&host, &app.state::<driver_install::Installer>());
     let recycler = app.state::<Recycler>();
-    let mut state = recycler.0.lock().unwrap();
+    let mut state = recycler.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     if state.generation != generation || state.phase != Phase::Committing {
         return Ok(false);
     }
@@ -282,7 +282,7 @@ fn replace(app: &tauri::AppHandle, generation: u64, snapshot: Value) -> CommandR
         .map_err(|_| DbError::internal("Cannot read window size"))?;
     let config = app.config().app.windows[0].clone();
     {
-        let mut state = recycler.0.lock().unwrap();
+        let mut state = recycler.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         if state.generation != generation || state.phase != Phase::Committing {
             return Ok(false);
         }
@@ -389,7 +389,7 @@ mod tests {
         drop(run);
         assert!(!busy(&host, &installer));
         for approvals in [&host.approvals, &host.previews] {
-            approvals.lock().unwrap().insert(
+            approvals.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert(
                 "receipt".into(),
                 crate::permissions::Approval {
                     fingerprint: "fixture".into(),
@@ -397,7 +397,7 @@ mod tests {
                 },
             );
             assert!(busy(&host, &installer));
-            approvals.lock().unwrap().clear();
+            approvals.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clear();
         }
     }
     #[test]

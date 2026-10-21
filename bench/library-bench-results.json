@@ -1,0 +1,146 @@
+{
+  "lto_override": "false",
+  "codegen_units_override": "16",
+  "platform": "macos",
+  "arch": "aarch64",
+  "build": "release",
+  "history_rows": 103000,
+  "migration_rows": 50000,
+  "sql_bytes_min": 117,
+  "sql_bytes_max": 122,
+  "retention_override_keep_rows": 110000,
+  "default_retention_keep_rows": 50000,
+  "default_retention_keep_days": 180,
+  "sqlite_cache_size_pragma": -1536,
+  "wal_autocheckpoint_pages": 1024,
+  "fts_automerge": 8,
+  "fts_crisismerge": 32,
+  "configuration_reference": "https://www.sqlite.org/fts5.html#the_automerge_configuration_option",
+  "open_us": 5140.084,
+  "insert_p50_us": 157.959,
+  "insert_p95_us": 514.166,
+  "insert_p99_us": 2598.791,
+  "insert_max_us": 50430.083,
+  "insert_100k_total_ms": 23743.391024000113,
+  "insert_at_100k_p50_us": 135.833,
+  "insert_at_100k_p95_us": 241.167,
+  "insert_at_100k_p99_us": 2727.375,
+  "insert_with_spawn_blocking_p95_us": 280.125,
+  "keyset_page_100_p95_us": 120.875,
+  "keyset_page_100_max_us": 350.5,
+  "fts_rare_p95_us": 231.708,
+  "fts_rare_max_us": 304.79200000000003,
+  "fts_identifier_infix_p95_us": 1400.042,
+  "fts_identifier_infix_max_us": 2166.6670000000004,
+  "fts_korean_infix_p95_us": 723.667,
+  "fts_korean_infix_max_us": 783.75,
+  "korean_two_character_p95_us": 3517.209,
+  "korean_two_character_max_us": 4223.125,
+  "date_range_page100_p95_us": 3861.0,
+  "date_range_fts_p95_us": 13223.959,
+  "date_range_short_p95_us": 13128.792,
+  "pinned_first_page100_p95_us": 122.917,
+  "snippet_rows": 400,
+  "fts_index_bytes": 29503488,
+  "all_index_bytes": 50921472,
+  "database_bytes": 72273920,
+  "rss_baseline_bytes": 11894784,
+  "initial_process_peak_rss_bytes": 14336000,
+  "process_peak_rss_bytes": 21331968,
+  "process_peak_rss_growth_bytes": 9437184,
+  "rss_sampled_peak_bytes": 20348928,
+  "rss_growth_bytes": 8454144,
+  "migration_ms": 801.25625,
+  "migration_process_wall_ms": 832.0364999999999,
+  "cold_migration": {
+    "migration_ms": 801.25625,
+    "rows": 50000,
+    "rss_baseline_bytes": 11862016,
+    "initial_process_peak_rss_bytes": 11943936,
+    "process_peak_rss_bytes": 19677184,
+    "process_peak_rss_growth_bytes": 7815168,
+    "fresh_process": true,
+    "disk_cache": "warm"
+  },
+  "idle_cpu_time_before": "0:24.93",
+  "idle_cpu_time_after": "0:24.93",
+  "notes": "RSS sampled every 5000 inserts and phase boundaries, not a high-frequency peak. Kernel getrusage also records the absolute process lifetime RSS peak on Unix. Timing vectors and test harness included. Synthetic SQL is 117-122 bytes with four profiles and successful executions; count retention is raised to 110000 only for the 100k working-set benchmark. Short queries scan at most 5000 candidate rows per cursor. Migration runs in a fresh process with no previous database, but JSONL is in OS cache. Cold storage-device cache was not flushed. Separate insert_with_spawn_blocking includes dispatch overhead; all timings exclude unchanged star/settings writes. Idle CPU is measured for the store without an app window or live DB drivers, at ps CPU-time resolution (0.01 s). New date-range measurements use profile-0, since one day before and until one day after the run, on 102000 history rows; the FTS and short-query cases first restrict the candidate window to 5000 date/profile-matching IDs. The pinned-first page case uses 400 snippets, 134 pinned, and returns 100 pinned items. Ordering revisions persist in SQLite so cursors survive reopen.",
+  "environment": {
+    "cpu": "Apple M4",
+    "macos": "27.0.1",
+    "rustc": "1.99.1",
+    "bundled_sqlite": "3.53.2",
+    "measured_on": "2026-10-21"
+  },
+  "reproduce_command": "AXDB_LIBRARY_BENCH_REPORT=\"$PWD/bench/library-bench-results.json\" CARGO_PROFILE_RELEASE_LTO=false CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16 cargo test -p axdb --lib --release library::tests::library_benchmark --offline -- --ignored --exact --nocapture --test-threads=1",
+  "command_contract_notes": {
+    "history_list": "Original array shape plus id; text and error limited to 1024 Unicode characters each; limit capped at 200.",
+    "history_delete": "Existing timestamp/profileName/text camelCase arguments remain accepted; id is the alternative. Legacy deletion also accepts the bounded SQL shown to old clients.",
+    "new_commands": "New multiword arguments use snake_case. history_search and snippet_list return {items,next_cursor}; a short-query cursor can be present on an empty page so callers can continue to older windows.",
+    "full_text": "history_get and snippet_get return full bodies.",
+    "retention": "Default 50000 history rows, 180 days; prune at first use and every 256 inserts in batches up to 512 count-expired and 512 age-expired rows; no idle work.",
+    "snippet_list": "Pinned DESC, updated_at DESC, id DESC; next_cursor is an opaque string passed unchanged as before_id, including snapshot revision and full sort key. Integer legacy cursors return a fixed Query error asking the caller to restart. Ordering is snapshot-isolated across pin and timestamp edits; content/filter membership and deletion are live, and newly inserted snippets are excluded.",
+    "history_search": "Optional RFC3339 since inclusive and until exclusive, with offsets normalized to UTC and nanosecond-precise UTC timestamp boundaries; malformed timestamps and reversed ranges return fixed Query errors. Existing timestamp/profile timestamp indexes bound the candidate window before date-filtered FTS/short matching; scan cursors may accompany empty pages."
+  },
+  "unmeasured_limits": [
+    "True cold storage-device cache: migration uses a fresh process, but its JSONL input is in OS cache.",
+    "Full desktop-app CPU/RSS and the existing query-usage settings write are outside the store benchmark.",
+    "Latency for large/heterogeneous SQL bodies and all filter combinations was not benchmarked; large-body response bounds and exact gets are covered by tests.",
+    "UI, desktop integration, and the inline API argument/result types in ui/src/api.ts are outside this backend-only task; only contract.ts types were added.",
+    "Long-term snippet ordering revision growth under sustained edits has not been stress tested; historical sort keys are retained for durable snapshot cursors.",
+    "Stored history timestamps are produced in UTC RFC3339 by existing writers; heterogeneous legacy stored timezone offsets were not normalized or benchmarked."
+  ],
+  "targets": {
+    "insert_p95_including_dispatch": {
+      "target_us": 1000,
+      "measured_us": 280.125,
+      "passed": true
+    },
+    "steady_insert_p95": {
+      "target_us": 1000,
+      "measured_us": 241.167,
+      "passed": true
+    },
+    "page100_p95": {
+      "target_us": 5000,
+      "measured_worst_us": 3861.0,
+      "passed": true
+    },
+    "search_p95": {
+      "target_us": 30000,
+      "measured_worst_us": 13223.959,
+      "passed": true
+    },
+    "process_peak_rss_growth": {
+      "target_bytes": 10000000,
+      "measured_bytes": 9437184,
+      "passed": true
+    },
+    "migration_50000": {
+      "target_ms": 2000,
+      "measured_ms": 801.25625,
+      "process_wall_ms": 832.0364999999999,
+      "passed": true
+    },
+    "idle_cpu": {
+      "target": "unchanged",
+      "before": "0:24.93",
+      "after": "0:24.93",
+      "passed": true
+    }
+  },
+  "validation": {
+    "library_tests": {
+      "command": "cargo test -p axdb --lib library --offline",
+      "passed": true,
+      "tests_passed": 12,
+      "tests_ignored": 2,
+      "log": "/tmp/axdb-library-new-tests.log"
+    },
+    "release_benchmark": {
+      "command": "AXDB_LIBRARY_BENCH_REPORT=\"$PWD/bench/library-bench-results.json\" CARGO_PROFILE_RELEASE_LTO=false CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16 cargo test -p axdb --lib --release library::tests::library_benchmark --offline -- --ignored --exact --nocapture --test-threads=1",
+      "passed": true,
+      "log": "/tmp/axdb-library-new-bench.log"
+    }
+  }
+}

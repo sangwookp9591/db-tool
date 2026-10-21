@@ -68,13 +68,13 @@ pub(super) fn request_body(
     if settings.provider == "openai" {
         let instructions = body["system"]
             .as_array()
-            .unwrap()
-            .iter()
+            .into_iter()
+            .flatten()
             .filter_map(|v| v["text"].as_str())
             .collect::<Vec<_>>()
             .join("\n");
         body = json!({"model":settings.model,"instructions":instructions,"input":body["messages"],"store":false,"stream":true,"max_output_tokens":8192,"reasoning":{"effort":settings.effort}});
-        if efforts(&settings.provider, &settings.model).is_empty() { body.as_object_mut().unwrap().remove("reasoning"); }
+        if efforts(&settings.provider, &settings.model).is_empty() { if let Some(object) = body.as_object_mut() { object.remove("reasoning"); } }
         if !tools.is_empty() {
             body["tools"] = json!(tools.iter().map(|tool|json!({"type":"function","name":tool["name"],"description":tool["description"],"parameters":tool["input_schema"],"strict":false})).collect::<Vec<_>>());
             body["tool_choice"] = json!("required");
@@ -89,11 +89,11 @@ pub(super) fn request_body(
         }
     }
     if settings.provider == "anthropic" && settings.model.starts_with("claude-opus-4-5") {
-        body.as_object_mut().unwrap().remove("thinking");
+        if let Some(object) = body.as_object_mut() { object.remove("thinking"); }
     }
     if settings.provider == "anthropic" && efforts(&settings.provider, &settings.model).is_empty() {
-        body.as_object_mut().unwrap().remove("thinking");
-        body.as_object_mut().unwrap().remove("output_config");
+        if let Some(object) = body.as_object_mut() { object.remove("thinking"); }
+        if let Some(object) = body.as_object_mut() { object.remove("output_config"); }
     }
     body
 }

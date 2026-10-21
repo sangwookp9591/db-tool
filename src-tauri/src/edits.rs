@@ -178,7 +178,7 @@ mod tests {
             .unwrap();
         let exec:ExecRequest=serde_json::from_value(serde_json::json!({"text":"CREATE TABLE c2(id INTEGER PRIMARY KEY,t TEXT); INSERT INTO c2 VALUES(1,'old')"})).unwrap();
         session.execute(&exec, CancelToken::new()).await.unwrap();
-        host.sessions.lock().unwrap().insert(
+        host.sessions.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert(
             "s".into(),
             Arc::new(SessionRecord {
                 session: Arc::from(session),
@@ -248,7 +248,7 @@ mod tests {
         )
         .await
         .unwrap();
-        for approval in host.previews.lock().unwrap().values_mut() {
+        for approval in host.previews.lock().unwrap_or_else(std::sync::PoisonError::into_inner).values_mut() {
             approval.created = Instant::now() - Duration::from_secs(61);
         }
         assert!(matches!(
@@ -258,7 +258,7 @@ mod tests {
                 ..
             })
         ));
-        let history = storage::read_history(&host.paths.data.join("history.jsonl")).unwrap();
+        let history = host.library.run(|store| store.history_list(200)).await.unwrap();
         assert!(history
             .iter()
             .any(|h| h.kind == "edit_preview" && h.text.contains("?1")));
@@ -272,10 +272,10 @@ mod tests {
     #[tokio::test]
     async fn host_rejects_read_only_and_unsupported_edits() {
         let (host, dir) = fixture().await;
-        let record = host.sessions.lock().unwrap().remove("s").unwrap();
+        let record = host.sessions.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove("s").unwrap();
         let mut profile = record.profile.clone();
         profile.access_mode = permissions::AccessMode::ReadOnly;
-        host.sessions.lock().unwrap().insert(
+        host.sessions.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert(
             "s".into(),
             Arc::new(SessionRecord {
                 session: record.session.clone(),
@@ -303,7 +303,7 @@ mod tests {
         }
         profile.access_mode = permissions::AccessMode::ReadWrite;
         profile.driver_id = "neo4j".into();
-        host.sessions.lock().unwrap().insert(
+        host.sessions.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert(
             "s".into(),
             Arc::new(SessionRecord {
                 session: record.session.clone(),

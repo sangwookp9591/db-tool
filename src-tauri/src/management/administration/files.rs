@@ -330,7 +330,7 @@ pub async fn restore_file_apply<R: tauri::Runtime>(
             )?,
             false,
         )?;
-        files.remove(&token).unwrap()
+        files.remove(&token).ok_or_else(|| DbError::query("Select and verify the backup file again"))?
     };
     let run = host.run(&session_id, &run_id)?;
     let started = Instant::now();

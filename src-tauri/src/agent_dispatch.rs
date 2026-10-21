@@ -311,7 +311,7 @@ async fn dispatch_inner(shared: &Shared, client: &AgentClient, method: &str, par
         "explain_query" => encoded(crate::editor::explain_query(app.state(), args["session_id"].as_str().unwrap_or("").into(), uuid::Uuid::new_v4().to_string(), args["query"].as_str().unwrap_or("").into(), false).await),
         "lint_query" => encoded(crate::editor::lint_query(app.state(), args["session_id"].as_str().unwrap_or("").into(), args["query"].as_str().unwrap_or("").into()).await),
         "get_schema_context" | "get_work_context" | "explain_error" => {
-            let mut work = work.expect("context input checked");
+            let Some(mut work) = work else { return permissions::error("InvalidInput"); };
             work.scope.include_rows = false;
             work.scope.selected_rows = None;
             encoded(
@@ -429,7 +429,7 @@ async fn dispatch_inner(shared: &Shared, client: &AgentClient, method: &str, par
         let _ = permissions::audit(&host, client, tool, id.as_deref(), "denied", text);
         return permissions::error("Forbidden");
     }
-    let client = current.as_ref().unwrap();
+    let Ok(client) = current.as_ref() else { return permissions::error("Forbidden"); };
     if tool == "get_result_page" {
         if let Err(e) = permissions::audit_result(&host, client, tool, id.as_deref(), "returned", None, result["truncated"].as_bool()) { return json!({"error":e}); }
         return result;

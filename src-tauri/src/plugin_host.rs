@@ -97,7 +97,7 @@ impl PluginDriver {
         let lease = self.process().await?;
         let process = lease.0.clone();
         if let Some(secret) = cfg.secret.as_ref().filter(|s| !s.is_empty()) {
-            let mut secrets = process.secrets.lock().unwrap();
+            let mut secrets = process.secrets.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
             if !secrets.contains(secret) {
                 secrets.push(secret.clone());
             }
@@ -137,7 +137,7 @@ struct SessionCount { active: usize, generation: u64, idle: Option<tokio::task::
 struct SessionLease(Arc<Process>);
 impl Drop for SessionLease {
     fn drop(&mut self) {
-        let mut sessions = self.0.sessions.lock().unwrap();
+        let mut sessions = self.0.sessions.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         sessions.active -= 1;
         if sessions.active != 0 || self.0.dead.is_cancelled() { return; }
         let generation = sessions.generation;
@@ -269,7 +269,7 @@ impl Process {
                             _ => unreachable!(),
                         };
                         let sender = {
-                            let mut pending = process.pending.lock().unwrap();
+                            let mut pending = process.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
                             pending.get_mut(&id).map(|pending| {
                                 if pending.admit(&message,size) {
                                     Ok(pending.sender.clone())
@@ -324,7 +324,7 @@ impl Process {
     }
 
     fn reserve(self: &Arc<Self>) -> Option<SessionLease> {
-        let mut sessions = self.sessions.lock().unwrap();
+        let mut sessions = self.sessions.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         if self.dead.is_cancelled() { return None; }
         if let Some(idle) = sessions.idle.take() { idle.abort(); }
         sessions.active += 1;
@@ -333,7 +333,7 @@ impl Process {
     }
 
     fn expire_idle(&self, generation: u64) -> bool {
-        let mut sessions = self.sessions.lock().unwrap();
+        let mut sessions = self.sessions.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         if sessions.active != 0 || sessions.generation != generation || self.dead.is_cancelled() { return false; }
         sessions.idle.take();
         // Mark dead while holding the same lock as reserve; a concurrent connect must spawn a fresh process.
@@ -345,9 +345,9 @@ impl Process {
 
     fn fail(&self) {
         self.dead.cancel();
-        if let Some(idle) = self.sessions.lock().unwrap().idle.take() { idle.abort(); }
-        self.pending.lock().unwrap().clear();
-        if let Some(mut child) = self.child.lock().unwrap().take() {
+        if let Some(idle) = self.sessions.lock().unwrap_or_else(std::sync::PoisonError::into_inner).idle.take() { idle.abort(); }
+        self.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clear();
+        if let Some(mut child) = self.child.lock().unwrap_or_else(std::sync::PoisonError::into_inner).take() {
             let _ = child.start_kill();
             let reaped = self.reaped.clone();
             if let Ok(runtime) = tokio::runtime::Handle::try_current() {
@@ -414,6 +414,23 @@ impl Process {
         self.call_with_sinks(request,cancel,timeout,sink,None).await
     }
 
+    // Probe the driver's dispatcher, independently of any blocked database
+    // session. A request timing out does not prove the shared process is dead.
+    async fn responsive(self: &Arc<Self>) -> bool {
+        let id = self.next_id.fetch_add(1, Ordering::Relaxed);
+        let (sender, mut incoming) = mpsc::channel(1);
+        self.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert(id, PendingResponse { sender, bytes: 0, backup_stream: false });
+        let result = tokio::time::timeout(HANDSHAKE_TIMEOUT, async {
+            self.send(&Message::Request { id, request: Request::Handshake { protocol: PROTOCOL } }).await.ok()?;
+            match incoming.recv().await? {
+                Message::Result { result: Reply::Handshake { protocol: PROTOCOL, .. }, .. } => Some(()),
+                _ => None,
+            }
+        }).await;
+        self.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove(&id);
+        matches!(result, Ok(Some(())))
+    }
+
     async fn call_with_sinks(
         self: &Arc<Self>, request: Request, cancel: CancelToken, timeout: Duration,
         sink: Option<&dyn ResultSink>, backup_sink: Option<&dyn BackupSink>,
@@ -425,13 +442,14 @@ impl Process {
             return Err(DbError::new(ErrorKind::Cancelled, "실행이 취소되었습니다"));
         }
         let incremental = matches!(request, Request::ExecuteStream { .. });
+        let handshake = matches!(request, Request::Handshake { .. });
         let mut active: Option<(usize, usize, u64)> = None;
         let started = Instant::now();
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         let (sender, mut incoming) = mpsc::channel(8);
         self.pending
             .lock()
-            .unwrap()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .insert(id, PendingResponse { sender, bytes: 0, backup_stream:matches!(request,Request::BackupStream{..}) });
         let mut guard = Pending {
             process: Arc::downgrade(self),
@@ -446,6 +464,7 @@ impl Process {
             _ = &mut deadline => { self.fail(); return Err(disconnected()); }
         }
         let mut cancelled = false;
+        let mut timed_out = false;
         let mut results = Vec::new();
         let mut first_chunk = None;
         let mut streaming = None;
@@ -459,19 +478,38 @@ impl Process {
                     deadline.as_mut().reset(tokio::time::Instant::now() + RESPONSE_GRACE);
                 }
                 _ = &mut deadline => {
-                    self.fail();
-                    return Err(DbError::new(ErrorKind::Connection, "드라이버 응답 시간이 초과되었습니다. 다시 연결하세요"));
+                    if handshake {
+                        self.fail();
+                        return Err(DbError::new(ErrorKind::Connection, "드라이버 응답 시간이 초과되었습니다. 다시 연결하세요"));
+                    }
+                    if !cancelled {
+                        cancelled = true;
+                        timed_out = true;
+                        self.send(&Message::Cancel { cancel: id }).await?;
+                        deadline.as_mut().reset(tokio::time::Instant::now() + RESPONSE_GRACE);
+                        continue;
+                    }
+                    // Retire this request before probing so late chunks cannot
+                    // fill its channel and block dispatch of the health reply.
+                    guard.armed = false;
+                    self.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove(&id);
+                    incoming.close();
+                    if !self.responsive().await { self.fail(); }
+                    return Err(DbError::new(
+                        if timed_out { ErrorKind::Timeout } else { ErrorKind::Cancelled },
+                        if timed_out { "드라이버 요청 시간이 초과되었습니다" } else { "실행이 취소되었습니다" },
+                    ));
                 }
                 message = incoming.recv() => match message {
                     Some(Message::Result { result, .. }) => {
                         if active.is_some() { self.fail(); return Err(invalid_reply()); }
                         guard.armed = false;
-                        self.pending.lock().unwrap().remove(&id);
+                        self.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove(&id);
                         return Ok(Response { reply: result, results, first_chunk: first_chunk.unwrap_or_else(|| started.elapsed()) });
                     }
                     Some(Message::Error { error, .. }) => {
                         guard.armed = false;
-                        self.pending.lock().unwrap().remove(&id);
+                        self.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove(&id);
                         return Err(error);
                     }
                     Some(Message::Chunk { chunk, .. }) => {
@@ -524,7 +562,7 @@ impl Process {
 
 fn log_stderr(process: &Weak<Process>, line: &[u8]) {
     if let Some(process) = process.upgrade() {
-        let text = redact_stderr(line, &process.secrets.lock().unwrap());
+        let text = redact_stderr(line, &process.secrets.lock().unwrap_or_else(std::sync::PoisonError::into_inner));
         tracing::warn!(target: "axdb::plugin_host", driver_stderr = %text);
     }
 }
@@ -554,7 +592,7 @@ impl Drop for Pending {
             return;
         }
         if let Some(process) = self.process.upgrade() {
-            process.pending.lock().unwrap().remove(&self.id);
+            process.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove(&self.id);
             let id = self.id;
             if let Ok(runtime) = tokio::runtime::Handle::try_current() {
                 runtime.spawn(async move {
@@ -912,7 +950,7 @@ impl Session for PluginSession {
                 )
                 .await;
             self.closed.cancel();
-            self.lease.lock().unwrap().take();
+            self.lease.lock().unwrap_or_else(std::sync::PoisonError::into_inner).take();
         }
     }
 }
@@ -974,7 +1012,7 @@ mod tests {
                 .kind,
             ErrorKind::Query
         );
-        let pid = a.process.child.lock().unwrap().as_ref().unwrap().id();
+        let pid = a.process.child.lock().unwrap_or_else(std::sync::PoisonError::into_inner).as_ref().unwrap().id();
         a.process
             .child
             .lock()
@@ -989,10 +1027,48 @@ mod tests {
         assert_eq!(a.ping().await.unwrap_err().kind, ErrorKind::Connection);
         assert_eq!(b.ping().await.unwrap_err().kind, ErrorKind::Connection);
         let c = driver.connect_plugin(&config()).await.unwrap();
-        assert_ne!(pid, c.process.child.lock().unwrap().as_ref().unwrap().id());
+        assert_ne!(pid, c.process.child.lock().unwrap_or_else(std::sync::PoisonError::into_inner).as_ref().unwrap().id());
         c.ping().await.unwrap();
         assert_eq!(a.ping().await.unwrap_err().kind, ErrorKind::Connection);
         c.close().await;
+    }
+
+    #[tokio::test]
+    async fn missing_cancel_reply_does_not_kill_a_responsive_shared_driver() {
+        let Some(path) = sqlite() else { return; };
+        let driver = PluginDriver::load(path).await.unwrap();
+        let session = driver.connect_plugin(&config()).await.unwrap();
+        let sibling = driver.connect_plugin(&config()).await.unwrap();
+        let process = session.process.clone();
+        let token = CancelToken::new();
+        let stop = token.clone();
+        let session_id = session.session;
+        let caller = process.clone();
+        let run = tokio::spawn(async move {
+            caller.call(Request::Execute { session: session_id, req: request("WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<100000000) SELECT sum(x) FROM n") }, token, Duration::from_secs(30)).await
+        });
+        // Withhold only this request's response to simulate cancellation whose
+        // acknowledgement is lost. The driver and its other sessions remain live.
+        let (sender, mut held) = mpsc::channel(8);
+        let original = tokio::time::timeout(Duration::from_secs(2), async {
+            loop {
+                if let Some(pending) = process.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).values_mut().next() {
+                    break std::mem::replace(&mut pending.sender, sender.clone());
+                }
+                tokio::task::yield_now().await;
+            }
+        }).await.unwrap();
+        let drain = tokio::spawn(async move { while held.recv().await.is_some() {} });
+        stop.cancel();
+        let result = tokio::time::timeout(RESPONSE_GRACE + HANDSHAKE_TIMEOUT + Duration::from_secs(2), run).await.unwrap().unwrap();
+        assert!(matches!(result, Err(DbError { kind: ErrorKind::Cancelled, .. })));
+        assert!(!process.dead.is_cancelled(), "cancelling one request killed the shared driver");
+        sibling.ping().await.unwrap();
+        session.ping().await.unwrap();
+        drop(original);
+        drain.abort();
+        session.close().await;
+        sibling.close().await;
     }
 
     #[tokio::test]
@@ -1077,24 +1153,25 @@ mod tests {
 
     #[cfg(unix)]
     #[tokio::test]
+    #[allow(clippy::print_stderr)] // Intentional notice and benchmark output from the driver lifecycle test.
     async fn idle_shutdown_protects_live_sessions_invalidates_stale_deadlines_and_reaps() {
         let Some(path) = sqlite() else { eprintln!("AXDB_DRIVER_DIR unset: real idle lifecycle check not run"); return; };
         let driver = PluginDriver::load(path).await.unwrap();
         let first = driver.connect_plugin(&config()).await.unwrap();
         let process = first.process.clone();
-        let pid = process.child.lock().unwrap().as_ref().unwrap().id().unwrap();
-        let generation = process.sessions.lock().unwrap().generation;
+        let pid = process.child.lock().unwrap_or_else(std::sync::PoisonError::into_inner).as_ref().unwrap().id().unwrap();
+        let generation = process.sessions.lock().unwrap_or_else(std::sync::PoisonError::into_inner).generation;
         assert!(!process.expire_idle(generation), "live session must survive");
         first.close().await;
-        assert!(process.sessions.lock().unwrap().idle.is_some());
+        assert!(process.sessions.lock().unwrap_or_else(std::sync::PoisonError::into_inner).idle.is_some());
         let second = driver.connect_plugin(&config()).await.unwrap();
         assert!(Arc::ptr_eq(&process, &second.process));
-        assert!(process.sessions.lock().unwrap().idle.is_none(), "reuse cancels idle timer");
+        assert!(process.sessions.lock().unwrap_or_else(std::sync::PoisonError::into_inner).idle.is_none(), "reuse cancels idle timer");
         second.close().await;
         assert!(!process.expire_idle(generation), "stale deadline must not stop a reused process");
         let rss = Command::new("/bin/ps").args(["-p", &pid.to_string(), "-o", "rss="]).output().await.unwrap();
         let rss_kib: u64 = std::str::from_utf8(&rss.stdout).unwrap().trim().parse().unwrap();
-        let generation = process.sessions.lock().unwrap().generation;
+        let generation = process.sessions.lock().unwrap_or_else(std::sync::PoisonError::into_inner).generation;
         assert!(process.expire_idle(generation));
         process.stop().await;
         assert!(process.reserve().is_none());

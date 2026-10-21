@@ -1,4 +1,7 @@
 //! Reuse the exact existing driver contracts with proxy-backed constructors.
+// Integration tests fail by panicking: unwrap/expect are the intended assertion style here
+// (clippy's allow-*-in-tests only covers #[test] functions, not shared helpers).
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::print_stdout, clippy::print_stderr)]
 extern crate driver_mongodb as real_mongodb;
 extern crate driver_neo4j as real_neo4j;
 extern crate driver_postgres as real_postgres;

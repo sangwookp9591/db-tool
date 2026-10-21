@@ -1,4 +1,7 @@
 //! Native plugin + loopback HTTP smoke check, without opening a GUI or installing anything.
+// Integration tests fail by panicking: unwrap/expect are the intended assertion style here
+// (clippy's allow-*-in-tests only covers #[test] functions, not shared helpers).
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::print_stdout, clippy::print_stderr)]
 use axum::{routing::get, Json, Router};
 use serde_json::json;
 use tauri_plugin_updater::UpdaterExt;

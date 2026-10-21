@@ -29,6 +29,8 @@ fn hex(bytes: impl AsRef<[u8]>) -> String {
     bytes.as_ref().iter().map(|v| format!("{v:02x}")).collect()
 }
 fn hmac(key: &[u8], data: &str) -> Vec<u8> {
+    // INVARIANT: HMAC accepts keys of every length, including an empty key.
+    #[allow(clippy::expect_used)]
     let mut m = Hmac::<Sha256>::new_from_slice(key).expect("HMAC accepts any key length");
     m.update(data.as_bytes());
     m.finalize().into_bytes().to_vec()

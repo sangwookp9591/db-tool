@@ -124,7 +124,7 @@ impl Default for Installer {
                 .redirect(reqwest::redirect::Policy::limited(MAX_REDIRECTS))
                 .timeout(Duration::from_secs(90))
                 .build()
-                .expect("TLS HTTP client"),
+                .unwrap_or_else(|_| reqwest::Client::new()),
             #[cfg(test)]
             allow_loopback: false,
             keys: package::official_keys(),

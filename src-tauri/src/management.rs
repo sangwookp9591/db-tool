@@ -408,7 +408,7 @@ mod tests {
     }
     #[tokio::test]
     async fn import_approval_is_bound_single_use_and_history_has_no_values() {
-        let (host, dir) = fixture().await;
+        let (host, _dir) = fixture().await;
         let req = EditRequest {originals: vec![],
             create_table: None,
             node_id: "table:imported".into(),
@@ -462,9 +462,8 @@ mod tests {
                 ..
             })
         ));
-        assert!(!std::fs::read_to_string(dir.path().join("history.jsonl"))
-            .unwrap()
-            .contains("private-import-content"));
+        let history = host.library.run(|store| store.history_list(200)).await.unwrap();
+        assert!(history.iter().all(|entry| !entry.text.contains("private-import-content")));
         host.session("s").unwrap().session.close().await;
     }
     #[tokio::test]

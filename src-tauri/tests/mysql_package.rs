@@ -1,4 +1,7 @@
 //! A newly signed driver package works through the unchanged generic package/host APIs.
+// Integration tests fail by panicking: unwrap/expect are the intended assertion style here
+// (clippy's allow-*-in-tests only covers #[test] functions, not shared helpers).
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::print_stdout, clippy::print_stderr)]
 #[global_allocator]
 static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
 use axdb::{driver_install::host_target, plugin_host::PluginDriver};

@@ -16,7 +16,7 @@ pub fn install(app: &tauri::App) -> tauri::Result<()> {
         let edit = menu.items()?.into_iter().find_map(|item| match item {
             tauri::menu::MenuItemKind::Submenu(edit) if edit.text().is_ok_and(|text| text == "Edit") => Some(edit),
             _ => None,
-        }).expect("Tauri default Edit menu");
+        }).ok_or_else(|| tauri::Error::AssetNotFound("Tauri default Edit menu".into()))?;
         let native = edit.items()?;
         app.manage(HistoryMenu {
             edit,

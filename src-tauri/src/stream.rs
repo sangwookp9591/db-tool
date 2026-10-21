@@ -136,7 +136,7 @@ pub async fn send_results(
         let mut meta = serde_json::to_value(&result)
             .map_err(|_| DbError::internal("Cannot encode result metadata"))?;
         for key in ["table", "graph", "documents"] {
-            meta.as_object_mut().unwrap().remove(key);
+            if let Some(object) = meta.as_object_mut() { object.remove(key); }
         }
         result.table = columns.as_ref().map(|c| Table {
             columns: c.clone(),
@@ -211,10 +211,10 @@ impl LiveResults {
         }
     }
     pub fn started(&self) -> bool {
-        self.current.lock().unwrap().is_some()
+        self.current.lock().unwrap_or_else(std::sync::PoisonError::into_inner).is_some()
     }
     pub fn finish(&self) -> Result<(), DbError> {
-        if let Some(result) = self.current.lock().unwrap().take() {
+        if let Some(result) = self.current.lock().unwrap_or_else(std::sync::PoisonError::into_inner).take() {
             if result.pending || result.expected.is_some_and(|n| n != result.offset as u64) {
                 return Err(DbError::internal("Incomplete driver row stream"));
             }
@@ -232,17 +232,17 @@ impl LiveResults {
 impl dbcore::ResultSink for LiveResults {
     fn start_pending(&self, index: usize, result: &ResultSet) -> Result<(), DbError> {
         self.start(index, result)?;
-        let mut current = self.current.lock().unwrap();
-        let current = current.as_mut().unwrap();
+        let mut current = self.current.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let current = current.as_mut().ok_or_else(|| DbError::internal("Invalid pending result stream"))?;
         current.expected = None;
         current.pending = true;
         Ok(())
     }
     fn end(&self, index: usize, result: &ResultSet) -> Result<(), DbError> {
-        let mut current = self.current.lock().unwrap();
+        let mut current = self.current.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         let current = current.as_mut().filter(|r| r.index == index && r.pending && r.offset as u64 == result.row_count).ok_or_else(|| DbError::internal("Invalid final result metadata"))?;
         let mut metadata = serde_json::to_value(result).map_err(|_| DbError::internal("Cannot encode result metadata"))?;
-        for key in ["table", "graph", "documents"] { metadata.as_object_mut().unwrap().remove(key); }
+        for key in ["table", "graph", "documents"] { if let Some(object) = metadata.as_object_mut() { object.remove(key); } }
         current.metadata = metadata;
         current.pending = false;
         current.expected = Some(result.row_count);
@@ -252,7 +252,7 @@ impl dbcore::ResultSink for LiveResults {
         if self.cancel.is_cancelled() {
             return Err(DbError::new(ErrorKind::Cancelled, "실행이 취소되었습니다"));
         }
-        let mut current = self.current.lock().unwrap();
+        let mut current = self.current.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         if index != current.as_ref().map_or(0, |r| r.index + 1)
             || result.graph.is_some()
             || result.documents.is_some()
@@ -300,7 +300,7 @@ impl dbcore::ResultSink for LiveResults {
             .map_err(|_| DbError::internal("Cannot encode result metadata"))?;
         metadata["row_count"] = Json::from(result.row_count);
         for key in ["table", "graph", "documents"] {
-            metadata.as_object_mut().unwrap().remove(key);
+            if let Some(object) = metadata.as_object_mut() { object.remove(key); }
         }
         send(
             &self.channel,
@@ -323,7 +323,7 @@ impl dbcore::ResultSink for LiveResults {
         if self.cancel.is_cancelled() {
             return Err(DbError::new(ErrorKind::Cancelled, "실행이 취소되었습니다"));
         }
-        let mut current = self.current.lock().unwrap();
+        let mut current = self.current.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         let result = current
             .as_mut()
             .filter(|r| r.index == index)
@@ -383,7 +383,7 @@ mod tests {
             .rows(0, vec![vec![Value::Int("9007199254740993".into())]])
             .unwrap();
         assert_eq!(
-            events.lock().unwrap()[1]["kind"],
+            events.lock().unwrap_or_else(std::sync::PoisonError::into_inner)[1]["kind"],
             "rows",
             "first rows leave before completion"
         );
@@ -413,7 +413,7 @@ mod tests {
         }
         assert!(stream.rows(1, vec![vec![Value::Int("3".into())]]).is_err());
         stream.finish().unwrap();
-        let events = events2.lock().unwrap();
+        let events = events2.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         assert_eq!(
             events
                 .iter()

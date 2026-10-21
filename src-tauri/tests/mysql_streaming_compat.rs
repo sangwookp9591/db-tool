@@ -1,4 +1,7 @@
 //! Exercise MySQL's optional stream through PluginDriver and the unchanged 0.2.0 codec.
+// Integration tests fail by panicking: unwrap/expect are the intended assertion style here
+// (clippy's allow-*-in-tests only covers #[test] functions, not shared helpers).
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::print_stdout, clippy::print_stderr)]
 #[allow(dead_code)]
 #[path = "fixtures/protocol_v0_2_0.rs"]
 mod old;

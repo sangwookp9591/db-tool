@@ -87,7 +87,7 @@ fn scan(root: &Path) -> CommandResult<Vec<Migration>> {
     visit(&root, 0, &mut paths, &mut entries)?;
     let mut migrations = vec![];
     for p in paths {
-        let (id, format) = candidate(&p).unwrap();
+        let Some((id, format)) = candidate(&p) else { continue; };
         let bytes = read_bounded(&p, 1024 * 1024)?;
         total += bytes.len();
         if total > 8 * 1024 * 1024 {
@@ -99,7 +99,7 @@ fn scan(root: &Path) -> CommandResult<Vec<Migration>> {
             id,
             name: p
                 .strip_prefix(&root)
-                .unwrap()
+                .map_err(|_| DbError::query("Cannot read migration folder"))?
                 .to_string_lossy()
                 .into_owned(),
             format,

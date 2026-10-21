@@ -17,6 +17,7 @@ mod export;
 pub mod drivers;
 pub mod plugin_host;
 pub mod storage;
+pub mod library;
 mod star;
 pub mod stream;
 mod viewer_bench;
@@ -54,7 +55,9 @@ pub struct Host {
     sessions: Mutex<HashMap<String, Arc<SessionRecord>>>,
     runs: Mutex<HashMap<String, RunRecord>>,
     context_runs: Mutex<std::collections::VecDeque<context::RunContext>>,
+    schema_cache: Mutex<context::SchemaCache>,
     storage: tokio::sync::Mutex<()>,
+    library: library::Library,
     agent_storage: Mutex<()>,
     approvals: Mutex<HashMap<String, permissions::Approval>>,
     previews: Mutex<HashMap<String, permissions::Approval>>,
@@ -68,10 +71,12 @@ impl Host {
             backup_statuses: Mutex::default(),
             restore_files: Mutex::default(),
             registry: std::sync::LazyLock::new(Box::new(move || drivers::registry(&driver_root))),
+            library: library::Library::new(paths.data.clone()),
             paths,
             sessions: Mutex::new(HashMap::new()),
             runs: Mutex::new(HashMap::new()),
             context_runs: Mutex::new(std::collections::VecDeque::new()),
+            schema_cache: Mutex::new(context::SchemaCache::default()),
             storage: tokio::sync::Mutex::new(()),
             agent_storage: Mutex::new(()),
             approvals: Mutex::new(HashMap::new()),
@@ -191,19 +196,15 @@ impl Host {
         result
     }
     async fn history(&self, entry: HistoryEntry) -> Result<(), DbError> {
-        let _guard = self.storage.lock().await;
-        if entry.kind == "execute" && entry.error.is_none() { star::successful_query(&self.paths.config)?; }
-        let path = self.paths.data.join("history.jsonl");
-        let mut entries = storage::read_history(&path)?;
-        entries.push(entry);
-        let start = entries.len().saturating_sub(1000);
-        let mut data = Vec::new();
-        for entry in &entries[start..] {
-            serde_json::to_writer(&mut data, entry)
-                .map_err(|_| DbError::internal("Cannot serialize history"))?;
-            data.push(b'\n');
+        if entry.kind == "execute" && entry.error.is_none() {
+            // Keep usage preferences serialized with other settings, separately
+            // from the library connection, and keep file I/O off the runtime.
+            let _guard = self.storage.lock().await;
+            let config = self.paths.config.clone();
+            tokio::task::spawn_blocking(move || star::successful_query(&config))
+                .await.map_err(|_| DbError::internal("Cannot update query usage"))??;
         }
-        storage::write_private(&path, &data)
+        self.library.run(move |store| store.insert(&entry).map(|_| ())).await
     }
 }
 struct RunGuard<'a> {
@@ -392,6 +393,7 @@ async fn session_close(host: tauri::State<'_, Host>, session_id: String) -> Comm
         record.session.close().await;
     }
     if let Ok(mut contexts) = host.context_runs.lock() { contexts.retain(|r| r.session_id != session_id); }
+    if let Ok(mut cache) = host.schema_cache.lock() { cache.invalidate(&session_id); }
     Ok(())
 }
 #[tauri::command]
@@ -629,18 +631,13 @@ async fn expand(
 async fn history_list(
     host: tauri::State<'_, Host>,
     limit: usize,
-) -> CommandResult<Vec<HistoryEntry>> {
-    let _guard = host.storage.lock().await;
-    let mut entries = storage::read_history(&host.paths.data.join("history.jsonl"))?;
-    entries.reverse();
-    entries.truncate(limit.min(1000));
-    Ok(entries)
+) -> CommandResult<Vec<library::HistoryRecord>> {
+    host.library.run(move |store| store.history_list(limit)).await
 }
 
 #[tauri::command]
-async fn history_delete(host: tauri::State<'_, Host>, timestamp: String, profile_name: String, text: String) -> CommandResult<()> {
-    let _guard = host.storage.lock().await;
-    storage::delete_history(&host.paths.data.join("history.jsonl"), &timestamp, &profile_name, &text)
+async fn history_delete(host: tauri::State<'_, Host>, timestamp: Option<String>, profile_name: Option<String>, text: Option<String>, id: Option<i64>) -> CommandResult<()> {
+    host.library.run(move |store| store.history_delete(id, timestamp, profile_name, text)).await
 }
 
 fn file_logger(log: std::fs::File) -> impl tracing::Subscriber + Send + Sync {
@@ -655,6 +652,8 @@ fn file_logger(log: std::fs::File) -> impl tracing::Subscriber + Send + Sync {
     )
 }
 
+// INVARIANT: a build failure prevents the desktop application from starting.
+#[allow(clippy::expect_used)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -808,6 +807,13 @@ pub fn run() {
             expand,
             history_list,
             history_delete,
+            library::history_search,
+            library::history_get,
+            library::history_clear,
+            library::snippet_list,
+            library::snippet_save,
+            library::snippet_delete,
+            library::snippet_get,
             permissions::agent_clients_list,
             permissions::agent_client_save,
             permissions::agent_client_rotate,
@@ -916,7 +922,7 @@ mod tests {
             save_secret: false, network: None, auth: Default::default(),
             access_mode: Default::default(),
         };
-        app.state::<Host>().sessions.lock().unwrap().insert(
+        app.state::<Host>().sessions.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert(
             "s".into(),
             Arc::new(SessionRecord {
                 session: session.clone(),
@@ -936,34 +942,24 @@ mod tests {
             .unwrap_err();
         assert_eq!(error.kind, ErrorKind::Timeout);
         assert!(session.stopped.load(Ordering::Acquire));
-        assert!(app.state::<Host>().runs.lock().unwrap().is_empty());
+        assert!(app.state::<Host>().runs.lock().unwrap_or_else(std::sync::PoisonError::into_inner).is_empty());
         let history = history_list(app.state(), 100).await.unwrap();
         assert_eq!(history.len(), 1);
         assert!(history[0].text.contains("***"));
-        let text = std::fs::read_to_string(dir.join("history.jsonl")).unwrap();
+        let text = String::from_utf8_lossy(&std::fs::read(dir.join("library.sqlite3-wal")).unwrap()).into_owned();
         assert!(!text.contains("history-secret"));
         assert!(!text.contains("parameter-value"));
         session.stopped.store(false, Ordering::Release);
         let error = preview(app.state(), "s".into(), "preview".into(), request("SELECT 'history-secret'",20), Some(HistorySource::Agent)).await.unwrap_err();
         assert_eq!(error.kind, ErrorKind::Timeout); assert!(session.stopped.load(Ordering::Acquire));
-        assert!(app.state::<Host>().runs.lock().unwrap().is_empty());
+        assert!(app.state::<Host>().runs.lock().unwrap_or_else(std::sync::PoisonError::into_inner).is_empty());
         let previews=history_list(app.state(),100).await.unwrap();
         assert!(previews.iter().any(|h| h.kind=="preview" && matches!(h.source,HistorySource::Agent) && h.text.contains("***")));
-        // The history file is capped even after a long-running session.
-        let entry = history[0].clone();
-        let mut data = Vec::new();
-        for _ in 0..1001 {
-            serde_json::to_writer(&mut data, &entry).unwrap();
-            data.push(b'\n');
-        }
-        storage::write_private(&dir.join("history.jsonl"), &data).unwrap();
-        app.state::<Host>().history(entry).await.unwrap();
-        assert_eq!(
-            storage::read_history(&dir.join("history.jsonl"))
-                .unwrap()
-                .len(),
-            1000
-        );
+        // History is persisted independently of the old JSONL file.
+        assert!(!dir.join("history.jsonl").exists());
+        let full = library::history_get(app.state(), history[0].id).await.unwrap();
+        assert!(full.text.contains("***"));
+        assert!(!full.text.contains("parameter-value"));
         let close_host=app.state::<Host>();
         let close_run=close_host.run("s", "close-test").unwrap();
         session_close(app.state(), "s".into()).await.unwrap();
@@ -973,6 +969,7 @@ mod tests {
         std::fs::remove_dir_all(dir).unwrap();
     }
     #[tokio::test]
+    #[allow(clippy::print_stderr)] // Intentional skip notice for an optional live integration test.
     async fn real_host_commands() {
         if std::env::var("AXDB_TEST_PG").is_err() {
             eprintln!("AXDB_TEST_PG unset: live host commands not run");
@@ -1015,7 +1012,7 @@ mod tests {
         let collected = stages.clone();
         let channel = tauri::ipc::Channel::new(move |body| {
             if let tauri::ipc::InvokeResponseBody::Json(text) = body {
-                collected.lock().unwrap().push(serde_json::from_str(&text).unwrap());
+                collected.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push(serde_json::from_str(&text).unwrap());
             }
             Ok(())
         });
@@ -1023,7 +1020,7 @@ mod tests {
             .await
             .unwrap();
         for stage in ["dns", "db_auth", "permissions"] {
-            assert!(stages.lock().unwrap().iter().any(|event| event["stage"] == stage && event["status"] == "passed"));
+            assert!(stages.lock().unwrap_or_else(std::sync::PoisonError::into_inner).iter().any(|event| event["stage"] == stage && event["status"] == "passed"));
         }
         let result = execute(
             app.state(),
@@ -1091,8 +1088,8 @@ mod tests {
                 .kind,
             ErrorKind::Connection
         );
-        let history = std::fs::read_to_string(dir.join("history.jsonl")).unwrap();
-        assert!(!history.contains("testpw"));
+        let history = history_list(app.state(), 200).await.unwrap();
+        assert!(history.iter().all(|entry| !entry.text.contains("testpw")));
         std::fs::remove_dir_all(dir).unwrap();
     }
     #[tokio::test]

@@ -66,7 +66,8 @@ fn decode(bytes: &[u8]) -> CommandResult<(BackupManifest, BackupData)> {
         ));
     }
     let offset = MAGIC.len();
-    let len = u32::from_be_bytes(bytes[offset..offset + 4].try_into().unwrap()) as usize;
+    let len_bytes: [u8; 4] = match bytes[offset..offset + 4].try_into() { Ok(bytes) => bytes, Err(_) => return Err(DbError::query("Invalid .axbackup file or size limit exceeded")) };
+    let len = u32::from_be_bytes(len_bytes) as usize;
     let offset = offset + 4;
     if len > 512 * 1024 || offset + len >= bytes.len() {
         return Err(DbError::query("Invalid backup manifest length"));
@@ -451,7 +452,7 @@ mod tests {
             })
             .await
             .unwrap();
-        host.sessions.lock().unwrap().insert("s".into(),Arc::new(SessionRecord{session:Arc::from(target),profile:serde_json::from_value(serde_json::json!({"id":"w4","name":"restore target","driver_id":"sqlite","fields":{}})).unwrap(),secret:None,_tunnel:None,dead:AtomicBool::new(false)}));
+        host.sessions.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert("s".into(),Arc::new(SessionRecord{session:Arc::from(target),profile:serde_json::from_value(serde_json::json!({"id":"w4","name":"restore target","driver_id":"sqlite","fields":{}})).unwrap(),secret:None,_tunnel:None,dead:AtomicBool::new(false)}));
         let app = tauri::test::mock_builder()
             .manage(host)
             .build(tauri::test::mock_context(tauri::test::noop_assets()))
@@ -537,7 +538,7 @@ mod tests {
         let path=dir.path().join("stream.axbackup");
         crate::backup_file::create(&*source,&path,CancelToken::new(),&Progress).await.unwrap();
         let staged=crate::backup_file::stage(&mut std::fs::File::open(&path).unwrap(),&CancelToken::new()).unwrap();
-        app.state::<Host>().restore_files.lock().unwrap().insert("selected-file".into(),files::Selected{staged,session:"s".into(),created:Instant::now()});
+        app.state::<Host>().restore_files.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert("selected-file".into(),files::Selected{staged,session:"s".into(),created:Instant::now()});
         assert!(files::restore_file_apply(app.handle().clone(),app.state(),"s".into(),"file-no-preview".into(),"selected-file".into(),true,None,true,Some("restore target".into())).await.is_err());
         assert!(files::restore_file_preview(app.state(),"s".into(),"selected-file".into(),false,Some("newdb".into())).await.is_err());
         files::restore_file_preview(app.state(),"s".into(),"selected-file".into(),true,None).await.unwrap();

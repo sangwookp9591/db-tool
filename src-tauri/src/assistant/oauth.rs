@@ -225,7 +225,9 @@ fn random() -> String {
     )
 }
 fn auth_url(pending: &Pending, host_id: &str) -> String {
-    let mut url = reqwest::Url::parse(AUTHORIZE).expect("static authorization URL");
+    // INVARIANT: AUTHORIZE is a compile-time constant containing the valid OpenAI authorization URL.
+    #[allow(clippy::expect_used)]
+    let mut url = reqwest::Url::parse(AUTHORIZE).expect("valid authorization URL");
     let challenge = URL_SAFE_NO_PAD.encode(Sha256::digest(pending.verifier.as_bytes()));
     {
         let mut query = url.query_pairs_mut();

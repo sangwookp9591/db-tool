@@ -1,5 +1,8 @@
 //! Driver-only timing and sampled RSS / physical footprint, with no app or GUI.
 #![cfg(target_os = "macos")]
+// Integration tests fail by panicking: unwrap/expect are the intended assertion style here
+// (clippy's allow-*-in-tests only covers #[test] functions, not shared helpers).
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::print_stdout, clippy::print_stderr)]
 use axdb_driver_protocol::{read_frame, write_frame, ExecuteChunk, Message, Reply, Request};
 use dbcore::*;
 use std::{

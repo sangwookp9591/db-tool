@@ -73,7 +73,7 @@ impl Bridge {
         let running = self.running.lock().await;
         if let Some(running) = running.as_ref() {
             running.shared.recycling.store(true, Ordering::SeqCst);
-            if running.shared.permits.available_permits() != 64 || !running.shared.pending.lock().unwrap().is_empty() {
+            if running.shared.permits.available_permits() != 64 || !running.shared.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).is_empty() {
                 running.shared.recycling.store(false, Ordering::SeqCst);
                 return false;
             }
@@ -119,7 +119,7 @@ impl Bridge {
         if let Some(running) = self.running.lock().await.take() {
             if let Some(app) = &running.shared.app { app.state::<Host>().agent_results.clear(); }
             running.stop.cancel();
-            let requests = std::mem::take(&mut *running.shared.pending.lock().unwrap());
+            let requests = std::mem::take(&mut *running.shared.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner));
             for (id, reply) in requests {
                 (running.shared.cancel)(id);
                 let _ = reply.send(unavailable("Agent bridge stopped"));
@@ -161,7 +161,8 @@ impl Bridge {
             cancel,
         });
         {
-            let host=shared.app.as_ref().unwrap().state::<Host>();
+            let Some(app) = shared.app.as_ref() else { return Err(DbError::internal("Agent bridge app unavailable")); };
+            let host=app.state::<Host>();
             let _guard=host.agent_storage.lock().map_err(|_|DbError::internal("Agent storage lock unavailable"))?;
             permissions::migrate_local(config, &shared.token)?;
         }
@@ -311,7 +312,9 @@ async fn rpc(
         )
         .into_response();
     }
-    let method = request["method"].as_str().unwrap();
+    let Some(method) = request["method"].as_str() else {
+        return Json(json!({"jsonrpc":"2.0","id":id,"error":{"code":-32600,"message":"Invalid request"}})).into_response();
+    };
     if request.get("id").is_none() {
         return if method == "notifications/initialized" {
             StatusCode::ACCEPTED.into_response()
@@ -372,7 +375,7 @@ async fn forward_with_ready_timeout(
     let request_id = uuid::Uuid::new_v4().to_string();
     let (send, mut receive) = oneshot::channel();
     {
-        let mut pending = shared.pending.lock().unwrap();
+        let mut pending = shared.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         if pending.len() >= 64 {
             return json!({"error":{"kind":"Busy","message":"Too many pending agent requests"}});
         }
@@ -382,12 +385,12 @@ async fn forward_with_ready_timeout(
     let prepared = tokio::select! {
         ready = tokio::time::timeout(ready_timeout, ready.wait_for(|value| *value)) => ready.is_ok_and(|value| value.is_ok()),
         reply = &mut receive => {
-            shared.pending.lock().unwrap().remove(&request_id);
+            shared.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove(&request_id);
             return reply.unwrap_or_else(|_| unavailable("Agent bridge stopped"));
         }
     };
     if !prepared {
-        shared.pending.lock().unwrap().remove(&request_id);
+        shared.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove(&request_id);
         return unavailable("App webview is not ready");
     }
     let sent = (shared.forward)(BridgeRequest {
@@ -407,7 +410,7 @@ async fn forward_with_ready_timeout(
     } else {
         unavailable("App webview is unavailable")
     };
-    shared.pending.lock().unwrap().remove(&request_id);
+    shared.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove(&request_id);
     result
 }
 // Remove discovery data even when the window closes via the normal application exit path.
@@ -511,7 +514,7 @@ mod tests {
         };
         let (response, _) = tokio::join!(pending, respond);
         assert!(response.contains("fixture"));
-        assert!(shared.pending.lock().unwrap().is_empty());
+        assert!(shared.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).is_empty());
         server.abort();
     }
     fn waiting_shared(
@@ -541,7 +544,7 @@ mod tests {
         for _ in 0..2 {
             let host = shared.clone();
             let task = tokio::spawn(async move { forward(&host, "tools/list", json!({})).await });
-            while shared.pending.lock().unwrap().is_empty() {
+            while shared.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).is_empty() {
                 tokio::task::yield_now().await;
             }
             assert!(requests.try_recv().is_err());
@@ -557,7 +560,7 @@ mod tests {
                 .send(json!({"tools":[]}))
                 .unwrap();
             assert_eq!(task.await.unwrap(), json!({"tools":[]}));
-            assert!(shared.pending.lock().unwrap().is_empty());
+            assert!(shared.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).is_empty());
             ready.send_replace(false);
         }
     }
@@ -570,7 +573,7 @@ mod tests {
                 .await;
         assert!(!shared.prepared(Duration::from_millis(1)).await);
         assert_eq!(value["error"]["kind"], "Unavailable");
-        assert!(shared.pending.lock().unwrap().is_empty());
+        assert!(shared.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).is_empty());
         assert!(requests.try_recv().is_err());
     }
     #[tokio::test]
@@ -592,14 +595,14 @@ mod tests {
         let host = shared.clone();
         let task = tokio::spawn(async move { forward(&host, "tools/call", json!({})).await });
         let event = requests.recv().await.unwrap();
-        shared.pending.lock().unwrap().remove(&event.request_id);
+        shared.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove(&event.request_id);
         assert_eq!(task.await.unwrap()["error"]["kind"], "Unavailable");
         drop(requests);
         assert_eq!(
             forward(&shared, "tools/list", json!({})).await["error"]["kind"],
             "Unavailable"
         );
-        assert!(shared.pending.lock().unwrap().is_empty());
+        assert!(shared.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).is_empty());
     }
     #[tokio::test]
     async fn discovery_is_published_on_ready_and_removed_on_reload_and_stop() {
@@ -647,13 +650,13 @@ mod tests {
         });
         let host = shared.clone();
         let task = tokio::spawn(async move { forward(&host, "tools/list", json!({})).await });
-        while shared.pending.lock().unwrap().is_empty() {
+        while shared.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).is_empty() {
             tokio::task::yield_now().await;
         }
         bridge.stop(&directory).await;
         assert_eq!(task.await.unwrap()["error"]["kind"], "Unavailable");
         assert!(requests.try_recv().is_err());
-        assert!(shared.pending.lock().unwrap().is_empty());
+        assert!(shared.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).is_empty());
     }
     #[test]
     fn old_contract_defaults_remain_compatible() {

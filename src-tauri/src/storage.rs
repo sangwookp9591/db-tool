@@ -94,29 +94,6 @@ pub fn read_profiles(path: &Path) -> Result<Vec<Profile>, DbError> {
         Err(_) => Err(DbError::internal("Cannot read profiles file")),
     }
 }
-pub fn read_history(path: &Path) -> Result<Vec<HistoryEntry>, DbError> {
-    let text = match std::fs::read_to_string(path) {
-        Ok(t) => t,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
-        Err(_) => return Err(DbError::internal("Cannot read history file")),
-    };
-    text.lines()
-        .map(|line| {
-            serde_json::from_str(line).map_err(|_| DbError::internal("Invalid history file"))
-        })
-        .collect()
-}
-pub fn delete_history(path: &Path, timestamp: &str, profile_name: &str, text: &str) -> Result<(), DbError> {
-    let mut entries = read_history(path)?;
-    entries.retain(|entry| !(entry.timestamp == timestamp && entry.profile_name == profile_name && entry.text == text));
-    let mut data = Vec::new();
-    for entry in entries {
-        serde_json::to_writer(&mut data, &entry).map_err(|_| DbError::internal("Cannot serialize history"))?;
-        data.push(b'\n');
-    }
-    write_private(path, &data)
-}
-
 pub fn open_private_log(path: &Path) -> std::io::Result<std::fs::File> {
     let mut options = std::fs::OpenOptions::new();
     options.create(true).append(true);
@@ -206,24 +183,6 @@ mod tests {
     }
 
     use super::*;
-    #[test]
-    fn deletes_only_matching_history_and_preserves_invalid_files() {
-        let path = std::env::temp_dir().join(format!("axdb-history-delete-{}", uuid::Uuid::new_v4()));
-        let first = serde_json::json!({"timestamp":"1","profile_name":"test","text":"SELECT 1","elapsed_ms":1,"row_count":1,"error":null});
-        let second = serde_json::json!({"timestamp":"2","profile_name":"test","text":"SELECT 1","elapsed_ms":1,"row_count":1,"error":null});
-        write_private(&path, format!("{first}\n{second}\n").as_bytes()).unwrap();
-        delete_history(&path, "1", "test", "SELECT 2").unwrap();
-        assert_eq!(read_history(&path).unwrap().len(), 2);
-        delete_history(&path, "1", "test", "SELECT 1").unwrap();
-        let remaining = read_history(&path).unwrap();
-        assert_eq!(remaining.len(), 1);
-        assert_eq!(remaining[0].timestamp, "2");
-        write_private(&path, b"invalid history").unwrap();
-        assert!(delete_history(&path, "2", "test", "SELECT 1").is_err());
-        assert_eq!(std::fs::read(&path).unwrap(), b"invalid history");
-        std::fs::remove_file(path).unwrap();
-    }
-
     #[test]
     fn legacy_history_defaults_to_execution_kind() {
         let history: HistoryEntry = serde_json::from_value(serde_json::json!({"timestamp":"old","profile_name":"test","text":"SELECT 1","elapsed_ms":1,"row_count":1,"error":null})).unwrap();

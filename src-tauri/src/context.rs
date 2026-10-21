@@ -3,8 +3,48 @@ use crate::{permissions::AccessMode, storage, Host};
 use dbcore::{Column, DbError, ErrorKind, NodeActionKind, ResultSet, SchemaGraph, Table};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
+use std::time::{Duration, Instant};
 
+const SCHEMA_TTL: Duration = Duration::from_secs(60);
+#[derive(Default)]
+pub(crate) struct SchemaCache {
+    generation: u64,
+    graphs: HashMap<(String, Option<String>), (Instant, SchemaGraph)>,
+}
+impl SchemaCache {
+    pub(crate) fn invalidate(&mut self, session: &str) {
+        self.generation = self.generation.wrapping_add(1);
+        self.graphs.retain(|(id, _), _| id != session);
+    }
+}
+async fn cached_graph(host: &Host, id: &str, scope: Option<&str>) -> Result<SchemaGraph, DbError> {
+    let key = (id.to_owned(), scope.map(str::to_owned));
+    let generation = if let Ok(mut cache) = host.schema_cache.lock() {
+        cache.graphs.retain(|_, (at, _)| at.elapsed() < SCHEMA_TTL);
+        if let Some((_, graph)) = cache.graphs.get(&key) {
+            return Ok(graph.clone());
+        }
+        cache.generation
+    } else {
+        0
+    };
+    let record = host.session(id)?;
+    let graph = match record.session.schema_graph(scope).await {
+        Ok(graph) => graph,
+        Err(e) if e.kind == ErrorKind::Unsupported => SchemaGraph::default(),
+        Err(e) => return Err(e),
+    };
+    if !record.dead.load(std::sync::atomic::Ordering::Acquire) {
+        if let Ok(mut cache) = host.schema_cache.lock() {
+            // Do not repopulate a cache invalidated while this read was in flight.
+            if cache.generation == generation {
+                cache.graphs.insert(key, (Instant::now(), graph.clone()));
+            }
+        }
+    }
+    Ok(graph)
+}
 pub const SCHEMA_BYTES: usize = 6000; // Conservative bound: at most one token per UTF-8 byte.
 #[derive(Clone, Default, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
@@ -38,6 +78,11 @@ pub fn remember(
     text: &str,
     result: Result<&[ResultSet], &DbError>,
 ) {
+    // A multi-statement execution may change metadata before returning an error.
+    // Conservatively invalidate for every execution rather than parse driver-specific DDL.
+    if let Ok(mut cache) = host.schema_cache.lock() {
+        cache.invalidate(session);
+    }
     let secret = host.sessions.lock().ok().and_then(|sessions| {
         sessions
             .get(session)
@@ -172,24 +217,23 @@ pub fn summarize(graph: &SchemaGraph, focus: &str, budget: usize) -> (String, bo
     let all = lines.join("\n");
     (clipped(&all, budget), all.len() > budget)
 }
-async fn schema(host: &Host, id: &str, focus: &str) -> Result<(String, bool), DbError> {
+async fn schema(host: &Host, id: &str, focus: &str, partial: &mut (String, bool)) -> Result<(String, bool), DbError> {
     let record = host.session(id)?;
     let manifest = host.driver(&record.profile.driver_id)?.manifest().clone();
+    let mut root_nodes = None;
     if manifest.capabilities.schema_graph {
-        let initial = match record.session.schema_graph(None).await {
-            Ok(graph) => graph,
-            Err(e) if e.kind == ErrorKind::Unsupported => SchemaGraph::default(),
-            Err(e) => return Err(e),
-        };
-        if !initial.entities.is_empty() && focus.trim().is_empty() {
+        let initial = cached_graph(host, id, None).await?;
+        // Focus only affects ranking: never discard a graph that already has metadata.
+        if !initial.entities.is_empty() {
             return Ok(summarize(&initial, focus, SCHEMA_BYTES));
         }
         let mut roots = record.session.list_children(None).await?;
         let focus_lower = focus.to_lowercase();
         roots.sort_by_key(|n| !(focus_lower.contains(&n.label.to_lowercase()) || focus_lower.contains(&n.id.to_lowercase())));
+        root_nodes = Some(roots.clone());
         let limited = roots.len() > 100;
         let mut chunks = Vec::new();
-        let mut scopes = HashSet::new();
+        let mut scopes = HashSet::from([None]);
         let mut entities = HashSet::new();
         for root in roots.into_iter().take(100) {
             let scope = root
@@ -203,11 +247,8 @@ async fn schema(host: &Host, id: &str, focus: &str) -> Result<(String, bool), Db
             if !scopes.insert(scope.map(str::to_owned)) {
                 continue;
             }
-            let mut graph = match record.session.schema_graph(scope).await {
-                Ok(graph) => graph,
-                Err(e) if e.kind == ErrorKind::Unsupported => continue,
-                Err(e) => return Err(e),
-            };
+            // Session has no concurrent-metadata capability contract; keep loads serial.
+            let mut graph = cached_graph(host, id, scope).await?;
             graph
                 .entities
                 .retain(|entity| entities.insert(entity.id.clone()));
@@ -226,9 +267,10 @@ async fn schema(host: &Host, id: &str, focus: &str) -> Result<(String, bool), Db
                 format!("scope {}\n{}", root.label, summary),
                 truncated,
             ));
-        }
-        if chunks.is_empty() && !initial.entities.is_empty() {
-            return Ok(summarize(&initial, focus, SCHEMA_BYTES));
+            let mut ranked = chunks.clone();
+            ranked.sort_by_key(|c| c.0);
+            partial.0 = clipped(&ranked.iter().map(|c| c.1.as_str()).collect::<Vec<_>>().join("\n"), SCHEMA_BYTES);
+            partial.1 = true;
         }
         if !chunks.is_empty() {
             chunks.sort_by_key(|c| c.0);
@@ -258,7 +300,12 @@ async fn schema(host: &Host, id: &str, focus: &str) -> Result<(String, bool), Db
         if visits > 100 || summary.len() >= SCHEMA_BYTES {
             return Ok((clipped(&summary, SCHEMA_BYTES), true));
         }
-        let mut nodes = match record.session.list_children(parent.as_deref()).await {
+        let fetched = if parent.is_none() && root_nodes.is_some() {
+            root_nodes.take().ok_or_else(|| DbError::internal("Schema roots unavailable"))
+        } else {
+            record.session.list_children(parent.as_deref()).await
+        };
+        let mut nodes = match fetched {
             Ok(nodes) => nodes,
             // Metadata access can differ per collection even when its parent is visible.
             Err(e) if e.kind == ErrorKind::Auth && parent.is_some() => {
@@ -279,6 +326,9 @@ async fn schema(host: &Host, id: &str, focus: &str) -> Result<(String, bool), Db
                 node.label,
                 node.detail.as_deref().unwrap_or("")
             ));
+            if metadata {
+                *partial = (clipped(&summary, SCHEMA_BYTES), true);
+            }
             if summary.len() >= SCHEMA_BYTES {
                 return Ok((clipped(&summary, SCHEMA_BYTES), true));
             }
@@ -290,6 +340,9 @@ async fn schema(host: &Host, id: &str, focus: &str) -> Result<(String, bool), Db
     Ok((if metadata { summary } else { String::new() }, incomplete))
 }
 pub async fn build(host: &Host, session_id: &str, scope: Scope) -> Result<Value, DbError> {
+    build_with_timeout(host, session_id, scope, Duration::from_secs(15)).await
+}
+async fn build_with_timeout(host: &Host, session_id: &str, scope: Scope, timeout: Duration) -> Result<Value, DbError> {
     let record = host.session(session_id)?;
     let manifest = host.driver(&record.profile.driver_id)?.manifest().clone();
     let recent = scope.run.as_deref().and_then(|id| run(host, id).ok());
@@ -314,14 +367,27 @@ pub async fn build(host: &Host, session_id: &str, scope: Scope) -> Result<Value,
             .unwrap_or_default()
     });
     let focus = scope.focus.as_deref().unwrap_or(&scope.text);
-    let (summary, truncated) = tokio::time::timeout(
-        std::time::Duration::from_secs(15),
-        schema(host, session_id, focus),
-    )
-    .await
-    .map_err(|_| DbError::new(ErrorKind::Timeout, "Schema context timed out"))??;
+    let mut partial = (String::new(), false);
+    let (summary, truncated, timed_out) = match tokio::time::timeout(
+        timeout, schema(host, session_id, focus, &mut partial),
+    ).await {
+        Ok(Err(error)) if error.kind == ErrorKind::Timeout && !partial.0.is_empty() => (partial.0, true, true),
+        Ok(result) => {
+            let (summary, truncated) = result?;
+            (summary, truncated, false)
+        }
+        Err(_) if !partial.0.is_empty() => (partial.0, true, true),
+        Err(_) => return Err(DbError::new(ErrorKind::Timeout, "Schema context timed out")),
+    };
+    let schema_note = if timed_out {
+        Some("Schema context is partial because metadata loading timed out")
+    } else if summary.is_empty() {
+        Some("No schema metadata was returned by the driver graph or explorer")
+    } else {
+        None
+    };
     let mode = if scope.read_only { AccessMode::ReadOnly } else { host.access_mode(&record)? };
-    let value = json!({"session_id":session_id,"schema_note":summary.is_empty().then_some("No schema metadata was returned by the driver graph or explorer"),"schema":summary,"schema_truncated":truncated,"schema_byte_limit":SCHEMA_BYTES,
+    let value = json!({"session_id":session_id,"schema_note":schema_note,"schema":summary,"schema_truncated":truncated,"schema_byte_limit":SCHEMA_BYTES,
         "query_language":manifest.query_language,"paradigm":manifest.paradigm,"text":clipped(&storage::redact(&scope.text,record.secret.as_deref()),8000),"selection":clipped(&storage::redact(&scope.selection,record.secret.as_deref()),8000),
         "run":recent.as_ref().map(|r|&r.run),"run_context_expired":scope.run.is_some() && recent.is_none(),"error":recent.as_ref().and_then(|r|r.error.as_ref()),
         "results":last_results,"run_text":recent.as_ref().map(|r|&r.text),"access_mode":mode,
@@ -395,6 +461,96 @@ mod tests {
             }),
             dir,
         )
+    }
+    struct MetadataSession {
+        calls: std::sync::Mutex<Vec<Option<String>>>,
+        initial: bool,
+        stall: bool,
+    }
+    fn graph() -> SchemaGraph {
+        SchemaGraph { entities: vec![SchemaEntity {
+            id: "items".into(), name: "items".into(), kind: "table".into(), fields: vec![],
+        }], relations: vec![] }
+    }
+    #[async_trait::async_trait]
+    impl Session for MetadataSession {
+        async fn ping(&self) -> Result<(), DbError> { Ok(()) }
+        async fn server_info(&self) -> Result<String, DbError> { Ok("test".into()) }
+        async fn schema_graph(&self, scope: Option<&str>) -> Result<SchemaGraph, DbError> {
+            self.calls.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push(scope.map(str::to_owned));
+            if self.stall && (self.initial || scope == Some("slow")) {
+                std::future::pending::<()>().await;
+            }
+            Ok(if self.initial || scope == Some("ready") { graph() } else { SchemaGraph::default() })
+        }
+        async fn list_children(&self, _: Option<&str>) -> Result<Vec<ExplorerNode>, DbError> {
+            Ok([None, Some("ready"), Some("ready"), Some("slow")].into_iter().enumerate().map(|(i, scope)| ExplorerNode {
+                id: i.to_string(), label: i.to_string(), kind: "schema".into(), detail: None,
+                icon: Icon::Database, has_children: false,
+                actions: vec![NodeAction { id: "graph".into(), label: "Graph".into(), kind: NodeActionKind::OpenSchemaGraph { scope: scope.map(str::to_owned) } }],
+            }).collect())
+        }
+        async fn browse(&self, _: &str, _: PageRequest) -> Result<ResultSet, DbError> { Err(DbError::unsupported("test")) }
+        async fn execute(&self, _: &ExecRequest, _: CancelToken) -> Result<Vec<ResultSet>, DbError> { Err(DbError::unsupported("test")) }
+        async fn expand(&self, _: &str, _: u32) -> Result<ResultSet, DbError> { Err(DbError::unsupported("test")) }
+        async fn close(&self) {}
+    }
+    fn metadata_host(initial: bool, stall: bool) -> (Host, Arc<MetadataSession>, std::path::PathBuf) {
+        let (host, dir) = host();
+        host.registry.register(Arc::new(driver_sqlite::SqliteDriver::new()));
+        let session = Arc::new(MetadataSession { calls: Default::default(), initial, stall });
+        host.sessions.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert("s".into(), Arc::new(crate::SessionRecord {
+            session: session.clone(),
+            profile: storage::Profile {
+                id: "context-test".into(), name: "Context test".into(), driver_id: "sqlite".into(),
+                fields: Default::default(), save_secret: false, network: None,
+                auth: Default::default(), access_mode: Default::default(),
+            },
+            secret: None, _tunnel: None, dead: AtomicBool::new(false),
+        }));
+        (host, session, dir)
+    }
+    #[tokio::test]
+    async fn context_cache_hit_expiry_and_execution_invalidation() {
+        let (host, session, dir) = metadata_host(true, false);
+        for focus in ["items", "different focus"] {
+            let value = build(&host, "s", Scope { focus: Some(focus.into()), ..Default::default() }).await.unwrap();
+            assert!(value["schema"].as_str().unwrap().contains("items"));
+        }
+        assert_eq!(*session.calls.lock().unwrap_or_else(std::sync::PoisonError::into_inner), vec![None]);
+        host.schema_cache.lock().unwrap_or_else(std::sync::PoisonError::into_inner).graphs.values_mut().for_each(|(at, _)| *at = Instant::now() - SCHEMA_TTL);
+        build(&host, "s", Scope::default()).await.unwrap();
+        assert_eq!(session.calls.lock().unwrap_or_else(std::sync::PoisonError::into_inner).len(), 2);
+        remember(&host, "s", "ddl", "CREATE TABLE next(id int)", Ok(&[]));
+        build(&host, "s", Scope::default()).await.unwrap();
+        assert_eq!(session.calls.lock().unwrap_or_else(std::sync::PoisonError::into_inner).len(), 3);
+        host.schema_cache.lock().unwrap_or_else(std::sync::PoisonError::into_inner).invalidate("s");
+        assert!(host.schema_cache.lock().unwrap_or_else(std::sync::PoisonError::into_inner).graphs.is_empty());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+    #[tokio::test]
+    async fn context_each_scope_is_read_once_including_none() {
+        let (host, session, dir) = metadata_host(false, false);
+        for _ in 0..2 { build(&host, "s", Scope::default()).await.unwrap(); }
+        assert_eq!(*session.calls.lock().unwrap_or_else(std::sync::PoisonError::into_inner), vec![None, Some("ready".into()), Some("slow".into())]);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+    #[tokio::test]
+    async fn context_timeout_returns_partial_metadata_and_note() {
+        let (host, session, dir) = metadata_host(false, true);
+        let value = build_with_timeout(&host, "s", Scope::default(), Duration::from_millis(20)).await.unwrap();
+        assert!(value["schema"].as_str().unwrap().contains("items"));
+        assert_eq!(value["schema_truncated"], true);
+        assert!(value["schema_note"].as_str().unwrap().contains("partial"));
+        assert_eq!(*session.calls.lock().unwrap_or_else(std::sync::PoisonError::into_inner), vec![None, Some("ready".into()), Some("slow".into())]);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+    #[tokio::test]
+    async fn context_timeout_without_metadata_is_an_error() {
+        let (host, _, dir) = metadata_host(true, true);
+        let error = build_with_timeout(&host, "s", Scope::default(), Duration::from_millis(20)).await.unwrap_err();
+        assert_eq!(error.kind, ErrorKind::Timeout);
+        std::fs::remove_dir_all(dir).unwrap();
     }
     #[test]
     fn rows_require_consent_and_remove_sensitive_and_nested_values() {
@@ -480,6 +636,7 @@ mod tests {
             .await
             .unwrap();
         let (host, dir) = host();
+        host.registry.register(driver.clone());
         let profile = storage::Profile {
             id: "ai-test".into(),
             name: "AI test".into(),
@@ -488,7 +645,7 @@ mod tests {
             save_secret: false, network: None, auth: Default::default(),
             access_mode: Default::default(),
         };
-        host.sessions.lock().unwrap().insert(
+        host.sessions.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert(
             "s".into(),
             Arc::new(crate::SessionRecord {
                 session: Arc::from(session),
@@ -595,6 +752,7 @@ mod tests {
         .await;
     }
     #[tokio::test]
+    #[allow(clippy::print_stderr)] // Intentional skip notice for optional live integration tests.
     async fn postgres_real_context() {
         let Ok(target) = std::env::var("AXDB_TEST_PG") else {
             eprintln!("AXDB_TEST_PG unset: live AI context not run");
@@ -616,6 +774,7 @@ mod tests {
             &format!("DROP SCHEMA {schema} CASCADE"),"ai1_child","foreign_key", &schema).await;
     }
     #[tokio::test]
+    #[allow(clippy::print_stderr)] // Intentional skip notice for optional live integration tests.
     async fn neo4j_real_context() {
         let Ok(target) = std::env::var("AXDB_TEST_NEO4J") else {
             eprintln!("AXDB_TEST_NEO4J unset: live AI context not run");
@@ -642,6 +801,7 @@ mod tests {
         .await;
     }
     #[tokio::test]
+    #[allow(clippy::print_stderr)] // Intentional skip notice for optional live integration tests.
     async fn mongodb_real_context() {
         let Ok(uri) = std::env::var("AXDB_TEST_MONGO") else {
             eprintln!("AXDB_TEST_MONGO unset: live Mongo context not run");
@@ -680,7 +840,7 @@ mod tests {
         }
         assert!(run(&host, "0").is_err());
         assert!(run(&host, "29").is_ok());
-        assert_eq!(host.context_runs.lock().unwrap().len(), 20);
+        assert_eq!(host.context_runs.lock().unwrap_or_else(std::sync::PoisonError::into_inner).len(), 20);
         std::fs::remove_dir_all(dir).unwrap();
     }
 }

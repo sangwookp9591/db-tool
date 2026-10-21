@@ -321,7 +321,8 @@ pub fn parse(
         let mut values = vec![];
         let mut valid = true;
         for m in &mapping {
-            let raw = &row[columns.iter().position(|c| c == &m.source).unwrap()];
+            let Some(column_index) = columns.iter().position(|c| c == &m.source) else { return Err(DbError::query("Invalid or duplicate column mapping")); };
+            let raw = &row[column_index];
             let value = if let Some(raw) = raw {
                 match m.type_name.as_str() {
                     "text" => Ok(Value::Text(raw.clone())),
