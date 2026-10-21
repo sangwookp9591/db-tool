@@ -15,7 +15,7 @@ beforeAll(async () => {
     load(id) {
       if (id !== 'virtual:client-tools-probe') return;
       return `import {h,render} from 'preact';import {useState} from 'preact/hooks';import {ToolAccessList} from '/src/agent/ToolAccessList.tsx';import {ClientConnectGuide} from '/src/agent/ClientConnectGuide.tsx';import {SpringCheck} from '/src/ui/SpringCheck.tsx';import '/src/theme.css';import '/src/style.css';
-        function Probe(){const [allowed,setAllowed]=useState(['list_connections','run_query']);return h('div',{class:'probe'},h('div',{class:'agent-clients'},h(ToolAccessList,{allowed,onChange:setAllowed}),h('output',{id:'allowed'},allowed.join(',')),h(SpringCheck,{checked:true,disabled:true,label:'잠긴 설정'}),h(ClientConnectGuide,{client:'QA Codex',url:'http://127.0.0.1:47831/mcp',token:'secret-test-token',onCopy:(value,message)=>{window.__copy={value,message}}})));}render(h(Probe),document.querySelector('#root'));`;
+        function Probe(){const [allowed,setAllowed]=useState(['list_connections','run_query']);const [url,setUrl]=useState(location.search.includes('bridge=off')?'':'http://127.0.0.1:47831/mcp');return h('div',{class:'probe'},h('div',{class:'agent-clients'},h(ToolAccessList,{allowed,onChange:setAllowed}),h('output',{id:'allowed'},allowed.join(',')),h(SpringCheck,{checked:true,disabled:true,label:'잠긴 설정'}),h('button',{onClick:()=>setUrl(url?'':'http://127.0.0.1:47831/mcp')},'테스트 브리지 전환'),h(ClientConnectGuide,{client:'QA Codex',url,token:'secret-test-token',onCopy:(value,message)=>{window.__copy={value,message}}})));}render(h(Probe),document.querySelector('#root'));`;
     },
   }], optimizeDeps: { rolldownOptions: { transform: { jsx: { runtime: 'automatic', importSource: 'preact' } } } }, cacheDir: `node_modules/.vite-client-tools-${crypto.randomUUID()}`, server: { host: '127.0.0.1', port: 0, hmr: false }, logLevel: 'error' });
   await server.listen(); base = server.resolvedUrls!.local[0];
@@ -91,3 +91,32 @@ it('escapes shell arguments in provider commands', () => {
 });
 
 it('provides reusable settings without an issued token',()=>{expect(clientConfig('codex','http://localhost/mcp')).toContain('bearer_token_env_var');expect(JSON.parse(clientConfig('json','http://localhost/mcp')).mcpServers.axdb.headers.Authorization).toBe('Bearer <발급된 토큰>');});
+
+
+it('blocks setup copies until the bridge address is ready and updates them when the bridge changes', async () => {
+  const page = await browser.newPage();
+  try {
+    await page.goto(base + 'client-tools-probe?bridge=off');
+    await page.addScriptTag({ type: 'module', url: '/@id/virtual:client-tools-probe' });
+    const guideCopy = page.getByRole('button', { name: '연결 방법 복사', exact: true });
+    const configCopy = page.getByRole('button', { name: '설정 복사', exact: true });
+    expect(await guideCopy.isDisabled()).toBe(true);
+    expect(await configCopy.isDisabled()).toBe(true);
+    expect(await page.locator('.client-connect-guide__code').count()).toBe(0);
+    expect(await page.locator('.client-connect-guide').innerText()).toContain('이 창 위쪽의 MCP 브리지를 켜세요');
+    await page.getByRole('button', { name: '테스트 브리지 전환' }).click();
+    expect(await guideCopy.isEnabled()).toBe(true);
+    await guideCopy.click();
+    expect(await page.evaluate(() => window.__copy?.value)).toContain("--url 'http://127.0.0.1:47831/mcp'");
+    await page.getByRole('button', { name: '테스트 브리지 전환' }).click();
+    expect(await guideCopy.isDisabled()).toBe(true);
+    expect(await configCopy.isDisabled()).toBe(true);
+  } finally { await page.close(); }
+}, 30000);
+
+it('does not generate a command or config without a bridge address', () => {
+  for (const kind of ['codex', 'claude', 'json'] as const) {
+    expect(clientCommand(kind, '')).toBe('');
+    expect(clientConfig(kind, '')).toBe('');
+  }
+});
