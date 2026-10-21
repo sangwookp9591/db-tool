@@ -12,3 +12,6 @@ async-trait.workspace = true
 tokio.workspace = true
 serde_json.workspace = true
 redis.workspace = true
+
+[lints]
+workspace = true

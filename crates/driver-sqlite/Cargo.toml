@@ -19,3 +19,6 @@ sqlparser = "0.63"
 [dev-dependencies]
 serde_json.workspace = true
 tempfile = "3"
+
+[lints]
+workspace = true

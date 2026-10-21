@@ -12,3 +12,6 @@ axdb-driver-protocol = { path = "../driver-protocol" }
 dbcore.workspace = true
 tokio.workspace = true
 mimalloc = { version = "=0.1.52", default-features = false }
+
+[lints]
+workspace = true

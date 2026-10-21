@@ -25,3 +25,6 @@ sqlparser = "0.63"
 axdb-driver-protocol = { path = "../driver-protocol" }
 tracing = "0.1"
 tempfile = "3"
+
+[lints]
+workspace = true

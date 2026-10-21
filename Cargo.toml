@@ -4,7 +4,7 @@ resolver = "3"
 exclude = ["vendor/neo4rs"]
 
 [workspace.package]
-version = "0.3.3"
+version = "0.3.4"
 edition = "2024"
 rust-version = "1.99"
 license = "MIT"
@@ -13,7 +13,7 @@ license = "MIT"
 async-trait = "0.1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "net", "io-util", "io-std", "fs", "process"] }
 tokio-util = "0.7"
 dbcore = { path = "crates/dbcore" }
 redis = { version = "1.7.1", default-features = false, features = ["tokio-comp"] }
@@ -23,3 +23,28 @@ opt-level = 3
 lto = true
 codegen-units = 1
 strip = true
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+unused_must_use = "deny"
+rust_2018_idioms = { level = "warn", priority = -1 }
+missing_debug_implementations = "allow"
+
+[workspace.lints.clippy]
+perf = { level = "warn", priority = -1 }
+correctness = { level = "deny", priority = -1 }
+suspicious = { level = "warn", priority = -1 }
+await_holding_lock = "deny"
+await_holding_refcell_ref = "deny"
+large_futures = "warn"
+redundant_clone = "warn"
+needless_collect = "warn"
+inefficient_to_string = "warn"
+unwrap_used = "deny"
+expect_used = "deny"
+dbg_macro = "deny"
+todo = "deny"
+print_stdout = "deny"
+print_stderr = "deny"
+mem_forget = "deny"
+rc_mutex = "warn"

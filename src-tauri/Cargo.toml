@@ -9,6 +9,7 @@ license.workspace = true
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+rusqlite = { version = "0.40.2", features = ["bundled"] }
 tempfile = "3"
 zstd = "0.13"
 csv = "1.4"
@@ -70,3 +71,6 @@ default = ["custom-protocol"]
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSProcessInfo", "NSString", "NSObject"] }
+
+[lints]
+workspace = true

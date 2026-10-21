@@ -16,3 +16,6 @@ neo4rs = { path = "../../vendor/neo4rs", version = "=0.9.0-rc.10", features = ["
 chrono = "0.4"
 url = "2"
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
+
+[lints]
+workspace = true
