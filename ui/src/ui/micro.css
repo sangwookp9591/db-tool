@@ -128,7 +128,7 @@
 .integration-beam__hub { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .integration-beam__hub > .integration-beam__tile { width: 80px; height: 80px; background: var(--surface-active); }
 .integration-beam__status { width: 120px; padding: 4px; border: 1px solid var(--border-default); border-radius: var(--radius); background: var(--bg-elevated); text-align: center; font-size:11px; }
-.integration-beam__pulse { position: absolute; left: 0; top: 0; width: 1px; height: 2px; opacity: 0; transform-origin: left center; background: linear-gradient(90deg, color-mix(in srgb,var(--accent-primary) 0%,transparent), var(--accent-primary), var(--accent-secondary)); }
+.integration-beam__pulse { position: absolute; left: 0; top: 0; width: 1px; height: 2px; opacity: 0; transform-origin: left center; background: var(--accent-primary); }
 .integration-beam__pulse[data-tone=success] { background: var(--accent-success); }
 .integration-beam__pulse[data-tone=warning] { background: var(--accent-warning); }
 .integration-beam__ring { position: absolute; inset: 0; border: 2px solid var(--accent-primary); border-radius: inherit; opacity: 0; pointer-events: none; }

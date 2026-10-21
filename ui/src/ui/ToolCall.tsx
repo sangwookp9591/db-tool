@@ -117,7 +117,7 @@ export function ToolCallGroup({ calls, defaultOpen = false, ...accessibility }: 
   return <section className="tool-group" aria-label={accessibility['aria-label'] ?? accessibility.ariaLabel ?? 'Tool activity'} data-testid={accessibility['data-testid'] ?? accessibility.testId}>
     <Button bare type="button" className="tool-group__header" aria-expanded={open} aria-controls={id} onClick={() => setOpen(!open)}>
       <span className="tool-group__icons" aria-hidden="true">{calls.slice(-3).map(call => <span key={call.id}>{call.icon ?? <Wrench size={14} />}</span>)}</span>
-      <span className="ax-button__label">{running ? '도구 사용 중…' : `도구 ${calls.length}개 사용${calls.length > 0 && calls.every(call => call.durationMs !== undefined) ? ` · ${(calls.reduce((sum, call) => sum + call.durationMs!, 0) / 1000).toFixed(1)}s` : ''}`}{running && <span className="ax-button__shine" aria-hidden="true" />}</span>
+      <span className="ax-button__label">{running ? '도구 사용 중…' : `도구 ${calls.length}개 사용${calls.length > 0 && calls.every(call => call.durationMs !== undefined) ? ` · ${(calls.reduce((sum, call) => sum + call.durationMs!, 0) / 1000).toFixed(1)}s` : ''}`}</span>
       {failed > 0 && <span className="tool-group__failed">실패 {failed}개</span>}<ChevronDown className="ax-chevron" data-open={open} size={14} aria-hidden="true" />
     </Button>
     <div id={id} hidden={!open}>{open && <div className="tool-group__body ax-reveal">{calls.map(call => <ToolCall key={call.id} {...call} />)}</div>}</div>

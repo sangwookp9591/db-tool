@@ -61,7 +61,7 @@ function AnimatedButton({ variant = 'secondary', size = 'sm', loading = false, i
     onClick={event => { if (!disabled && !loading) onClick?.(event); }}>
     {bare ? children : <span ref={content} className="ax-button__content">
       {loading ? <LoaderCircle className="ax-spinner" size={16} aria-hidden="true" /> : icon && <span className="ax-button__icon" aria-hidden="true">{icon}</span>}
-      {children != null && <span className="ax-button__label">{children}{loading && <span className="ax-button__shine" aria-hidden="true" />}</span>}
+      {children != null && <span className="ax-button__label">{children}</span>}
       {iconRight && <span className="ax-button__icon" aria-hidden="true">{iconRight}</span>}
     </span>}
   </button>;
