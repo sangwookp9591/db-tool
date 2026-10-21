@@ -34,3 +34,16 @@
 :is(input,textarea,[contenteditable],.cm-editor,td,pre,code,details,.driver-error,.row-inspector,.document-tree,.json-view,.result-title,.message,.notice){-webkit-user-select:text;user-select:text}
 
 .edit-table td[aria-disabled="true"] { opacity: .55; cursor: not-allowed; background: var(--surface-secondary); }
+
+/* Keep query editor controls static; retain keyboard focus indication. */
+.query-toolbar>.ax-button,.query-toolbar>.ax-button .ax-button__content,.query-toolbar>.ax-button .ax-button__label{transition:none!important;animation:none!important}
+.query-toolbar>.ax-button .ax-button__content,.query-toolbar>.ax-button .ax-button__label{opacity:1!important;transform:none!important}
+.query-toolbar>.ax-button{width:auto!important}
+.query-toolbar>.ax-button:hover:enabled:not(:focus-visible){box-shadow:none}
+.query-toolbar>.ax-button:active:enabled{transform:none}
+.editor-pane,.editor-pane *,.editor-splitter{transition:none!important;animation:none!important}
+.editor-splitter:focus-visible{outline:2px solid var(--border-focus);outline-offset:-2px}
+/* 이력·메모 패널이 열려 결과 영역이 줄어도 쿼리 탭의 내용이 박스 밖으로 그려지지 않게: flex 체인에 min-height:0과 clip을 두어 표만 내부 스크롤, 상태 줄은 박스 안에 고정 */
+.query-tab,.results-wrap,.results-wrap>.results,.results-wrap .result-set,.results-wrap .result-content,.results-wrap .view-pane,.results-wrap .table-area{min-height:0;overflow:hidden}
+.results-wrap .virtual-scroll{min-height:0}
+:root section.history.library{height:clamp(180px,28vh,306px);max-height:min(306px,38vh)}

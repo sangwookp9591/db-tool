@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { AlertTriangle, ChevronRight, GitBranch, Sparkles } from 'lucide-preact';
 import { api, isMock } from '../api';
 import { Button } from '../ui/Button';
@@ -16,7 +16,17 @@ function warnings(node: PlanTree) {
 function flatten(node: PlanTree): PlanTree[] { return [node, ...node.children.flatMap(flatten)]; }
 export function QueryPlan({sessionId,query,onTarget,onInsert,canRecommendIndexes}:{sessionId:string;query:string;canRecommendIndexes?:boolean;onTarget?:(target:string)=>void;onInsert:(text:string)=>void}){
  const [plan,setPlan]=useState<PlanTree|null>(null),[selected,setSelected]=useState<PlanTree|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[ai,setAi]=useState<'explain'|'recommend_indexes'|null>(null);
- async function explain(analyze:boolean){setBusy(true);setError('');setPlan(null);setSelected(null);setAi(null);try{const result=await api('explain_query',{sessionId,runId:crypto.randomUUID(),query,analyze});setPlan(result);setSelected(result);}catch(e){setError(String((e as Error).message??e));}finally{setBusy(false);}}
+ const request=useRef<string|null>(null);
+ useEffect(()=>{setPlan(null);setSelected(null);setAi(null);setError('');setBusy(false);return()=>{const runId=request.current;request.current=null;if(runId)void api('cancel',{runId}).catch(()=>{});};},[sessionId,query]);
+ async function explain(analyze:boolean){
+  if(request.current)return;
+  const runId=crypto.randomUUID();request.current=runId;
+  setBusy(true);setError('');setPlan(null);setSelected(null);setAi(null);
+  try{const result=await api('explain_query',{sessionId,runId,query,analyze});if(request.current===runId){setPlan(result);setSelected(result);}}
+  catch(e){if(request.current===runId)setError(String((e as Error).message??e));}
+  finally{if(request.current===runId){request.current=null;setBusy(false);}}
+ }
+ function cancel(){const runId=request.current;if(runId)void api('cancel',{runId}).catch(e=>{if(request.current===runId)setError(String((e as Error).message??e));});}
  const ready=useAiReady();
  async function navigate(target:string){setBusy(true);setError('');try{const node=await planTarget(target,parent=>api('explorer_children',{sessionId,parent}));onTarget?.(node.id);}catch(e){setError(String((e as Error).message??e));}finally{setBusy(false);}}
  const nodes=plan?flatten(plan):[], costed=nodes.filter(item=>item.cost!==null);
@@ -30,7 +40,7 @@ export function QueryPlan({sessionId,query,onTarget,onInsert,canRecommendIndexes
    <span class="ax-row-chips"><span>예상 <b>{number(item.est_rows)}</b></span><span>실제 <b>{number(item.actual_rows)}</b></span></span>
   </Button>{!!item.children.length&&<ul class="ax-tree">{item.children.map((child,i)=>node(child,i,hot&&largestChild>0&&child.cost===largestChild))}</ul>}</li>;
  }
- return <section class="ax-query-plan"><div class="ax-inline"><Button morph={false} disabled={busy||!query.trim()} onClick={()=>void explain(false)}>실행 계획 읽기</Button><Button morph={false} disabled={busy||!query.trim()} onClick={()=>void explain(true)}>실제 분석 · 롤백</Button><small>ANALYZE는 호스트의 롤백 경로에서만 실행합니다.</small></div>{busy&&<p role="status">계획을 읽고 있습니다…</p>}{plan?<>
+ return <section class="ax-query-plan"><div class="ax-inline"><Button morph={false} disabled={busy||!query.trim()} onClick={()=>void explain(false)}>실행 계획 읽기</Button><Button morph={false} disabled={busy||!query.trim()} onClick={()=>void explain(true)}>실제 분석 · 롤백</Button>{busy&&request.current&&<Button morph={false} onClick={cancel}>계획 읽기 취소</Button>}<small>ANALYZE는 호스트의 롤백 경로에서만 실행합니다.</small></div>{busy&&<p role="status">계획을 읽고 있습니다…</p>}{plan?<>
   <div class="ax-plan-summary" aria-label="실행 계획 요약"><div><small>총비용 · 루트 추정</small><strong>{number(plan.cost)}</strong></div><div><small>가장 비싼 노드</small><strong>{expensive?.op??'비용 정보 없음'}</strong></div><div data-warning={warningCount>0}><small>검토할 경고</small><strong>{warningCount}<span>개</span></strong></div></div>
   <div class="ax-plan-layout"><div class="ax-plan-tree"><div class="ax-plan-tree-heading"><span>실행 경로 <small>{nodes.length}개 노드</small></span><small>비용은 최대 노드 대비 · 강조선은 고비용 경로</small></div><ul class="ax-tree">{node(plan,0,max>0)}</ul></div>
    {selected&&<aside class="ax-plan-detail" aria-label="선택한 노드 상세"><small>노드 상세</small><h3>{selected.op}</h3><p>{selected.target??'중간 결과'}</p><dl><div><dt>추정 비용</dt><dd>{number(selected.cost)}</dd></div><div><dt>예상 행 수</dt><dd>{number(selected.est_rows)}</dd></div><div><dt>실제 행 수</dt><dd>{number(selected.actual_rows)}</dd></div></dl>{warnings(selected).map(w=><p key={w} class="ax-node-warning"><AlertTriangle aria-hidden="true"/>{w}</p>)}{selected.target&&<Button morph={false} disabled={!onTarget||busy} onClick={()=>void navigate(selected.target!)}>탐색기에서 보기<ChevronRight aria-hidden="true"/></Button>}</aside>}

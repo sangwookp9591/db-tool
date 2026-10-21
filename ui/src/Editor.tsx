@@ -3,26 +3,29 @@ import type { Diagnostic } from './ax/editorContract';
 import type { SqlTableName } from './explorer';
 import { useEffect, useRef } from 'preact/hooks';
 import { EditorState, Compartment, StateEffect, StateField, type Extension } from '@codemirror/state';
-import { Decoration, EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection } from '@codemirror/view';
+import { Decoration, EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection, type DecorationSet } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap, isolateHistory, undo, redo } from '@codemirror/commands';
 import { defaultHighlightStyle, HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 const appliedRange=StateEffect.define<{from:number;to:number}|null>();
 const appliedMark=StateField.define({create:()=>Decoration.none,update:(value,tr)=>{let next=value.map(tr.changes);for(const effect of tr.effects)if(effect.is(appliedRange))next=effect.value&&effect.value.to>effect.value.from?Decoration.set([Decoration.mark({class:'ai-applied-range'}).range(effect.value.from,effect.value.to)]):Decoration.none;return next;},provide:field=>EditorView.decorations.from(field)});
+// Lint underlines live in editor state so they are mapped through every edit. A fixed DecorationSet keeps absolute
+// positions: after the document shrinks, stale ranges exceed its length and CodeMirror throws while rendering.
+const lintMarks=StateEffect.define<DecorationSet>();
+const lintField=StateField.define<DecorationSet>({create:()=>Decoration.none,update:(value,tr)=>{let next=value.map(tr.changes);for(const effect of tr.effects)if(effect.is(lintMarks))next=effect.value;return next;},provide:field=>EditorView.decorations.from(field)});
 export interface EditorHandle { undo: () => boolean; revision: () => number; text: () => string; selection: () => string; insert: (text: string) => void; replace: (text: string) => void }
 interface Props { completionTables?: SqlTableName[]; driverId?: string; diagnostics?: Diagnostic[]; onRefactor?: () => void; text: string; mode: string; onChange: (text: string) => void; onRun: () => void; onReady: (handle: EditorHandle | null) => void; onError: (error: unknown) => void }
 export function Editor(props: Props) {
   const parent = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
-  const lint = useRef(new Compartment());
   const language = useRef(new Compartment());
-  useEffect(() => { const view=viewRef.current; if(!view)return; const marks=(props.diagnostics??[]).filter(d=>d.start>=0&&d.end>d.start&&d.end<=view.state.doc.length).map(d=>Decoration.mark({class:"ax-lint-underline",attributes:{title:d.message}}).range(d.start,d.end)); view.dispatch({effects:lint.current.reconfigure(EditorView.decorations.of(Decoration.set(marks,true)))}); }, [props.diagnostics]);
+  useEffect(() => { const view=viewRef.current; if(!view)return; const marks=(props.diagnostics??[]).filter(d=>d.start>=0&&d.end>d.start&&d.end<=view.state.doc.length).map(d=>Decoration.mark({class:"ax-lint-underline",attributes:{title:d.message}}).range(d.start,d.end)); view.dispatch({effects:lintMarks.of(Decoration.set(marks,true))}); }, [props.diagnostics]);
   const latest = useRef(props); latest.current = props;
   useEffect(() => {
     if (!parent.current) return;
     let disposed = false; let revision = 0;const owner=crypto.randomUUID();const historyMode=(active:boolean)=>{if(!isMock)void api('editor_history_mode',{owner,active}).catch(error=>latest.current.onError(error));};
     let highlightTimer:ReturnType<typeof setTimeout>|undefined;
     const view = new EditorView({ parent: parent.current, state: EditorState.create({ doc: latest.current.text, extensions: [
-      lineNumbers(), history(), appliedMark, drawSelection({ cursorBlinkRate: 0 }), highlightActiveLine(), syntaxHighlighting(HighlightStyle.define(defaultHighlightStyle.specs.map(spec => spec.color ? { ...spec, color: `var(--syntax-${String(spec.color).slice(1)}, ${spec.color})` } : spec))), language.current.of([]), lint.current.of([]),
+      lineNumbers(), history(), appliedMark, drawSelection({ cursorBlinkRate: 0 }), highlightActiveLine(), syntaxHighlighting(HighlightStyle.define(defaultHighlightStyle.specs.map(spec => spec.color ? { ...spec, color: `var(--syntax-${String(spec.color).slice(1)}, ${spec.color})` } : spec))), language.current.of([]), lintField,
       EditorView.domEventHandlers({focus:()=>{historyMode(true);return false;},blur:()=>{historyMode(false);return false;}}),
       EditorView.contentAttributes.of({ 'aria-label': 'Query editor', spellcheck: 'false' }),
       keymap.of([{ key: 'Mod-.', run: () => { latest.current.onRefactor?.(); return !!latest.current.onRefactor; } }, { key: 'Mod-Enter', run: () => { latest.current.onRun(); return true; } }, ...defaultKeymap, ...historyKeymap]),
