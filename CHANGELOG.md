@@ -13,7 +13,9 @@ Detailed release notes are in [`docs/release-notes`](docs/release-notes). The ap
 
 - History moved from a rewrite-the-whole-file JSONL log (capped at 1,000 rows) to an embedded SQLite store with FTS5: constant-cost appends, bounded searches, and retention of 50,000 rows / 180 days. `history.jsonl` is migrated once (corrupt lines skipped) and kept as `history.jsonl.migrated`. Secret redaction is unchanged.
 - AI chat errors show an error icon, Korean guidance, collapsible raw text, and a retry action; bubbles, context chips, and the composer are aligned.
-- AX workbench forms use one shared `Select` and `FilePicker` (Korean labels, drag and drop). Client map layout no longer overlaps. Hover animations on the editor area were removed.
+- AX workbench forms use one shared `Select` and `FilePicker` (Korean labels, drag and drop). Client map layout no longer overlaps.
+- Design review with the app-screen rules (inspector on the connected working screen, 1440px: 5 FAIL → 0): `BorderGlow` and `SpotlightCard` no longer draw a pointer-following gradient or run `requestAnimationFrame` on every `pointermove` (this was the real cause of the editor hover animation; it also removed the conic-gradient border from every dialog); brand buttons are a flat accent fill instead of the brand gradient; all 9–10px text (96 declarations, 319 elements) is now 11px; connection tiles lose their tinted square; the "ask the panel" action moved into the first toolbar row (the editor starts 40px higher and the results area is 41px taller at 1440×900); result toolbar actions are grouped on the right; empty workspace and query screens have an h1.
+- Not changed on purpose: the brand violet accent (`#5B45E0`) and the loading/skeleton shimmers; 98% of the text is under 13px, which is kept for a dense database tool.
 - Tokio features were reduced from `full` to the set actually used.
 
 ### Fixed
