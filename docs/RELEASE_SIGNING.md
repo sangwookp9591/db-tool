@@ -168,6 +168,8 @@ gh release create v0.1.0 "$DMG" target/x86_64-pc-windows-msvc/release/bundle/nsi
 - 개인 키 위치: `~/.tauri/axdb-updater.key`. 개인 키 내용은 출력하거나 저장소에 넣지 않습니다.
 - 암호: macOS 키체인 서비스 `axdb-updater`, 계정 `signing-key-password`. 스크립트가 `security find-generic-password`의 출력을 환경 변수로만 받아 사용하고 빌드 뒤 해제합니다. `set -x`를 끄며 암호를 CLI 인자로 전달하지 않습니다.
 - **키를 분실하면 기존 설치 앱의 업데이트 체인이 끊깁니다.** 암호와 함께 별도 보안 저장소에 백업하세요. 임의로 새 키를 만들고 공개 키만 교체해도 기존 앱은 새 서명을 신뢰하지 않습니다. 그런 경우 사용자는 새 설치 파일을 수동으로 설치해야 합니다.
+- **키 교체 기록(2026-10-21).** PC를 포맷하면서 이전 개인 키(공개 키 ID `090C8912E2EF87AA`)를 잃었다. 설치된 사용자가 없어서 끊어질 업데이트 체인이 없었고, 새 키(공개 키 ID `B14193875908BFDA`)를 만들어 `src-tauri/tauri.conf.json`의 공개 키를 교체했다. 0.3.3 이하 앱은 새 키의 서명을 신뢰하지 않으므로 0.3.4는 설치 파일로 한 번 설치해야 한다.
+- **백업 (필수).** 이번에 키를 잃은 원인이 백업이 없었기 때문이다. 다음 두 가지를 **서로 다른 안전한 곳**(암호 관리자와 암호화된 외장 저장소)에 보관한다: `~/.tauri/axdb-updater.key` 파일, 그리고 키체인의 암호(`security find-generic-password -s axdb-updater -a signing-key-password -w`로 확인). 키 ID는 공개 키를 base64로 풀어 보면 `untrusted comment: minisign public key: <ID>`로 나오므로, 복원한 키가 맞는지 이 ID로 대조한다.
 
 세 버전(Cargo workspace, Tauri, UI)을 맞추고 `docs/release-notes/v<버전>.md`를 작성한 뒤 실행합니다. 이미 존재하는 출력 디렉터리는 거부하므로 이전 실패 산출물은 먼저 다른 곳으로 옮겨 검토합니다.
 

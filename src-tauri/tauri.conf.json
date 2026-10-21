@@ -38,7 +38,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDA5MEM4OTEyRTJFRjg3QUEKUldTcWgrL2lFb2tNQ1NYdG5kS1doOFQyU09CQ01GV01jSkttL3BjdU1GYUdZSVVDT3djamFqTisK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEIxNDE5Mzg3NTkwOEJGREEKUldUYXZ3aFpoNU5Cc1c4WlQxV0xYZW5VenRocG1maW5uYyt1MmNjaEFIOWRUeTlaakFQN25xbjgK",
       "endpoints": [
         "https://github.com/sangwookp9591/db-tool/releases/latest/download/latest.json"
       ],
