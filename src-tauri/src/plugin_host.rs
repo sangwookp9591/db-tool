@@ -97,7 +97,7 @@ impl PluginDriver {
         let lease = self.process().await?;
         let process = lease.0.clone();
         if let Some(secret) = cfg.secret.as_ref().filter(|s| !s.is_empty()) {
-            let mut secrets = process.secrets.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            let mut secrets = process.secrets.lock_or_recover();
             if !secrets.contains(secret) {
                 secrets.push(secret.clone());
             }
@@ -137,7 +137,7 @@ struct SessionCount { active: usize, generation: u64, idle: Option<tokio::task::
 struct SessionLease(Arc<Process>);
 impl Drop for SessionLease {
     fn drop(&mut self) {
-        let mut sessions = self.0.sessions.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut sessions = self.0.sessions.lock_or_recover();
         sessions.active -= 1;
         if sessions.active != 0 || self.0.dead.is_cancelled() { return; }
         let generation = sessions.generation;
@@ -269,7 +269,7 @@ impl Process {
                             _ => unreachable!(),
                         };
                         let sender = {
-                            let mut pending = process.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+                            let mut pending = process.pending.lock_or_recover();
                             pending.get_mut(&id).map(|pending| {
                                 if pending.admit(&message,size) {
                                     Ok(pending.sender.clone())
@@ -324,7 +324,7 @@ impl Process {
     }
 
     fn reserve(self: &Arc<Self>) -> Option<SessionLease> {
-        let mut sessions = self.sessions.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut sessions = self.sessions.lock_or_recover();
         if self.dead.is_cancelled() { return None; }
         if let Some(idle) = sessions.idle.take() { idle.abort(); }
         sessions.active += 1;
@@ -333,7 +333,7 @@ impl Process {
     }
 
     fn expire_idle(&self, generation: u64) -> bool {
-        let mut sessions = self.sessions.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut sessions = self.sessions.lock_or_recover();
         if sessions.active != 0 || sessions.generation != generation || self.dead.is_cancelled() { return false; }
         sessions.idle.take();
         // Mark dead while holding the same lock as reserve; a concurrent connect must spawn a fresh process.
@@ -345,9 +345,9 @@ impl Process {
 
     fn fail(&self) {
         self.dead.cancel();
-        if let Some(idle) = self.sessions.lock().unwrap_or_else(std::sync::PoisonError::into_inner).idle.take() { idle.abort(); }
-        self.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clear();
-        if let Some(mut child) = self.child.lock().unwrap_or_else(std::sync::PoisonError::into_inner).take() {
+        if let Some(idle) = self.sessions.lock_or_recover().idle.take() { idle.abort(); }
+        self.pending.lock_or_recover().clear();
+        if let Some(mut child) = self.child.lock_or_recover().take() {
             let _ = child.start_kill();
             let reaped = self.reaped.clone();
             if let Ok(runtime) = tokio::runtime::Handle::try_current() {
@@ -419,7 +419,7 @@ impl Process {
     async fn responsive(self: &Arc<Self>) -> bool {
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         let (sender, mut incoming) = mpsc::channel(1);
-        self.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert(id, PendingResponse { sender, bytes: 0, backup_stream: false });
+        self.pending.lock_or_recover().insert(id, PendingResponse { sender, bytes: 0, backup_stream: false });
         let result = tokio::time::timeout(HANDSHAKE_TIMEOUT, async {
             self.send(&Message::Request { id, request: Request::Handshake { protocol: PROTOCOL } }).await.ok()?;
             match incoming.recv().await? {
@@ -427,7 +427,7 @@ impl Process {
                 _ => None,
             }
         }).await;
-        self.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove(&id);
+        self.pending.lock_or_recover().remove(&id);
         matches!(result, Ok(Some(())))
     }
 
@@ -448,8 +448,7 @@ impl Process {
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         let (sender, mut incoming) = mpsc::channel(8);
         self.pending
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .lock_or_recover()
             .insert(id, PendingResponse { sender, bytes: 0, backup_stream:matches!(request,Request::BackupStream{..}) });
         let mut guard = Pending {
             process: Arc::downgrade(self),
@@ -492,7 +491,7 @@ impl Process {
                     // Retire this request before probing so late chunks cannot
                     // fill its channel and block dispatch of the health reply.
                     guard.armed = false;
-                    self.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove(&id);
+                    self.pending.lock_or_recover().remove(&id);
                     incoming.close();
                     if !self.responsive().await { self.fail(); }
                     return Err(DbError::new(
@@ -504,12 +503,12 @@ impl Process {
                     Some(Message::Result { result, .. }) => {
                         if active.is_some() { self.fail(); return Err(invalid_reply()); }
                         guard.armed = false;
-                        self.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove(&id);
+                        self.pending.lock_or_recover().remove(&id);
                         return Ok(Response { reply: result, results, first_chunk: first_chunk.unwrap_or_else(|| started.elapsed()) });
                     }
                     Some(Message::Error { error, .. }) => {
                         guard.armed = false;
-                        self.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove(&id);
+                        self.pending.lock_or_recover().remove(&id);
                         return Err(error);
                     }
                     Some(Message::Chunk { chunk, .. }) => {
@@ -562,7 +561,7 @@ impl Process {
 
 fn log_stderr(process: &Weak<Process>, line: &[u8]) {
     if let Some(process) = process.upgrade() {
-        let text = redact_stderr(line, &process.secrets.lock().unwrap_or_else(std::sync::PoisonError::into_inner));
+        let text = redact_stderr(line, &process.secrets.lock_or_recover());
         tracing::warn!(target: "axdb::plugin_host", driver_stderr = %text);
     }
 }
@@ -592,7 +591,7 @@ impl Drop for Pending {
             return;
         }
         if let Some(process) = self.process.upgrade() {
-            process.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove(&self.id);
+            process.pending.lock_or_recover().remove(&self.id);
             let id = self.id;
             if let Ok(runtime) = tokio::runtime::Handle::try_current() {
                 runtime.spawn(async move {
@@ -950,7 +949,7 @@ impl Session for PluginSession {
                 )
                 .await;
             self.closed.cancel();
-            self.lease.lock().unwrap_or_else(std::sync::PoisonError::into_inner).take();
+            self.lease.lock_or_recover().take();
         }
     }
 }
@@ -1012,7 +1011,7 @@ mod tests {
                 .kind,
             ErrorKind::Query
         );
-        let pid = a.process.child.lock().unwrap_or_else(std::sync::PoisonError::into_inner).as_ref().unwrap().id();
+        let pid = a.process.child.lock_or_recover().as_ref().unwrap().id();
         a.process
             .child
             .lock()
@@ -1027,7 +1026,7 @@ mod tests {
         assert_eq!(a.ping().await.unwrap_err().kind, ErrorKind::Connection);
         assert_eq!(b.ping().await.unwrap_err().kind, ErrorKind::Connection);
         let c = driver.connect_plugin(&config()).await.unwrap();
-        assert_ne!(pid, c.process.child.lock().unwrap_or_else(std::sync::PoisonError::into_inner).as_ref().unwrap().id());
+        assert_ne!(pid, c.process.child.lock_or_recover().as_ref().unwrap().id());
         c.ping().await.unwrap();
         assert_eq!(a.ping().await.unwrap_err().kind, ErrorKind::Connection);
         c.close().await;
@@ -1052,7 +1051,7 @@ mod tests {
         let (sender, mut held) = mpsc::channel(8);
         let original = tokio::time::timeout(Duration::from_secs(2), async {
             loop {
-                if let Some(pending) = process.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).values_mut().next() {
+                if let Some(pending) = process.pending.lock_or_recover().values_mut().next() {
                     break std::mem::replace(&mut pending.sender, sender.clone());
                 }
                 tokio::task::yield_now().await;
@@ -1159,19 +1158,19 @@ mod tests {
         let driver = PluginDriver::load(path).await.unwrap();
         let first = driver.connect_plugin(&config()).await.unwrap();
         let process = first.process.clone();
-        let pid = process.child.lock().unwrap_or_else(std::sync::PoisonError::into_inner).as_ref().unwrap().id().unwrap();
-        let generation = process.sessions.lock().unwrap_or_else(std::sync::PoisonError::into_inner).generation;
+        let pid = process.child.lock_or_recover().as_ref().unwrap().id().unwrap();
+        let generation = process.sessions.lock_or_recover().generation;
         assert!(!process.expire_idle(generation), "live session must survive");
         first.close().await;
-        assert!(process.sessions.lock().unwrap_or_else(std::sync::PoisonError::into_inner).idle.is_some());
+        assert!(process.sessions.lock_or_recover().idle.is_some());
         let second = driver.connect_plugin(&config()).await.unwrap();
         assert!(Arc::ptr_eq(&process, &second.process));
-        assert!(process.sessions.lock().unwrap_or_else(std::sync::PoisonError::into_inner).idle.is_none(), "reuse cancels idle timer");
+        assert!(process.sessions.lock_or_recover().idle.is_none(), "reuse cancels idle timer");
         second.close().await;
         assert!(!process.expire_idle(generation), "stale deadline must not stop a reused process");
         let rss = Command::new("/bin/ps").args(["-p", &pid.to_string(), "-o", "rss="]).output().await.unwrap();
         let rss_kib: u64 = std::str::from_utf8(&rss.stdout).unwrap().trim().parse().unwrap();
-        let generation = process.sessions.lock().unwrap_or_else(std::sync::PoisonError::into_inner).generation;
+        let generation = process.sessions.lock_or_recover().generation;
         assert!(process.expire_idle(generation));
         process.stop().await;
         assert!(process.reserve().is_none());

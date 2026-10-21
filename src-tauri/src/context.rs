@@ -477,7 +477,7 @@ mod tests {
         async fn ping(&self) -> Result<(), DbError> { Ok(()) }
         async fn server_info(&self) -> Result<String, DbError> { Ok("test".into()) }
         async fn schema_graph(&self, scope: Option<&str>) -> Result<SchemaGraph, DbError> {
-            self.calls.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push(scope.map(str::to_owned));
+            self.calls.lock_or_recover().push(scope.map(str::to_owned));
             if self.stall && (self.initial || scope == Some("slow")) {
                 std::future::pending::<()>().await;
             }
@@ -499,7 +499,7 @@ mod tests {
         let (host, dir) = host();
         host.registry.register(Arc::new(driver_sqlite::SqliteDriver::new()));
         let session = Arc::new(MetadataSession { calls: Default::default(), initial, stall });
-        host.sessions.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert("s".into(), Arc::new(crate::SessionRecord {
+        host.sessions.lock_or_recover().insert("s".into(), Arc::new(crate::SessionRecord {
             session: session.clone(),
             profile: storage::Profile {
                 id: "context-test".into(), name: "Context test".into(), driver_id: "sqlite".into(),
@@ -517,22 +517,22 @@ mod tests {
             let value = build(&host, "s", Scope { focus: Some(focus.into()), ..Default::default() }).await.unwrap();
             assert!(value["schema"].as_str().unwrap().contains("items"));
         }
-        assert_eq!(*session.calls.lock().unwrap_or_else(std::sync::PoisonError::into_inner), vec![None]);
-        host.schema_cache.lock().unwrap_or_else(std::sync::PoisonError::into_inner).graphs.values_mut().for_each(|(at, _)| *at = Instant::now() - SCHEMA_TTL);
+        assert_eq!(*session.calls.lock_or_recover(), vec![None]);
+        host.schema_cache.lock_or_recover().graphs.values_mut().for_each(|(at, _)| *at = Instant::now() - SCHEMA_TTL);
         build(&host, "s", Scope::default()).await.unwrap();
-        assert_eq!(session.calls.lock().unwrap_or_else(std::sync::PoisonError::into_inner).len(), 2);
+        assert_eq!(session.calls.lock_or_recover().len(), 2);
         remember(&host, "s", "ddl", "CREATE TABLE next(id int)", Ok(&[]));
         build(&host, "s", Scope::default()).await.unwrap();
-        assert_eq!(session.calls.lock().unwrap_or_else(std::sync::PoisonError::into_inner).len(), 3);
-        host.schema_cache.lock().unwrap_or_else(std::sync::PoisonError::into_inner).invalidate("s");
-        assert!(host.schema_cache.lock().unwrap_or_else(std::sync::PoisonError::into_inner).graphs.is_empty());
+        assert_eq!(session.calls.lock_or_recover().len(), 3);
+        host.schema_cache.lock_or_recover().invalidate("s");
+        assert!(host.schema_cache.lock_or_recover().graphs.is_empty());
         std::fs::remove_dir_all(dir).unwrap();
     }
     #[tokio::test]
     async fn context_each_scope_is_read_once_including_none() {
         let (host, session, dir) = metadata_host(false, false);
         for _ in 0..2 { build(&host, "s", Scope::default()).await.unwrap(); }
-        assert_eq!(*session.calls.lock().unwrap_or_else(std::sync::PoisonError::into_inner), vec![None, Some("ready".into()), Some("slow".into())]);
+        assert_eq!(*session.calls.lock_or_recover(), vec![None, Some("ready".into()), Some("slow".into())]);
         std::fs::remove_dir_all(dir).unwrap();
     }
     #[tokio::test]
@@ -542,7 +542,7 @@ mod tests {
         assert!(value["schema"].as_str().unwrap().contains("items"));
         assert_eq!(value["schema_truncated"], true);
         assert!(value["schema_note"].as_str().unwrap().contains("partial"));
-        assert_eq!(*session.calls.lock().unwrap_or_else(std::sync::PoisonError::into_inner), vec![None, Some("ready".into()), Some("slow".into())]);
+        assert_eq!(*session.calls.lock_or_recover(), vec![None, Some("ready".into()), Some("slow".into())]);
         std::fs::remove_dir_all(dir).unwrap();
     }
     #[tokio::test]
@@ -645,7 +645,7 @@ mod tests {
             save_secret: false, network: None, auth: Default::default(),
             access_mode: Default::default(),
         };
-        host.sessions.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert(
+        host.sessions.lock_or_recover().insert(
             "s".into(),
             Arc::new(crate::SessionRecord {
                 session: Arc::from(session),
@@ -840,7 +840,7 @@ mod tests {
         }
         assert!(run(&host, "0").is_err());
         assert!(run(&host, "29").is_ok());
-        assert_eq!(host.context_runs.lock().unwrap_or_else(std::sync::PoisonError::into_inner).len(), 20);
+        assert_eq!(host.context_runs.lock_or_recover().len(), 20);
         std::fs::remove_dir_all(dir).unwrap();
     }
 }

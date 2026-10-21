@@ -1,4 +1,5 @@
 //! Private, bounded tool results. No rows or handle IDs are persisted to disk.
+use dbcore::LockExt;
 use dbcore::DbError;
 use serde::Serialize;
 use serde_json::{json, Map, Value};
@@ -59,13 +60,13 @@ impl Drop for Entry {
 pub struct Store(Arc<Mutex<VecDeque<Entry>>>);
 impl Store {
     pub fn clear_session(&self, session: &str) {
-        self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).retain(|e| e.session != session);
+        self.0.lock_or_recover().retain(|e| e.session != session);
     }
     pub fn clear_client(&self, client: &str) {
-        self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).retain(|e| e.client != client);
+        self.0.lock_or_recover().retain(|e| e.client != client);
     }
     pub fn clear(&self) {
-        self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clear();
+        self.0.lock_or_recover().clear();
     }
     pub fn insert(
         &self,
@@ -97,7 +98,7 @@ impl Store {
         }
         let id = uuid::Uuid::new_v4().to_string();
         {
-            let mut entries = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            let mut entries = self.0.lock_or_recover();
             entries.retain(|e| e.touched.elapsed() < IDLE);
             let mut used: usize = entries.iter().map(|e| e.bytes).sum();
             while entries.len() >= MAX_HANDLES || used + bytes > MAX_BYTES {
@@ -125,7 +126,7 @@ impl Store {
                 let Some(store) = weak.upgrade() else {
                     break;
                 };
-                let mut entries = store.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+                let mut entries = store.lock_or_recover();
                 let Some(entry) = entries.iter().find(|e| e.id == expiry_id) else {
                     break;
                 };
@@ -137,7 +138,7 @@ impl Store {
             }
         })
         .abort_handle();
-        if let Some(entry) = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).iter_mut().find(|e| e.id == id) {
+        if let Some(entry) = self.0.lock_or_recover().iter_mut().find(|e| e.id == id) {
             entry.expiry = Some(expiry);
         } else {
             expiry.abort();
@@ -157,7 +158,7 @@ impl Store {
         bytes: usize,
         byte_offset: Option<usize>,
     ) -> Result<Value, DbError> {
-        let mut entries = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut entries = self.0.lock_or_recover();
         entries.retain(|e| e.touched.elapsed() < IDLE);
         let index = entries
             .iter()
@@ -363,7 +364,7 @@ mod tests {
             .page(&first, "a", "t", "s", "p", 0, 200, DEFAULT_BYTES, None)
             .is_err());
         store.clear_client("a");
-        assert!(store.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).is_empty());
+        assert!(store.0.lock_or_recover().is_empty());
     }
     #[tokio::test]
     async fn caps_owner_lru_ttl_cleanup_and_huge_utf8() {
@@ -441,8 +442,8 @@ mod tests {
             .unwrap()
             .iter_mut()
             .for_each(|e| e.touched = Instant::now() - IDLE);
-        assert!(store.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).len() <= MAX_HANDLES);
-        let expired = store.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner)[0].id.clone();
+        assert!(store.0.lock_or_recover().len() <= MAX_HANDLES);
+        let expired = store.0.lock_or_recover()[0].id.clone();
         assert!(store
             .page(
                 &expired,
@@ -458,6 +459,6 @@ mod tests {
             .is_err());
         store.insert("a", "token", "s", "p", raw).unwrap();
         store.clear_session("s");
-        assert!(store.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).is_empty());
+        assert!(store.0.lock_or_recover().is_empty());
     }
 }

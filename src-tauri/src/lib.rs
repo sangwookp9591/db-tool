@@ -922,7 +922,7 @@ mod tests {
             save_secret: false, network: None, auth: Default::default(),
             access_mode: Default::default(),
         };
-        app.state::<Host>().sessions.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert(
+        app.state::<Host>().sessions.lock_or_recover().insert(
             "s".into(),
             Arc::new(SessionRecord {
                 session: session.clone(),
@@ -942,7 +942,7 @@ mod tests {
             .unwrap_err();
         assert_eq!(error.kind, ErrorKind::Timeout);
         assert!(session.stopped.load(Ordering::Acquire));
-        assert!(app.state::<Host>().runs.lock().unwrap_or_else(std::sync::PoisonError::into_inner).is_empty());
+        assert!(app.state::<Host>().runs.lock_or_recover().is_empty());
         let history = history_list(app.state(), 100).await.unwrap();
         assert_eq!(history.len(), 1);
         assert!(history[0].text.contains("***"));
@@ -952,7 +952,7 @@ mod tests {
         session.stopped.store(false, Ordering::Release);
         let error = preview(app.state(), "s".into(), "preview".into(), request("SELECT 'history-secret'",20), Some(HistorySource::Agent)).await.unwrap_err();
         assert_eq!(error.kind, ErrorKind::Timeout); assert!(session.stopped.load(Ordering::Acquire));
-        assert!(app.state::<Host>().runs.lock().unwrap_or_else(std::sync::PoisonError::into_inner).is_empty());
+        assert!(app.state::<Host>().runs.lock_or_recover().is_empty());
         let previews=history_list(app.state(),100).await.unwrap();
         assert!(previews.iter().any(|h| h.kind=="preview" && matches!(h.source,HistorySource::Agent) && h.text.contains("***")));
         // History is persisted independently of the old JSONL file.
@@ -1012,7 +1012,7 @@ mod tests {
         let collected = stages.clone();
         let channel = tauri::ipc::Channel::new(move |body| {
             if let tauri::ipc::InvokeResponseBody::Json(text) = body {
-                collected.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push(serde_json::from_str(&text).unwrap());
+                collected.lock_or_recover().push(serde_json::from_str(&text).unwrap());
             }
             Ok(())
         });
@@ -1020,7 +1020,7 @@ mod tests {
             .await
             .unwrap();
         for stage in ["dns", "db_auth", "permissions"] {
-            assert!(stages.lock().unwrap_or_else(std::sync::PoisonError::into_inner).iter().any(|event| event["stage"] == stage && event["status"] == "passed"));
+            assert!(stages.lock_or_recover().iter().any(|event| event["stage"] == stage && event["status"] == "passed"));
         }
         let result = execute(
             app.state(),

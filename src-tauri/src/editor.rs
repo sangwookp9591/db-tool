@@ -723,7 +723,7 @@ mod tests {
             registry.register(Arc::new(driver_postgres::PostgresDriver::new()));
             registry
         }));
-        host.sessions.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert("offline".into(), Arc::new(crate::SessionRecord {
+        host.sessions.lock_or_recover().insert("offline".into(), Arc::new(crate::SessionRecord {
             session: Arc::new(Offline),
             profile: crate::storage::Profile { id:"p".into(),name:"test".into(),driver_id:"postgres".into(),fields:Default::default(),save_secret:false,network:None,auth:Default::default(),access_mode:Default::default() },
             secret:None,_tunnel:None,dead:AtomicBool::new(false),

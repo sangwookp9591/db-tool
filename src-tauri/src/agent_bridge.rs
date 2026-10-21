@@ -1,5 +1,6 @@
 #[path = "agent_results.rs"]
 pub mod results;
+use dbcore::LockExt;
 use crate::{storage, permissions, DbError, Host};
 use axum::{
     extract::{DefaultBodyLimit, Request, State},
@@ -73,7 +74,7 @@ impl Bridge {
         let running = self.running.lock().await;
         if let Some(running) = running.as_ref() {
             running.shared.recycling.store(true, Ordering::SeqCst);
-            if running.shared.permits.available_permits() != 64 || !running.shared.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).is_empty() {
+            if running.shared.permits.available_permits() != 64 || !running.shared.pending.lock_or_recover().is_empty() {
                 running.shared.recycling.store(false, Ordering::SeqCst);
                 return false;
             }
@@ -119,7 +120,7 @@ impl Bridge {
         if let Some(running) = self.running.lock().await.take() {
             if let Some(app) = &running.shared.app { app.state::<Host>().agent_results.clear(); }
             running.stop.cancel();
-            let requests = std::mem::take(&mut *running.shared.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner));
+            let requests = std::mem::take(&mut *running.shared.pending.lock_or_recover());
             for (id, reply) in requests {
                 (running.shared.cancel)(id);
                 let _ = reply.send(unavailable("Agent bridge stopped"));
@@ -375,7 +376,7 @@ async fn forward_with_ready_timeout(
     let request_id = uuid::Uuid::new_v4().to_string();
     let (send, mut receive) = oneshot::channel();
     {
-        let mut pending = shared.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut pending = shared.pending.lock_or_recover();
         if pending.len() >= 64 {
             return json!({"error":{"kind":"Busy","message":"Too many pending agent requests"}});
         }
@@ -385,12 +386,12 @@ async fn forward_with_ready_timeout(
     let prepared = tokio::select! {
         ready = tokio::time::timeout(ready_timeout, ready.wait_for(|value| *value)) => ready.is_ok_and(|value| value.is_ok()),
         reply = &mut receive => {
-            shared.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove(&request_id);
+            shared.pending.lock_or_recover().remove(&request_id);
             return reply.unwrap_or_else(|_| unavailable("Agent bridge stopped"));
         }
     };
     if !prepared {
-        shared.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove(&request_id);
+        shared.pending.lock_or_recover().remove(&request_id);
         return unavailable("App webview is not ready");
     }
     let sent = (shared.forward)(BridgeRequest {
@@ -410,7 +411,7 @@ async fn forward_with_ready_timeout(
     } else {
         unavailable("App webview is unavailable")
     };
-    shared.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove(&request_id);
+    shared.pending.lock_or_recover().remove(&request_id);
     result
 }
 // Remove discovery data even when the window closes via the normal application exit path.
@@ -514,7 +515,7 @@ mod tests {
         };
         let (response, _) = tokio::join!(pending, respond);
         assert!(response.contains("fixture"));
-        assert!(shared.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).is_empty());
+        assert!(shared.pending.lock_or_recover().is_empty());
         server.abort();
     }
     fn waiting_shared(
@@ -544,7 +545,7 @@ mod tests {
         for _ in 0..2 {
             let host = shared.clone();
             let task = tokio::spawn(async move { forward(&host, "tools/list", json!({})).await });
-            while shared.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).is_empty() {
+            while shared.pending.lock_or_recover().is_empty() {
                 tokio::task::yield_now().await;
             }
             assert!(requests.try_recv().is_err());
@@ -560,7 +561,7 @@ mod tests {
                 .send(json!({"tools":[]}))
                 .unwrap();
             assert_eq!(task.await.unwrap(), json!({"tools":[]}));
-            assert!(shared.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).is_empty());
+            assert!(shared.pending.lock_or_recover().is_empty());
             ready.send_replace(false);
         }
     }
@@ -573,7 +574,7 @@ mod tests {
                 .await;
         assert!(!shared.prepared(Duration::from_millis(1)).await);
         assert_eq!(value["error"]["kind"], "Unavailable");
-        assert!(shared.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).is_empty());
+        assert!(shared.pending.lock_or_recover().is_empty());
         assert!(requests.try_recv().is_err());
     }
     #[tokio::test]
@@ -595,14 +596,14 @@ mod tests {
         let host = shared.clone();
         let task = tokio::spawn(async move { forward(&host, "tools/call", json!({})).await });
         let event = requests.recv().await.unwrap();
-        shared.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove(&event.request_id);
+        shared.pending.lock_or_recover().remove(&event.request_id);
         assert_eq!(task.await.unwrap()["error"]["kind"], "Unavailable");
         drop(requests);
         assert_eq!(
             forward(&shared, "tools/list", json!({})).await["error"]["kind"],
             "Unavailable"
         );
-        assert!(shared.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).is_empty());
+        assert!(shared.pending.lock_or_recover().is_empty());
     }
     #[tokio::test]
     async fn discovery_is_published_on_ready_and_removed_on_reload_and_stop() {
@@ -650,13 +651,13 @@ mod tests {
         });
         let host = shared.clone();
         let task = tokio::spawn(async move { forward(&host, "tools/list", json!({})).await });
-        while shared.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).is_empty() {
+        while shared.pending.lock_or_recover().is_empty() {
             tokio::task::yield_now().await;
         }
         bridge.stop(&directory).await;
         assert_eq!(task.await.unwrap()["error"]["kind"], "Unavailable");
         assert!(requests.try_recv().is_err());
-        assert!(shared.pending.lock().unwrap_or_else(std::sync::PoisonError::into_inner).is_empty());
+        assert!(shared.pending.lock_or_recover().is_empty());
     }
     #[test]
     fn old_contract_defaults_remain_compatible() {

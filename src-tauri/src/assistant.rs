@@ -1,3 +1,5 @@
+#[cfg(test)]
+use dbcore::LockExt;
 use crate::{context, storage, Host};
 use dbcore::DbError;
 use serde::{Deserialize, Serialize};
@@ -71,7 +73,7 @@ impl Credential {
 // GUI apps on macOS do not inherit the shell PATH, so check the usual install locations first.
 fn ant_cli() -> Option<std::path::PathBuf> {
     #[cfg(test)]
-    if let Some(path) = ant_test_path().lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone() {
+    if let Some(path) = ant_test_path().lock_or_recover().clone() {
         return Some(path);
     }
     #[cfg(debug_assertions)]
@@ -975,7 +977,7 @@ mod tests {
         // Mimics ant: prints the authorize URL, prompts "Code:" without newline, validates the pasted code.
         std::fs::write(&fake, "#!/bin/sh\necho 'Opening your browser to authenticate...'\necho '  https://platform.claude.com/oauth/authorize?client_id=x&state=y'\nprintf 'Code: '\nread code\n[ \"$code\" = good-code ] && echo '  ✓ Logged in to Test Org as t@example.com (profile \"default\").' && exit 0\necho 'invalid code' >&2; exit 1\n").unwrap();
         std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
-        *ant_test_path().lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(fake.clone());
+        *ant_test_path().lock_or_recover() = Some(fake.clone());
         let started = ai_login_start().await.unwrap();
         assert_eq!(started["waiting_for_code"], true);
         assert!(started["url"]
@@ -1007,7 +1009,7 @@ mod tests {
         ai_login_start().await.unwrap();
         tokio::time::sleep(Duration::from_millis(1500)).await;
         assert_eq!(ai_login_poll().await.unwrap()["state"], "failed");
-        *ant_test_path().lock().unwrap_or_else(std::sync::PoisonError::into_inner) = None;
+        *ant_test_path().lock_or_recover() = None;
         std::fs::remove_dir_all(dir).unwrap();
     }
     #[tokio::test]

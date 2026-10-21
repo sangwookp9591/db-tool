@@ -157,6 +157,7 @@ async fn run(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use dbcore::LockExt;
     async fn fixture() -> (Host, std::path::PathBuf) {
         let dir = std::env::temp_dir().join(format!("axdb-c2-host-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&dir).unwrap();
@@ -178,7 +179,7 @@ mod tests {
             .unwrap();
         let exec:ExecRequest=serde_json::from_value(serde_json::json!({"text":"CREATE TABLE c2(id INTEGER PRIMARY KEY,t TEXT); INSERT INTO c2 VALUES(1,'old')"})).unwrap();
         session.execute(&exec, CancelToken::new()).await.unwrap();
-        host.sessions.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert(
+        host.sessions.lock_or_recover().insert(
             "s".into(),
             Arc::new(SessionRecord {
                 session: Arc::from(session),
@@ -248,7 +249,7 @@ mod tests {
         )
         .await
         .unwrap();
-        for approval in host.previews.lock().unwrap_or_else(std::sync::PoisonError::into_inner).values_mut() {
+        for approval in host.previews.lock_or_recover().values_mut() {
             approval.created = Instant::now() - Duration::from_secs(61);
         }
         assert!(matches!(
@@ -272,10 +273,10 @@ mod tests {
     #[tokio::test]
     async fn host_rejects_read_only_and_unsupported_edits() {
         let (host, dir) = fixture().await;
-        let record = host.sessions.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove("s").unwrap();
+        let record = host.sessions.lock_or_recover().remove("s").unwrap();
         let mut profile = record.profile.clone();
         profile.access_mode = permissions::AccessMode::ReadOnly;
-        host.sessions.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert(
+        host.sessions.lock_or_recover().insert(
             "s".into(),
             Arc::new(SessionRecord {
                 session: record.session.clone(),
@@ -303,7 +304,7 @@ mod tests {
         }
         profile.access_mode = permissions::AccessMode::ReadWrite;
         profile.driver_id = "neo4j".into();
-        host.sessions.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert(
+        host.sessions.lock_or_recover().insert(
             "s".into(),
             Arc::new(SessionRecord {
                 session: record.session.clone(),

@@ -207,11 +207,11 @@ impl SqliteSession {
                 biased;
                 _ = finished.cancelled() => {},
                 _ = token.cancelled() => {
-                    let _lease = watcher_gate.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+                    let _lease = watcher_gate.lock_or_recover();
                     if !finished.is_cancelled() { interrupt.interrupt(); }
                 },
                 _ = tokio::time::sleep_until(deadline.into()) => {
-                    let _lease = watcher_gate.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+                    let _lease = watcher_gate.lock_or_recover();
                     if !finished.is_cancelled() { interrupt.interrupt(); }
                 },
             }
@@ -219,7 +219,7 @@ impl SqliteSession {
         tokio::task::spawn_blocking(move || {
             let result = if let Some(conn) = guard.as_ref() {
                 let stop_interrupts = || {
-                    let _lease = interrupt_gate.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+                    let _lease = interrupt_gate.lock_or_recover();
                     done.cancel();
                 };
                 if let Some(edit) = edits {
@@ -240,7 +240,7 @@ impl SqliteSession {
             }
             {
                 // Exclude a late interrupt before releasing the connection to its next run.
-                let _lease = interrupt_gate.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+                let _lease = interrupt_gate.lock_or_recover();
                 done.cancel();
             }
             watcher.abort();

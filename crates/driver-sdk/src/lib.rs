@@ -49,7 +49,7 @@ type Uploads = Arc<Mutex<HashMap<u64, Upload>>>;
 type Sessions = Arc<Mutex<HashMap<u64, Arc<dyn Session>>>>;
 
 fn lock_valid<T>(lock: &Mutex<T>) -> MutexGuard<'_, T> {
-    lock.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+    lock.lock_or_recover()
 }
 
 pub async fn serve_io<R, W>(driver: Arc<dyn Driver>, mut input: R, mut output: W) -> io::Result<()>

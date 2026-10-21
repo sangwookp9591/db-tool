@@ -3,6 +3,8 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt, sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard}};
 pub use tokio_util::sync::CancellationToken as CancelToken;
+pub mod lock;
+pub use lock::{LockExt, RwLockExt};
 pub mod preview;
 pub mod filter;
 pub mod explain;
@@ -536,10 +538,10 @@ pub struct Registry {
     drivers: RwLock<BTreeMap<String, Arc<dyn Driver>>>,
 }
 fn registry_read<T>(lock: &RwLock<T>) -> RwLockReadGuard<'_, T> {
-    lock.read().unwrap_or_else(std::sync::PoisonError::into_inner)
+    lock.read_or_recover()
 }
 fn registry_write<T>(lock: &RwLock<T>) -> RwLockWriteGuard<'_, T> {
-    lock.write().unwrap_or_else(std::sync::PoisonError::into_inner)
+    lock.write_or_recover()
 }
 impl Registry {
     pub fn new() -> Self {
