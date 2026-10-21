@@ -81,7 +81,7 @@ pub enum Auth {
     },
 }
 // This input is never serialized into a profile or an event.
-#[derive(Default, Deserialize)]
+#[derive(Clone, Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Secrets {
     pub ssh_password: Option<String>,
@@ -90,7 +90,7 @@ pub struct Secrets {
     #[serde(default)]
     pub jumps: Vec<HopSecrets>,
 }
-#[derive(Default, Deserialize)]
+#[derive(Clone, Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HopSecrets {
     pub ssh_password: Option<String>,
@@ -155,14 +155,18 @@ mod tests {
                 .unwrap();
         assert_eq!(network.ssh.as_ref().unwrap().port, 22);
         network.validate().unwrap();
-        assert!(serde_json::from_str::<Network>(
-            r#"{"ssh":{"host":"b","user":"u","auth":"password","password":"leak"}}"#
-        )
-        .is_err());
+        assert!(
+            serde_json::from_str::<Network>(
+                r#"{"ssh":{"host":"b","user":"u","auth":"password","password":"leak"}}"#
+            )
+            .is_err()
+        );
         assert!(valid_host("host\r\nAuthorization: leak").is_err());
-        assert!(serde_json::from_str::<Auth>(
-            r#"{"kind":"iam_aws","profile":"test","region":"us-east-1","secret":"leak"}"#
-        )
-        .is_err());
+        assert!(
+            serde_json::from_str::<Auth>(
+                r#"{"kind":"iam_aws","profile":"test","region":"us-east-1","secret":"leak"}"#
+            )
+            .is_err()
+        );
     }
 }

@@ -15,7 +15,7 @@
   <img alt="Rust" src="https://img.shields.io/badge/Rust-1.99.1-B7410E?logo=rust&logoColor=white">
   <img alt="Preact" src="https://img.shields.io/badge/Preact-11-673AB8?logo=preact&logoColor=white">
   <img alt="MCP" src="https://img.shields.io/badge/MCP-scoped%20tokens-8B7BFF">
-  <img alt="Tests" src="https://img.shields.io/badge/tests-326%20Rust%20%C2%B7%20165%20UI%20%C2%B7%2039%20E2E-34D399">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-329%20Rust%20%C2%B7%20207%20UI-34D399">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-lightgrey">
 </p>
 
@@ -38,6 +38,8 @@
 ## Install
 
 Download the file for your operating system from the [**latest GitHub Releases version**](https://github.com/sangwookp9591/db-tool/releases/latest).
+
+Read the [0.3.3 release notes](docs/release-notes/v0.3.3.md) or browse the full [changelog](CHANGELOG.md).
 
 | OS | File | Install |
 |---|---|---|
@@ -334,7 +336,7 @@ GitHub Releases is the only distribution channel. Users get the installer from t
 **App release steps**
 
 1. **Bump the version:** make the version the same in `Cargo.toml` (workspace), `src-tauri/tauri.conf.json`, and `ui/package.json`.
-2. **Release notes:** write `docs/release-notes/v<version>.md`. Each `## Title {good|bad|neutral}` section becomes one "What's new" line in the app, and the first item is used as the summary. The tag is stripped automatically in the update feed.
+2. **Release notes and changelog:** write `docs/release-notes/v<version>.md` with `<!-- date: YYYY-MM-DD -->` metadata and update `CHANGELOG.md`. Use `## Title {new|improved|fixed}` to group changes; each bullet becomes an entry in the app's "What's new" timeline. Its current release marker follows `ui/package.json`. Category tags are stripped automatically in the update feed.
 3. **Verify:** `cargo test --workspace` (with the test DBs and `AXDB_DRIVER_DIR`), `cargo clippy --workspace --all-targets -- -D warnings`, `pnpm --dir ui test`, `pnpm --dir ui exec tsc --noEmit`.
 4. **If drivers changed, package them first:**
    ```sh

@@ -293,6 +293,41 @@ async fn real_postgres_contract() {
 }
 
 #[tokio::test]
+async fn large_privilege_matrix_requires_role_and_pages_one_role() {
+    let Some(cfg) = config() else { return; };
+    let suffix = format!("{}_{}", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos());
+    let schema = format!("axdb_roles_{suffix}");
+    let role = format!("axdb_role_{suffix}");
+    let s = PostgresDriver::new().connect(&cfg).await.unwrap();
+    run(&*s, &format!("CREATE ROLE {role}; CREATE SCHEMA {schema}; DO $$ BEGIN FOR i IN 1..800 LOOP EXECUTE format('CREATE TABLE %I.%I (id integer)', '{schema}', 't_' || lpad(i::text,4,'0')); END LOOP; END $$;")).await;
+
+    let observed = async {
+        let legacy = s.roles().await?;
+        let query = RolesPageQuery { role: Some(role.clone()), namespace: Some(schema.clone()), object: None, offset: 0, limit: 100 };
+        let first = s.roles_page(&query).await?;
+        let next = s.roles_page(&RolesPageQuery { offset: 100, ..query.clone() }).await?;
+        let filtered = s.roles_page(&RolesPageQuery { object: Some("t_0001".into()), ..query.clone() }).await?;
+        Ok::<_, DbError>((legacy, first, next, filtered))
+    }.await;
+    let _cleanup = run(&*s, &format!("DROP SCHEMA IF EXISTS {schema} CASCADE; DROP ROLE IF EXISTS {role};")).await;
+    s.close().await;
+    let (legacy, first, next, filtered) = observed.unwrap();
+    assert!(legacy.supported);
+    assert!(legacy.matrix.is_empty(), "large legacy snapshots must not materialize a cross product");
+    assert!(legacy.page.as_ref().is_some_and(|p| p.role_required));
+    assert!(legacy.roles.iter().any(|r| r.name == role));
+    assert_eq!(first.matrix.len(), 100);
+    assert_eq!(first.page.as_ref().unwrap().total, 800 * 7);
+    assert!(first.page.as_ref().unwrap().has_more);
+    assert!(first.matrix.iter().all(|p| p.role == role && p.namespace == schema));
+    assert_eq!(next.matrix.len(), 100);
+    assert_ne!(first.matrix.last().unwrap(), next.matrix.first().unwrap());
+    assert_eq!(filtered.matrix.len(), 7);
+    assert_eq!(filtered.page.as_ref().unwrap().total, 7);
+    assert!(!filtered.page.as_ref().unwrap().has_more);
+}
+
+#[tokio::test]
 async fn read_only_execution_is_enforced_and_cleans_up() {
     let Some(cfg) = config() else {
         eprintln!("AXDB_TEST_PG unset: live read-only test not run");

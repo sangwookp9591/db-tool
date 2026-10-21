@@ -115,7 +115,8 @@ describe('sidebar explorer (mock app)', () => {
     await live('Graph playground');
     await page.getByLabel('Expand 레이블').waitFor();
     await live('Analytics sandbox');
-    await page.getByLabel('Expand public').waitFor({ state: 'attached' });
+    await page.getByLabel('Collapse public').waitFor({ state: 'attached' });
+    await page.getByRole('button', { name: 'people', exact: true }).waitFor();
   }, 30000);
 
   it('keeps one explorer visible and separate scroll regions', async () => {
@@ -127,14 +128,13 @@ describe('sidebar explorer (mock app)', () => {
     await page.locator('.connection', { hasText: 'Graph playground' }).click();
     expect(await page.locator('.explorer-region:not([hidden]) [aria-label="Expand 레이블"]').count()).toBe(1);
     await page.locator('.connection', { hasText: 'Analytics sandbox' }).click();
-    expect(await page.locator('.explorer-region:not([hidden]) [aria-label="Expand public"]').count()).toBe(1);
+    expect(await page.locator('.explorer-region:not([hidden]) [aria-label="Collapse public"]').count()).toBe(1);
   });
 
-  it('loads lazily, reaches the active row, and supports deep levels and the keyboard', async () => {
-    await page.getByLabel('Expand public').click();
-    await page.getByLabel('Expand people').waitFor();
+  it('shows tables on connection, keeps columns lazy, and supports deep levels and the keyboard', async () => {
+    await page.getByLabel('Expand people', { exact: true }).waitFor();
     expect(await page.getByTestId('tree-item').count()).toBeGreaterThan(3);
-    await page.getByLabel('Expand people').click();
+    await page.getByLabel('Expand people', { exact: true }).click();
     // A completed click is not a render barrier. Keep this deterministic under a deferred scheduler.
     const originalScheduler = await page.evaluateHandle(() => window.queueMicrotask);
     try {
@@ -156,19 +156,18 @@ describe('sidebar explorer (mock app)', () => {
     await page.keyboard.press('ArrowLeft');
     expect(await page.evaluate(() => document.activeElement?.getAttribute('aria-label'))).toBe('people');
     await page.keyboard.press('ArrowLeft');
-    expect(await page.getByLabel('Expand people').count()).toBe(1);
+    expect(await page.getByLabel('Expand people', { exact: true }).count()).toBe(1);
     await page.keyboard.press('ArrowRight');
-    expect(await page.getByLabel('Collapse people').count()).toBe(1);
+    expect(await page.getByLabel('Collapse people', { exact: true }).count()).toBe(1);
     await page.keyboard.press('ArrowDown');
     expect(await page.evaluate(() => document.activeElement?.getAttribute('aria-label'))).toBe('id');
     // Browse and Query stay reachable from the tree.
-    await page.getByLabel('Actions for people').click();
+    await page.getByLabel('Actions for people', { exact: true }).click();
     expect(await page.getByRole('menuitem').allInnerTexts()).toEqual(expect.arrayContaining(['데이터 보기', '쿼리 열기']));
     await page.keyboard.press('Escape');
   });
 
   it('pages long groups instead of rendering hundreds of rows', async () => {
-    await page.getByLabel('Expand Archive').click();
     await page.getByLabel('Show more in Archive').waitFor();
     expect(await page.locator('[data-parent="public.archive"]').count()).toBe(300);
     await page.getByLabel('Show more in Archive').click();
@@ -176,4 +175,45 @@ describe('sidebar explorer (mock app)', () => {
     expect(await page.locator('[data-parent="public.archive"]').count()).toBe(450);
     expect(await page.locator('.explorer svg:not(.lucide)').count()).toBe(0);
   });
+
+  it('completes tables automatically and keeps editor content and undo through catalog refresh', async () => {
+    const editor = page.locator('.tab-body:not([hidden]) .cm-content');
+    await editor.fill('SELECT * FROM ');
+    await editor.pressSequentially('pe');
+    const option = page.locator('.cm-tooltip-autocomplete li').filter({ hasText: /^people/ });
+    await option.waitFor({ timeout: 4000 });
+    expect(await option.getAttribute('aria-selected')).toBe('true');
+    // CodeMirror deliberately ignores acceptance keys for 75 ms after opening.
+    await page.waitForTimeout(100);
+    await page.keyboard.press('Tab');
+    await page.waitForFunction(() => document.querySelector('.tab-body:not([hidden]) .cm-content')?.textContent?.includes('"public"."people"'), null, { timeout: 4000 });
+    const text = await editor.innerText();
+    await page.evaluate(() => { (window as unknown as { __mockExplorerDelay: number }).__mockExplorerDelay = 80; });
+    await page.locator('.explorer-region:not([hidden])').getByLabel('Refresh explorer').click();
+    await page.locator('.explorer-region:not([hidden])').getByText('불러오는 중…', { exact: true }).waitFor();
+    await page.getByRole('button', { name: 'people', exact: true }).waitFor();
+    expect(await editor.innerText()).toBe(text);
+    await editor.focus();
+    await page.keyboard.press(await page.evaluate(() => /Mac/.test(navigator.platform)) ? 'Meta+z' : 'Control+z');
+    await page.waitForFunction(() => !document.querySelector('.tab-body:not([hidden]) .cm-content')?.textContent?.includes('"public"."people"'), null, { timeout: 4000 });
+    await page.keyboard.press('Escape');
+    await editor.fill('SELECT * FROM public.pe');
+    await page.keyboard.press('Control+Space');
+    await page.locator('.cm-tooltip-autocomplete li').filter({ hasText: /^people/ }).waitFor({ timeout: 4000 });
+    await page.keyboard.press('Escape');
+  }, 15000);
+
+  it('reloads tables and completion for a new session while preserving the query draft', async () => {
+    const editor = page.locator('.tab-body:not([hidden]) .cm-content');
+    const text = await editor.innerText();
+    await live('Analytics sandbox');
+    await page.locator('.disconnected-tab:not([hidden])').waitFor();
+    await live('Analytics sandbox');
+    await page.getByRole('button', { name: 'people', exact: true }).waitFor();
+    expect(await editor.innerText()).toBe(text);
+    await editor.fill('SELECT * FROM ord');
+    await page.keyboard.press('Control+Space');
+    await page.locator('.cm-tooltip-autocomplete li').filter({ hasText: /^orders/ }).waitFor();
+    await page.keyboard.press('Escape');
+  }, 15000);
 });

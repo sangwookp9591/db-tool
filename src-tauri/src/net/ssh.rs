@@ -1,7 +1,7 @@
 use super::{
+    Event, State,
     model::*,
     proxy::{self, BoxStream},
-    Event, State,
 };
 use dbcore::DbError;
 use russh::{
@@ -222,6 +222,7 @@ pub async fn connect(
     ssh: &Ssh,
     proxy: Option<&Proxy>,
     profile_id: &str,
+    secrets: &Secrets,
     path: &Path,
     state: Arc<State>,
 ) -> Result<Connection, DbError> {
@@ -229,7 +230,10 @@ pub async fn connect(
         handles: Vec::new(),
     };
     let hops = ssh.hops();
-    let proxy_password = crate::storage::keychain_get(&format!("{profile_id}:proxy_password"))?;
+    let proxy_password = match secrets.proxy_password.as_ref() {
+        Some(value) => Some(value.clone()),
+        None => crate::storage::keychain_get(&format!("{profile_id}:proxy_password"))?,
+    };
     for (index, hop) in hops.iter().enumerate() {
         let stream = if index == 0 {
             tokio::time::timeout(
@@ -264,8 +268,22 @@ pub async fn connect(
         } else {
             format!("{profile_id}:jump:{index}")
         };
-        let password = crate::storage::keychain_get(&format!("{prefix}:ssh_password"))?;
-        let passphrase = crate::storage::keychain_get(&format!("{prefix}:key_passphrase"))?;
+        let injected = if index + 1 == hops.len() {
+            Some((&secrets.ssh_password, &secrets.key_passphrase))
+        } else {
+            secrets
+                .jumps
+                .get(index)
+                .map(|hop| (&hop.ssh_password, &hop.key_passphrase))
+        };
+        let password = match injected.and_then(|(password, _)| password.as_ref()) {
+            Some(value) => Some(value.clone()),
+            None => crate::storage::keychain_get(&format!("{prefix}:ssh_password"))?,
+        };
+        let passphrase = match injected.and_then(|(_, passphrase)| passphrase.as_ref()) {
+            Some(value) => Some(value.clone()),
+            None => crate::storage::keychain_get(&format!("{prefix}:key_passphrase"))?,
+        };
         tokio::time::timeout(
             Duration::from_secs(15),
             authenticate(&mut handle, hop, password.as_deref(), passphrase.as_deref()),

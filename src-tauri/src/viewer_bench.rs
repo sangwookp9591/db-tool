@@ -22,7 +22,7 @@ pub fn viewer_bench_write(
 #[tauri::command]
 pub fn viewer_bench_target() -> String {
     let target = std::env::var("AXDB_BENCH_TARGET").unwrap_or_default();
-    if viewer_bench_enabled() && matches!(target.as_str(), "graph" | "workspace" | "idle" | "small" | "matrix" | "resource" | "resource-leak" | "connections" | "d7" | "d9" | "d10") {
+    if viewer_bench_enabled() && matches!(target.as_str(), "qa" | "graph" | "workspace" | "idle" | "small" | "matrix" | "resource" | "resource-leak" | "connections" | "d7" | "d9" | "d10") {
         target
     } else {
         "all".into()

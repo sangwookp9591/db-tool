@@ -6,3 +6,4 @@ ui/dist/
 target-*/
 bench/__pycache__/
 /dist/
+docs/verification/qa-*/native-run.json

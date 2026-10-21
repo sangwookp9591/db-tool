@@ -1,0 +1,6 @@
+.floating-menu{position:fixed!important;inset:auto;right:auto!important;bottom:auto!important;width:max-content;z-index:10001!important;min-width:170px;max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);overflow:auto;padding:4px;border:1px solid var(--border-strong);border-radius:var(--radius);background:var(--bg-overlay);box-shadow:var(--overlay-shadow)}
+:root .floating-menu button{display:flex;justify-content:flex-start;text-align:left;width:100%;border:0;background:transparent;padding:7px 8px}
+:root .floating-menu button:hover:enabled,:root .floating-menu button:focus-visible{background:var(--surface-hover)}
+.floating-menu .fuse-button{display:flex;flex-wrap:wrap;color:var(--accent-error)}
+.floating-menu .fuse-button button{width:auto;flex:1}
+.floating-menu .fuse-button [role=status]{padding:6px;font-size:10px}

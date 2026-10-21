@@ -1,4 +1,4 @@
-use super::{error, Endpoint};
+use super::{Endpoint, error};
 use dbcore::DbError;
 use std::collections::BTreeMap;
 #[derive(Clone)]

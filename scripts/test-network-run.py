@@ -30,7 +30,12 @@ try:
         time.sleep(0.1)
     subprocess.run(["ssh-add", str(root / "id_ed25519")], check=True, env=env,
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    result = subprocess.call(["cargo", "test", "-p", "axdb", "--", "--test-threads=1"], env=env)
+    test_command = ["cargo", "test", "-p", "axdb"]
+    test_filter = os.environ.get("AXDB_TEST_FILTER")
+    if test_filter:
+        test_command.append(test_filter)
+    test_command.extend(["--", "--test-threads=1"])
+    result = subprocess.call(test_command, env=env)
 finally:
     agent.terminate()
     agent.wait(timeout=10)

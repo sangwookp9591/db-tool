@@ -1,0 +1,40 @@
+{
+  "version": "0.3.3",
+  "checked_at": "2026-10-21T08:04:07.802642+00:00",
+  "status": "notarized",
+  "version_alignment": {
+    "cargo_workspace": true,
+    "cargo_lock_local_packages": 13,
+    "tauri": true,
+    "ui": true
+  },
+  "release_notes": "docs/release-notes/v0.3.3.md",
+  "checks": {
+    "ui_build": "passed",
+    "release_pipeline_tests": "2 passed",
+    "release_manifest_tests": "1 passed",
+    "cargo_metadata_locked_no_deps": "passed",
+    "git_diff_check": "passed"
+  },
+  "notarization": {
+    "submitted": true,
+    "submission_id": null,
+    "signing_identity_available": true,
+    "notary_keychain_profile": "axdb-notary",
+    "notary_profile_available": false,
+    "error": null,
+    "signing_identity": "Developer ID Application: SangWook Park (QRW9X3848W)",
+    "status": "accepted",
+    "xcode_distribution_id": "E2A385A1-52E4-4B7B-9831-A47964E21F4D",
+    "method": "Xcode Developer ID upload using signed-in Apple account",
+    "ticket_validated": true,
+    "gatekeeper": "Notarized Developer ID"
+  },
+  "remaining": [],
+  "release_distribution_note": "The new PostgreSQL roles_page protocol also requires the updated PostgreSQL driver. Public GitHub publishing was not requested or performed.",
+  "artifact": {
+    "path": "dist/notarization/0.3.3/AxDB_0.3.3_universal.app.zip",
+    "sha256": "b3c3b86ea91e5b5c3d3a4ad4576f1f59db9e1d87b3ab07cdb5a8b4f4681003f1",
+    "bytes": 28929755
+  }
+}

@@ -641,6 +641,7 @@ impl Session for PgSession {
     async fn backup(&self,cancel:CancelToken)->Result<BackupData,DbError>{self.native_backup(cancel).await}
     async fn restore(&self,backup:&BackupData,overwrite:bool,cancel:CancelToken)->Result<(),DbError>{self.native_restore(backup,overwrite,cancel).await}
     async fn roles(&self)->Result<RolesSnapshot,DbError>{self.native_roles().await}
+    async fn roles_page(&self, query:&RolesPageQuery)->Result<RolesSnapshot,DbError>{self.native_roles_page(query).await}
     async fn plan_grants(&self,changes:&[GrantChange])->Result<GrantPlan,DbError>{self.native_grants(changes).await}
 
     async fn import_rows(&self, req: &EditRequest, preview: bool, cancel: CancelToken) -> Result<ImportOutput, DbError> {

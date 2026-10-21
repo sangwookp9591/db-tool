@@ -9,6 +9,7 @@ import { finish, frame, painted, perf, sampleFrames, start } from './index';
 async function waitFor(test: () => boolean, timeout = 60000) { const until = performance.now() + timeout; while (!test()) { if (performance.now() > until) throw new Error('Native benchmark timed out'); await frame(); } }
 async function run() {
   const resourceTarget = await invoke<string>('viewer_bench_target');
+  if (resourceTarget === 'qa') { await (await import('./qa')).nativeQa(); return; }
   if (resourceTarget === 'd9') { await (await import('./d9')).d9Bench(); return; }
   if (resourceTarget === 'd10') { await (await import('./d10')).d10Bench(); return; }
   if (resourceTarget === 'd7') { await (await import('./d7')).d7Bench(); return; }

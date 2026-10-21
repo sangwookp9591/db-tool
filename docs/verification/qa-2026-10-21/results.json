@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-21",
+  "ui": {
+    "passed": 207,
+    "failed": 0,
+    "skipped": 1
+  },
+  "rust_workspace": {
+    "passed": 329,
+    "failed": 0,
+    "ignored": 7
+  },
+  "network_live_rerun": {
+    "passed": 8,
+    "failed": 0
+  },
+  "webkit_rerun": {
+    "overlays_and_mcp": 12,
+    "roles": 8,
+    "failed": 0
+  },
+  "native": {
+    "complete": true,
+    "stages": 11
+  },
+  "mcp_native_http": {
+    "passed": true,
+    "checks": 12
+  },
+  "checks": {
+    "typescript": true,
+    "vite_build": true,
+    "native_build": true,
+    "clippy_warnings_denied": true
+  },
+  "note": "Reruns overlap workspace/UI totals; do not add as unique tests. External provider/model sessions were not run."
+}

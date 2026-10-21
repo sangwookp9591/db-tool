@@ -1,0 +1,8 @@
+.spring-check{position:relative;display:inline-flex;align-items:center;gap:9px;min-height:28px;cursor:pointer;user-select:none}
+.spring-check>input[type=checkbox]{position:absolute;inset-block-start:50%;inset-inline-start:0;width:20px;height:20px;min-height:0;margin:0;padding:0;border:0;opacity:0;transform:translateY(-50%);cursor:inherit}
+.spring-check__box{position:relative;display:grid;place-items:center;flex:0 0 20px;width:20px;height:20px;box-sizing:border-box;overflow:hidden;isolation:isolate;border:1px solid var(--border-strong);border-radius:var(--radius-sm);pointer-events:none;background:var(--bg-input)}
+.spring-check__fill{position:absolute;inset:0;border-radius:inherit;background:var(--accent-primary);transform-origin:center}
+.spring-check .spring-check__box svg{position:relative;width:13px;height:13px;stroke:var(--text-inverse);stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+.spring-check>input:focus-visible+.spring-check__box{box-shadow:0 0 0 2px var(--bg-base),0 0 0 4px var(--border-focus)}
+.spring-check:has(input:disabled){color:var(--text-disabled);cursor:not-allowed}
+.spring-check:has(input:disabled) .spring-check__box{border-color:var(--border-default);background:var(--bg-elevated)}

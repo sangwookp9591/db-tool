@@ -146,6 +146,7 @@ async fn admin_pg_roundtrip_roles_copy_progress() {
         let cancelled=source.import_rows_progress(&request,false,cancellation,&progress_cancel).await;assert!(cancelled.is_err());assert_eq!(source.backup(CancelToken::new()).await.unwrap().counts,backup.counts);
 
         let change=GrantChange{role:role.clone(),namespace:"public".into(),object:"items".into(),privilege:"SELECT".into(),revoke:false};let before=source.roles().await.unwrap();assert!(!before.matrix.iter().find(|p|p.role==role&&p.object=="items"&&p.privilege=="SELECT").unwrap().allowed);
+        let page=source.roles_page(&RolesPageQuery{role:Some(role.clone()),namespace:Some("public".into()),object:Some("items".into()),offset:0,limit:100}).await.unwrap();assert_eq!(page.matrix.len(),7);assert_eq!(page.page.as_ref().unwrap().total,7);assert!(!page.page.as_ref().unwrap().role_required);
         let plan=source.preview_grants(std::slice::from_ref(&change),CancelToken::new()).await.unwrap();assert!(plan.apply_supported);assert_eq!(source.roles().await.unwrap(),before);
         source.apply_grants(std::slice::from_ref(&change),CancelToken::new()).await.unwrap();assert!(source.roles().await.unwrap().matrix.iter().any(|p|p.role==role&&p.object=="items"&&p.privilege=="SELECT"&&p.allowed));
         source.apply_grants(&[GrantChange{revoke:true,..change}],CancelToken::new()).await.unwrap();assert!(!source.roles().await.unwrap().matrix.iter().any(|p|p.role==role&&p.object=="items"&&p.privilege=="SELECT"&&p.allowed));

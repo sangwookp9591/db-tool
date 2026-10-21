@@ -325,6 +325,7 @@ async fn dispatch(
                 Request::PreviewGrants {changes,..} => Ok(Reply::Grants(session.preview_grants(&changes,cancel).await?)),
                 Request::ApplyGrants {changes,..} => {session.apply_grants(&changes,cancel).await?;Ok(Reply::Unit)},
                 Request::Roles {..} => Ok(Reply::Roles(session.roles().await?)),
+                Request::RolesPage {query,..} => Ok(Reply::Roles(session.roles_page(&query).await?)),
                 Request::PlanGrants {changes,..} => Ok(Reply::Grants(session.plan_grants(&changes).await?)),
                 Request::Close { .. } => {
                     uploads.lock().unwrap().retain(|_,u|u.session!=session_id);

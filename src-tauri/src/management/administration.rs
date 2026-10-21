@@ -316,6 +316,16 @@ pub async fn roles(
     host.observe(&r, r.session.roles().await)
 }
 #[tauri::command]
+pub async fn roles_page(
+    host: tauri::State<'_, Host>,
+    session_id: String,
+    query: RolesPageQuery,
+) -> CommandResult<RolesSnapshot> {
+    query.validate()?;
+    let r = capability(&host, &session_id, false)?;
+    host.observe(&r, r.session.roles_page(&query).await)
+}
+#[tauri::command]
 pub async fn plan_grants(
     host: tauri::State<'_, Host>,
     session_id: String,

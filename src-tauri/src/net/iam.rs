@@ -1,4 +1,4 @@
-use super::model::{error, Auth};
+use super::model::{Auth, error};
 use base64::Engine;
 use dbcore::DbError;
 use hmac::{Hmac, Mac};
@@ -490,16 +490,20 @@ mod tests {
     }
     #[test]
     fn expires_before_server_deadline() {
-        assert!(!Token {
-            value: String::new(),
-            expires: Instant::now() + Duration::from_secs(119)
-        }
-        .fresh());
-        assert!(Token {
-            value: String::new(),
-            expires: Instant::now() + Duration::from_secs(899)
-        }
-        .fresh());
+        assert!(
+            !Token {
+                value: String::new(),
+                expires: Instant::now() + Duration::from_secs(119)
+            }
+            .fresh()
+        );
+        assert!(
+            Token {
+                value: String::new(),
+                expires: Instant::now() + Duration::from_secs(899)
+            }
+            .fresh()
+        );
     }
     #[test]
     fn region_uses_profile_then_rds_endpoint_with_explicit_override() {

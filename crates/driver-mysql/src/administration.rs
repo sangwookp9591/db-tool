@@ -64,7 +64,7 @@ impl MysqlSession {
                 allowed: true,
             })
             .collect();
-        Ok(RolesSnapshot{supported:true,reason:Some("Table grants are explicit grants; role inheritance, global and schema grants are described in SHOW GRANTS, not expanded into effective access".into()),roles,matrix})
+        Ok(RolesSnapshot{supported:true,reason:Some("Table grants are explicit grants; role inheritance, global and schema grants are described in SHOW GRANTS, not expanded into effective access".into()),roles,matrix,..Default::default()})
     }
     pub(super) async fn grants(&self, changes: &[GrantChange]) -> Result<GrantPlan, DbError> {
         validate_grants(changes)?;

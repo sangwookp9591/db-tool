@@ -143,6 +143,7 @@ pub enum Request {
     PreviewGrants {session:u64,changes:Vec<GrantChange>},
     ApplyGrants { session:u64, changes:Vec<GrantChange> },
     Roles { session: u64 },
+    RolesPage { session: u64, query: RolesPageQuery },
     PlanGrants { session: u64, changes: Vec<GrantChange> },
     Close {
         session: u64,
@@ -183,6 +184,7 @@ impl Request {
             | Self::PreviewGrants {session,..}
             | Self::ApplyGrants {session,..}
             | Self::Roles {session}
+            | Self::RolesPage {session,..}
             | Self::PlanGrants {session,..}
             | Self::Close { session } => Some(*session),
         }

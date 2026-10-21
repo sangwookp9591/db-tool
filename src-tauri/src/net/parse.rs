@@ -11,7 +11,7 @@ pub struct Parsed {
     pub network: Option<Network>,
     pub has_secret: bool,
     pub sanitized_input: String,
-    #[serde(skip)]
+    #[serde(skip_deserializing)]
     pub secret: Option<String>,
 }
 fn decode(value: &str) -> Result<String, DbError> {
@@ -358,7 +358,12 @@ mod tests {
         let p = parse("postgres://alice:p%40ss@db.test:5433/app?sslmode=verify-full").unwrap();
         assert_eq!(p.secret.as_deref(), Some("p@ss"));
         assert_eq!(p.fields["database"], "app");
-        assert!(!serde_json::to_string(&p).unwrap().contains("p@ss"));
+        // The parser result is an in-memory IPC payload. Its secret must reach
+        // the form draft, while it stays out of profile fields and sanitized text.
+        let ipc = serde_json::to_string(&p).unwrap();
+        assert!(ipc.contains("p@ss"));
+        assert!(!p.sanitized_input.contains("p@ss"));
+        assert!(!p.fields.values().any(|value| value.contains("p@ss")));
         let p =
             parse("psql -h db.test -p 5433 -U alice -d 'host=db.test dbname=app password=secret'")
                 .unwrap();

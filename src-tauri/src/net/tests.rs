@@ -59,6 +59,7 @@ async fn real_connection_stages_and_redacted_auth_failure() {
             app.state(),
             profile.clone(),
             Some(password.into()),
+            Secrets::default(),
             progress.channel.unwrap(),
         )
         .await;
@@ -88,6 +89,7 @@ async fn real_connection_stages_and_redacted_auth_failure() {
         app.state(),
         profile,
         Some("testpw".into()),
+        Secrets::default(),
         progress.channel.unwrap()
     )
     .await
@@ -148,6 +150,7 @@ async fn route_connects_and_rewrite_retains_destination_name() {
     let route = Arc::new(Route {
         tls: None,
         network: Network::default(),
+        network_secrets: Secrets::default(),
         profile_id: "test".into(),
         host: "127.0.0.1".into(),
         port,
@@ -187,6 +190,10 @@ async fn real_test_databases_via_ssh_key_password_jumps_and_proxies() {
         return;
     };
     let fixture: serde_json::Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+    let secret_store_path = std::env::var_os("AXDB_DEV_SECRET_STORE")
+        .expect("network E2E requires the private test secret store");
+    let fixture_secrets: BTreeMap<String, String> =
+        serde_json::from_slice(&std::fs::read(secret_store_path).unwrap()).unwrap();
     let key = fixture["key_file"].as_str().unwrap().to_owned();
     let temp = tempfile::tempdir().unwrap();
     let state = Arc::new(State::default());
@@ -222,9 +229,11 @@ async fn real_test_databases_via_ssh_key_password_jumps_and_proxies() {
         "ssh_encrypted_key",
         "ssh_agent",
         "ssh_password",
+        "ssh_password_draft_credentials",
         "ssh_jump",
         "socks5",
         "http_connect",
+        "http_connect_draft_credentials",
         "proxy_then_ssh",
     ] {
         let mut tunnel_ssh = ssh.clone();
@@ -243,7 +252,7 @@ async fn real_test_databases_via_ssh_key_password_jumps_and_proxies() {
                     proxy: None,
                 }
             }
-            "ssh_password" => {
+            "ssh_password" | "ssh_password_draft_credentials" => {
                 tunnel_ssh.auth = SshAuth::Password;
                 Network {
                     ssh: Some(tunnel_ssh),
@@ -276,6 +285,15 @@ async fn real_test_databases_via_ssh_key_password_jumps_and_proxies() {
                     proxy: Some(p),
                 }
             }
+            "http_connect_draft_credentials" => {
+                let mut p = proxy.clone();
+                p.kind = ProxyKind::HttpConnect;
+                p.user = Some("draft-user".into());
+                Network {
+                    ssh: None,
+                    proxy: Some(p),
+                }
+            }
             "proxy_then_ssh" => {
                 tunnel_ssh.host = "host.docker.internal".into();
                 Network {
@@ -288,6 +306,32 @@ async fn real_test_databases_via_ssh_key_password_jumps_and_proxies() {
                 proxy: None,
             },
         };
+        let draft_profile_id = match mode {
+            "ssh_password_draft_credentials" => "w1-injected-ssh-password",
+            "http_connect_draft_credentials" => "w1-injected-proxy-password",
+            _ => "w1-network",
+        };
+        let mut network_secrets = Secrets::default();
+        match mode {
+            "ssh_password_draft_credentials" => {
+                network_secrets.ssh_password =
+                    Some(fixture_secrets["w1-network:ssh_password"].clone());
+                assert!(
+                    crate::storage::keychain_get(&format!("{draft_profile_id}:ssh_password"))
+                        .unwrap()
+                        .is_none()
+                );
+            }
+            "http_connect_draft_credentials" => {
+                network_secrets.proxy_password = Some("transient-draft-proxy-password".into());
+                assert!(
+                    crate::storage::keychain_get(&format!("{draft_profile_id}:proxy_password"))
+                        .unwrap()
+                        .is_none()
+                );
+            }
+            _ => {}
+        }
         let pg = driver_postgres::PostgresDriver::new();
         let mongo = driver_mongodb::MongoDriver::new();
         let redis = driver_redis::RedisDriver::new();
@@ -334,7 +378,7 @@ async fn real_test_databases_via_ssh_key_password_jumps_and_proxies() {
             .unwrap();
             for driver in [driver, &plugin as &dyn Driver] {
                 let profile = crate::storage::Profile {
-                    id: "w1-network".into(),
+                    id: draft_profile_id.into(),
                     name: "Network test".into(),
                     driver_id: driver.manifest().id.clone(),
                     fields: fields.clone(),
@@ -347,6 +391,7 @@ async fn real_test_databases_via_ssh_key_password_jumps_and_proxies() {
                     &profile,
                     fields.clone(),
                     Some(secret.into()),
+                    network_secrets.clone(),
                     driver.manifest(),
                     temp.path(),
                     state.clone(),
@@ -365,6 +410,21 @@ async fn real_test_databases_via_ssh_key_password_jumps_and_proxies() {
                 session.ping().await.unwrap();
                 let info = session.server_info().await.unwrap();
                 assert!(!info.is_empty());
+                if matches!(
+                    mode,
+                    "ssh_password_draft_credentials" | "http_connect_draft_credentials"
+                ) {
+                    let key = if mode == "ssh_password_draft_credentials" {
+                        "ssh_password"
+                    } else {
+                        "proxy_password"
+                    };
+                    assert!(
+                        crate::storage::keychain_get(&format!("{draft_profile_id}:{key}"))
+                            .unwrap()
+                            .is_none()
+                    );
+                }
                 session.close().await;
                 drop(prepared.tunnel);
             }
@@ -423,6 +483,7 @@ async fn real_ssh_reconnects_without_replaying_database_work() {
         &ssh,
         None,
         "w1-network",
+        &Secrets::default(),
         &dir.path().join("known_hosts"),
         state.clone(),
     )
@@ -435,6 +496,7 @@ async fn real_ssh_reconnects_without_replaying_database_work() {
             ssh: Some(ssh),
             proxy: None,
         },
+        network_secrets: Secrets::default(),
         profile_id: "w1-network".into(),
         host: "host.docker.internal".into(),
         port: 55432,
@@ -495,6 +557,7 @@ async fn real_tunnel_verifies_tls_name_and_cancels_over_tls() {
             &profile,
             profile.fields.clone(),
             Some("testpw".into()),
+            Secrets::default(),
             driver.manifest(),
             dir.path(),
             state.clone(),

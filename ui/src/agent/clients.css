@@ -60,10 +60,6 @@
 .agent-clients__fields { display: grid; grid-template-columns: 1fr 130px 1.2fr; gap: 12px; }
 .agent-clients__fields label { display: flex; flex-direction: column; gap: 7px; min-width: 0; font-size: 11px; }
 .agent-clients__actions { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 8px; }
-.agent-clients .agent-clients__tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 20px; margin: 0; }
-.agent-clients__tools > div { display: flex; flex-direction: column; min-width: 0; gap: 4px; }
-.agent-clients .agent-clients__tools .spring-check { margin: 0; font-size: 11px; overflow-wrap: anywhere; }
-.agent-clients__tools small { margin-left: 25px; color: var(--text-muted); font-size: 10px; }
 .agent-clients__tool-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 24px; list-style: none; margin: 12px 0 0; padding: 0; }
 .agent-clients__tool-list li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border-subtle); }
 .agent-clients__tool-list code { font-size: 10px; overflow-wrap: anywhere; }
@@ -73,7 +69,7 @@
   .agent-clients__header { flex-wrap: wrap; gap: 12px; }
   .agent-clients__bridge { flex-basis: 100%; }
   .agent-clients__count { flex: 1; }
-  .agent-clients__grid, .agent-clients__fields, .agent-clients .agent-clients__tools, .agent-clients__tool-list { grid-template-columns: minmax(0, 1fr); }
+  .agent-clients__grid, .agent-clients__fields, .agent-clients__tool-list { grid-template-columns: minmax(0, 1fr); }
   .agent-clients__steps { flex-wrap: wrap; gap: 12px; }
   .agent-clients__empty { padding-inline: 0; }
 }

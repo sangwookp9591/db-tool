@@ -1,0 +1,26 @@
+{
+  "checks": [
+    "actual PostgreSQL host/driver connection and isolated table/view fixture",
+    "native add connection → real connection test passes with DNS/auth/permission stages",
+    "profile save/edit/cancel and connection menu hit-testing",
+    "session connect → non-public schema table/view discovery without manual expansion",
+    "SQL autocomplete uses real PostgreSQL catalog",
+    "native SQL execution renders actual result rows",
+    "edit preview rendered; application requires confirmation",
+    "real table edit: preview rollback → confirmation cancel → apply persisted",
+    "native user/role directory → selected-role pagination → schema/object filters",
+    "closing another connection preserves the active profile network status",
+    "native QA complete; synthetic fixture retained for screenshot"
+  ],
+  "complete": true,
+  "environment": {
+    "at": "2026-10-21T06:49:26.336Z",
+    "mock": false,
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)",
+    "viewport": {
+      "height": 768,
+      "width": 1280
+    }
+  },
+  "stage": "native QA complete; synthetic fixture retained for screenshot"
+}

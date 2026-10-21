@@ -30,14 +30,15 @@ export function ConnectionTimeline({events,manifest,network,running}:{events:Sta
 const codes=['dns_failed','connection_refused','timeout','host_key_unknown','host_key_mismatch','key_permissions','ssh_auth_failed','proxy_auth_failed','tls_failed','db_auth_failed','permission_denied','unsupported','unknown'];
 function safeCode(code:string|null){if(!code)return null;const normalized=code.toLowerCase();return codes.includes(normalized)?normalized:'unknown';}
 function help(code:string|null){const value=(code??'').toLowerCase();if(value.includes('host_key'))return '서버 관리자에게 지문을 확인하세요. 지문이 바뀌었다면 연결을 승인하지 마세요.';if(value.includes('key')||value.includes('permission'))return '키 파일 경로와 소유자 접근 권한, DB 역할 권한을 확인하세요.';if(value.includes('auth'))return '사용자 이름, 키체인 자격 증명, IAM 프로필과 DB 인증 정책을 확인하세요.';if(value.includes('tls'))return 'CA 인증서와 서버 호스트 이름을 확인하세요.';return '호스트·포트와 네트워크 경로를 확인한 뒤 다시 테스트하세요.';}
-export function HostKeyDialog(){
- const [request,setRequest]=useState<Extract<ConnectionEvent,{event:'host_key'}>|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[state,setState]=useState(''),[blocked,setBlocked]=useState(false);
+export function HostKeyDialog({activeProfileId}:{activeProfileId?:string}){
+ const [request,setRequest]=useState<Extract<ConnectionEvent,{event:'host_key'}>|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[states,setStates]=useState<Record<string,Extract<ConnectionEvent,{event:'network'}>>>({}),[subscriptionError,setSubscriptionError]=useState('');
+ const current=activeProfileId?states[activeProfileId]:undefined;const state=current?networkStatus(current):subscriptionError,blocked=current?.code==='SSH_HOST_KEY_CHANGED';
  useEffect(()=>{
   let alive=true;
-  const receive=(event:ConnectionEvent)=>{if(!alive)return;if(event.event==='host_key'){setError('');setRequest(event);}if(event.event==='network'){setState(networkStatus(event));setBlocked(event.code==='SSH_HOST_KEY_CHANGED');}};
+  const receive=(event:ConnectionEvent)=>{if(!alive)return;if(event.event==='host_key'){setError('');setRequest(event);}if(event.event==='network'){setStates(previous=>({...previous,[event.profile_id]:event}));}};
   if(isMock){const mock=(event:Event)=>receive((event as CustomEvent<ConnectionEvent>).detail);window.addEventListener('ax:mock-network',mock);return()=>{alive=false;window.removeEventListener('ax:mock-network',mock);};}
   const sub=listen<ConnectionEvent>('connection-network',event=>receive(event.payload));
-  sub.catch(()=>{if(alive)setState('네트워크 상태 알림을 연결하지 못했습니다.');});
+  sub.catch(()=>{if(alive)setSubscriptionError('네트워크 상태 알림을 연결하지 못했습니다.');});
   return()=>{alive=false;void sub.then(unlisten=>unlisten()).catch(()=>{});};
  },[]);
  async function answer(accept:boolean){if(!request||busy)return;setBusy(true);setError('');try{await api('connection_host_key_confirm',{requestId:request.request_id,accept});setRequest(null);}catch(e){setError(String((e as Error).message??e));}finally{setBusy(false);}}

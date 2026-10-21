@@ -258,10 +258,13 @@ fn rewrite(
     }
     Ok(())
 }
+// Keep network secrets explicit at this boundary so test credentials stay in memory.
+#[allow(clippy::too_many_arguments)]
 pub async fn prepare(
     profile: &crate::storage::Profile,
     fields: BTreeMap<String, String>,
     secret: Option<String>,
+    network_secrets: Secrets,
     manifest: &DriverManifest,
     path: &Path,
     state: Arc<State>,
@@ -349,6 +352,7 @@ pub async fn prepare(
             ssh,
             network.proxy.as_ref(),
             &profile.id,
+            &network_secrets,
             &path.join("known_hosts"),
             state.clone(),
         )
@@ -380,6 +384,7 @@ pub async fn prepare(
     let route = Arc::new(Route {
         tls,
         network,
+        network_secrets,
         profile_id: profile.id.clone(),
         host: endpoint.host.clone(),
         port: endpoint.port,
@@ -453,6 +458,7 @@ pub async fn prepare(
 struct Route {
     tls: Option<tls::Tls>,
     network: Network,
+    network_secrets: Secrets,
     profile_id: String,
     host: String,
     port: u16,
@@ -495,6 +501,7 @@ impl Route {
                         config,
                         self.network.proxy.as_ref(),
                         &self.profile_id,
+                        &self.network_secrets,
                         &self.path,
                         self.state.clone(),
                     )
@@ -540,8 +547,12 @@ impl Route {
                 .open(&self.host, self.port)
                 .await
         } else {
-            let password =
-                crate::storage::keychain_get(&format!("{}:proxy_password", self.profile_id))?;
+            let password = match self.network_secrets.proxy_password.as_ref() {
+                Some(value) => Some(value.clone()),
+                None => {
+                    crate::storage::keychain_get(&format!("{}:proxy_password", self.profile_id))?
+                }
+            };
             proxy::connect(
                 self.network.proxy.as_ref(),
                 password.as_deref(),
@@ -562,15 +573,8 @@ pub fn connection_host_key_confirm(
     host.network.answer(&request_id, accept)
 }
 #[tauri::command]
-pub async fn connection_parse(input: String, profile_id: String) -> Result<parse::Parsed, DbError> {
-    if profile_id.trim().is_empty() {
-        return Err(error("PROFILE_ID_REQUIRED"));
-    }
-    let parsed = parse::parse(&input)?;
-    if let Some(secret) = parsed.secret.as_deref() {
-        crate::storage::keychain_set(&profile_id, Some(secret))?;
-    }
-    Ok(parsed)
+pub async fn connection_parse(input: String) -> Result<parse::Parsed, DbError> {
+    parse::parse(&input)
 }
 #[tauri::command]
 pub fn connection_credentials_save(profile_id: String, secrets: Secrets) -> Result<(), DbError> {
@@ -657,13 +661,14 @@ pub async fn connection_test_steps(
     host: tauri::State<'_, crate::Host>,
     profile: crate::storage::Profile,
     secret: Option<String>,
+    network_secrets: Secrets,
     on_event: tauri::ipc::Channel<Event>,
 ) -> Result<String, DbError> {
     let progress = Progress::new(on_event);
     connection_preflight(&host, &profile, &progress).await?;
     let start = Instant::now();
     let connected = host
-        .connect_progress(&profile, secret, progress.clone())
+        .connect_progress(&profile, secret, network_secrets, progress.clone())
         .await;
     let (session, _, _tunnel) = match connected {
         Ok(connection) => connection,

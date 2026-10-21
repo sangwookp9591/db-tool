@@ -129,10 +129,10 @@ impl Host {
         profile: &Profile,
         secret: Option<String>,
     ) -> Result<(Box<dyn Session>, Option<String>, Option<net::Tunnel>), DbError> {
-        self.connect_progress(profile, secret, net::Progress::default()).await
+        self.connect_progress(profile, secret, net::model::Secrets::default(), net::Progress::default()).await
     }
     async fn connect_progress(
-        &self, profile: &Profile, secret: Option<String>, progress: net::Progress,
+        &self, profile: &Profile, secret: Option<String>, network_secrets: net::model::Secrets, progress: net::Progress,
     ) -> Result<(Box<dyn Session>, Option<String>, Option<net::Tunnel>), DbError> {
         let driver = self.driver(&profile.driver_id)?;
         let mut safe = profile.clone();
@@ -151,7 +151,7 @@ impl Host {
                 .any(|f| !f.secret && f.key == *key)
         });
         tracing::info!(driver=%safe.driver_id,field_names=?safe.fields.keys().collect::<Vec<_>>(),"Connecting");
-        let prepared = net::prepare(&safe, safe.fields.clone(), secret, driver.manifest(), &self.paths.data, self.network.clone(), progress.clone()).await?;
+        let prepared = net::prepare(&safe, safe.fields.clone(), secret, network_secrets, driver.manifest(), &self.paths.data, self.network.clone(), progress.clone()).await?;
         let tls = !prepared.tls_offloaded && net::tls_required(&prepared.fields);
         let start = Instant::now();
         if !prepared.tls_offloaded { progress.stage("tls", if tls { "running" } else { "skipped" }, start, None); }
@@ -339,7 +339,7 @@ async fn session_open_impl(
     let progress = on_event.map(net::Progress::new).unwrap_or_default();
     net::connection_preflight(host, &profile, &progress).await?;
     let start = Instant::now();
-    let (session, secret, tunnel) = host.connect_progress(&profile, secret, progress.clone()).await.inspect_err(|e| {
+    let (session, secret, tunnel) = host.connect_progress(&profile, secret, net::model::Secrets::default(), progress.clone()).await.inspect_err(|e| {
         let safe = net::database_error(e, !matches!(profile.auth, net::model::Auth::Password)).1;
         progress.failure(&safe, start);
     })?;
@@ -788,7 +788,7 @@ pub fn run() {
             editor::refactor_query,
             management::administration::files::backup_create_file, management::administration::files::restore_options, management::administration::files::restore_pick_file, management::administration::files::restore_file_preview, management::administration::files::restore_file_apply, management::administration::files::restore_file_discard,
             management::administration::backup_status, management::administration::backup_create, management::administration::restore_preview, management::administration::restore_apply,
-            management::administration::roles, management::administration::plan_grants, management::administration::grants_preview, management::administration::grants_apply,
+            management::administration::roles, management::administration::roles_page, management::administration::plan_grants, management::administration::grants_preview, management::administration::grants_apply,
             management::import_plan,
             management::import_target,
             management::import_pick_file,

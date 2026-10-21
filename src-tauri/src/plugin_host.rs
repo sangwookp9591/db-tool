@@ -676,6 +676,13 @@ impl Session for PluginSession {
     async fn backup(&self,cancel:CancelToken)->Result<BackupData,DbError>{ match self.call(Request::Backup{session:self.session},cancel,3600000).await?.reply{Reply::Backup(b)=>Ok(b),_=>Err(invalid_reply())} }
     async fn restore(&self,backup:&BackupData,overwrite:bool,cancel:CancelToken)->Result<(),DbError>{ match self.call(Request::Restore{session:self.session,backup:backup.clone(),overwrite},cancel,3600000).await?.reply{Reply::Unit=>Ok(()),_=>Err(invalid_reply())} }
     async fn roles(&self)->Result<RolesSnapshot,DbError>{ match self.call(Request::Roles{session:self.session},CancelToken::new(),30000).await?.reply{Reply::Roles(r)=>Ok(r),_=>Err(invalid_reply())} }
+    async fn roles_page(&self, query: &RolesPageQuery)->Result<RolesSnapshot,DbError>{
+        match self.call(Request::RolesPage{session:self.session,query:query.clone()},CancelToken::new(),30000).await {
+            Ok(response) => match response.reply { Reply::Roles(r)=>Ok(r),_=>Err(invalid_reply()) },
+            Err(error) if error.kind == ErrorKind::Unsupported => page_roles_snapshot(self.roles().await?, query),
+            Err(error) => Err(error),
+        }
+    }
     async fn plan_grants(&self,changes:&[GrantChange])->Result<GrantPlan,DbError>{ match self.call(Request::PlanGrants{session:self.session,changes:changes.to_vec()},CancelToken::new(),30000).await?.reply{Reply::Grants(p)=>Ok(p),_=>Err(invalid_reply())} }
 
     async fn apply_migration(&self,req:&ExecRequest,cancel:CancelToken)->Result<Vec<ResultSet>,DbError>{

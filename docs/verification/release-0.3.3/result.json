@@ -1,0 +1,29 @@
+{
+  "version": "0.3.3",
+  "status": "notarized",
+  "completed_at": "2026-10-21T08:04:07.802642+00:00",
+  "bundle_id": "dev.axdb.app",
+  "architectures": [
+    "x86_64",
+    "arm64"
+  ],
+  "signing_identity": "Developer ID Application: SangWook Park (QRW9X3848W)",
+  "hardened_runtime": true,
+  "method": "Xcode Developer ID upload using signed-in Apple account",
+  "xcode_distribution_id": "E2A385A1-52E4-4B7B-9831-A47964E21F4D",
+  "checks": {
+    "xcode_upload": "EXPORT SUCCEEDED",
+    "notarized_export": "EXPORT SUCCEEDED",
+    "codesign_verify": "passed",
+    "stapler_validate": "passed",
+    "gatekeeper": "accepted; source=Notarized Developer ID",
+    "zip_extraction_ticket_and_signature": "passed"
+  },
+  "artifact": {
+    "path": "dist/notarization/0.3.3/AxDB_0.3.3_universal.app.zip",
+    "sha256": "b3c3b86ea91e5b5c3d3a4ad4576f1f59db9e1d87b3ab07cdb5a8b4f4681003f1",
+    "bytes": 28929755
+  },
+  "scope": "Notarized macOS universal app ZIP. GitHub publishing and updater signing were not performed.",
+  "repository_follow_up": "The in-app current-release marker was synchronized with ui/package.json after notarization. That source change is not included in the notarized ZIP identified above."
+}

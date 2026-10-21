@@ -352,7 +352,7 @@ dependencies = [
 
 [[package]]
 name = "axdb"
-version = "0.3.1"
+version = "0.3.3"
 dependencies = [
  "async-trait",
  "axdb-driver-package",
@@ -410,7 +410,7 @@ dependencies = [
 
 [[package]]
 name = "axdb-driver-package"
-version = "0.3.1"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "ed25519-dalek 2.2.0",
@@ -425,7 +425,7 @@ dependencies = [
 
 [[package]]
 name = "axdb-driver-protocol"
-version = "0.3.1"
+version = "0.3.3"
 dependencies = [
  "dbcore",
  "rmp-serde",
@@ -436,7 +436,7 @@ dependencies = [
 
 [[package]]
 name = "axdb-driver-sdk"
-version = "0.3.1"
+version = "0.3.3"
 dependencies = [
  "async-trait",
  "axdb-driver-protocol",
@@ -1374,7 +1374,7 @@ checksum = "4583a4551df46e2792f82ceeac45e850d2e2d5debba0b91f102385cda5b11f06"
 
 [[package]]
 name = "dbcore"
-version = "0.3.1"
+version = "0.3.3"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -1685,7 +1685,7 @@ dependencies = [
 
 [[package]]
 name = "driver-example-kv"
-version = "0.3.1"
+version = "0.3.3"
 dependencies = [
  "async-trait",
  "axdb-driver-sdk",
@@ -1696,7 +1696,7 @@ dependencies = [
 
 [[package]]
 name = "driver-mongodb"
-version = "0.3.1"
+version = "0.3.3"
 dependencies = [
  "async-trait",
  "axdb-driver-sdk",
@@ -1709,7 +1709,7 @@ dependencies = [
 
 [[package]]
 name = "driver-mysql"
-version = "0.3.1"
+version = "0.3.3"
 dependencies = [
  "async-trait",
  "axdb-driver-sdk",
@@ -1724,7 +1724,7 @@ dependencies = [
 
 [[package]]
 name = "driver-neo4j"
-version = "0.3.1"
+version = "0.3.3"
 dependencies = [
  "async-trait",
  "axdb-driver-sdk",
@@ -1740,7 +1740,7 @@ dependencies = [
 
 [[package]]
 name = "driver-postgres"
-version = "0.3.1"
+version = "0.3.3"
 dependencies = [
  "async-trait",
  "axdb-driver-protocol",
@@ -1762,7 +1762,7 @@ dependencies = [
 
 [[package]]
 name = "driver-redis"
-version = "0.3.1"
+version = "0.3.3"
 dependencies = [
  "async-trait",
  "axdb-driver-sdk",
@@ -1774,7 +1774,7 @@ dependencies = [
 
 [[package]]
 name = "driver-sqlite"
-version = "0.3.1"
+version = "0.3.3"
 dependencies = [
  "async-trait",
  "axdb-driver-sdk",
@@ -8540,7 +8540,7 @@ dependencies = [
 
 [[package]]
 name = "xtask"
-version = "0.3.1"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "axdb-driver-package",

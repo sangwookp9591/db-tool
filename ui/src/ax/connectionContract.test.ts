@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { connectionMock, networkStatus, type ConnectionEvent } from './connectionContract';
 describe('connection browser contract', () => {
-  it('never returns pasted credentials', async () => {
-    const result = await connectionMock('connection_parse', { input: 'mongodb://alice:hidden@localhost:27017/app?password=hidden', profileId: 'demo' });
-    expect(JSON.stringify(result)).not.toContain('hidden');
-    expect(result).toMatchObject({ driver_id: 'mongodb', has_secret: true, fields: { user: 'alice', database: 'app' } });
+  it('returns pasted credentials only in the transient secret field', async () => {
+    const result = await connectionMock('connection_parse', { input: 'mongodb://alice:hidden@localhost:27017/app?authSource=admin' });
+    expect(result).toMatchObject({ driver_id: 'mongodb', has_secret: true, secret: 'hidden', fields: { user: 'alice', database: 'app' } });
+    const parsed = result as { fields: Record<string,string>; sanitized_input: string };
+    expect(parsed.sanitized_input).not.toContain('hidden');
+    expect(Object.values(parsed.fields).join(' ')).not.toContain('hidden');
   });
   it('marks unperformed mock transport checks as skipped', async () => {
     const events: ConnectionEvent[] = [];

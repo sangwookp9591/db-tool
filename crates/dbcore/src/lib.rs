@@ -194,6 +194,9 @@ pub trait Session: Send + Sync {
     async fn backup(&self, _cancel: CancelToken) -> Result<BackupData, DbError> { Err(DbError::unsupported("Backup unsupported")) }
     async fn restore(&self, _backup: &BackupData, _overwrite: bool, _cancel: CancelToken) -> Result<(), DbError> { Err(DbError::unsupported("Restore unsupported")) }
     async fn roles(&self) -> Result<RolesSnapshot, DbError> { Err(DbError::unsupported("Roles unsupported")) }
+    async fn roles_page(&self, query: &RolesPageQuery) -> Result<RolesSnapshot, DbError> {
+        page_roles_snapshot(self.roles().await?, query)
+    }
     async fn plan_grants(&self, _changes: &[GrantChange]) -> Result<GrantPlan, DbError> { Err(DbError::unsupported("Grant planning unsupported")) }
 
     async fn apply_migration(&self,_req:&ExecRequest,_cancel:CancelToken)->Result<Vec<ResultSet>,DbError>{Err(DbError::unsupported("Atomic migrations unsupported"))}

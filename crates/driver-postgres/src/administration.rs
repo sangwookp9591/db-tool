@@ -111,56 +111,79 @@ impl PgSession {
     }
     pub(super) async fn native_roles(&self) -> Result<RolesSnapshot, DbError> {
         let _state = self.state.lock().await;
-        let rows=self.client.query("SELECT rolname,rolcanlogin,rolsuper,rolcreatedb,rolcreaterole,rolbypassrls FROM pg_roles ORDER BY rolname LIMIT 1001",&[]).await.map_err(|e|self.error(e))?;
-        if rows.len() > 1000 {
-            return Err(DbError::query("Role list exceeds 1000 roles"));
+        let mut result = self.roles_metadata().await?;
+        let counts = self.client.query_one(
+            "SELECT (SELECT count(*) FROM pg_roles)::bigint, (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE c.relkind IN ('r','p','v','m') AND n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema')::bigint",
+            &[],
+        ).await.map_err(|e|self.error(e))?;
+        let cells = (counts.get::<_, i64>(0) as u64)
+            .saturating_mul(counts.get::<_, i64>(1) as u64)
+            .saturating_mul(7);
+        if cells > 50_000 {
+            result.page = Some(RolesPageInfo {
+                role: None, namespace: None, object: None, offset: 0, limit: ROLES_PAGE_DEFAULT_LIMIT,
+                total: 0, has_more: false, role_required: true,
+            });
+            return Ok(result);
         }
-        let mut result = RolesSnapshot {
-            supported: true,
-            ..Default::default()
+        let rows=self.client.query("SELECT r.rolname,n.nspname,c.relname,p.privilege,has_schema_privilege(r.oid,n.oid,'USAGE') AND has_table_privilege(r.oid,c.oid,p.privilege) FROM pg_roles r CROSS JOIN pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace CROSS JOIN (VALUES ('SELECT'),('INSERT'),('UPDATE'),('DELETE'),('TRUNCATE'),('REFERENCES'),('TRIGGER')) p(privilege) WHERE c.relkind IN ('r','p','v','m') AND n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema' ORDER BY r.rolname,n.nspname,c.relname,p.privilege",&[]).await.map_err(|e|self.error(e))?;
+        result.matrix = rows.into_iter().map(|r| ObjectPrivilege {
+            role: r.get(0), namespace: r.get(1), object: r.get(2), privilege: r.get(3), allowed: r.get(4),
+        }).collect();
+        for role in &mut result.roles {
+            let allowed = result.matrix.iter().filter(|p| p.role == role.name && p.allowed).count();
+            role.summary.push(format!("{allowed} effective table privileges, including memberships and PUBLIC; row policies and column privileges can further affect access"));
+        }
+        Ok(result)
+    }
+
+    pub(super) async fn native_roles_page(&self, query: &RolesPageQuery) -> Result<RolesSnapshot, DbError> {
+        query.validate()?;
+        let _state = self.state.lock().await;
+        let mut result = self.roles_metadata().await?;
+        let Some(role) = query.role.as_deref() else {
+            result.page = Some(RolesPageInfo {
+                role: None, namespace: query.namespace.clone(), object: query.object.clone(),
+                offset: 0, limit: query.limit, total: 0, has_more: false, role_required: true,
+            });
+            return Ok(result);
         };
+        let namespace = query.namespace.as_deref();
+        let object = query.object.as_deref();
+        let total_objects: i64 = self.client.query_one(
+            "SELECT count(*)::bigint FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE c.relkind IN ('r','p','v','m') AND n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema' AND ($1::text IS NULL OR position(lower($1) in lower(n.nspname))>0) AND ($2::text IS NULL OR position(lower($2) in lower(c.relname))>0)",
+            &[&namespace, &object],
+        ).await.map_err(|e|self.error(e))?.get(0);
+        let total = (total_objects.max(0) as u64).saturating_mul(7);
+        let limit = i64::from(query.limit) + 1;
+        let offset = i64::from(query.offset);
+        let rows = self.client.query(
+            "SELECT $1::text,n.nspname,c.relname,p.privilege,has_schema_privilege($1,n.oid,'USAGE') AND has_table_privilege($1,c.oid,p.privilege) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace CROSS JOIN (VALUES ('SELECT'),('INSERT'),('UPDATE'),('DELETE'),('TRUNCATE'),('REFERENCES'),('TRIGGER')) p(privilege) WHERE c.relkind IN ('r','p','v','m') AND n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema' AND ($2::text IS NULL OR position(lower($2) in lower(n.nspname))>0) AND ($3::text IS NULL OR position(lower($3) in lower(c.relname))>0) ORDER BY n.nspname,c.relname,p.privilege LIMIT $4 OFFSET $5",
+            &[&role, &namespace, &object, &limit, &offset],
+        ).await.map_err(|e|self.error(e))?;
+        let has_more = (query.offset as u64).saturating_add(rows.len().min(query.limit as usize) as u64) < total;
+        result.matrix = rows.into_iter().take(query.limit as usize).map(|r| ObjectPrivilege {
+            role: r.get(0), namespace: r.get(1), object: r.get(2), privilege: r.get(3), allowed: r.get(4),
+        }).collect();
+        result.page = Some(RolesPageInfo {
+            role: Some(role.to_owned()), namespace: query.namespace.clone(), object: query.object.clone(),
+            offset: query.offset, limit: query.limit, total, has_more, role_required: false,
+        });
+        Ok(result)
+    }
+
+    async fn roles_metadata(&self) -> Result<RolesSnapshot, DbError> {
+        let rows=self.client.query("SELECT rolname,rolcanlogin,rolsuper,rolcreatedb,rolcreaterole,rolbypassrls FROM pg_roles ORDER BY rolname LIMIT 1001",&[]).await.map_err(|e|self.error(e))?;
+        if rows.len() > 1000 { return Err(DbError::query("Role list exceeds 1000 roles")); }
+        let mut result = RolesSnapshot { supported: true, ..Default::default() };
         for row in rows {
             let name: String = row.get(0);
             let memberships=self.client.query("SELECT r.rolname FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.roleid JOIN pg_roles u ON u.oid=m.member WHERE u.rolname=$1 ORDER BY r.rolname",&[&name]).await.map_err(|e|self.error(e))?.iter().map(|r|r.get(0)).collect();
             let mut summary = vec![];
-            for (i, label) in [
-                (2, "Superuser"),
-                (3, "Create databases"),
-                (4, "Manage roles"),
-                (5, "Bypass row-level security"),
-            ] {
-                if row.get::<_, bool>(i) {
-                    summary.push(label.into());
-                }
+            for (i, label) in [(2, "Superuser"), (3, "Create databases"), (4, "Manage roles"), (5, "Bypass row-level security")] {
+                if row.get::<_, bool>(i) { summary.push(label.into()); }
             }
-            result.roles.push(RoleInfo {
-                name,
-                login: row.get(1),
-                superuser: row.get(2),
-                member_of: memberships,
-                summary,
-            });
-        }
-        let rows=self.client.query("SELECT r.rolname,n.nspname,c.relname,p.privilege,has_schema_privilege(r.oid,n.oid,'USAGE') AND has_table_privilege(r.oid,c.oid,p.privilege) FROM pg_roles r CROSS JOIN pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace CROSS JOIN (VALUES ('SELECT'),('INSERT'),('UPDATE'),('DELETE'),('TRUNCATE'),('REFERENCES'),('TRIGGER')) p(privilege) WHERE c.relkind IN ('r','p','v','m') AND n.nspname NOT LIKE 'pg_%' AND n.nspname<>'information_schema' LIMIT 50001",&[]).await.map_err(|e|self.error(e))?;
-        if rows.len() > 50000 {
-            return Err(DbError::query("Privilege matrix exceeds 50000 cells"));
-        }
-        for r in rows {
-            result.matrix.push(ObjectPrivilege {
-                role: r.get(0),
-                namespace: r.get(1),
-                object: r.get(2),
-                privilege: r.get(3),
-                allowed: r.get(4),
-            });
-        }
-        for role in &mut result.roles {
-            let allowed = result
-                .matrix
-                .iter()
-                .filter(|p| p.role == role.name && p.allowed)
-                .count();
-            role.summary.push(format!("{allowed} effective table privileges, including memberships and PUBLIC; row policies and column privileges can further affect access"));
+            result.roles.push(RoleInfo { name, login: row.get(1), superuser: row.get(2), member_of: memberships, summary });
         }
         Ok(result)
     }
