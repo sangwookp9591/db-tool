@@ -1,0 +1,97 @@
+{
+  "task_id": "task_c86788a3e92c",
+  "proven_findings": [
+    {
+      "finding": "Automatic lint issued uncancellable metadata and EXPLAIN reads after each debounced edit",
+      "evidence": "Original QueryTab effect depended on queryText; original lint_query called projection_schema and session.explain with CancelToken::new; new automatic_lint_never_reads_the_database regression uses a Session that panics on every database operation and passes"
+    },
+    {
+      "finding": "PostgreSQL explain catalog enrichment could wait indefinitely after the bounded preview and queried once per Seq Scan",
+      "evidence": "Original per-scan loop reacquired state.lock without a deadline and used client.query directly; new query batches/deduplicates targets via bounded execute with the remaining 30-second budget"
+    },
+    {
+      "finding": "A failed auxiliary CancelRequest transport unnecessarily destroyed a healthy PostgreSQL connection",
+      "evidence": "Before fix failed_cancel_transport_preserves_completed_explain failed in 0.03s with failed CancelRequest closed the primary connection; after fix both analyze=false and analyze=true preserve connection and subsequent explain/ping succeed"
+    },
+    {
+      "finding": "Cancellation grace expiry killed the entire shared plugin process without checking process health",
+      "evidence": "Original deadline branch called Process::fail unconditionally; new withheld-cancel-reply regression completes Cancelled and both the original and sibling SQLite sessions still answer ping after an independent protocol handshake"
+    },
+    {
+      "finding": "Diagnostic clearing on every edit caused layout movement",
+      "evidence": "Original effect cleared diagnostics before each 300ms debounce; browser regression now verifies messages persist during 700ms debounce, stale results are ignored, old quick fixes are withheld, and editor bounding box stays identical"
+    }
+  ],
+  "changes": [
+    "Automatic lint is local syntax analysis; explicit expand-star refactoring and explain retain their database functionality",
+    "PostgreSQL enrichment is deduplicated and bounded; cancellation retries capped at three with a five-second execution/rollback cleanup deadline",
+    "A cancel transport error alone no longer closes the PostgreSQL connection; a connection that cannot finish execution/rollback within the cleanup deadline is still closed",
+    "Plugin request timeout first cancels that request; expired cancellation grace retires it and probes the dispatcher before terminating an actually unresponsive process; initial handshake failures retain previous behavior",
+    "QueryPlan cancels on query/session changes and unmount, ignores superseded results, exposes cancellation, and QueryTab no longer remounts it for every edit",
+    "QueryTab retains diagnostic messages, reserves fixed diagnostic space, and disables Run button morph animation"
+  ],
+  "verification": {
+    "build": {
+      "command": "cargo build -p axdb -p driver-postgres",
+      "exit_code": 0
+    },
+    "rust_tests": {
+      "command": "AXDB_DRIVER_DIR=target/debug AXDB_TEST_PG=<isolated loopback authenticated fixture> cargo test -p axdb -p driver-postgres",
+      "exit_code": 0,
+      "suites": 20,
+      "passed": 242,
+      "failed": 0,
+      "ignored": 9
+    },
+    "host_unit_tests": {
+      "passed": 148,
+      "failed": 0,
+      "ignored": 6
+    },
+    "cancellation_races": {
+      "iterations": 200,
+      "failures": 0,
+      "connection_preserved": true
+    },
+    "ui": {
+      "typecheck_exit_code": 0,
+      "focused_test_files": 3,
+      "focused_tests_passed": 7,
+      "focused_tests_failed": 0
+    },
+    "post_test_pg_stat_activity": "Zero remaining connections to test databases; no idle-in-transaction sessions",
+    "git_diff_check_exit_code": 0
+  },
+  "rejected_or_unverified": [
+    "No setPlan/setDiagnostics/IntentPlans feedback loop was found; the browser regression verifies click-driven explain does not recur after completion",
+    "Existing preview rollback and cancellation tests pass; an ordinary PostgreSQL infinite rollback/retry loop was not reproduced",
+    "Actual zivo-dev production traffic and its exact initial trigger were not replayed",
+    "Real PostgreSQL TLS fixture was not configured, so the TLS integration test skipped internally",
+    "Real MySQL/MariaDB, MongoDB, Neo4j, Redis, external AI, keychain, and manual performance scenarios were not enabled unless covered by local SQLite/PG and package fixtures"
+  ],
+  "files_modified_by_this_worker": [
+    "crates/driver-postgres/src/lib.rs",
+    "src-tauri/src/editor.rs",
+    "src-tauri/src/plugin_host.rs",
+    "ui/src/QueryTab.tsx",
+    "ui/src/ax/QueryPlan.tsx",
+    "ui/src/ax/QueryPlan.browser.test.ts"
+  ],
+  "evidence_files": [
+    "build.log",
+    "final-tests.log",
+    "postgres-tests.log",
+    "ui-tests.log",
+    "server.log",
+    "backup-sample.txt",
+    "backup-memory-evidence.json"
+  ],
+  "local_fixture": {
+    "host": "127.0.0.1",
+    "port": 55432,
+    "database": "axdb_test",
+    "state": "running for coordinator verification",
+    "stop_command": "pg_ctl -D /tmp/axdb-explain-pg.FJTQaH/data stop"
+  },
+  "repository_cleanup": "Generated bench/results-w4b-streaming-plugin.json restored to its pre-test contents; only owned source/test edits remain from this worker"
+}

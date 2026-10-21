@@ -1,0 +1,23 @@
+{
+  "mode": "plugin",
+  "small_payload_bytes": 3390294,
+  "large_payload_bytes": 158443302,
+  "large_table_physical_bytes": 163848192,
+  "small": {
+    "host_peak_rss_bytes": 29769728,
+    "driver_peak_rss_bytes": 16891904,
+    "driver_pid": 15868
+  },
+  "large": {
+    "host_peak_rss_bytes": 24035328,
+    "driver_peak_rss_bytes": 18219008,
+    "driver_pid": 15868
+  },
+  "checked": [
+    "e2e.big 250000 rows",
+    "w4b.large 120000 rows and >100 MiB",
+    "row counts and ordered row checksums",
+    "function procedure enum composite domain trigger identity generated multilevel partitions materialized view dependent views",
+    "foreign table and extension warnings"
+  ]
+}

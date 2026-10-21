@@ -39,7 +39,7 @@
 
 Download the file for your operating system from the [**latest GitHub Releases version**](https://github.com/sangwookp9591/db-tool/releases/latest).
 
-Read the [0.3.3 release notes](docs/release-notes/v0.3.3.md) or browse the full [changelog](CHANGELOG.md).
+Read the [0.3.4 release notes](docs/release-notes/v0.3.4.md) or browse the full [changelog](CHANGELOG.md).
 
 | OS | File | Install |
 |---|---|---|
