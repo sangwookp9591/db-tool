@@ -1,6 +1,6 @@
 import { administrationMock } from './ax/administrationContract';
 import type { Commands } from './api';
-import type { AgentClient, DriverManifest, Profile, ExplorerNode, ResultSet, Table, Value, Graph, DbError, HistoryEntry, ExecRequest, EditRequest } from './contract';
+import type { AgentClient, DriverManifest, Profile, ExplorerNode, ResultSet, Table, Value, Graph, DbError, HistoryEntry, ExecRequest, EditRequest, Snippet } from './contract';
 const fields: DriverManifest['connection_fields'] = [
   { key: 'host', label: 'Host', kind: 'Text', required: true, default: 'localhost', secret: false, placeholder: 'localhost' },
   { key: 'port', label: 'Port', kind: 'Number', required: true, default: '5432', secret: false, placeholder: '' },
@@ -19,6 +19,56 @@ let profiles: Profile[] = drivers.map((d, i) => ({ id: `demo-${i}`, name: ['Anal
 const sessions = new Map<string, Profile>();
 const runs = new Map<string, () => void>();
 const history: HistoryEntry[] = [];
+let historySeq = 0, snippetSeq = 0;
+const snippets: Snippet[] = [];
+/** 모의 전용: 이력 N건을 채워 대량 목록 성능을 확인한다. */
+export function seedHistory(count: number) { for (let i = 0; i < count; i++) history.unshift({ id: ++historySeq, kind: 'execute', source: 'ui', timestamp: Date.now() - i * 1000, profile_id: profiles[0]?.id ?? null, profile_name: profiles[0]?.name ?? 'mock', text: `SELECT * FROM orders WHERE id = ${i} AND status = 'open'`, elapsed_ms: i % 900, row_count: i % 50, error: i % 13 === 0 ? 'relation does not exist' : null }); }
+function matches(text: string, query?: string) { return !query || text.toLowerCase().includes(query.toLowerCase()); }
+function mark(text: string, query?: string) { return query ? text.split(query).join(`<mark>${query}</mark>`) : undefined; }
+function keyset<T extends { id?: number }>(rows: T[], before: number | undefined, limit = 100) { const from = before === undefined ? 0 : rows.findIndex(row => (row.id ?? 0) < before); const rest = from < 0 ? [] : rows.slice(from); const items = rest.slice(0, limit); return { items, next_cursor: rest.length > limit ? items.at(-1)!.id ?? null : null }; }
+function mockError(message: string) { return { kind: 'Query', message, detail: null, position: null }; }
+function parseRange(since?: string, until?: string) {
+  const parse = (v?: string) => { if (v === undefined) return undefined; const t = Date.parse(v); if (Number.isNaN(t)) throw mockError('Invalid history date range'); return t; };
+  const range = { since: parse(since), until: parse(until) };
+  if (range.since !== undefined && range.until !== undefined && range.since > range.until) throw mockError('Invalid history date range: since must not exceed until');
+  return range;
+}
+/** since inclusive, until exclusive. */
+function inRange(timestamp: string | number, since?: number, until?: number) { const t = typeof timestamp === 'number' ? timestamp : Date.parse(timestamp); return (since === undefined || t >= since) && (until === undefined || t < until); }
+/** Ordering log like the host's snippet_order: a cursor freezes the ordering at its first page's revision, not the content. */
+interface SnippetOrder { id: number; pinned: boolean; updated_at: string; from: number; until: number | null }
+let snippetRev = 0;
+const snippetOrder: SnippetOrder[] = [];
+function closeSnippetOrder(id: number) { snippetRev++; for (const o of snippetOrder) if (o.id === id && o.until === null) o.until = snippetRev; }
+function noteSnippetOrder(s: Snippet) { closeSnippetOrder(s.id); snippetOrder.push({ id: s.id, pinned: s.pinned, updated_at: s.updated_at, from: snippetRev, until: null }); }
+interface SnippetCursor { snapshot: number; pinned: boolean; updated_at: string; id: number }
+const encodeCursor = (c: SnippetCursor) => Array.from(new TextEncoder().encode(JSON.stringify(c)), b => b.toString(16).padStart(2, '0')).join('');
+function decodeCursor(value: unknown): SnippetCursor {
+  if (typeof value !== 'string') throw mockError('Legacy snippet cursor is unsupported; restart pagination');
+  const invalid = () => mockError('Invalid snippet cursor');
+  if (value.length > 1024 || value.length % 2 || !/^[0-9a-f]*$/.test(value)) throw invalid();
+  try {
+    const c = JSON.parse(new TextDecoder().decode(Uint8Array.from(value.match(/../g) ?? [], h => parseInt(h, 16)))) as SnippetCursor;
+    if (typeof c.snapshot !== 'number' || c.snapshot < 0 || typeof c.pinned !== 'boolean' || typeof c.id !== 'number' || typeof c.updated_at !== 'string') throw invalid();
+    return c;
+  } catch { throw invalid(); }
+}
+const snippetKey = (o: { pinned: boolean; updated_at: string; id: number }) => [o.pinned ? 1 : 0, o.updated_at, o.id] as const;
+function afterKey(a: readonly [number, string, number], b: readonly [number, string, number]) { return a[0] !== b[0] ? a[0] < b[0] : a[1] !== b[1] ? a[1] < b[1] : a[2] < b[2]; }
+function snippetPage(a: { query?: string; tag?: string; profile_id?: string; before_id?: string; limit?: number }, q?: string) {
+  const cursor = a.before_id === undefined ? undefined : decodeCursor(a.before_id), snapshot = cursor?.snapshot ?? snippetRev, limit = a.limit ?? 100;
+  const rows: { order: SnippetOrder; snippet: Snippet }[] = [];
+  for (const order of snippetOrder) {
+    if (order.from > snapshot || (order.until !== null && order.until <= snapshot)) continue;
+    const x = snippets.find(s => s.id === order.id); if (!x) continue;
+    if (!(matches(x.title, q) || matches(x.body, q) || matches(x.tags.join(' '), q)) || (a.tag && !x.tags.includes(a.tag)) || (a.profile_id && x.profile_id !== a.profile_id)) continue;
+    if (cursor && !afterKey(snippetKey(order), snippetKey(cursor))) continue;
+    rows.push({ order, snippet: x });
+  }
+  rows.sort((l, r) => (afterKey(snippetKey(l.order), snippetKey(r.order)) ? 1 : -1));
+  const page = rows.slice(0, limit), last = page.at(-1)?.order;
+  return { items: page.map(r => ({ ...r.snippet, highlight: mark(r.snippet.body, q) })), next_cursor: rows.length > limit && last ? encodeCursor({ snapshot, pinned: last.pinned, updated_at: last.updated_at, id: last.id }) : null };
+}
 let mockAgentClients: AgentClient[] = [{ id: 'local', name: '로컬 MCP', connections: Object.fromEntries(profiles.map(profile => [profile.id, 'read'])), allowed_tools: ['list_connections', 'run_query'], max_rows: 200, expires_at: null, revoked: false }];
 const mockRowChanges = new Map<string, Record<string, Value>>();
 const mockDeletedRows = new Set<string>();
@@ -84,11 +134,12 @@ async function execute(sessionId: string, runId: string, req: ExecRequest, sourc
     }
     return result;
   } catch (e) { error = e as DbError; throw e; }
-  finally { runs.delete(runId); history.unshift({ source, timestamp: Date.now(), profile_name: profile.name, text: req.text, elapsed_ms: Math.round(performance.now() - start), row_count: result.reduce((sum, r) => sum + r.row_count, 0), error: error?.message ?? null }); }
+  finally { runs.delete(runId); history.unshift({ id: ++historySeq, source, timestamp: Date.now(), profile_name: profile.name, text: req.text, elapsed_ms: Math.round(performance.now() - start), row_count: result.reduce((sum, r) => sum + r.row_count, 0), error: error?.message ?? null }); }
 }
 export async function mockInvoke<K extends keyof Commands>(command: K, args: Commands[K]['args']): Promise<Commands[K]['result']> {
   if (['connection_parse', 'connection_test_steps', 'connection_host_key_confirm', 'connection_credentials_save', 'iam_profiles'].includes(command)) return (await import('./ax/connectionContract')).connectionMock(command, args) as Promise<Commands[K]['result']>;
   const a = args as Record<string, unknown>;
+  if (typeof window !== 'undefined' && typeof CustomEvent === 'function') window.dispatchEvent(new CustomEvent('ax:mock-command', { detail: { command, args } }));
   if(command==='ai_request')return (await import('./ai/chatMock')).chatMock(args as Commands['ai_request']['args']) as Commands[K]['result'];
   if(command==='cancel')(await import('./ai/chatMock')).cancelChat(String(a.runId));
   const ax = await import('./ax/mock');
@@ -97,7 +148,7 @@ export async function mockInvoke<K extends keyof Commands>(command: K, args: Com
   switch (command) {
     case 'backup_create_file': case 'restore_options': case 'restore_pick_file': case 'restore_file_preview': case 'restore_file_apply': case 'restore_file_discard': case 'backup_create': case 'backup_status': case 'restore_preview': case 'restore_apply': case 'roles': case 'roles_page': case 'plan_grants': case 'grants_preview': case 'grants_apply': result=await administrationMock(command,a);break;
     case 'explain_query': { session(a.sessionId as string); result = { op: 'Gather', target: null, est_rows: 100000, actual_rows: a.analyze ? 100000 : null, cost: 2100, children: [{ op: 'Parallel Seq Scan', target: 'people', est_rows: 1000, actual_rows: a.analyze ? 50000 : null, cost: 1800, children: [], warnings: ['전체 스캔입니다. 필터 조건과 인덱스 사용 가능성을 검토하세요.'] }], warnings: [] }; break; }
-    case 'lint_query': { session(a.sessionId as string); const query = String(a.query); const star = query.indexOf('*'); result = star < 0 ? [] : [{ rule_id: 'select_star', start: star, end: star + 1, severity: 'warning', message: 'Select explicit columns', quick_fix: { title: 'Expand columns (demo)', edits: [{ start: star, end: star + 1, text: 'id, name, team_id' }] } }]; break; }
+    case 'lint_query': { session(a.sessionId as string); const query = String(a.query); const star = query.indexOf('*'); result = star < 0 ? [] : [{ rule_id: 'select_star', start: star, end: star + 1, severity: 'warning', message: '필요한 컬럼만 명시해 불필요한 데이터 전송과 스키마 변경 영향을 줄이세요.', quick_fix: { title: '컬럼을 명시적으로 펼치기', edits: [{ start: star, end: star + 1, text: 'id, name, team_id' }] } }]; break; }
     case 'refactor_query': { session(a.sessionId as string); const query = String(a.query); const action = a.action as {kind:string}; if (action.kind === 'expand_star' && query.includes('*')) { const start = query.indexOf('*'); result = [{start,end:start+1,text:'id, name, team_id'}]; } else throw failure('Unsupported', 'Use the native SQL parser for this refactoring'); break; }
     case 'agent_clients_list': result = mockAgentClients.map(client => ({ ...client, connections: { ...client.connections }, allowed_tools: [...client.allowed_tools] })); break;
     case 'agent_audit_list': result = []; break;
@@ -154,7 +205,7 @@ export async function mockInvoke<K extends keyof Commands>(command: K, args: Com
       const profile = session(a.sessionId as string), req = a.req as ExecRequest;
       const sample = tableRows(Math.min(req.preview_sample_limit ?? 50, 3));
       result = { committed: false, notes: ['데모 미리보기: 예시 샘플일 뿐이며 데이터베이스에 접속하지 않았습니다.'], statements: [{ text: req.text, kind: 'Other', affected: null, before: sample, after: sample, schema_diff: null, counters: [], warnings: [] }] };
-      history.unshift({ kind: 'preview', source: (a.source as 'ui' | 'agent') ?? 'ui', timestamp: Date.now(), profile_name: profile.name, text: req.text, elapsed_ms: 0, row_count: 0, error: null });
+      history.unshift({ id: ++historySeq, kind: 'preview', source: (a.source as 'ui' | 'agent') ?? 'ui', timestamp: Date.now(), profile_name: profile.name, text: req.text, elapsed_ms: 0, row_count: 0, error: null });
       break;
     }
     case 'edit_preview': {
@@ -184,8 +235,15 @@ export async function mockInvoke<K extends keyof Commands>(command: K, args: Com
     case 'expand': { session(a.sessionId as string); const id = a.elementId as string;
       const graph: Graph = id.startsWith('bench:') ? { nodes: Array.from({ length: 50 }, (_, i) => ({ id: `bench:extra${i}`, labels: ['Neighbor'], props: [['name', text(`Neighbor ${i}`)]] })), rels: Array.from({ length: 50 }, (_, i) => ({ id: `bench:edge${i}`, start: id, end: `bench:extra${i}`, rel_type: 'NEIGHBOR', props: [] })) } : graphFor(id); const nodes = graph.nodes.slice(0, a.limit as number); result = { ...base('Neighbors'), graph: { nodes, rels: graph.rels.filter(r => nodes.some(n => n.id === r.end)) }, row_count: nodes.length }; break; }
     case 'schema_graph': { session(a.sessionId as string); result = { entities: [{id:'people',name:'people',kind:'table',fields:[{name:'id',type_name:'int8',pk:true,nullable:false},{name:'name',type_name:'text',pk:false,nullable:false},{name:'team_id',type_name:'int8',pk:false,nullable:true}]},{id:'teams',name:'teams',kind:'table',fields:[{name:'id',type_name:'int8',pk:true,nullable:false},{name:'name',type_name:'text',pk:false,nullable:false}]}],relations:[{id:'people_team',name:'people_team_id_fkey',from:'people',from_fields:['team_id'],to:'teams',to_fields:['id'],kind:'ForeignKey'}] }; break; }
-    case 'history_delete': { const index = history.findIndex(entry => String(entry.timestamp) === a.timestamp && entry.profile_name === a.profileName && entry.text === a.text); if (index >= 0) history.splice(index, 1); break; }
+    case 'history_delete': { if (typeof a.id === 'number') { const at = history.findIndex(entry => entry.id === a.id); if (at >= 0) history.splice(at, 1); break; } const index = history.findIndex(entry => String(entry.timestamp) === a.timestamp && entry.profile_name === a.profileName && entry.text === a.text); if (index >= 0) history.splice(index, 1); break; }
     case 'history_list': result = history.slice(0, a.limit as number); break;
+    case 'history_search': { const { since, until } = parseRange(a.since as string | undefined, a.until as string | undefined); const q = (a.query as string | undefined)?.trim() || undefined; const rows = history.filter(e => matches(e.text, q) && (!a.profile_id || e.profile_id === a.profile_id) && (a.status === 'error' ? e.error : a.status === 'ok' ? !e.error : true) && (!a.kind || (e.kind ?? 'execute') === a.kind) && inRange(e.timestamp, since, until)); const page = keyset(rows, a.before_id as number | undefined, a.limit as number | undefined); result = { items: page.items.map(e => ({ ...e, highlight: mark(e.text, q) })), next_cursor: page.next_cursor }; break; }
+    case 'history_get': result = history.find(e => e.id === a.id); if (!result) throw { kind: 'Query', message: 'History entry not found', detail: null, position: null }; break;
+    case 'history_clear': history.splice(0, history.length, ...history.filter(e => a.profile_id && e.profile_id !== a.profile_id)); break;
+    case 'snippet_list': { const q = (a.query as string | undefined)?.trim() || undefined; result = snippetPage(a as { query?: string; tag?: string; profile_id?: string; before_id?: string; limit?: number }, q); break; }
+    case 'snippet_get': result = snippets.find(x => x.id === a.id); if (!result) throw { kind: 'Query', message: 'Snippet not found', detail: null, position: null }; break;
+    case 'snippet_save': { const now = new Date().toISOString(); const at = snippets.findIndex(x => x.id === a.id); const next: Snippet = { id: at >= 0 ? snippets[at].id : ++snippetSeq, title: a.title as string, body: a.body as string, tags: (a.tags as string[] | undefined) ?? [], profile_id: (a.profile_id as string | null | undefined) ?? null, language: (a.language as string | undefined) ?? 'sql', pinned: !!a.pinned, created_at: at >= 0 ? snippets[at].created_at : now, updated_at: now }; if (at >= 0) snippets[at] = next; else snippets.unshift(next); noteSnippetOrder(next); result = next; break; }
+    case 'snippet_delete': { const at = snippets.findIndex(x => x.id === a.id); if (at >= 0) { snippets.splice(at, 1); closeSnippetOrder(a.id as number); } break; }
   }
   return result as Commands[K]['result'];
 }

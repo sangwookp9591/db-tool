@@ -23,7 +23,10 @@ export type ErrorKind = 'Connection' | 'Auth' | 'Query' | 'Timeout' | 'Cancelled
 export interface DbError { kind: ErrorKind; message: string; detail: string | null; position: number | null }
 // Host persistence types are kept separate from the driver contract.
 export interface Profile { network?: import('./ax/connectionContract').ConnectionNetwork | null; auth?: import('./ax/connectionContract').ConnectionAuth; id: string; name: string; driver_id: string; fields: Record<string, string>; save_secret: boolean; access_mode?: 'read_only' | 'read_write' }
-export interface HistoryEntry { kind?: 'execute' | 'preview'; source?: "ui" | "agent"; timestamp: string | number; profile_id?: string | null; profile_name: string; text: string; elapsed_ms: number; row_count: number; error: string | null }
+export interface HistoryEntry { id?: number; kind?: 'execute' | 'preview'; source?: "ui" | "agent"; timestamp: string | number; profile_id?: string | null; profile_name: string; text: string; elapsed_ms: number; row_count: number; error: string | null }
+
+export interface Snippet { id: number; title: string; body: string; tags: string[]; profile_id: string | null; language: string; pinned: boolean; created_at: string; updated_at: string; highlight?: string }
+export interface HistorySearchResult { items: (HistoryEntry & { highlight?: string })[]; next_cursor: number | null }
 
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
@@ -46,3 +49,7 @@ export interface AgentClient { id: string; name: string; connections: Record<str
 export interface AgentAudit { timestamp: string; client_id: string; tool: string; connection_id: string | null; decision: string; statement_hash: string | null }
 
 export interface AgentCall { id: string; name: string; client_id: string; connection_id: string | null; status: 'running' | 'success' | 'error'; decision?: 'allowed' | 'denied' | 'approved' | null; duration_ms?: number; row_count?: number | null; startedAt?: number }
+
+export interface HistorySearchArgs { query?: string; profile_id?: string; status?: 'all' | 'ok' | 'error'; kind?: 'execute' | 'preview'; before_id?: number; limit?: number; /** RFC3339, inclusive. */ since?: string; /** RFC3339, exclusive. */ until?: string }
+/** Pass next_cursor unchanged as before_id; it is an opaque ordering snapshot. */
+export interface SnippetListResult { items: Snippet[]; next_cursor: string | null }

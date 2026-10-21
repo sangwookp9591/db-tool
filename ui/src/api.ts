@@ -5,7 +5,7 @@ import { perf, finish } from './perf';
 import type { Scope, AiSettings, AiReply } from './ai/types';
 import type { Channel } from '@tauri-apps/api/core';
 import { invoke } from '@tauri-apps/api/core';
-import type { DriverManifest, Profile, ExplorerNode, ResultSet, ExecRequest, HistoryEntry, ChangePreview, AgentClient, AgentAudit, SchemaGraph, Value, EditRequest, EditResult } from './contract';
+import type { DriverManifest, Profile, ExplorerNode, ResultSet, ExecRequest, HistoryEntry, ChangePreview, AgentClient, AgentAudit, SchemaGraph, Value, EditRequest, EditResult, HistorySearchResult, Snippet } from './contract';
 export interface Commands extends EditorCommands, ConnectionCommands {
   editor_history_mode: {args:{owner:string;active:boolean};result:void};
   ai_tool_policy: {args:{sessionId:string;request:import('./ai/review').ToolRequest;readOnly:boolean};result:import('./ai/review').ToolPolicy};
@@ -51,8 +51,15 @@ export interface Commands extends EditorCommands, ConnectionCommands {
   execute_agent: { args: { sessionId: string; runId: string; req: ExecRequest }; result: ResultSet[] };
   cancel: { args: { runId: string }; result: void };
   expand: { args: { sessionId: string; elementId: string; limit: number }; result: ResultSet };
-  history_delete: { args: { timestamp: string; profileName: string; text: string }; result: void };
+  history_delete: { args: { id: number } | { timestamp: string; profileName: string; text: string }; result: void };
   history_list: { args: { limit: number }; result: HistoryEntry[] };
+  history_search: { args: { query?: string; profile_id?: string; status?: 'all' | 'ok' | 'error'; kind?: 'execute' | 'preview'; before_id?: number; limit?: number; /** RFC3339, inclusive. */ since?: string; /** RFC3339, exclusive. */ until?: string }; result: HistorySearchResult };
+  history_get: { args: { id: number }; result: HistoryEntry & { id: number } };
+  history_clear: { args: { profile_id?: string }; result: void };
+  snippet_list: { args: { query?: string; tag?: string; profile_id?: string; /** Opaque ordering snapshot: pass the previous next_cursor back unchanged. */ before_id?: string; limit?: number }; result: { items: Snippet[]; next_cursor: string | null } };
+  snippet_get: { args: { id: number }; result: Snippet };
+  snippet_save: { args: { id?: number; title: string; body: string; tags?: string[]; profile_id?: string | null; language?: string; pinned?: boolean }; result: Snippet };
+  snippet_delete: { args: { id: number }; result: void };
 }
 export let activeRequests = 0;
 let recycleFrozen = false;

@@ -31,11 +31,9 @@ const CommandPalette = lazy(() => import('./ui/CommandPalette').then(m => ({ def
 import { ToastStack, type ToastItem } from './ui/ToastStack';
 import { Tooltip } from './ui/Tooltip';
 import { SlidingIndicator } from './ui/SlidingIndicator';
-import { SwipeRow } from './ui/SwipeRow';
-import { FuseButton } from './ui/FuseButton';
 import { WakeSlider } from './ui/WakeSlider';
 import { GlideSelect } from './ui/GlideSelect';
-import { Bot, Search, Database, Download, History, Sparkles, Settings2, Plus, X, ShieldCheck, Terminal, PanelLeftClose, RefreshCw, SquarePlus, Copy, Trash2 } from 'lucide-preact';
+import { Bot, Search, Database, Download, History, Sparkles, Settings2, Plus, X, ShieldCheck, Terminal, RefreshCw, SquarePlus } from 'lucide-preact';
 import { savedTheme, setTheme, type Theme } from './theme';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { DriverManifest, Profile, HistoryEntry, ExplorerNode, NodeAction, DbError, ResultSet } from './contract';
@@ -49,6 +47,9 @@ import { shortServerVersion, serverVersionTitle } from './serverVersion';
 import { normalizeError } from './values';
 import type { EditorHandle } from './Editor';
 import { painted, start } from './perf';
+const LibraryPanel = lazy(() => import('./library/LibraryPanel'));
+import type { LibraryDraft, LibraryTab } from './library/LibraryPanel';
+import type { LibraryHost } from './library/snippetActions';
 const AssistantPanel = lazy(() => import('./ai/AssistantPanel').then(m => ({ default: m.AssistantPanel })));
 import type { WorkInput } from './ai/types';
 import { AgentPanel } from './agent/AgentPanel';
@@ -77,9 +78,10 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const updater = useUpdater();
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [historyActions, setHistoryActions] = useState<string | null>(null);
-  const [historyDelete, setHistoryDelete] = useState<HistoryEntry | null>(null);
-  const [deletePending, setDeletePending] = useState(false);
+  const [libraryFocus, setLibraryFocus] = useState<{ nonce: number; tab?: LibraryTab }>({ nonce: 0 });
+  const [libraryDraft, setLibraryDraft] = useState<LibraryDraft | null>(null);
+  const libraryMounted = useRef(false);
+  if (historyOpen) libraryMounted.current = true;
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(270);
   const [viewportWidth, setViewportWidth] = useState(innerWidth);
@@ -129,7 +131,7 @@ export function App() {
   function report(e: unknown, profileId?: string) { const normalized = normalizeError(e); if (normalized.kind === 'Connection') { setError(normalized); errorProfile.current = profileId ?? null; } else notify(normalized.message, "error"); if (normalized.kind === 'Connection' && profileId) setDead(previous => new Set([...previous, profileId])); }
   function reportInTab(e: unknown, profileId: string) { if (normalizeError(e).kind === 'Connection') report(e, profileId); }
   const recycle = useIdleRecycle((): WorkspaceSnapshot | null => {
-    if (!loaded || updater.phase !== 'ready' || updater.saving || axPage || driversOpen || settingsOpen || assistantMounted || commandOpen || connectPrompt || historyDelete || deletePending || error || tabs.some(tab => tab.kind !== 'query' || tab.runId || tab.dirty || tabResults[tab.id]) || document.querySelector('[role="dialog"], [aria-busy="true"], .change-preview, .ax-query-plan')) return null;
+    if (!loaded || updater.phase !== 'ready' || updater.saving || axPage || driversOpen || settingsOpen || assistantMounted || commandOpen || connectPrompt || error || tabs.some(tab => tab.kind !== 'query' || tab.runId || tab.dirty || tabResults[tab.id]) || document.querySelector('[role="dialog"], [aria-busy="true"], .change-preview, .ax-query-plan')) return null;
     const sidebar=sidebarSnapshot.current(); if(!sidebar)return null;
     return { sidebar, sessions:sessionsRef.current, serverInfo, dead:[...dead], tabs:tabsRef.current.map(tab=>({...tab,text:handles.current.get(tab.id)?.text()??tab.text,draft:drafts.current.get(tab.id)})), active:activeRef.current, sidebarOpen, sidebarWidth, historyOpen, graphLimit, theme };
   }, loaded, report);
@@ -226,6 +228,31 @@ export function App() {
     const profile = profiles.find(p => p.name === entry.profile_name && sessions[p.id]); if (profile) newQuery(profile, entry.text);
     else setError({ kind: 'Connection', message: '이력을 불러오려면 연결한 뒤 쿼리 탭을 여세요.', detail: null, position: null });
   }
+  function placeLibraryText(text: string, mode: 'insert' | 'new', hint?: { profileId?: string | null; profileName?: string }) {
+    const target = tabsRef.current.find(t => t.id === activeRef.current && t.kind === 'query');
+    const handle = target && handles.current.get(target.id);
+    if (mode === 'insert' && handle) { handle.insert(text); return; }
+    const wanted = (hint?.profileId ? profiles.find(p => p.id === hint.profileId) : undefined) ?? (hint?.profileName ? profiles.find(p => p.name === hint.profileName) : undefined);
+    const profile = wanted ?? (target ? profiles.find(p => p.id === target.profileId) : profiles.find(p => sessionsRef.current[p.id]));
+    if (profile && sessionsRef.current[profile.id]) newQuery(profile, text);
+    else setError({ kind: 'Connection', message: '이 SQL을 열려면 해당 연결을 먼저 연결하세요.', detail: null, position: null });
+  }
+  const libraryHost: LibraryHost = { profiles, insert: (text, hint) => placeLibraryText(text, 'insert', hint), openTab: (text, hint) => placeLibraryText(text, 'new', hint), notify: message => notify(message), report: e => report(e) };
+  function openLibrary(tab?: LibraryTab) { setHistoryOpen(true); setLibraryFocus(f => ({ nonce: f.nonce + 1, tab })); }
+  /** QueryTab/에디터가 `ax:snippet-save`(detail.text 선택)를 보내면 활성 편집기의 선택 영역(없으면 전체)을 메모 편집기로 연다. */
+  function saveEditorToLibrary(text?: string) {
+    const tab = tabsRef.current.find(t => t.id === activeRef.current && t.kind === 'query'), handle = tab && handles.current.get(tab.id);
+    const body = (text ?? handle?.selection() ?? '').trim() || (handle?.text() ?? '').trim();
+    if (!body) { notify('저장할 SQL이 없습니다', 'error'); return; }
+    setLibraryDraft(d => ({ nonce: (d?.nonce ?? 0) + 1, body, profileId: tab?.profileId ?? null })); openLibrary('snippets');
+  }
+  const libraryEvents = useRef({ openLibrary, saveEditorToLibrary }); libraryEvents.current = { openLibrary, saveEditorToLibrary };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.shiftKey && !e.altKey && e.code === 'KeyH') { e.preventDefault(); libraryEvents.current.openLibrary('history'); } };
+    const onSave = (e: Event) => libraryEvents.current.saveEditorToLibrary((e as CustomEvent<{ text?: string } | undefined>).detail?.text);
+    window.addEventListener('keydown', onKey); window.addEventListener('ax:snippet-save', onSave);
+    return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('ax:snippet-save', onSave); };
+  }, []);
   function reviewTab(session:string,path:string) {
     const profileId=profiles.find(p=>sessionsRef.current[p.id]===session)?.id;
     const queries=tabsRef.current.filter(t=>t.profileId===profileId&&t.kind==='query');
@@ -369,7 +396,7 @@ export function App() {
           {!tabs.length && <div class="empty-workspace"><IntegrationBeam controllerRef={emptyBeam} nodes={[{id:"databases",label:"데이터베이스",side:"source",state:"disconnected",icon:<Database />},{id:"agents",label:"MCP 클라이언트",side:"target",state:"disconnected",icon:<Bot />}]} status="연결할 준비가 됐습니다" onSelect={id => id === "databases" ? addConnection() : setAgentRequest(value=>value+1)} /><h2>데이터를 한 곳에서.</h2><p>데이터베이스를 연결하고 구조를 탐색하며 쿼리를 실행하세요.</p><div class="toolbar"><Button morph={false} variant="primary" onClick={addConnection}><Plus />연결 추가</Button><Button morph={false} onClick={() => void sampleQuery()}><Terminal />샘플 쿼리</Button></div><div class="shortcut-hints"><span><kbd>⌘ K</kbd> 작업공간 검색</span><span><kbd>⌘ ↵</kbd> 쿼리 실행</span></div>{isMock && <p class="mock-badge">모의 · DB 연결 없음</p>}</div>}
 
           {tabs.map(tab => { const p = profiles.find(p => p.id === tab.profileId); const manifest = drivers.find(d => d.id === p?.driver_id); const sessionId = sessions[tab.profileId]; return manifest && !sessionId ? <section class="tab-body disconnected-tab" hidden={active!==tab.id} key={tab.id}><div class="empty-workspace"><span class="disconnected-tab__icon" aria-hidden="true"><DriverLogo iconKey={manifest.icon_key} paradigm={manifest.paradigm} size={28}/></span><h2>연결이 끊겼습니다</h2><p>{p?.name ?? tab.title} 연결을 다시 열면 이 탭의 작업을 이어서 할 수 있습니다.</p><Button morph={false} loading={connectionProgress?.profile.id===p?.id&&connectionProgress?.state==='running'} disabled={connectionProgress?.state==='running'} onClick={()=>{if(p)void connect(p).catch(report);}}><RefreshCw aria-hidden="true"/>다시 연결</Button></div></section> : manifest && sessionId && <section class="tab-body" hidden={active !== tab.id} key={tab.id} aria-label={tab.aria ?? tab.title}>{<Suspense fallback={<p role="status">편집기를 불러오는 중…</p>}><NavigationTab completionTables={completionTables[tab.profileId]} draft={tab.draft} onDraft={draft=>drafts.current.set(tab.id,draft)} onDirty={dirty => setTabs(previous => previous.map(item => item.id === tab.id && item.dirty !== dirty ? { ...item, dirty } : item))} aiSuggested={tab.aiSuggested} readOnly={p?.access_mode === 'read_only'} kind={tab.kind} scope={tab.scope} nodeId={tab.nodeId} title={tab.title} initialText={tab.text} onResults={results => { results.forEach(result=>noteLargeResult(result.row_count)); lastResults.current = results; lastResultsTab.current = tab.id; setTabResults(previous => ({ ...previous, [tab.id]: results[0] })); if (results[0]) notify(`${results[0].row_count.toLocaleString()}행 · ${results[0].elapsed_ms.toLocaleString()} ms`); }} active={active===tab.id} sessionId={sessionId} manifest={manifest} graphLimit={graphLimit} onRun={runId=>onRun(tab.id,runId)} onReady={handle=>{if(handle)handles.current.set(tab.id,handle);else handles.current.delete(tab.id);}} onHistory={()=>void refreshHistory()} onError={e=>reportInTab(e,tab.profileId)}/></Suspense>}</section>; })}</>}
-        <section class="history" hidden={!historyOpen} aria-label="Execution history"><div class="section-title"><strong>이력 <small>{history.length.toLocaleString()}</small></strong><span><Button morph={false} onClick={() => void refreshHistory()} aria-label="Refresh history"><RefreshCw /></Button><Button morph={false} onClick={() => setHistoryOpen(false)} aria-label="Close history"><PanelLeftClose /></Button></span></div><div class="history-list">{history.map((entry, i) => <SwipeRow key={`${entry.timestamp}:${entry.profile_name}:${i}`} label={`History ${i + 1}`} open={historyActions === `${i}`} onOpenChange={open => setHistoryActions(open ? `${i}` : null)} actions={[{id:'open',label:'새 탭에서 열기',icon:<SquarePlus />,onSelect:()=>fromHistory(entry,true)},{id:'copy',label:'쿼리 복사',icon:<Copy />,onSelect:()=>{void navigator.clipboard.writeText(entry.text).then(() => notify('쿼리를 복사했습니다')).catch(report);}},{id:'delete',label:'이력 삭제',icon:<Trash2 />,onSelect:()=>{setHistoryDelete(entry);setDeletePending(false);}}]}><Button bare class="history-entry" onClick={() => fromHistory(entry)} title={entry.text}><time title={new Date(entry.timestamp).toLocaleString()}>{new Date(entry.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</time><span>{entry.profile_name} · {entry.source === 'agent' ? '에이전트' : 'UI'}</span><code>{entry.text}</code><small class={entry.error ? 'invalid' : ''}>{entry.error ?? `${entry.row_count.toLocaleString()}행 · ${entry.elapsed_ms.toLocaleString()} ms`}</small></Button></SwipeRow>)}{!history.length && <p class="muted">실행 이력이 없습니다.</p>}</div></section>
+        <section class="history library" hidden={!historyOpen} aria-label="실행 이력과 SQL 메모">{libraryMounted.current && <Suspense fallback={<p class="lib-empty" role="status">불러오는 중…</p>}><LibraryPanel host={libraryHost} open={historyOpen} focus={libraryFocus} draft={libraryDraft} onClose={() => setHistoryOpen(false)} /></Suspense>}</section>
       </div></div></main>
       <Suspense fallback={null}>{assistantMounted&&<AssistantPanel fileReview={fileReview} askSequence={askSequence} open={assistantOpen} work={workContext} notify={notify} createFile={(session,text)=>void saveQueryFile(text,session)} table={()=>lastResultsTab.current===activeRef.current?lastResults.current.find(r=>r.table)?.table??undefined:undefined} insert={(session,text)=>{const profile=profiles.find(p=>sessionsRef.current[p.id]===session);return profile?newQuery(profile,text,undefined,true):undefined;}} edit={(session,text,before)=>{const tab=tabsRef.current.find(t=>t.id===activeRef.current&&t.kind==='query');const handle=tab&&handles.current.get(tab.id);if(!tab||!handle||sessionsRef.current[tab.profileId]!==session||(before!==undefined&&handle.text()!==before))return false;if(before!==undefined)handle.replace(text);else handle.insert(text);return true;}} close={()=>setAssistantOpen(false)}/>}</Suspense>
     </div>
@@ -393,12 +420,13 @@ export function App() {
       {id:'whats-new',label:'새로운 기능',group:'작업공간',keywords:'changelog release 변경 로그',onSelect:whatsNew.show},
       {id:'onboarding',label:'사용법 다시 보기',group:'작업공간',keywords:'onboarding help tutorial 가이드',onSelect:onboarding.show},
       {id:'add',label:'연결 추가',group:'작업공간',keywords:'add connection',onSelect:addConnection},
-      {id:'history',label:'실행 이력',group:'작업공간',onSelect:()=>setHistoryOpen(true)},
+      {id:'history',label:'실행 이력 검색',group:'작업공간',keywords:'history search 이력 ⌘⇧H',onSelect:()=>openLibrary('history')},
+      {id:'snippets',label:'SQL 메모 열기',group:'작업공간',keywords:'snippet notepad memo 메모 스니펫',onSelect:()=>openLibrary('snippets')},
+      ...(activeTab?.kind==='query'?[{id:'snippet-save',label:'현재 쿼리를 메모로 저장',group:'작업공간',keywords:'snippet save memo 메모 저장 스니펫',onSelect:()=>saveEditorToLibrary()}]:[]),
       ...profiles.map(profile => ({id:`connection:${profile.id}`,label:profile.name,kind:'connection' as const,group:'연결',keywords:drivers.find(driver => driver.id === profile.driver_id)?.display_name,onSelect:()=>{if(sessions[profile.id])newQuery(profile);else void connect(profile).catch(e=>report(e,profile.id));}})),
       ...profiles.filter(profile=>sessions[profile.id]).flatMap(profile=>(explorerNodes[profile.id]??[]).filter(node=>node.actions.length).map(node=>({id:`node:${profile.id}:${node.id}`,label:node.label,group:profile.name,keywords:node.detail??'',onSelect:()=>action(profile,node,node.actions[0])}))),
       ...history.slice(0,30).map((entry,i)=>({id:`history:${i}`,label:entry.text,kind:'query' as const,group:`최근 · ${entry.profile_name}`,onSelect:()=>fromHistory(entry,true)}))
     ]} />}</Suspense>
-    {historyDelete && <Dialog title="이력 삭제" label="이력 삭제" footer={<><FuseButton pending={deletePending} onPendingChange={setDeletePending} unmountAction="cancel" onUndo={() => setHistoryDelete(null)} onCommit={() => { const entry = historyDelete; setHistoryDelete(null); void api('history_delete', { timestamp: String(entry.timestamp), profileName: entry.profile_name, text: entry.text }).then(refreshHistory).catch(report); }} label="이력 삭제" doneLabel="삭제 대기 중" /><Button morph={false} onClick={() => { setHistoryDelete(null); setDeletePending(false); }}>취소</Button></>} onClose={() => { setHistoryDelete(null); setDeletePending(false); }}><section class="profile-form"><pre>{historyDelete.text}</pre><p>5초의 실행 취소 시간이 끝나면 삭제합니다.</p></section></Dialog>}
     {connectPrompt && <Dialog title="연결 인증" label="Session credential" footer={<><Button morph={false} variant="brand" type="submit" form="session-credential-form">연결</Button><Button morph={false} type="button" onClick={() => { setCredential(''); setConnectPrompt(null); credentialReply.current?.(null); credentialReply.current = null; }}>취소</Button></>} onClose={() => { setCredential(''); setConnectPrompt(null); credentialReply.current?.(null); credentialReply.current = null; }}><form id="session-credential-form" class="profile-form" onSubmit={e => { e.preventDefault(); const secret = String(new FormData(e.currentTarget).get('credential') ?? ''); setCredential(''); setConnectPrompt(null); credentialReply.current?.(secret); credentialReply.current = null; }}><h2>연결 · {connectPrompt.name}</h2><label>비밀번호<input name="credential" type="password" autoFocus autoComplete="off" value={credential} onInput={e => setCredential(e.currentTarget.value)} /></label><p class="muted">이 세션에서만 사용합니다.</p></form></Dialog>}
   </div>;
 }
