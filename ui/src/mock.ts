@@ -265,6 +265,8 @@ drivers.push(
   { ...drivers[0], id: 'redis', icon_key: 'redis', display_name: 'Redis · 데모', paradigm: 'KeyValue', connection_fields: fields.map(field => field.key === 'port' ? { ...field, default: '56379' } : field), capabilities: { ...capabilities, edit_rows: false, params: false, preview_changes: 'None' }, query_language: { id: 'redis', display: 'Redis', editor_mode: 'text', supports_params: false }, default_query: 'SCAN 0 COUNT 100' },
 );
 const mockInstalledDrivers = new Map<string, string>();
+// Mock-only knob: ?installed=postgres,sqlite starts with those drivers installed, so a screen can be opened (and measured) ready to use.
+if (typeof location !== 'undefined') for (const id of (new URLSearchParams(location.search).get('installed') ?? '').split(',').filter(Boolean)) mockInstalledDrivers.set(id, '1.0.0');
 const mockCatalog: import('./drivers/api').CatalogDriver[] = [
   { id: 'sqlite', icon_key: 'sqlite', name: 'SQLite', version: '1.0.0', paradigm: 'Relational', size: 3_800_000, description: '로컬 파일의 테이블을 탐색하고 SQL을 실행합니다.' },
   { id: 'redis', icon_key: 'redis', name: 'Redis', version: '1.0.0', paradigm: 'KeyValue', size: 4_600_000, description: '키와 자료형을 탐색하고 Redis 명령을 실행합니다.' },

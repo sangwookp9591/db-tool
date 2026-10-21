@@ -14,7 +14,7 @@ export async function connectionBench() {
   perf.captureCommands = true;
   try {
     await checkpoint('startup');
-    await waitFor(() => !!app.querySelector('.empty-workspace h2'));
+    await waitFor(() => !!app.querySelector('.empty-workspace h1'));
     const manifests = await api('drivers_list', {}), config = await invoke<BenchConfig>('viewer_bench_config');
     await checkpoint('prepare-registry');
     for (let i = 0; i < 20; i++) { const since = performance.now(); await api('drivers_list', {}); output.registry.push(performance.now() - since); }

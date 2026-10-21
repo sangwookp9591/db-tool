@@ -8,5 +8,5 @@
 .agent-tools__option .spring-check:has(input:disabled){opacity:.6}
 .agent-tools__label{display:grid;min-width:0;gap:2px;line-height:1.2}
 .agent-tools__label>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-primary);font-size:11px;font-weight:500}
-.agent-tools__label>code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-muted);font:9px var(--mono)}
+.agent-tools__label>code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-muted);font:11px var(--mono)}
 @media(max-width:700px){.agent-tools{grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:4px}.agent-tools__option .spring-check{min-height:36px;padding:4px 6px}}

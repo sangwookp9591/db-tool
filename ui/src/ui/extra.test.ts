@@ -131,7 +131,9 @@ it('Tool preview bounds deep, circular, oversized, and many-row values', () => {
 
 it('keeps brand styling, stops all idle motion, and honors reduced motion during loading', async () => {
   const button = page.getByTestId('d3-run');
-  expect(await button.evaluate(element => getComputedStyle(element).backgroundImage)).toContain('linear-gradient');
+  // Brand styling is a flat accent fill: the brand gradient was removed from buttons.
+  expect(await button.evaluate(element => getComputedStyle(element).backgroundImage)).toBe('none');
+  expect(await button.evaluate(element => getComputedStyle(element).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');
   expect(await button.evaluate(element => getComputedStyle(element).minHeight)).toBe('40px');
   await page.mouse.move(1, 1);
   await page.waitForFunction(() => document.getAnimations().length === 0);

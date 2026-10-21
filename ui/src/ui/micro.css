@@ -47,8 +47,7 @@
 .lattice-loader__timer { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 @keyframes micro-lattice { 0%, 100% { opacity: .25; transform: scale(.8); } 50% { opacity: 1; transform: scale(1); } }
 .border-glow { position: relative; isolation: isolate; padding: 1px; overflow: hidden; border: 1px solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-elevated); }
-.border-glow__mesh { position: absolute; inset: -100%; background: var(--brand-gradient); opacity: 0; transform: rotate(var(--glow-angle, 0rad)); pointer-events: none; }
-.border-glow[data-active=true]:is(:hover,:focus-within) > .border-glow__mesh { opacity: 1; }
+.border-glow[data-active=true]:focus-within { border-color: var(--border-focus); }
 .border-glow__content { position: relative; height: 100%; padding: 12px; border-radius: inherit; background: var(--bg-elevated); }
 .fuse-button { position: relative; display: inline-flex; align-items: center; gap: 12px; overflow: hidden; padding: 4px; border: 1px solid var(--border-default); border-radius: var(--radius); }
 .fuse-button[data-pending=true] { border-color: var(--accent-warning); }
@@ -92,7 +91,7 @@
 .command-palette > p[role=status] { margin: 24px 0; text-align: center; font-size: 13px; color: var(--text-muted); }
 .command-palette__hint { display: flex; gap: 16px; margin: 8px 0 -6px; padding: 10px 4px 0; border-top: 1px solid var(--border-subtle); font-size: 11px; }
 .command-palette__hint span { display: inline-flex; align-items: center; gap: 4px; }
-.command-palette__hint kbd { min-width: 18px; padding: 0 4px; border: 1px solid var(--border-subtle); border-radius: 4px; background: var(--surface-secondary); font: 10px/16px var(--mono); text-align: center; }
+.command-palette__hint kbd { min-width: 18px; padding: 0 4px; border: 1px solid var(--border-subtle); border-radius: 4px; background: var(--surface-secondary); font:11px/16px var(--mono); text-align: center; }
 .toast-stack { position: fixed; right: 16px; bottom: 40px; z-index: 100; display: grid; gap: 8px; width: min(360px, calc(100vw - 32px)); pointer-events: none; }
 .toast-stack__item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border: 1px solid var(--border-strong); border-left: 3px solid var(--accent-info); border-radius: var(--radius); background: var(--bg-overlay); pointer-events: auto; animation: micro-enter 160ms ease-out; }
 .toast-stack__item > span { overflow-wrap: anywhere; }
@@ -104,9 +103,7 @@
 .sliding-indicator { position: relative; display: inline-block; max-width: 100%; padding-bottom: 4px; }
 .sliding-indicator__line { position: absolute; left: 0; top: 0; width: 1px; height: 2px; background: var(--accent-primary); transform-origin: left; pointer-events: none; opacity: 0; }
 .spotlight-card { position: relative; isolation: isolate; padding: 12px; border: 1px solid var(--border-default); border-radius: var(--radius); background: var(--surface-primary); }
-.spotlight-card__light { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; opacity: 0; pointer-events: none; }
-.spotlight-card__spot { position: absolute; top: 0; left: 0; width: 200px; height: 200px; border-radius: 50%; background: radial-gradient(circle, var(--surface-active), var(--surface-primary) 70%); pointer-events: none; }
-.spotlight-card[data-active=true]:hover > .spotlight-card__light { opacity: 1; }
+.spotlight-card[data-active=true]:hover { background: var(--surface-hover); }
 .spotlight-card[data-active=true]:focus-within { border-color: var(--border-focus); }
 .spotlight-card__content { position: relative; }
 .micro-skeleton { display: grid; gap: 8px; padding: 8px 0; animation: micro-enter 160ms ease-out; }
@@ -130,7 +127,7 @@
 .integration-beam__label { display: block; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
 .integration-beam__hub { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .integration-beam__hub > .integration-beam__tile { width: 80px; height: 80px; background: var(--surface-active); }
-.integration-beam__status { width: 120px; padding: 4px; border: 1px solid var(--border-default); border-radius: var(--radius); background: var(--bg-elevated); text-align: center; font-size: 10px; }
+.integration-beam__status { width: 120px; padding: 4px; border: 1px solid var(--border-default); border-radius: var(--radius); background: var(--bg-elevated); text-align: center; font-size:11px; }
 .integration-beam__pulse { position: absolute; left: 0; top: 0; width: 1px; height: 2px; opacity: 0; transform-origin: left center; background: linear-gradient(90deg, color-mix(in srgb,var(--accent-primary) 0%,transparent), var(--accent-primary), var(--accent-secondary)); }
 .integration-beam__pulse[data-tone=success] { background: var(--accent-success); }
 .integration-beam__pulse[data-tone=warning] { background: var(--accent-warning); }
@@ -144,8 +141,6 @@
 @media (max-width: 540px) { .micro-gallery { padding: 16px; } .micro-gallery__grid { grid-template-columns: minmax(0,1fr); } }
 @media (prefers-reduced-motion: reduce) {
   .micro, .micro *, .micro::before, .micro::after { animation: none !important; transition: none !important; }
-  .border-glow__mesh { transform: none; }
-  .spotlight-card__spot { display: none; }
 }
 /* the action rail sits behind the surface; hide it (and its hit-testing/occlusion) until the row is opened */
 .swipe-row[data-open=false] > .swipe-row__actions { visibility: hidden; transition: visibility 0s linear .35s; }

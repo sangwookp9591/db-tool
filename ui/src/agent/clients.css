@@ -8,7 +8,7 @@
 .agent-clients__header { display: flex; align-items: center; gap: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border-subtle); }
 .agent-clients__bridge { flex: 1; min-width: 0; }
 .agent-clients .agent-clients__bridge .spring-check { margin: 0 0 8px; font-weight: 600; color: var(--text-primary); }
-.agent-clients__bridge code { display: block; overflow-wrap: anywhere; color: var(--text-secondary); font-size: 10px; }
+.agent-clients__bridge code { display: block; overflow-wrap: anywhere; color: var(--text-secondary); font-size:11px; }
 .agent-clients__status { margin-left: 8px; font-size: 11px; color: var(--text-muted); }
 .agent-clients__status[data-on=true] { color: var(--accent-success); }
 .agent-clients__count { color: var(--text-secondary); font-size: 12px; white-space: nowrap; }
@@ -18,7 +18,7 @@
 .agent-clients__empty { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 4px 20px 20px; text-align: center; }
 .agent-clients__empty h3 { font-size: 21px; letter-spacing: -.5px; }
 .agent-clients__empty > p { font-size: 12px; color: var(--text-secondary); line-height: 1.6; }
-.agent-clients__empty > small { font-size: 10px; color: var(--text-muted); }
+.agent-clients__empty > small { font-size:11px; color: var(--text-muted); }
 .agent-clients__empty-map { width: min(440px, 100%); }
 .agent-clients__empty-map .integration-beam__layout { padding: 8px 16px; }
 .agent-clients__empty-map .integration-beam__column { gap: 12px; }
@@ -39,12 +39,12 @@
 .agent-client-card__title svg { width: 17px; height: 17px; flex-shrink: 0; color: var(--text-accent); }
 .agent-client-card__title svg:last-child { width: 14px; color: var(--text-muted); }
 .agent-client-card__badges { display: flex; flex-wrap: wrap; gap: 5px; }
-.agent-clients__badge { display: inline-flex; align-items: center; padding: 3px 7px; border-radius: var(--radius-sm); background: var(--surface-secondary); color: var(--text-secondary); font-size: 10px; line-height: 1.5; }
+.agent-clients__badge { display: inline-flex; align-items: center; padding: 3px 7px; border-radius: var(--radius-sm); background: var(--surface-secondary); color: var(--text-secondary); font-size:11px; line-height: 1.5; }
 .agent-clients__badge:is([data-level=read], [data-level=allowed], [data-level=approved]) { color: var(--accent-success); background: color-mix(in srgb, var(--accent-success) 9%, var(--bg-elevated)); }
 .agent-clients__badge:is([data-level=preview], [data-level=pending]) { color: var(--accent-warning); background: color-mix(in srgb, var(--accent-warning) 9%, var(--bg-elevated)); }
 .agent-clients__badge[data-level=write_with_approval] { color: var(--text-accent); background: color-mix(in srgb, var(--accent-primary) 10%, var(--bg-elevated)); }
 .agent-clients__badge[data-level=denied] { color: var(--accent-error); background: color-mix(in srgb, var(--accent-error) 9%, var(--bg-elevated)); }
-.agent-client-card__meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 8px; color: var(--text-muted); font-size: 10px; font-weight: 400; line-height: 1.45; overflow-wrap: anywhere; }
+.agent-client-card__meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 8px; color: var(--text-muted); font-size:11px; font-weight: 400; line-height: 1.45; overflow-wrap: anywhere; }
 .agent-client-card__edit-label { color: var(--text-accent); }
 .agent-client-card__actions { display: flex; align-items: stretch; flex-wrap: wrap; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--border-subtle); }
 .agent-client-card__actions > .ax-button, .agent-client-card__actions > .fuse-button { min-height: 32px; height: 32px; }
@@ -52,7 +52,7 @@
 .agent-client-card__actions .fuse-button .fuse-button__face { min-height: 32px; height: 32px; padding-inline: 10px; border: 1px solid color-mix(in srgb, var(--accent-error) 35%, var(--border-default)); border-radius: var(--radius); color: var(--accent-error); }
 .agent-clients__section { border-top: 1px solid var(--border-default); padding-top: 14px; }
 .agent-clients__section > summary { cursor: pointer; color: var(--text-primary); font-size: 12px; font-weight: 600; }
-.agent-clients__section > summary small { margin-left: 8px; color: var(--text-muted); font-size: 10px; font-weight: 400; }
+.agent-clients__section > summary small { margin-left: 8px; color: var(--text-muted); font-size:11px; font-weight: 400; }
 .agent-clients__section[open] > summary { margin-bottom: 16px; }
 .agent-clients__section > .agent-clients__section-heading { margin-bottom: 12px; }
 .agent-clients__map { width: 100%; max-width: 640px; margin: auto; }
@@ -69,7 +69,7 @@
 .agent-clients__actions { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 8px; }
 .agent-clients__tool-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 24px; list-style: none; margin: 12px 0 0; padding: 0; }
 .agent-clients__tool-list li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border-subtle); }
-.agent-clients__tool-list code { font-size: 10px; overflow-wrap: anywhere; }
+.agent-clients__tool-list code { font-size:11px; overflow-wrap: anywhere; }
 .agent-clients .agent-clients__quiet { color: var(--text-secondary); font-size: 12px; line-height: 1.7; padding: 14px 0; }
 .agent-clients__token { display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid var(--border-focus); border-radius: var(--radius-lg); background: var(--surface-primary); font-size: 12px; }
 @media (max-width: 700px) {
@@ -88,7 +88,7 @@
   .agent-clients__map .integration-beam__node { width: 100%; }
   .agent-clients__map .integration-beam__hub > .integration-beam__tile { width: 64px; height: 64px; padding: 7px; }
   .agent-clients__map .integration-beam__hub .axdb-mark { width: 24px; height: 24px; flex-basis: 24px; }
-  .agent-clients__map .integration-beam__hub .axdb-wordmark { font-size: 10px; }
+  .agent-clients__map .integration-beam__hub .axdb-wordmark { font-size:11px; }
 }
 
 /* Keep this map static; request pulses remain event driven. */
