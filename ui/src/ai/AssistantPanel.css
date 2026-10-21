@@ -30,3 +30,37 @@
 
 .ai-dock-header select{-webkit-appearance:none;appearance:none;height:28px;min-height:28px;padding:0 22px 0 6px;line-height:28px;font-size:13px;border-radius:6px;background:var(--select-chevron) no-repeat right 6px center/12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ai-dock-header select:hover{background-color:var(--surface-hover)}.ai-dock-header small{line-height:20px}
 .ai-dock-header .ai-actions:first-child select{flex:1 1 0;max-width:none}.ai-dock-header .ai-actions:first-child>.toolbar-spacer{display:none}
+/* 채팅·헤더·컴포저 다듬기: 말풍선 규격, 오류 행, 칩 줄, 컨트롤 높이 통일. 호버 애니메이션·레이아웃 이동 없음. */
+.ai-message--user{margin-left:auto;margin-right:0;max-width:88%;width:fit-content;padding:var(--ai-space-2) var(--ai-space-3);border-radius:16px;box-sizing:border-box}
+.ai-message--assistant{max-width:100%;padding:var(--ai-space-2) 0;box-sizing:border-box}
+.ai-message--user p{margin:0}
+.ai-message .ai-message-footer{margin-top:var(--ai-space-2);min-height:20px}
+.ai-message time{margin:0;font-size:10px;line-height:20px;color:var(--text-muted);font-variant-numeric:tabular-nums}
+.ai-message--user .ai-message-footer{justify-content:flex-end}
+.ai-message-context{gap:var(--ai-space-1);padding-bottom:var(--ai-space-2)}
+.ai-message-context span{padding:2px var(--ai-space-2);line-height:16px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ai-error-row{display:grid;grid-template-columns:16px minmax(0,1fr) auto;align-items:start;gap:var(--ai-space-2);margin:var(--ai-space-2) 0;padding:var(--ai-space-3);border:1px solid color-mix(in srgb,var(--accent-error) 28%,var(--border-subtle));border-radius:var(--radius-lg);background:color-mix(in srgb,var(--accent-error) 6%,var(--bg-base))}
+.ai-error-row>svg{width:16px;height:16px;margin-top:2px;color:var(--accent-error)}
+.ai-error-body{min-width:0}.ai-error-body strong{display:block;font-size:12px;line-height:20px;color:var(--text-primary);font-weight:600}
+.ai-error-body p{margin:2px 0 0;color:var(--text-secondary);line-height:1.6;white-space:normal}
+.ai-error-body details{margin-top:var(--ai-space-2);font-size:11px;color:var(--text-muted)}.ai-error-body summary{cursor:pointer;line-height:20px}.ai-error-body summary:focus-visible{outline:2px solid var(--accent-primary);outline-offset:2px;border-radius:4px}
+.ai-error-body pre{margin:var(--ai-space-1) 0 0;padding:var(--ai-space-2);max-height:120px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font:11px/1.5 var(--mono);color:var(--text-secondary);background:var(--surface-secondary);border-radius:var(--radius)}
+.ai-dock .ai-error-retry{display:inline-flex;align-items:center;gap:var(--ai-space-1);height:28px;min-height:28px;padding:0 var(--ai-space-2);font-size:11px;border:1px solid var(--border-default);white-space:nowrap}.ai-error-retry svg{width:12px;height:12px}
+p.ai-error{display:flex;align-items:center;gap:var(--ai-space-2);padding:var(--ai-space-2) 16px;font-size:11px;line-height:1.5;color:var(--accent-error);background:color-mix(in srgb,var(--accent-error) 6%,transparent);border-top:1px solid var(--border-subtle)}
+.ai-context-scroll{flex:1 1 0;min-width:0;mask-image:linear-gradient(to right,transparent,#000 12px,#000 calc(100% - 20px),transparent)}
+.ai-context-scroll:focus-visible{outline:2px solid var(--accent-primary);outline-offset:-2px;border-radius:var(--radius)}
+.ai-context-scroll>span{display:inline-flex;align-items:center;height:22px;padding:0 var(--ai-space-2);line-height:1}
+.ai-dock-header .ai-actions{flex-wrap:nowrap;gap:var(--ai-space-1)}
+.ai-dock-header .ai-actions:first-child{gap:var(--ai-space-1)}
+.ai-dock-header .ai-actions:first-child>svg{flex:none;margin-right:var(--ai-space-1)}
+.ai-dock-header .ai-actions:first-child>.ax-button{width:28px;min-width:28px;height:28px;min-height:28px;padding:0;flex:none;justify-content:center}
+.ai-dock-header .ai-actions:last-child{flex-wrap:wrap;gap:var(--ai-space-1)}
+.ai-dock .ax-button:focus-visible,.ai-dock select:focus-visible,.ai-composer textarea:focus-visible{outline:2px solid var(--accent-primary);outline-offset:2px}
+.ai-composer textarea:focus-visible{outline:0}.ai-composer:has(textarea:focus-visible){box-shadow:0 0 0 2px var(--accent-primary)}
+.ai-composer-options{gap:var(--ai-space-2)}
+.ai-composer-options>*{flex-shrink:0}.ai-composer-options>.model-picker{flex:1 1 0;min-width:0}
+.ai-composer .ai-permission>summary{height:24px;box-sizing:border-box;padding:0 var(--ai-space-2)}.ai-permission>summary:focus-visible{outline:2px solid var(--accent-primary);outline-offset:2px}
+.ai-composer .ai-round:focus-visible{outline:2px solid var(--accent-primary);outline-offset:2px}
+.ai-composer .ai-round[type=submit]:disabled{opacity:.4}
+.ai-composer textarea::placeholder{color:var(--text-muted)}
+@media(prefers-reduced-motion:reduce){.ai-error-row{transition:none}}

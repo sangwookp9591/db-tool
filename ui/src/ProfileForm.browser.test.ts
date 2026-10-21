@@ -43,6 +43,11 @@ async function openForm(editExisting = false) {
   await page.getByRole('dialog', { name: editExisting ? 'Edit connection' : 'Add connection' }).waitFor();
 }
 
+async function pickOption(label: string, optionName: string) {
+  await page.getByRole('combobox', { name: label, exact: true }).click();
+  await page.getByRole('option', { name: optionName, exact: true }).click();
+}
+
 async function checksClosedNetworkValidation(target: Page) {
   page = target;
   await page.goto(server.resolvedUrls!.local[0] + 'profile-form-probe');
@@ -50,7 +55,7 @@ async function checksClosedNetworkValidation(target: Page) {
   await page.getByRole('dialog', { name: 'Add connection' }).waitFor();
   await page.getByLabel('Name', { exact: true }).fill('network validation');
   await page.getByRole('button', { name: '2. 네트워크' }).click();
-  await page.getByLabel('SSH 터널', { exact: true }).selectOption('ssh');
+  await pickOption('SSH 터널', 'SSH 터널 사용');
   await page.getByRole('button', { name: '1. 기본' }).click();
   await page.getByRole('button', { name: 'Test connection' }).click();
   await page.getByLabel('SSH 호스트').waitFor({ state: 'visible' });
@@ -113,7 +118,7 @@ it('keeps pasted and network credentials in the draft through test and persists 
   await page.getByRole('button', { name: '3. 인증' }).click();
   expect(await page.getByLabel('Password', { exact: true }).inputValue()).toBe('pasted-secret');
   await page.getByRole('button', { name: '2. 네트워크' }).click();
-  await page.getByLabel('프록시 종류').selectOption('socks5');
+  await pickOption('프록시 종류', 'SOCKS5');
   await page.getByLabel('프록시 호스트').fill('proxy.example');
   await page.getByLabel('프록시 비밀번호').fill('proxy-draft-secret');
   await page.getByRole('button', { name: '3. 인증' }).click();
@@ -136,7 +141,7 @@ it('does not persist draft network credentials when the form is canceled', async
   await openForm();
   await page.getByLabel('Name', { exact: true }).fill('canceled credentials');
   await page.getByRole('button', { name: '2. 네트워크' }).click();
-  await page.getByLabel('프록시 종류').selectOption('socks5');
+  await pickOption('프록시 종류', 'SOCKS5');
   await page.getByLabel('프록시 호스트').fill('proxy.example');
   await page.getByLabel('프록시 비밀번호').fill('proxy-draft-secret');
   await page.getByRole('button', { name: '취소' }).click();

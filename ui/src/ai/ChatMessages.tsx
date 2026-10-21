@@ -9,6 +9,8 @@ import { ThinkingLoader } from '../ui/ThinkingLoader';
 import { MessageActions, MessageText } from '../ui/MessageActions';
 import { ToolCallGroup } from '../ui/ToolCall';
 import { Button } from '../ui/Button';
+import { AlertCircle, RotateCcw } from 'lucide-preact';
+import { friendlyError } from './errorCopy';
 import { blockStream, type ChatMessage, type MarkdownBlock } from './chat';
 export type QueryAction = (query: string, mode: 'insert' | 'diff' | 'new' | 'file' | 'tool') => void;
 function inline(text: string): ComponentChildren {
@@ -24,12 +26,12 @@ function Message({message,action,measure,visible,busy,regenerate,change,fileRevi
   const parsed=message.role==='assistant'?parse.current(message.text,message.complete):null;
   useLayoutEffect(()=>{if(!root.current)return;const observer=new ResizeObserver(entries=>measure(message.id,entries[0].borderBoxSize[0]?.blockSize??root.current!.offsetHeight));observer.observe(root.current);return()=>observer.disconnect();},[message.id]);
   return <article ref={root} class={`ai-message ai-message--${message.role}`}>
-    {message.role==='assistant'&&<><ThinkingLoader phase={message.phase} done={message.complete} doneLabel={message.error?'응답 중지 · 오류':undefined} seconds={Math.round((message.elapsedMs??0)/1000)} visible={visible}/>{message.context&&<details class="ai-work"><summary>작업 내역 · {(message.elapsedMs??message.context.elapsedMs)<1000?'1초 미만':`${Math.round((message.elapsedMs??message.context.elapsedMs)/1000)}초`}</summary>{visible&&<ToolCallGroup calls={[{id:'context',name:'get_work_context',summary:'스키마·테이블·작업 맥락 조회',status:'success',durationMs:message.context.elapsedMs,result:{schema:message.context.schema}}]}/>}</details>}</>}
+    {message.role==='assistant'&&<>{!message.error&&<ThinkingLoader phase={message.phase} done={message.complete} seconds={Math.round((message.elapsedMs??0)/1000)} visible={visible}/>}{message.context&&<details class="ai-work"><summary>작업 내역 · {(message.elapsedMs??message.context.elapsedMs)<1000?'1초 미만':`${Math.round((message.elapsedMs??message.context.elapsedMs)/1000)}초`}</summary>{visible&&<ToolCallGroup calls={[{id:'context',name:'get_work_context',summary:'스키마·테이블·작업 맥락 조회',status:'success',durationMs:message.context.elapsedMs,result:{schema:message.context.schema}}]}/>}</details>}</>}
     {message.contextLabels&&<div class="ai-message-context">{message.contextLabels.map(label=><span>{label}</span>)}</div>}
     <MessageText version={message.version??0}>{parsed?<>{parsed.blocks.filter(block=>!message.files?.length||block.kind!=='code'||!/^sql(?:\s|$)|\.sql$/i.test(block.language??'')).filter(block=>!message.tools?.length||block.kind!=='code'||!/^(tool|mcp)$/i.test(block.language??'')).map((block,i)=><Block key={`${message.version??0}-${i}`} block={block} action={action} enabled={message.complete&&!message.error}/>)}{parsed.tail&&<pre class="ai-tail">{parsed.tail}</pre>}</>:<p>{message.text}</p>}</MessageText>
     {message.files?.length&&message.session?<FileReview files={message.files} session={message.session} actions={fileReview} onChange={files=>change(message.id,{files})}/>:null}
     {visible&&message.tools?.map(tool=><ToolApproval key={tool.id} tool={tool} readOnly={readOnly} remembered={remembered} onChange={patch=>toolChange(message.id,tool.id,patch)}/>)}
-    {message.error&&<p role="status" class="invalid">{message.error}</p>}
+    {message.error&&(()=>{const e=friendlyError(message.error);return <div class="ai-error-row" role="alert"><AlertCircle aria-hidden="true"/><div class="ai-error-body"><strong>응답 중지 · 오류</strong><p>{e.summary}</p>{e.detail&&<details><summary>자세히 보기</summary><pre>{e.detail}</pre></details>}</div>{message.complete&&<Button variant="ghost" class="ai-error-retry" disabled={busy} aria-label="다시 시도" onClick={()=>regenerate(message.id)}><RotateCcw aria-hidden="true"/>다시 시도</Button>}</div>;})()}
     <div class="ai-message-footer">{message.role==='assistant'&&message.complete&&!!message.text.trim()&&<MessageActions text={message.text} versions={message.files?.length||message.tools?.length?1:message.versions?.length??1} version={message.version??0} disabled={busy||!!message.files?.some(f=>f.decision==='accepted')||!!message.tools?.some(t=>t.status!=='pending'&&t.status!=='denied'&&t.status!=='error')} onVersion={version=>{const chosen=message.versions?.[version];if(chosen)change(message.id,{...chosen,version});}} onRegenerate={()=>regenerate(message.id)} feedback={message.feedback} onFeedback={feedback=>change(message.id,{feedback})}/>}
     {message.startedAt&&<time>{new Date(message.startedAt).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</time>}</div>
   </article>;

@@ -11,6 +11,7 @@ try {
   const context=await browser.newContext({viewport:{width:1280,height:800},reducedMotion:'reduce'});
   await context.addInitScript(theme=>localStorage.setItem('axdb-theme',theme),theme);
   const page=await context.newPage();
+  const chooseOption=async(label,option)=>{await page.getByRole('combobox',{name:label,exact:true}).click();await page.getByRole('listbox',{name:label,exact:true}).getByRole('option',{name:option,exact:true}).click();};
   page.on('pageerror',error=>{failures.push(error.message);console.error('PAGEERROR',error.message);});
   const login=async name=>{
     await page.getByRole('button',{name:`${name}로 로그인`,exact:true}).click();
@@ -31,9 +32,9 @@ try {
   await page.getByRole('button',{name:'PostgreSQL · 설치됨',exact:true}).waitFor();
   await page.getByTestId('add-connection').click();
   await page.getByRole('textbox',{name:'Name',exact:true}).fill('UI test connection');
-  await page.getByRole('button',{name:'3. 인증',exact:true}).click();await page.getByLabel('DB 인증',{exact:true}).selectOption('iam_aws');assert.equal(await page.getByLabel('리전 (선택)',{exact:true}).evaluate(input=>input.required),false);await shot('connection-iam');await page.getByLabel('DB 인증',{exact:true}).selectOption('password');
+  await page.getByRole('button',{name:'3. 인증',exact:true}).click();await chooseOption('DB 인증','AWS RDS / Aurora IAM');assert.equal(await page.getByLabel('리전 (선택)',{exact:true}).evaluate(input=>input.required),false);await shot('connection-iam');await chooseOption('DB 인증','사용자 · 비밀번호');
   await page.getByRole('button',{name:'2. 네트워크',exact:true}).click();
-  await page.getByLabel('SSH 터널',{exact:true}).selectOption('ssh');
+  await chooseOption('SSH 터널','SSH 터널 사용');
   await page.getByLabel('SSH 호스트',{exact:true}).fill('test-bastion');
   await page.getByLabel('SSH 사용자',{exact:true}).fill('tester');
   assert.equal(await page.getByLabel('키 파일 경로',{exact:true}).count(),0);
@@ -65,7 +66,7 @@ try {
   const nodeId=await treeTarget.getAttribute('data-node-id');
   const dropped=await page.evaluateHandle(()=>{const data=new DataTransfer();data.items.add(new File(['[{"id":101,"name":"Ada"}]'],'dropped.json',{type:'application/json'}));return data;});
   await treeTarget.locator('..').dispatchEvent('drop',{dataTransfer:dropped});await dropped.dispose();
-  await page.waitForFunction(nodeId=>document.querySelector('select[aria-label="가져오기 대상"]')?.value===nodeId,nodeId);await page.getByRole('heading',{name:'dropped.json',exact:true}).waitFor();await shot('import-drop');
+  await page.getByRole('combobox',{name:'가져오기 대상',exact:true}).getByText('드롭한 대상',{exact:true}).waitFor();await page.locator('.file-picker__status').getByText('dropped.json',{exact:true}).waitFor();await shot('import-drop');
 
   await page.getByRole('tab',{name:'AI 계정',exact:true}).click();await page.getByRole('heading',{name:'Claude · Anthropic'}).waitFor();await shot('accounts');
   await page.getByRole('tab',{name:'사용자 · 권한',exact:true}).click();await page.getByLabel('analyst public.people UPDATE').check();await shot('roles');
@@ -77,12 +78,12 @@ try {
   await page.getByRole('tab',{name:'가져오기',exact:true}).click();
   // The target uses a real explorer ID from the mock host, never a generated SQL name.
   const expand=page.getByRole('button',{name:'Expand public',exact:true});if(await expand.count())await expand.click();
-  const target=page.getByLabel('가져오기 대상',{exact:true});
-  const options=await target.locator('option').allTextContents();
-  if(options.length<2){const toggles=page.locator('.tree-toggle');for(let i=0;i<await toggles.count();i++){await toggles.nth(i).click();}}
-  await page.locator('input[type=file]').setInputFiles({name:'people.json',mimeType:'application/json',buffer:Buffer.from('[{"id":101,"name":"Ada"},{"id":102,"name":"Grace"}]')});
-  await target.locator('option').nth(1).waitFor({state:'attached'});await target.selectOption({index:1});await page.getByRole('button',{name:'형식 감지 및 매핑',exact:true}).click();await page.getByLabel('id 대상 컬럼').waitFor();await shot('import-mapping');await page.getByRole('button',{name:'변환 결과 확인',exact:true}).click();await previewPlan();await shot('import-preview');
-  await page.getByRole('button',{name:'1. 파일',exact:true}).click();await page.getByLabel('가져오기 방식',{exact:true}).selectOption('new');await page.getByLabel('새 테이블 이름',{exact:true}).fill('imported_people');await page.getByRole('button',{name:'형식 감지 및 매핑',exact:true}).click();await page.getByRole('button',{name:'변환 결과 확인',exact:true}).click();await previewPlan();await shot('import-new-table');
+  const target=page.getByRole('combobox',{name:'가져오기 대상',exact:true});
+  await target.click();const options=page.getByRole('listbox',{name:'가져오기 대상',exact:true}).getByRole('option');
+  if(await options.count()<2){await page.keyboard.press('Escape');const toggles=page.locator('.tree-toggle');for(let i=0;i<await toggles.count();i++){await toggles.nth(i).click();}}else await page.keyboard.press('Escape');
+  await page.getByLabel('가져올 파일',{exact:true}).setInputFiles({name:'people.json',mimeType:'application/json',buffer:Buffer.from('[{"id":101,"name":"Ada"},{"id":102,"name":"Grace"}]')});
+  await target.click();const targetOptions=page.getByRole('listbox',{name:'가져오기 대상',exact:true}).getByRole('option');await targetOptions.nth(1).waitFor({state:'visible'});await targetOptions.nth(1).click();await page.getByRole('button',{name:'형식 감지 및 매핑',exact:true}).click();await page.getByLabel('id 대상 컬럼').waitFor();await shot('import-mapping');await page.getByRole('button',{name:'변환 결과 확인',exact:true}).click();await previewPlan();await shot('import-preview');
+  await page.getByRole('button',{name:'1. 파일',exact:true}).click();await chooseOption('가져오기 방식','새 테이블 생성');await page.getByLabel('새 테이블 이름',{exact:true}).fill('imported_people');await page.getByRole('button',{name:'형식 감지 및 매핑',exact:true}).click();await page.getByRole('button',{name:'변환 결과 확인',exact:true}).click();await previewPlan();await shot('import-new-table');
   await page.getByRole('button',{name:'검토한 계획 적용',exact:true}).click();await page.getByRole('button',{name:'승인 및 적용',exact:true}).click();await page.getByText('적용이 완료되었습니다.',{exact:true}).waitFor();
   await page.getByRole('tab',{name:'스키마 비교',exact:true}).click();
   const snapshot={version:1,dialect:'sql-demo',objects:[{namespace:'public',name:'new_people',kind:'table',definition:'CREATE TABLE new_people (id INTEGER)',columns:[{name:'id',type_name:'integer',nullable:false,default:null}]}]};

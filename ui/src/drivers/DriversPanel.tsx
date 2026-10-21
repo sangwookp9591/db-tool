@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { Download, FolderOpen, RefreshCw, ShieldAlert, X, Plus } from 'lucide-preact';
 import { isMock } from '../api';
 import { Button } from '../ui/Button';
+import { FileTrigger } from '../ui/FilePicker';
 import { JellyRadio } from '../ui/JellyRadio';
 import { SpringCheck } from '../ui/SpringCheck';
 import { Dialog } from '../Dialog';
@@ -46,7 +47,7 @@ export function DriversPanel({ onClose, onAddConnection, requestedId }: { onClos
     <div class="drivers-grid" role="tabpanel" aria-label={tab === 'installed' ? '설치된 드라이버' : '설치 가능한 드라이버'}>{sorted.length > 0 && <DriverGallery drivers={sorted} scope="panel" onAction={(kind, id) => void action(kind, id)} onAddConnection={onAddConnection} />}{!catalog.drivers.length && catalog.refreshing ? <DriversSkeleton /> : !visible.length && <div class="drivers-empty"><Download /><h2>{tab === 'installed' ? '아직 설치한 드라이버가 없습니다' : catalog.warning ? '표시할 드라이버가 없습니다' : '새로 설치할 드라이버가 없습니다'}</h2><p>{tab === 'installed' ? '사용 가능 탭에서 필요한 드라이버를 설치하세요.' : '목록을 새로고침하거나 .axdriver 파일을 선택하세요.'}</p><div class="drivers-state-actions">{tab === 'installed' && <Button morph={false} onClick={() => setTab('available')}>사용 가능한 드라이버 보기</Button>}<Button morph={false} disabled={!!busy} onClick={() => void chooseFile()}><FolderOpen />파일에서 설치</Button><Button morph={false} disabled={catalog.refreshing} onClick={() => void refreshDrivers()}><RefreshCw />새로고침</Button></div></div>}</div>
     <InstallStatus compact onRetry={(kind, source) => void action(kind, source)} />
     <footer class="drivers-footer"><small>드라이버는 필요할 때만 실행됩니다.</small><Button morph={false} variant="primary" disabled={!installed.length || !!busy} onClick={onAddConnection}><Plus />연결 추가</Button></footer>
-    <input hidden ref={file} type="file" accept=".axdriver" aria-label="드라이버 파일" onChange={e => { const selected = e.currentTarget.files?.[0]; e.currentTarget.value = ''; if (selected) void action('install', `/mock/${selected.name}`); }} />
+    <FileTrigger inputRef={file} accept=".axdriver" ariaLabel="드라이버 파일" onFiles={([selected]) => void action('install', `/mock/${selected.name}`)} />
 
     {unverified && <Dialog label="확인되지 않은 드라이버" onClose={() => { if (!busy) { setUnverified(null); setConsent(false); setFileError(''); } }} closeDisabled={!!busy} footer={<><Button morph={false} disabled={!!busy} onClick={() => { setUnverified(null); setConsent(false); }}>취소</Button><Button morph={false} variant="destructive" disabled={!consent || !!busy} onClick={() => void action('install', unverified, true)}>동의하고 설치</Button></>}><div class="driver-warning"><ShieldAlert /><p>이 파일은 공식 서명을 확인할 수 없습니다. 드라이버는 이 컴퓨터에서 실행되며 연결 정보와 데이터에 접근할 수 있습니다.</p><code>{unverified.split(/[/\\]/).pop()}</code><SpringCheck checked={consent} disabled={!!busy} onChange={setConsent} label="출처를 신뢰하며 위험을 이해했습니다" />{busy && <DriverProgress progress={progress} />}{fileError && <p class="driver-error" role="alert">{fileError}</p>}</div></Dialog>}
   </section>;

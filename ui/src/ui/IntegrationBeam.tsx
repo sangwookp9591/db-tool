@@ -90,8 +90,9 @@ export function IntegrationBeam({ nodes, controllerRef, onSelect, hubId = 'axdb'
       <svg className="integration-beam__paths" aria-hidden="true">{nodes.map(node => <path key={node.id} d={paths[node.id]} data-state={node.state} data-highlight={highlight === node.id} style={{ opacity: highlight && highlight !== node.id ? .35 : 1 }} />)}</svg>
       <div ref={layer} className="integration-beam__pulses" aria-hidden="true" />
       {column('source')}
-      <div className="integration-beam__hub"><span ref={tileRef(hubId)} className="integration-beam__tile">{hubLabel === "AxDB" ? <><span className="axdb-mark" aria-hidden="true" /><span className="axdb-wordmark">AxDB</span></> : hubLabel}</span><span className="integration-beam__status" role="status">{status ?? `${nodes.length}개 중 ${nodes.filter(node => node.state === 'connected').length}개 연결됨`}</span></div>
+      <div className="integration-beam__hub"><span ref={tileRef(hubId)} className="integration-beam__tile">{hubLabel === "AxDB" ? <><span className="axdb-mark" aria-hidden="true" /><span className="axdb-wordmark">AxDB</span></> : hubLabel}</span></div>
       {column('target')}
     </div>
+    <span className="integration-beam__status" role="status" title={status ?? `${nodes.length}개 중 ${nodes.filter(node => node.state === 'connected').length}개 연결됨`}>{status ?? `${nodes.length}개 중 ${nodes.filter(node => node.state === 'connected').length}개 연결됨`}</span>
   </div>;
 }

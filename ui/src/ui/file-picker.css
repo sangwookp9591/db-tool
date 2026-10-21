@@ -1,0 +1,10 @@
+/* 입력창과 같은 36px 높이·반경. 드래그 강조는 색만 바꾸며 애니메이션은 쓰지 않는다. */
+.file-picker{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-width:0;min-height:36px;border:1px dashed var(--border-default);border-radius:var(--radius);background:var(--bg-input);padding:0 4px 0 0;overflow:hidden}
+.file-picker>.ax-button:first-of-type{border-top-right-radius:0;border-bottom-right-radius:0;border-width:0 1px 0 0;min-height:34px;height:34px}
+.file-picker__status{display:flex;flex:1 1 140px;min-width:0;flex-direction:column;justify-content:center;gap:2px;font-size:13px;color:var(--text-primary)}
+.file-picker__empty{color:var(--text-muted)}
+.file-picker__file{display:flex;align-items:baseline;gap:8px;min-width:0}
+.file-picker__name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-picker__file small{flex:none;color:var(--text-muted);font-size:11px}
+.file-picker[data-drag]{border-color:var(--border-focus);background:var(--surface-active)}
+.file-picker[data-disabled]{opacity:.55;cursor:not-allowed}
