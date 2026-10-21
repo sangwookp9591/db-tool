@@ -23,7 +23,9 @@ pub(super) async fn target(conn: &mut Conn, sql: &str) -> Result<EditTarget, &'s
             "여러 테이블 결과는 편집할 수 없습니다"
         });
     }
-    let (db, table) = tables.into_iter().next().unwrap();
+    let Some((db, table)) = tables.into_iter().next() else {
+        return Err("컬럼 출처를 확인할 수 없습니다");
+    };
     if source.last() != Some(&table) || source.len() > 2 || (source.len() == 2 && source[0] != db) {
         return Err("뷰 또는 원본 테이블이 아닌 결과입니다");
     }

@@ -1,3 +1,6 @@
+// Integration tests fail by panicking: unwrap/expect are the intended assertion style here
+// (clippy's allow-*-in-tests only covers #[test] functions, not shared helpers).
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::print_stdout, clippy::print_stderr)]
 use dbcore::*;
 use driver_postgres::PostgresDriver;
 fn req(text: &str) -> ExecRequest {

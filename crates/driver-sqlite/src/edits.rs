@@ -124,7 +124,7 @@ pub(super) fn run(
         req,
         &format!(
             "main.{}",
-            quote(req.node_id.strip_prefix("table:").unwrap())
+        quote(name)
         ),
         &columns,
         &keys,

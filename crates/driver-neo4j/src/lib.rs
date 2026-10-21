@@ -433,10 +433,10 @@ impl Session for NeoSession {
             Err(_) => ("elementId(n)", serde_json::json!(id)),
         };
         let limit = clamp_row_limit(limit);
-        let params = serde_json::json!({"id":param,"limit":limit})
-            .as_object()
-            .unwrap()
-            .clone();
+        let params = serde_json::Map::from_iter([
+            ("id".into(), param),
+            ("limit".into(), serde_json::json!(limit)),
+        ]);
         self.bounded(
             &ExecRequest {
                 read_only: true,

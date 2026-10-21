@@ -207,27 +207,30 @@ impl SqliteSession {
                 biased;
                 _ = finished.cancelled() => {},
                 _ = token.cancelled() => {
-                    let _lease = watcher_gate.lock().expect("interrupt gate");
+                    let _lease = watcher_gate.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
                     if !finished.is_cancelled() { interrupt.interrupt(); }
                 },
                 _ = tokio::time::sleep_until(deadline.into()) => {
-                    let _lease = watcher_gate.lock().expect("interrupt gate");
+                    let _lease = watcher_gate.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
                     if !finished.is_cancelled() { interrupt.interrupt(); }
                 },
             }
         });
         tokio::task::spawn_blocking(move || {
-            let conn = guard.as_ref().expect("connection lease");
-            let stop_interrupts = || {
-                let _lease = interrupt_gate.lock().expect("interrupt gate");
-                done.cancel();
-            };
-            let result = if let Some(edit) = edits {
-                edits::run(conn, &edit, &cancel, deadline, preview, stop_interrupts)
-            } else if preview {
-                preview::run(conn, &req, &cancel, deadline, stop_interrupts).map(RunOutput::Preview)
+            let result = if let Some(conn) = guard.as_ref() {
+                let stop_interrupts = || {
+                    let _lease = interrupt_gate.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+                    done.cancel();
+                };
+                if let Some(edit) = edits {
+                    edits::run(conn, &edit, &cancel, deadline, preview, stop_interrupts)
+                } else if preview {
+                    preview::run(conn, &req, &cancel, deadline, stop_interrupts).map(RunOutput::Preview)
+                } else {
+                    run(conn, &req, &cancel, deadline, stop_interrupts).map(RunOutput::Execute)
+                }
             } else {
-                run(conn, &req, &cancel, deadline, stop_interrupts).map(RunOutput::Execute)
+                Err(DbError::new(ErrorKind::Connection, "Session closed"))
             };
             if result
                 .as_ref()
@@ -237,7 +240,7 @@ impl SqliteSession {
             }
             {
                 // Exclude a late interrupt before releasing the connection to its next run.
-                let _lease = interrupt_gate.lock().expect("interrupt gate");
+                let _lease = interrupt_gate.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
                 done.cancel();
             }
             watcher.abort();

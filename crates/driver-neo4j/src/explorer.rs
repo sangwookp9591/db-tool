@@ -5,7 +5,7 @@ fn ident(name: &str) -> String {
     format!("`{}`", name.replace('`', "``"))
 }
 fn path(kind: &str, name: &str) -> String {
-    serde_json::to_string(&[kind, name]).unwrap()
+    serde_json::json!([kind, name]).to_string()
 }
 fn parse(id: &str) -> Result<[String; 2], DbError> {
     serde_json::from_str(id).map_err(|_| DbError::query("Invalid explorer node"))
@@ -135,7 +135,7 @@ impl NeoSession {
         Ok(nodes)
     }
     async fn label_properties(&self, label: &str) -> Result<Vec<ExplorerNode>, DbError> {
-        let schema=self.internal("CALL db.schema.nodeTypeProperties() YIELD nodeLabels, propertyName, propertyTypes WHERE $label IN nodeLabels RETURN propertyName, propertyTypes".into(),serde_json::json!({"label":label}).as_object().unwrap().clone()).await;
+        let schema=self.internal("CALL db.schema.nodeTypeProperties() YIELD nodeLabels, propertyName, propertyTypes WHERE $label IN nodeLabels RETURN propertyName, propertyTypes".into(),serde_json::Map::from_iter([("label".into(), serde_json::json!(label))])).await;
         let mut properties: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
         match schema {
             Ok(result) => {
@@ -183,7 +183,7 @@ impl NeoSession {
             .into_iter()
             .map(|(key, types)| {
                 let mut n = node("property", &key, Icon::Property, false);
-                n.id = serde_json::to_string(&["property", label, &key]).unwrap();
+                n.id = serde_json::json!(["property", label, &key]).to_string();
                 n.detail = Some(types.into_iter().collect::<Vec<_>>().join(" | "));
                 n
             })
@@ -214,7 +214,10 @@ impl NeoSession {
         }
         if !predicates.is_empty() {base=base.replacen(" RETURN ",&format!(" WHERE {} RETURN ",predicates.join(" AND ")),1);}
         let order = if kind == "label" { "id(n)" } else { "id(r)" };
-        let mut params=serde_json::json!({"o":i64::try_from(page.offset).map_err(|_|DbError::query("Page offset exceeds Bolt integer range"))?,"l":limit+1}).as_object().unwrap().clone();
+        let mut params=serde_json::Map::from_iter([
+            ("o".into(), serde_json::json!(i64::try_from(page.offset).map_err(|_|DbError::query("Page offset exceeds Bolt integer range"))?)),
+            ("l".into(), serde_json::json!(limit+1)),
+        ]);
         params.extend(filter_params);
         let mut result = self
             .bounded(

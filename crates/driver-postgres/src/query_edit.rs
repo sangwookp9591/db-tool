@@ -18,7 +18,10 @@ impl PgSession {
                 "여러 테이블 결과는 편집할 수 없습니다"
             });
         }
-        let oid = *oids.iter().next().unwrap();
+        let Some(oid) = oids.iter().next() else {
+            return Err("계산 컬럼");
+        };
+        let oid = *oid;
         let relation = source
             .iter()
             .map(|s| quote_ident(s))

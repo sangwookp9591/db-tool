@@ -574,16 +574,26 @@ impl PgSession {
             cancel.cancel();
             // Retry across protocol boundaries: a cancel that arrives while the backend is idle is ignored.
             let mut retry = tokio::time::interval(Duration::from_millis(50));
+            let cleanup_deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+            let mut attempts = 0;
             loop {
                 tokio::select! {
                     biased;
                     result = &mut future => { let _ = result; break; },
-                    _ = retry.tick() => {
+                    _ = tokio::time::sleep_until(cleanup_deadline) => {
+                        // Only abandon the primary connection if execution/rollback
+                        // itself cannot finish, not when the auxiliary cancel socket fails.
+                        self.connection.abort();
+                        self.closed.store(true, Ordering::Release);
+                        break;
+                    },
+                    _ = retry.tick(), if attempts < 3 => {
+                        attempts += 1;
                         sent_cancel = true;
-                        if !matches!(tokio::time::timeout(Duration::from_secs(3), self.cancel_and_wait()).await, Ok(Ok(()))) {
-                            self.connection.abort();
-                            self.closed.store(true, Ordering::Release);
-                        }
+                        let attempt_deadline = cleanup_deadline.min(tokio::time::Instant::now() + Duration::from_secs(3));
+                        // Continue polling the operation after a transport failure: it
+                        // may complete normally and still needs to run its rollback.
+                        let _ = tokio::time::timeout_at(attempt_deadline, self.cancel_and_wait()).await;
                     }
                 }
             }
@@ -659,6 +669,7 @@ impl Session for PgSession {
     async fn schema_snapshot(&self, scope:Option<&str>)->Result<SchemaSnapshot,DbError>{ self.load_snapshot(scope).await }
     async fn ddl_render(&self,diff:&SnapshotDiff)->Result<Vec<String>,DbError>{dbcore::workbench::render_sql(diff,"postgres")}
     async fn explain(&self, query: &str, analyze: bool, cancel: CancelToken) -> Result<PlanTree, DbError> {
+        let started = Instant::now();
         let statements = split_statements(query)?;
         if statements.len() != 1 { return Err(DbError::query("Explain requires one statement")); }
         let tokens = dbcore::preview::tokens(&statements[0])?;
@@ -687,15 +698,30 @@ impl Session for PgSession {
             }
         }
         let mut tables=vec![]; scans(&raw[0]["Plan"],&mut tables);
-        for (schema,table) in tables {
-            let _guard=tokio::select! { biased; _=cancel.cancelled()=>return Err(DbError::new(ErrorKind::Cancelled,"Explain cancelled")), guard=self.state.lock()=>guard };
-            let params: [&(dyn tokio_postgres::types::ToSql + Sync); 2] = [&schema, &table];
-            let rows=tokio::select! { biased;
-                _=cancel.cancelled()=>return Err(DbError::new(ErrorKind::Cancelled,"Explain cancelled")),
-                rows=self.client.query("SELECT c.reltuples::float8 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE (n.nspname=$1 OR ($1='pg_temp' AND n.oid=pg_my_temp_schema())) AND c.relname=$2", &params) => rows.map_err(|e| self.error(e))?,
+        tables.sort();
+        tables.dedup();
+        if !tables.is_empty() {
+            // One bounded execution for all scan targets. Previously each scan
+            // reacquired the session mutex and queried the catalog without a
+            // deadline, after the preview's 30-second deadline had already ended.
+            let targets = tables.iter().map(|(schema, table)| {
+                Ok(format!("({}, {})", dbcore::filter::sql_literal(&Value::Text(schema.clone()))?, dbcore::filter::sql_literal(&Value::Text(table.clone()))?))
+            }).collect::<Result<Vec<_>, DbError>>()?.join(",");
+            let remaining = 30_000u64.saturating_sub(started.elapsed().as_millis().min(u64::MAX as u128) as u64);
+            if remaining == 0 { return Err(DbError::new(ErrorKind::Timeout, "Explain timed out")); }
+            let req = ExecRequest {
+                text: format!("SELECT wanted.schema_name, wanted.table_name, c.reltuples::text FROM (VALUES {targets}) AS wanted(schema_name, table_name) JOIN pg_catalog.pg_namespace n ON n.nspname=wanted.schema_name OR (wanted.schema_name='pg_temp' AND n.oid=pg_my_temp_schema()) JOIN pg_catalog.pg_class c ON c.relnamespace=n.oid AND c.relname=wanted.table_name WHERE c.reltuples>=10000"),
+                params: Default::default(), read_only: false, row_limit: tables.len() as u32,
+                graph_node_limit: 1, timeout_ms: remaining, preview_sample_limit: 0,
             };
-            if rows.first().is_some_and(|r| r.get::<_,f64>(0)>=10000.0) {
-                plan.warnings.push(format!("Large table full scan: {schema}.{table} (~{} rows in catalog statistics)",rows[0].get::<_,f64>(0)));
+            for result in self.execute(&req, cancel).await? {
+                if let Some(table) = result.table {
+                    for row in table.rows {
+                        if let [Value::Text(schema), Value::Text(table), Value::Text(rows)] = row.as_slice() {
+                            plan.warnings.push(format!("Large table full scan: {schema}.{table} (~{rows} rows in catalog statistics)"));
+                        }
+                    }
+                }
             }
         }
         if analyze { plan.warnings.extend(preview.notes); }
@@ -872,6 +898,8 @@ fn node(
     }
 }
 fn path_id(parts: &[&str]) -> String {
+    // INVARIANT: serializing a string slice cannot fail with serde_json's in-memory serializer.
+    #[allow(clippy::expect_used)]
     serde_json::to_string(parts).expect("string array serialization")
 }
 fn parse_path(id: &str) -> Result<Vec<String>, DbError> {
@@ -976,6 +1004,50 @@ fn result_title(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    // A failed auxiliary CancelRequest must not destroy a healthy primary
+    // connection when the query can finish and rollback by itself.
+    #[tokio::test]
+    async fn failed_cancel_transport_preserves_completed_explain() {
+        let Ok(dsn) = std::env::var("AXDB_TEST_PG") else { return; };
+        let config: tokio_postgres::Config = dsn.parse().unwrap();
+        assert_eq!(config.get_ports(), &[55432]);
+        assert_eq!(config.get_hosts(), &[tokio_postgres::config::Host::Tcp("127.0.0.1".into())]);
+        let (client, connection) = config.connect(tokio_postgres::NoTls).await.unwrap();
+        let task = tokio::spawn(async move { let _ = connection.await; });
+        let unavailable = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = unavailable.local_addr().unwrap().port();
+        drop(unavailable);
+        let session = PgSession {
+            client, tls: MakeTlsConnector::new(native_tls::TlsConnector::new().unwrap()),
+            cancel_address: ("127.0.0.1".into(), port), tls_server_name: "localhost".into(),
+            state: Mutex::new(TxState::default()), closed: AtomicBool::new(false),
+            connection: task.abort_handle(), secret: None,
+        };
+        session.client.batch_execute("CREATE TEMP TABLE explain_cancel_fixture AS SELECT generate_series(1,10001) AS id; ANALYZE explain_cancel_fixture; CREATE FUNCTION pg_temp.explain_pause() RETURNS integer LANGUAGE plpgsql IMMUTABLE AS $$ BEGIN PERFORM pg_sleep(0.1); RETURN 1; END $$").await.unwrap();
+        let plan = session.explain("SELECT * FROM explain_cancel_fixture UNION ALL SELECT * FROM explain_cancel_fixture", false, CancelToken::new()).await.unwrap();
+        assert_eq!(plan.warnings.iter().filter(|w| w.starts_with("Large table full scan:")).count(), 1, "duplicate scans should share one catalog lookup/warning");
+        for analyze in [false, true] {
+            let token = CancelToken::new();
+            let trigger = token.clone();
+            let stop = async { tokio::time::sleep(Duration::from_millis(20)).await; trigger.cancel(); };
+            let (result, ()) = tokio::join!(session.explain("SELECT pg_temp.explain_pause()", analyze, token), stop);
+            assert_eq!(result.unwrap_err().kind, ErrorKind::Cancelled);
+            assert!(!session.closed.load(Ordering::Acquire), "failed CancelRequest closed the primary connection");
+            session.ping().await.unwrap();
+            assert!(session.explain("SELECT 1", false, CancelToken::new()).await.is_ok());
+        }
+        // Cancellation while queued for a foreground operation does not touch
+        // the server connection at all.
+        let guard = session.state.lock().await;
+        let token = CancelToken::new();
+        let trigger = token.clone();
+        let stop = async { tokio::time::sleep(Duration::from_millis(20)).await; trigger.cancel(); };
+        let (result, ()) = tokio::join!(session.explain("SELECT 1", false, token), stop);
+        assert_eq!(result.unwrap_err().kind, ErrorKind::Cancelled);
+        drop(guard);
+        session.ping().await.unwrap();
+    }
+
     #[test]
     fn result_title_caps_at_80_chars_with_ellipsis() {
         assert_eq!(result_title("select 1"), "select 1");

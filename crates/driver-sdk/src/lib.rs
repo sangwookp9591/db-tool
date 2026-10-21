@@ -13,7 +13,7 @@ use dbcore::*;
 use std::{
     collections::HashMap,
     io,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, MutexGuard},
 };
 use tokio::{
     io::{AsyncRead, AsyncWrite},
@@ -21,6 +21,8 @@ use tokio::{
     task::JoinSet,
 };
 
+// The host collects driver stderr; this function emits the transport-stop notice.
+#[allow(clippy::print_stderr)]
 pub fn serve(driver: impl Driver + 'static) {
     // SAFETY: mimalloc options may be changed at any time; 0 returns freed pages immediately.
     unsafe { mi_option_set(MI_OPTION_PURGE_DELAY, 0) };
@@ -45,6 +47,10 @@ pub fn serve(driver: impl Driver + 'static) {
 struct Upload { session: u64, file: std::fs::File, summary: BackupSummary, overwrite: bool, new_database: Option<String>, touched: std::time::Instant }
 type Uploads = Arc<Mutex<HashMap<u64, Upload>>>;
 type Sessions = Arc<Mutex<HashMap<u64, Arc<dyn Session>>>>;
+
+fn lock_valid<T>(lock: &Mutex<T>) -> MutexGuard<'_, T> {
+    lock.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+}
 
 pub async fn serve_io<R, W>(driver: Arc<dyn Driver>, mut input: R, mut output: W) -> io::Result<()>
 where
@@ -75,9 +81,9 @@ where
     let mut tasks = JoinSet::new();
     let mut next_session = 1u64;
     let result = loop {
-        let expiry = uploads.lock().unwrap().values().map(|upload| tokio::time::Instant::from_std(upload.touched + std::time::Duration::from_secs(120))).min();
+        let expiry = lock_valid(&uploads).values().map(|upload| tokio::time::Instant::from_std(upload.touched + std::time::Duration::from_secs(120))).min();
         tokio::select! {
-            _ = async { if let Some(deadline) = expiry { tokio::time::sleep_until(deadline).await; } else { std::future::pending::<()>().await; } } => { uploads.lock().unwrap().retain(|_,u|u.touched.elapsed() < std::time::Duration::from_secs(120)); }
+            _ = async { if let Some(deadline) = expiry { tokio::time::sleep_until(deadline).await; } else { std::future::pending::<()>().await; } } => { lock_valid(&uploads).retain(|_,u|u.touched.elapsed() < std::time::Duration::from_secs(120)); }
             written = &mut writer => break written.map_err(io::Error::other)?,
             finished = tasks.join_next(), if !tasks.is_empty() => {
                 match finished {
@@ -119,7 +125,7 @@ where
     }
     tasks.abort_all();
     while tasks.join_next().await.is_some() {}
-    let sessions = std::mem::take(&mut *sessions.lock().unwrap());
+    let sessions = std::mem::take(&mut *lock_valid(&sessions));
     for session in sessions.into_values() {
         session.close().await;
     }
@@ -174,7 +180,7 @@ async fn dispatch(
         }
         Request::Connect(cfg) => {
             let session: Arc<dyn Session> = Arc::from(driver.connect(&cfg).await?);
-            sessions.lock().unwrap().insert(next_session, session);
+            lock_valid(&sessions).insert(next_session, session);
             Ok(Reply::Connected {
                 session: next_session,
             })
@@ -183,9 +189,7 @@ async fn dispatch(
             let session_id = request
                 .session()
                 .ok_or_else(|| DbError::internal("Missing session"))?;
-            let session = sessions
-                .lock()
-                .unwrap()
+            let session = lock_valid(sessions)
                 .get(&session_id)
                 .cloned()
                 .ok_or_else(|| DbError::new(ErrorKind::Connection, "Driver session is closed"))?;
@@ -289,7 +293,7 @@ async fn dispatch(
                     let summary=session.backup_stream(cancel,&output).await?;output.flush().await?;Ok(Reply::BackupSummary(summary))
                 },
                 Request::RestoreStart {summary,overwrite,new_database,..} => {
-                    let mut uploads=uploads.lock().unwrap();
+                    let mut uploads=lock_valid(&uploads);
                     if uploads.values().any(|u|u.session==session_id) { return Err(DbError::new(ErrorKind::Conflict,"A restore upload is already active")); }
                     uploads.insert(id,Upload{session:session_id,file:tempfile::tempfile().map_err(|_|DbError::query("Cannot create private restore file"))?,summary,overwrite,new_database,touched:std::time::Instant::now()});
                     Ok(Reply::Transfer(id))
@@ -297,22 +301,22 @@ async fn dispatch(
                 Request::RestoreChunk {transfer,data,..} => {
                     use std::io::Write;
                     if data.data.len()>BACKUP_CHUNK_BYTES { return Err(DbError::query("Restore chunk exceeds 64 KiB")); }
-                    let mut uploads=uploads.lock().unwrap();
+                    let mut uploads=lock_valid(&uploads);
                     let upload=uploads.get_mut(&transfer).filter(|u|u.session==session_id).ok_or_else(||DbError::query("Restore upload expired"))?;
                     upload.file.write_all(&data.data).map_err(|_|DbError::query("Cannot stage restore chunk"))?;
                     upload.touched=std::time::Instant::now();
                     Ok(Reply::Unit)
                 },
                 Request::RestoreAbort {transfer,..} => {
-                    let mut uploads=uploads.lock().unwrap();
+                    let mut uploads=lock_valid(&uploads);
                     if uploads.get(&transfer).is_some_and(|u|u.session==session_id) { uploads.remove(&transfer); }
                     Ok(Reply::Unit)
                 },
                 Request::RestoreFinish {transfer,..} => {
                     use std::io::{Seek,SeekFrom};
-                    let mut upload={let mut uploads=uploads.lock().unwrap();
+                    let mut upload={let mut uploads=lock_valid(&uploads);
                         if uploads.get(&transfer).is_none_or(|u|u.session!=session_id) { return Err(DbError::query("Restore upload expired")); }
-                        uploads.remove(&transfer).unwrap()};
+                        uploads.remove(&transfer).ok_or_else(|| DbError::query("Restore upload expired"))?};
                     upload.file.seek(SeekFrom::Start(0)).map_err(|_|DbError::query("Cannot rewind restore"))?;
                     if let Some(name)=upload.new_database {
                         if upload.overwrite{return Err(DbError::query("New database cannot overwrite"));}
@@ -328,8 +332,8 @@ async fn dispatch(
                 Request::RolesPage {query,..} => Ok(Reply::Roles(session.roles_page(&query).await?)),
                 Request::PlanGrants {changes,..} => Ok(Reply::Grants(session.plan_grants(&changes).await?)),
                 Request::Close { .. } => {
-                    uploads.lock().unwrap().retain(|_,u|u.session!=session_id);
-                    sessions.lock().unwrap().remove(&session_id);
+                    lock_valid(&uploads).retain(|_,u|u.session!=session_id);
+                    lock_valid(&sessions).remove(&session_id);
                     session.close().await;
                     Ok(Reply::Unit)
                 }

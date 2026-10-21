@@ -535,8 +535,14 @@ impl Session for RedisSession {
                 ("XRANGE" | "XREVRANGE", Resp::Array(v)) => (vec!["id", "fields"], stream_rows(v)?),
                 ("SCAN" | "HSCAN" | "SSCAN" | "ZSCAN", Resp::Array(v)) if v.len() == 2 => {
                     let mut parts = v.into_iter();
-                    let cursor = map_value(parts.next().expect("two scan elements"));
-                    let values = array(parts.next().expect("two scan elements"))?;
+                    let Some(cursor) = parts.next() else {
+                        return Err(DbError::internal("Invalid SCAN response"));
+                    };
+                    let Some(values) = parts.next() else {
+                        return Err(DbError::internal("Invalid SCAN response"));
+                    };
+                    let cursor = map_value(cursor);
+                    let values = array(values)?;
                     message = Some(format!(
                         "SCAN cursor: {} (0 means complete); truncation may omit members, increase row limit or reduce COUNT",
                         display_value(&cursor)

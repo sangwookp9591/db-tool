@@ -1,7 +1,7 @@
 //! Shared, host-independent database contracts.
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, fmt, sync::{Arc, RwLock}};
+use std::{collections::BTreeMap, fmt, sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard}};
 pub use tokio_util::sync::CancellationToken as CancelToken;
 pub mod preview;
 pub mod filter;
@@ -535,22 +535,27 @@ impl std::error::Error for DbError {}
 pub struct Registry {
     drivers: RwLock<BTreeMap<String, Arc<dyn Driver>>>,
 }
+fn registry_read<T>(lock: &RwLock<T>) -> RwLockReadGuard<'_, T> {
+    lock.read().unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+fn registry_write<T>(lock: &RwLock<T>) -> RwLockWriteGuard<'_, T> {
+    lock.write().unwrap_or_else(std::sync::PoisonError::into_inner)
+}
 impl Registry {
     pub fn new() -> Self {
         Self::default()
     }
     pub fn register(&self, driver: Arc<dyn Driver>) {
-        self.drivers.write().unwrap().insert(driver.manifest().id.clone(), driver);
+        registry_write(&self.drivers).insert(driver.manifest().id.clone(), driver);
     }
     pub fn unregister(&self, id: &str) {
-        self.drivers.write().unwrap().remove(id);
+        registry_write(&self.drivers).remove(id);
     }
     pub fn get(&self, id: &str) -> Option<Arc<dyn Driver>> {
-        self.drivers.read().unwrap().get(id).cloned()
+        registry_read(&self.drivers).get(id).cloned()
     }
     pub fn manifests(&self) -> Vec<DriverManifest> {
-        self.drivers
-            .read().unwrap()
+        registry_read(&self.drivers)
             .values()
             .map(|d| d.manifest().clone())
             .collect()

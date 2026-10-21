@@ -173,7 +173,10 @@ impl MysqlSession {
                 let mut count = 0;
                 while let Some(row) = result.next().await.map_err(error)? {
                     let mut sql = prefix.clone();
-                    for (i, v) in row.unwrap().into_iter().enumerate() {
+                    for (i, value) in row.unwrap_raw().into_iter().enumerate() {
+                        let v = value.ok_or_else(|| {
+                            DbError::internal("MySQL backup row contains a missing value")
+                        })?;
                         if i > 0 {
                             sql.push(',');
                         }

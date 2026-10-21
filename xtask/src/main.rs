@@ -19,6 +19,8 @@ const IDS: &[(&str, &str, &str)] = &[
     ("mongodb", "MongoDB", "Document"),
     ("redis", "Redis", "KeyValue"),
 ];
+// This CLI writes command output and help text to stdout.
+#[allow(clippy::print_stdout)]
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
@@ -80,6 +82,8 @@ fn run(command: &mut Command) -> Result<()> {
     ensure!(status.success(), "Command failed: {command:?}");
     Ok(())
 }
+// This CLI reports the completed package location and public key to stdout.
+#[allow(clippy::print_stdout)]
 fn package_drivers(args: &[String]) -> Result<()> {
     let mut targets = Vec::new();
     let mut ids = Vec::new();

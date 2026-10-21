@@ -26,7 +26,9 @@ impl Samples {
         let mut seen = BTreeSet::new();
         self.walk(document, "", 0, &mut seen);
         for field in seen {
-            self.fields.get_mut(&field).unwrap().1 += 1;
+            if let Some((_, count)) = self.fields.get_mut(&field) {
+                *count += 1;
+            }
         }
     }
     fn walk(

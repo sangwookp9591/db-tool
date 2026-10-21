@@ -1,4 +1,6 @@
 //! Generate the checked-in wire examples from the real Rust serializers.
+// Reason: this demo prints generated contract output and asserts its expected query error.
+#![allow(clippy::print_stdout, clippy::unwrap_used)]
 use dbcore::*;
 use driver_postgres::PostgresDriver;
 #[tokio::main]

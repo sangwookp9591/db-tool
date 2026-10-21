@@ -527,7 +527,7 @@ fn plan_tree(raw: &str) -> Result<PlanTree, DbError> {
     }
     let mut flat: Vec<(usize, PlanTree)> = vec![];
     for line in raw.lines().filter(|l| l.contains("->")) {
-        let depth = line.find("->").expect("arrow");
+        let Some(depth) = line.find("->") else { continue };
         let text = line[depth + 2..].trim();
         let est = text.split_once(" (actual").map(|p| p.0).unwrap_or(text);
         let actual = text.split_once("(actual").map(|p| p.1).unwrap_or("");

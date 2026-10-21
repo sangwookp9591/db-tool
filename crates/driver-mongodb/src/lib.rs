@@ -288,7 +288,11 @@ impl MongoSession {
         if req.read_only {
             check_read_only(&command)?;
         }
-        let name = command.keys().next().unwrap().clone();
+        let name = command
+            .keys()
+            .next()
+            .ok_or_else(|| DbError::query("MongoDB command document is empty"))?
+            .clone();
         let projection_is_original = command.get_document("projection").map(|projection| projection.iter().all(|(name,value)|!name.contains('.') && matches!(value,Bson::Boolean(_)|Bson::Int32(0|1)|Bson::Int64(0|1)))).unwrap_or(!command.contains_key("projection"));
         let find_collection = if name=="find" && projection_is_original && matches!(command.get("returnKey"),None|Some(Bson::Boolean(false))) {command.get_str("find").ok().map(str::to_owned)} else {None};
         if command.contains_key("$db")
@@ -760,7 +764,7 @@ fn node(
     detail: Option<String>,
 ) -> ExplorerNode {
     ExplorerNode {
-        id: serde_json::to_string(parts).expect("string array"),
+        id: serde_json::to_string(parts).unwrap_or_default(),
         label: label.into(),
         kind: kind.into(),
         icon,
@@ -840,7 +844,9 @@ fn check_pipeline(pipeline: &[Bson]) -> Result<(), DbError> {
             .as_document()
             .filter(|d| d.len() == 1)
             .ok_or_else(|| DbError::query("Each aggregation stage must be one document"))?;
-        let (name, value) = stage.iter().next().unwrap();
+        let Some((name, value)) = stage.iter().next() else {
+            return Err(DbError::query("Each aggregation stage must be one document"));
+        };
         if !matches!(
             name.as_str(),
             "$match"

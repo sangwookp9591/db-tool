@@ -37,7 +37,10 @@ impl PgSession {
             let keys=rows.iter().filter(|r|r.get::<_,bool>(4)).map(|r|r.get::<_,String>(0)).collect::<Vec<_>>();
             let plans=dbcore::edits::plan(req,&name,&columns,&keys,quote_ident,|i,n,v|{
                 if matches!(v, Value::Bytes { .. }) { return format!("${i}"); }
-                let r=&rows[columns.iter().position(|c|c==n).unwrap()];format!("(${i}::text)::{}.{}",quote_ident(r.get(1)),quote_ident(r.get(2)))
+                // INVARIANT: dbcore::edits::plan validates each field against columns before calling this closure.
+                #[allow(clippy::expect_used)]
+                let index = columns.iter().position(|c| c == n).expect("validated edit column");
+                let r=&rows[index];format!("(${i}::text)::{}.{}",quote_ident(r.get(1)),quote_ident(r.get(2)))
             })?;
             let statement_text=plans.iter().map(|p|p.sql.clone()).collect::<Vec<_>>().join(";\n");
             let returning=columns.iter().map(|n|format!("{}::text",quote_ident(n))).collect::<Vec<_>>().join(", ");

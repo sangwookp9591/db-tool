@@ -138,6 +138,8 @@ pub(super) fn hex(bytes: &[u8]) -> String {
     use std::fmt::Write;
     let mut s = String::with_capacity(bytes.len() * 2);
     for b in bytes {
+        // INVARIANT: formatting into a String cannot fail.
+        #[allow(clippy::expect_used)]
         write!(s, "{b:02x}").expect("string write");
     }
     s
@@ -192,8 +194,11 @@ pub(super) fn bound(v: &Value) -> Result<MyValue, DbError> {
             MyValue::Bytes(
                 (0..hex.len())
                     .step_by(2)
-                    .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).expect("validated hex"))
-                    .collect(),
+                    .map(|i| {
+                        u8::from_str_radix(&hex[i..i + 2], 16)
+                            .map_err(|_| DbError::query("BLOB parameter requires complete hex bytes"))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
             )
         }
         Value::Decimal(s) => {

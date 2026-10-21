@@ -227,7 +227,7 @@ fn qualified(db: &str, table: &str) -> String {
     format!("{}.{}", quote(db), quote(table))
 }
 fn node_id(parts: &[&str]) -> String {
-    serde_json::to_string(parts).expect("string array")
+    serde_json::to_string(parts).unwrap_or_default()
 }
 fn table_path(id: &str) -> Result<(String, String), DbError> {
     let parts: Vec<String> =
@@ -431,7 +431,7 @@ async fn collect<P: Protocol>(
                         .iter()
                         .enumerate()
                         .map(|(i, c)| -> Result<Value, DbError> {
-                            let value = value::cell(c, row.as_ref(i).expect("column width"))?;
+                            let value = value::cell(c, row.as_ref(i).ok_or_else(|| DbError::internal("MySQL row column count mismatch"))?)?;
                             Ok(match value {
                                 Value::DateTimeTz(text) if !utc => {
                                     Value::DateTime(text.trim_end_matches("+00:00").to_owned())
@@ -551,7 +551,7 @@ async fn collect_to<P: Protocol + Unpin>(
                         .iter()
                         .enumerate()
                         .map(|(i, c)| {
-                            let value = value::cell(c, row.as_ref(i).expect("column width"))?;
+                            let value = value::cell(c, row.as_ref(i).ok_or_else(|| DbError::internal("MySQL row column count mismatch"))?)?;
                             Ok(match value {
                                 Value::DateTimeTz(text) if !utc => {
                                     Value::DateTime(text.trim_end_matches("+00:00").to_owned())

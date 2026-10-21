@@ -62,7 +62,9 @@ impl MongoSession {
         if documents.is_empty() || documents.iter().any(|d| !d.contains_key("_id")) {
             return Err("기본 키가 결과에 없습니다");
         }
-        let table = document_result(documents.to_vec(), false).table.unwrap();
+        let Some(table) = document_result(documents.to_vec(), false).table else {
+            return Err("기본 키가 결과에 없습니다");
+        };
         let origins = table
             .columns
             .iter()
@@ -164,7 +166,10 @@ impl MongoSession {
                     )
                 })?;
             let mut after = before.clone();
-            for (name, value) in update.get_document("$set").unwrap() {
+            for (name, value) in update
+                .get_document("$set")
+                .map_err(|_| DbError::internal("MongoDB update document is invalid"))?
+            {
                 after.insert(name, value.clone());
             }
             if cancel.is_cancelled() {

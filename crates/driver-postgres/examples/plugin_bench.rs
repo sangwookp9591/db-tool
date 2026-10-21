@@ -1,4 +1,6 @@
 //! Same query and timer for in-process and protocol paths; isolated PG only.
+// Reason: this benchmark binary uses assertions/unwraps for setup and prints benchmark results.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::print_stdout)]
 #[path = "../../../src-tauri/src/plugin_host.rs"]
 mod plugin_host;
 mod storage {
