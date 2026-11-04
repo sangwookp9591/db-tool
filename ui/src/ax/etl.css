@@ -1,0 +1,30 @@
+/* 데이터 파이프라인: 목록 + 편집기. 색은 theme.css 토큰만 쓰고 호버 애니메이션은 두지 않는다. */
+.etl-layout{display:grid;grid-template-columns:minmax(180px,240px) minmax(0,1fr);gap:20px;align-items:start}
+.etl-list{display:flex;flex-direction:column;gap:12px;min-width:0}
+.etl-list ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.etl-list li{display:flex;gap:4px;align-items:center}
+.etl-list__item{flex:1;min-width:0;text-align:left;padding:8px 10px;border:1px solid transparent;border-radius:var(--radius);background:transparent;color:var(--text-secondary);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.etl-list__item[aria-current=true]{background:var(--bg-elevated);border-color:var(--border-default);color:var(--text-primary)}
+.etl-list__item:focus-visible{outline:2px solid var(--border-focus);outline-offset:2px}
+.etl-editor{min-width:0}
+.etl-steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+.etl-step{display:flex;flex-direction:column;gap:12px;padding:12px;border:1px solid var(--border-default);border-radius:var(--radius-lg);background:var(--surface-secondary)}
+.etl-step__head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px}
+.etl-step__head strong{min-width:0;overflow-wrap:anywhere;font-size:13px}
+.etl-row{display:flex;gap:6px;align-items:end}
+.etl-select-row{align-items:end}
+.etl-table-wrap{max-width:100%;overflow:auto;border-radius:var(--radius-lg)}
+.etl-table-wrap:focus-visible{outline:2px solid var(--border-focus);outline-offset:2px}
+.etl-table-wrap .ax-table{min-width:max-content}
+.etl-preview-target{max-height:420px;overflow:auto}
+.etl-columns{display:flex;flex-wrap:wrap;gap:6px;margin:0}
+.etl-chip{padding:3px 8px;border:1px solid var(--border-default);border-radius:var(--radius);font-size:12px;color:var(--text-primary)}
+.etl-chip small{color:var(--text-muted)}
+.etl-h{margin:0 0 8px;font-size:13px;color:var(--text-primary)}
+.etl-problems,.etl-runs{margin:0;padding-left:18px;font-size:12px;line-height:1.7}
+.etl-result{padding:12px;border:1px solid var(--border-default);border-radius:var(--radius-lg);font-size:12px;line-height:1.6}
+.etl-result p{margin:6px 0 0}
+.etl-actions{padding-top:12px;border-top:1px solid var(--border-subtle)}
+.etl-editor [data-stale=true]{opacity:.55}
+.ax-workbench progress{width:100%}
+@container workbench (max-width:720px){.etl-layout{grid-template-columns:minmax(0,1fr)}.ax-steps button{padding:8px 4px;font-size:11px}.ax-steps button:not(:last-child):after{display:none}}
