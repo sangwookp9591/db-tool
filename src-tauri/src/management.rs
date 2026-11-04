@@ -270,7 +270,7 @@ async fn import_run(
         .await;
     result
 }
-fn receipt(host: &Host, fingerprint: &str, preview: bool) -> CommandResult<()> {
+pub(crate) fn receipt(host: &Host, fingerprint: &str, preview: bool) -> CommandResult<()> {
     let previous = host
         .previews
         .lock()
@@ -288,7 +288,7 @@ fn receipt(host: &Host, fingerprint: &str, preview: bool) -> CommandResult<()> {
     }
     Ok(())
 }
-fn remember(host: &Host, fingerprint: String) -> CommandResult<()> {
+pub(crate) fn remember(host: &Host, fingerprint: String) -> CommandResult<()> {
     let mut receipts = host
         .previews
         .lock()

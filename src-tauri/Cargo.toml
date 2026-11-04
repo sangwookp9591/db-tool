@@ -27,6 +27,7 @@ hmac = "0.12"
 sha1 = "0.10"
 base64 = "0.22"
 axdb-driver-package = { path = "../crates/driver-package" }
+axdb-etl = { path = "../crates/etl" }
 semver = "1"
 axdb-driver-protocol = { path = "../crates/driver-protocol" }
 reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "rustls", "query", "form"] }

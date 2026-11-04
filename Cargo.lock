@@ -357,6 +357,7 @@ dependencies = [
  "async-trait",
  "axdb-driver-package",
  "axdb-driver-protocol",
+ "axdb-etl",
  "axum",
  "base64 0.22.1",
  "calamine",
