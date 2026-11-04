@@ -55,7 +55,8 @@ fn table(
     values: &[rusqlite::types::Value],
     limit: usize,
 ) -> Result<(Table, u64), DbError> {
-    let mut stmt = conn.prepare(sql).map_err(sql_error)?;
+    // A batch repeats the same INSERT for every row; reuse its compiled statement.
+    let mut stmt = conn.prepare_cached(sql).map_err(sql_error)?;
     let columns = stmt
         .columns()
         .iter()

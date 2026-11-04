@@ -1,6 +1,7 @@
 mod recycle;
 pub mod net;
 mod management;
+mod etl;
 pub mod backup_file;
 pub mod driver_install;
 mod agent_bridge;
@@ -793,6 +794,7 @@ pub fn run() {
             management::import_pick_file,
             management::import_preview,
             management::import_apply,
+            etl::etl_list, etl::etl_save, etl::etl_delete, etl::etl_runs, etl::etl_preview, etl::etl_run,
             management::schema_snapshot,
             management::schema_diff,
             management::ddl_render,

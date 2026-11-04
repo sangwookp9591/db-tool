@@ -357,6 +357,7 @@ dependencies = [
  "async-trait",
  "axdb-driver-package",
  "axdb-driver-protocol",
+ "axdb-etl",
  "axum",
  "base64 0.22.1",
  "calamine",
@@ -444,6 +445,17 @@ dependencies = [
  "dbcore",
  "mimalloc",
  "tempfile",
+ "tokio",
+]
+
+[[package]]
+name = "axdb-etl"
+version = "0.3.4"
+dependencies = [
+ "async-trait",
+ "dbcore",
+ "serde",
+ "serde_json",
  "tokio",
 ]
 

@@ -1,12 +1,30 @@
 import type { AiSettings } from '../ai/types';
 import type { EditRequest, ChangePreview, Value } from '../contract';
 import type { ImportPlan, Snapshot, SnapshotDiff } from './managementContract';
+import { specKey, type Pipeline, type PreviewReport, type RunEntry, type RunReport, type Step } from './etlContract';
 let settings:AiSettings={enabled:false,model:'claude-opus-5-5',effort:'medium',auth:'api_key',provider:'anthropic'};
 let loggedIn=false,hasKey=false;
 const logins:Record<string,boolean>={anthropic:false,openai:false},keys=new Set<string>();
 const previews=new Set<string>();
 const preview=(text:string):ChangePreview=>({committed:false,notes:['모의 미리보기 · 실제 DB에 접속하지 않았습니다.'],statements:[{text,kind:'Other',affected:3,before:null,after:null,schema_diff:null,counters:[],warnings:[]}]});
-export const axMockCommands=['import_target','ai_login_status','ai_login_submit','snapshot_encode','snapshot_decode','ai_settings','ai_configure','ai_provider_login_start','ai_provider_login_poll','ai_provider_login_cancel','ai_provider_logout','ai_account_select','ai_models','ai_operation','ai_diagnose_connection','import_plan','import_preview','import_apply','schema_snapshot','schema_diff','ddl_render','migration_scan','migration_preview','migration_apply'];
+let etlPipelines:Pipeline[]=[],etlRuns:RunEntry[]=[];
+const etlReceipts=new Set<string>();
+const etlInput:{name:string;type_name:string}[]=[{name:'id',type_name:'integer'},{name:'name',type_name:'text'},{name:'team',type_name:'text'}];
+const etlRows:Value[][]=Array.from({length:60},(_,i)=>[{t:'Int',v:String(i+1)},{t:'Text',v:` 사용자 ${i+1} `},i%7===0?{t:'Null'}:{t:'Text',v:['개발','디자인','운영'][i%3]}]);
+function etlApply(steps:Step[],columns:{name:string;type_name:string}[],rows:Value[][]){
+ let cols=columns,data=rows,filtered=0;
+ const at=(name:string)=>cols.findIndex(c=>c.name===name);
+ for(const step of steps){
+  if(step.op==='select'){const idx=step.columns.map(c=>at(c.from)).filter(i=>i>=0);data=data.map(r=>idx.map(i=>r[i]));cols=step.columns.filter(c=>at(c.from)>=0).map(c=>({name:c.to||c.from,type_name:cols[at(c.from)].type_name}));}
+  else if(step.op==='rename'){const i=at(step.from);if(i>=0)cols=cols.map((c,j)=>j===i?{...c,name:step.to}:c);}
+  else if(step.op==='drop'){const keep=cols.map((c,i)=>step.columns.includes(c.name)?-1:i).filter(i=>i>=0);data=data.map(r=>keep.map(i=>r[i]));cols=keep.map(i=>cols[i]);}
+  else if(step.op==='constant'){const i=at(step.column);if(i>=0)data=data.map(r=>r.map((v,j)=>j===i?step.value:v));else{cols=[...cols,{name:step.column,type_name:'text'}];data=data.map(r=>[...r,step.value]);}}
+  else if(step.op==='text'){const i=at(step.column),f=(t:string)=>step.func==='trim'?t.trim():step.func==='upper'?t.toUpperCase():t.toLowerCase();if(i>=0)data=data.map(r=>r.map((v,j)=>j===i&&v.t==='Text'?{t:'Text',v:f(v.v)}:v));}
+  else if(step.op==='filter'){const i=at(step.column),text=(v:Value)=>v.t==='Null'?null:String(v.v);if(i>=0){const before=data.length;data=data.filter(r=>{const t=text(r[i]),w=step.value?text(step.value):null;switch(step.cmp){case 'is_null':return t===null;case 'not_null':return t!==null;case 'eq':return t!==null&&t===w;case 'ne':return t!==null&&t!==w;case 'contains':return t!==null&&w!==null&&t.includes(w);case 'starts_with':return t!==null&&w!==null&&t.startsWith(w);default:{if(t===null||w===null)return false;const a=Number(t),b=Number(w),c=Number.isNaN(a)||Number.isNaN(b)?t.localeCompare(w):a-b;return step.cmp==='lt'?c<0:step.cmp==='le'?c<=0:step.cmp==='gt'?c>0:c>=0;}}});filtered+=before-data.length;}}
+ }
+ return{cols,data,filtered};
+}
+export const axMockCommands=['import_target','ai_login_status','ai_login_submit','snapshot_encode','snapshot_decode','ai_settings','ai_configure','ai_provider_login_start','ai_provider_login_poll','ai_provider_login_cancel','ai_provider_logout','ai_account_select','ai_models','ai_operation','ai_diagnose_connection','import_plan','import_preview','import_apply','schema_snapshot','schema_diff','ddl_render','migration_scan','migration_preview','migration_apply','etl_list','etl_save','etl_delete','etl_runs','etl_preview','etl_run'];
 export async function axMock(command:string,args:Record<string,unknown>):Promise<unknown>{
  switch(command){
  case 'import_target':if(!String(args.name??'').trim())throw new Error('테이블 이름 필요');return `demo-new:${args.namespace??'public'}.${args.name}`;
@@ -33,6 +51,12 @@ export async function axMock(command:string,args:Record<string,unknown>):Promise
  case 'migration_scan':return{migrations:[{id:'001',name:'001_create_people.sql',format:'plain',text:'CREATE TABLE people (id INTEGER PRIMARY KEY, name TEXT);',checksum:'demo-initial',applied:true},{id:'002',name:'002_people_team_index.sql',format:'plain',text:'CREATE INDEX people_team_idx ON people (team_id);',checksum:'demo-pending',applied:false}],history_tables:['axdb_migration_history'],warnings:['모의 폴더입니다. 로컬 파일을 읽지 않았습니다.']};
  case 'migration_preview':previews.add(String(args.text));return preview(String(args.text));
  case 'migration_apply':if(!previews.delete(String(args.text)))throw new Error('먼저 미리보기하세요.');return[];
+ case 'etl_list':return structuredClone(etlPipelines);
+ case 'etl_save':{const p=structuredClone(args.pipeline as Pipeline);if(!p.name.trim())throw new Error('파이프라인 이름은 1..200바이트여야 합니다');if(!p.id)p.id=crypto.randomUUID();const i=etlPipelines.findIndex(x=>x.id===p.id);if(i>=0)etlPipelines[i]=p;else etlPipelines.push(p);return structuredClone(p);}
+ case 'etl_delete':etlPipelines=etlPipelines.filter(p=>p.id!==args.id);return null;
+ case 'etl_runs':return etlRuns.slice(0,Number(args.limit??50));
+ case 'etl_preview':{const p=args.pipeline as Pipeline,limit=Math.min(Number(args.sampleRows??200),etlRows.length),source=etlRows.slice(0,limit),out=etlApply(p.steps,etlInput,source);etlReceipts.add(`${args.sourceSessionId}:${args.targetSessionId}:${specKey(p)}`);const rows=out.data;return{input_columns:etlInput,output_columns:out.cols,sample:rows,rows_read:source.length,rows_filtered:out.filtered,rows_rejected:0,rejected:[],target:preview(`INSERT · ${p.target.node_id} · ${rows.length}행 (표본)`),source_truncated:false,warnings:['모의 미리보기: 샘플 데이터로 일부 단계만 근사 계산합니다. 실제 DB에 접속하지 않았습니다.']} satisfies PreviewReport;}
+ case 'etl_run':{const p=args.pipeline as Pipeline,key=`${args.sourceSessionId}:${args.targetSessionId}:${specKey(p)}`;if(!etlReceipts.delete(key))throw new Error('먼저 미리보기하세요. 미리보기는 60초 동안 한 번만 사용할 수 있습니다.');const out=etlApply(p.steps,etlInput,etlRows),batch=p.options.batch_size,written=Math.min(out.data.length,p.options.max_rows??Infinity),report:RunReport={status:'completed',phase:'done',rows_read:etlRows.length,rows_written:written,rows_filtered:out.filtered,rows_rejected:0,batches_committed:Math.ceil(written/batch),rejected:[],error:null,source_truncated:false,elapsed_ms:12};const{rejected:_r,error:_e,...rest}=report;etlRuns=[{pipeline_id:p.id,pipeline_name:p.name,run_id:String(args.runId),finished_at:new Date().toISOString(),...rest},...etlRuns].slice(0,500);return report;}
  default:throw new Error(`지원되지 않는 모의 작업: ${command}`);
  }
 }
