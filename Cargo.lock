@@ -448,6 +448,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "axdb-etl"
+version = "0.3.4"
+dependencies = [
+ "async-trait",
+ "dbcore",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "axum"
 version = "0.8.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
